@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 💬 Conversar, preguntar o contar cómo te ordenaste
+    url: https://github.com/alcancia-app/alcancia/discussions
+    about: Dudas de uso e ideas a medio cocinar. / Questions and rough ideas.
+  - name: 🏦 Agregar o corregir un banco (receta)
+    url: https://github.com/alcancia-app/alcancia-catalogo/issues/new/choose
+    about: Propón la receta de tu banco o billetera. Nunca subas tu cartola real. / Propose your bank's recipe. Never upload your real statement.
+  - name: 🤖 Ayuda para instalar tu IA
+    url: https://alcancia-app.github.io/alcancia/ia.html
+    about: Guía paso a paso para Claude Code, Codex o Antigravity CLI. / Step-by-step AI setup guide.

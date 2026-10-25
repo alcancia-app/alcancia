@@ -1,0 +1,16 @@
+{
+  "formato": 1,
+  "id": "cl-banco-ejemplo",
+  "nombre": "Banco Ejemplo — cuenta corriente",
+  "institucion": "Banco Ejemplo",
+  "pais": "CL",
+  "moneda": "CLP",
+  "tipo": "cartola",
+  "archivo": {"extension": ["csv"], "separador": ";"},
+  "reconocer": {"encabezados": ["Fecha", "Descripción", "Cargos", "Abonos"]},
+  "columnas": {"fecha": "Fecha", "descripcion": "Descripción", "cargo": "Cargos", "abono": "Abonos"},
+  "fecha": "%d/%m/%Y",
+  "numeros": {"decimal": ",", "miles": "."},
+  "signo": "normal",
+  "ignorar_si_contiene": ["SALDO INICIAL"]
+}

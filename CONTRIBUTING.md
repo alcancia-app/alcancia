@@ -1,0 +1,54 @@
+# Cómo aportar a Alcancía
+
+Alcancía es gratis y abierta, y la hacemos entre todos. Hay lugar para cualquiera, programes o no. *(English below.)*
+
+## Sin programar
+- **Agrega tu banco:** abre la app, agrega tu cartola y deja que tu IA aprenda a leerla. Al final te ofrece compartir **solo la receta**
+  (nunca tus movimientos) en el [catálogo](https://github.com/alcancia-app/alcancia-catalogo). También puedes escribirla a mano:
+  el formato está en [`recetas/README.md`](recetas/README.md).
+- **Conversa:** dudas, ideas o cómo te ordenaste con Alcancía → [Discussions](https://github.com/alcancia-app/alcancia/discussions).
+- **Cuéntanos qué falla o qué te gustaría** en [issues](https://github.com/alcancia-app/alcancia/issues/new/choose).
+- **Pruébala en tu sistema:** los issues con la etiqueta [`probar`](https://github.com/alcancia-app/alcancia/labels/probar) piden justo eso.
+- **Comercios de tu país:** `bin/categorizar.py` tiene una lista de comercios conocidos por categoría. Agregar los de tu país ayuda a todos.
+- **Traducciones:** revisa o mejora `ui/idiomas/en.json`, o propón otro idioma.
+
+## Programando (con o sin IA)
+1. Lee [`AGENTS.md`](AGENTS.md): cómo funciona, reglas y cómo se conectan las piezas. Sirve igual para personas y para tu IA
+   (`CLAUDE.md` y `GEMINI.md` solo apuntan a ese archivo).
+2. Haz un fork, una rama y tu cambio. La sección "Desarrollo" del [README](README.md#desarrollo) explica cómo correrla.
+3. Corre `bash pruebas/correr.sh` (lo mismo que revisa GitHub en cada cambio).
+4. Abre un pull request contando qué cambia para quien usa Alcancía y cómo lo probaste.
+
+Reglas que importan: código, comentarios y textos en español (todo texto nuevo de la interfaz con su traducción en `ui/idiomas/en.json`);
+**nunca subas una cartola real ni datos personales** (usa datos ficticios); solo biblioteca estándar en Python; y no romper el
+[formato de los datos](README.md#formato-de-los-datos), porque hay gente con scripts que dependen de él.
+
+Los aportes entran con la licencia del proyecto, [AGPL-3.0](LICENSE).
+
+## Cómo revisamos
+Todo entra por pull request y lo junta alguien que mantiene el proyecto: nadie puede subir cambios directo. Revisamos:
+- **Siempre:** que las pruebas de GitHub pasen, que no haya datos personales y que el cambio haga lo que dice. Si es tu primer
+  aporte, GitHub espera a que aprobemos correr las pruebas (es normal).
+- **Código:** que no cambie el formato de los datos, que los textos nuevos tengan su traducción y que no agregue dependencias,
+  conexiones a internet nuevas ni nada que pida claves o datos bancarios.
+- **Recetas:** que sea válida (`recetas.validar`), que no traiga datos de la cartola (solo nombres de columnas y formatos) y, para
+  incluirla en la app, que alguien la haya probado con una cartola real de ese banco.
+- **Traducciones:** que una persona que hable el idioma revise el texto.
+
+Si algo falta te lo pedimos con un comentario; casi nunca cerramos un aporte sin conversar.
+
+¿Buscas por dónde empezar? Mira los issues con la etiqueta
+[`good first issue`](https://github.com/alcancia-app/alcancia/labels/good%20first%20issue) o pregunta en Discussions.
+
+Al participar aceptas el [código de conducta](CODE_OF_CONDUCT.md).
+
+---
+
+## Contributing (English)
+- **No code needed:** add your bank (let your AI learn your statement and share just the *recipe*, never your transactions), chat in
+  [Discussions](https://github.com/alcancia-app/alcancia/discussions), report bugs or ideas in
+  [issues](https://github.com/alcancia-app/alcancia/issues/new/choose), test it on your system (label `probar`), add well-known
+  merchants from your country, and help with translations.
+- **Code (with or without AI):** read [`AGENTS.md`](AGENTS.md), fork, branch, run `bash pruebas/correr.sh` and open a pull request.
+  Code and comments are in Spanish; UI text needs its English entry in `ui/idiomas/en.json`; never commit real statements or personal data.
+- **Review:** everything goes through a pull request and a maintainer merges it. Contributions are licensed under AGPL-3.0.

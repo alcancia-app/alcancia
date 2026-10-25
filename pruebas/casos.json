@@ -1,0 +1,214 @@
+{
+ "_nota": "Casos compartidos: los prueban pruebas/test_python.py (bin/) y pruebas/interfaz.mjs (ui/app.js). Si cambias la regla, cambia los dos lados.",
+ "categorias": [
+  {
+   "id": "supermercado",
+   "tipo": "gasto"
+  },
+  {
+   "id": "comida",
+   "tipo": "gasto"
+  },
+  {
+   "id": "casa",
+   "tipo": "gasto",
+   "fijo": true
+  },
+  {
+   "id": "sueldo",
+   "tipo": "ingreso"
+  },
+  {
+   "id": "transferencia",
+   "tipo": "neutro"
+  }
+ ],
+ "redondear": [
+  [
+   243567,
+   250000
+  ],
+  [
+   18900,
+   19000
+  ],
+  [
+   840,
+   840
+  ],
+  [
+   0,
+   0
+  ],
+  [
+   100001,
+   110000
+  ],
+  [
+   12.4,
+   13
+  ]
+ ],
+ "regla": [
+  [
+   "UBER *TRIP 8F2K 03/10",
+   "UBER TRIP"
+  ],
+  [
+   "Café la Esquina 2231",
+   "CAFE LA ESQUINA"
+  ],
+  [
+   "PAGO PENDIENTE 88231",
+   "PAGO PENDIENTE"
+  ],
+  [
+   "A-1 BB",
+   "BB"
+  ]
+ ],
+ "resumen": [
+  {
+   "nombre": "mes en curso con alerta por ritmo y otra por pasarse",
+   "mes": "2026-10",
+   "hoy": "2026-10-10",
+   "presupuesto": {
+    "moneda": "CLP",
+    "mensual": {
+     "comida": 60000,
+     "supermercado": 200000,
+     "casa": 300000
+    }
+   },
+   "movimientos": [
+    {
+     "fecha": "2026-10-02",
+     "monto": -12000,
+     "categoria": "comida",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-10-05",
+     "monto": -9000,
+     "categoria": "comida",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-10-08",
+     "monto": -11000,
+     "categoria": "comida",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-10-03",
+     "monto": -310000,
+     "categoria": "casa",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-10-04",
+     "monto": -45000,
+     "categoria": "supermercado",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-10-05",
+     "monto": 1250000,
+     "categoria": "sueldo",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-10-06",
+     "monto": -100000,
+     "categoria": "transferencia",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-10-07",
+     "monto": -20,
+     "categoria": "comida",
+     "moneda": "USD"
+    },
+    {
+     "fecha": "2026-10-09",
+     "monto": -5000,
+     "categoria": "",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-09-28",
+     "monto": -99999,
+     "categoria": "comida",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-10-01",
+     "monto": -1000,
+     "categoria": "casa",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-10-02",
+     "monto": -1000,
+     "categoria": "casa",
+     "moneda": "CLP"
+    }
+   ],
+   "esperado": {
+    "gastado": 394000,
+    "ingresos": 1250000,
+    "presupuesto": 560000,
+    "dia": 10,
+    "dias_mes": 31,
+    "proyeccion": 461200,
+    "otras_monedas": 1,
+    "sin_categoria": 1,
+    "alertas": [
+     {
+      "categoria": "comida",
+      "tipo": "ritmo",
+      "gastado": 32000,
+      "tope": 60000,
+      "proyeccion": 99200
+     },
+     {
+      "categoria": "casa",
+      "tipo": "pasado",
+      "gastado": 312000,
+      "tope": 300000
+     }
+    ]
+   }
+  },
+  {
+   "nombre": "mes pasado: sin proyección ni alertas por ritmo",
+   "mes": "2026-09",
+   "hoy": "2026-10-10",
+   "presupuesto": {
+    "moneda": "CLP",
+    "mensual": {
+     "comida": 50000
+    }
+   },
+   "movimientos": [
+    {
+     "fecha": "2026-09-28",
+     "monto": -30000,
+     "categoria": "comida",
+     "moneda": "CLP"
+    }
+   ],
+   "esperado": {
+    "gastado": 30000,
+    "ingresos": 0,
+    "presupuesto": 50000,
+    "dia": 30,
+    "dias_mes": 30,
+    "proyeccion": null,
+    "otras_monedas": 0,
+    "sin_categoria": 0,
+    "alertas": []
+   }
+  }
+ ]
+}

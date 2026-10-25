@@ -1,0 +1,33 @@
+# Lista blanca: solo se versiona lo listado.
+/*
+!/.gitignore
+!/.github/
+!/.claude/
+!/app/
+!/bin/
+!/ui/
+!/docs/
+!/recetas/
+!/herramientas/
+!/pruebas/
+!/ejemplos/
+!/escritorio/
+!/README.md
+!/AGENTS.md
+!/CLAUDE.md
+!/GEMINI.md
+!/CONTRIBUTING.md
+!/CODE_OF_CONDUCT.md
+!/LICENSE
+app/.build/
+escritorio/node_modules/
+escritorio/vendor/
+escritorio/dist/
+__pycache__/
+.terminos-privados
+capturas/
+# Cartolas reales: nunca (las de prueba viven en pruebas/datos/)
+*.xlsx
+*.xls
+*.csv
+!/pruebas/datos/*.csv
