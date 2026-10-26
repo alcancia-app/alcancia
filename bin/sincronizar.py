@@ -87,7 +87,7 @@ def registrar_cuentas(mod, cuentas):
 
 # Las únicas categorías que un conector puede proponer (el resto lo decide Alcancía con reglas, comercios conocidos o la IA).
 CATEGORIAS_CONECTOR = {"transferencia"}
-REPARACIONES = 1  # sube cuando un conector trae una reparación nueva para lo ya guardado
+REPARACIONES = 2  # sube cuando un conector trae una reparación nueva para lo ya guardado
 
 
 def reparar_guardado(mod, cid):

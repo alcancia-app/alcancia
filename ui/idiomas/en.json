@@ -510,6 +510,12 @@
     "{c} vence hoy.": "{c} is due today.",
     "{c} está atrasado.": "{c} is overdue.",
     "{c} vence mañana.": "{c} is due tomorrow.",
-    "{c} vence en {n} días.": "{c} is due in {n} days."
+    "{c} vence en {n} días.": "{c} is due in {n} days.",
+    "Monto": "Amount",
+    "Moneda": "Currency",
+    "Entró · {m}": "In · {m}",
+    "Salió · {m}": "Out · {m}",
+    "Te queda · {m}": "Left · {m}",
+    "Te falta · {m}": "Short · {m}"
   }
 }

@@ -85,13 +85,14 @@ def movimientos(cred, desde, hasta, memoria, red):
         desc = p.get("description") or tipo or "Mercado Pago"
         if tipo and tipo.lower() not in desc.lower():
             desc = f"{tipo}: {desc}"
-        # Un pago tuyo a ti mismo (cargar saldo, mover a una reserva, comprar el fondo que rinde) aparece en las dos búsquedas:
-        # no es gasto ni ingreso, es plata que se mueve entre tus cuentas. Queda una sola vez y como «Entre mis cuentas».
+        # Un pago tuyo a ti mismo aparece en las dos búsquedas: queda una sola vez. Si la plata se mueve dentro de Mercado Pago
+        # (a una reserva, al fondo que rinde) es «Entre mis cuentas». Una carga de saldo, en cambio, es plata que entra a Mercado
+        # Pago desde afuera (muchas veces el sueldo): queda como ingreso sin categoría para que la persona, sus reglas o su IA digan qué es.
         propio = len(signos) == 2 or (p.get("collector_id") == yo and (p.get("payer") or {}).get("id") == yo)
         signo = 1 if propio else next(iter(signos))
         m = {"cuenta": "", "id_externo": f"{pid}|{'pagado' if signo < 0 else 'recibido'}", "fecha": f,
              "descripcion": desc, "monto": signo * abs(monto), "moneda": p.get("currency_id") or ""}
-        if propio:
+        if propio and p.get("operation_type") != "account_fund":
             m["categoria"] = "transferencia"
         movs.append(m)
     return movs, {}, None
@@ -99,7 +100,8 @@ def movimientos(cred, desde, hasta, memoria, red):
 
 def reparar(lista):
     """Arregla lo guardado por la versión anterior, que anotaba cada pago a ti mismo dos veces (un gasto y un ingreso iguales).
-    Quita el gasto espejo y deja el ingreso como «Entre mis cuentas» (si no le habías puesto otra categoría). Devuelve cuántos quitó."""
+    Quita el gasto espejo y deja el ingreso como «Entre mis cuentas» (si no le habías puesto otra categoría), salvo las cargas de saldo,
+    que quedan como ingreso sin categoría. Devuelve cuántos movimientos cambió."""
     clave = lambda m: (m["fecha"][:10], abs(float(m["monto"] or 0)), m["descripcion"], m["cuenta"])
     positivos = {}
     for m in lista:
@@ -112,7 +114,14 @@ def reparar(lista):
             if pares:
                 par = pares.pop()
                 quitar.add(m["id"])
-                if not par.get("categoria"):
+                if not par.get("categoria") and not par["descripcion"].lower().startswith("carga de saldo"):
                     par["categoria"] = "transferencia"
     lista[:] = [m for m in lista if m["id"] not in quitar]
-    return len(quitar)
+    # La reparación anterior dejó las cargas de saldo como «Entre mis cuentas»; son plata que entra (p. ej. el sueldo).
+    cargas = 0
+    for m in lista:
+        if (m.get("origen") == "conector:mercadopago" and m.get("categoria") == "transferencia" and float(m["monto"] or 0) > 0
+                and m["descripcion"].lower().startswith("carga de saldo")):
+            m["categoria"] = ""
+            cargas += 1
+    return len(quitar) + cargas

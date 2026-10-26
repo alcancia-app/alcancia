@@ -669,7 +669,7 @@
     }
     const heroe = `<section class="tarjeta heroe">${ALCANCIA_DIBUJO(r.presupuesto ? 1 - Math.min(1, r.gastado / r.presupuesto) : 0.5)}
       <div class="etiqueta">${enCurso ? "Llevas gastado" : "Gastaste"}</div>
-      <div class="cifra" data-sin-traducir>${esc(dinero(r.gastado))}</div>
+      <div class="cifra" data-sin-traducir>${esc(dinero(r.gastado))}<span class="codigo-moneda">${esc(monedaPrincipal())}</span></div>
       ${r.presupuesto ? `<div class="de">${frase("de **{x}** de presupuesto", { x: esc(dinero(r.presupuesto)) })}</div>`
         : `<div class="de"><button class="enlace" data-vista="presupuesto">Arma tu presupuesto</button> <span>para saber si vas bien.</span></div>`}
       ${r.presupuesto ? `<div class="medidor ${r.gastado > r.presupuesto ? "pasado" : ""}" role="img" aria-label="Avance del gasto del mes"><i style="width:${pct.toFixed(1)}%"></i>
@@ -677,9 +677,9 @@
       ${ritmo}${per() && enCurso ? `<p class="pista-sueldo">${frase(r.dias_mes - r.dia + 1 === 1 ? "Mañana empieza tu próximo mes (llega tu sueldo)." : "Quedan {n} días para tu próximo sueldo.", { n: r.dias_mes - r.dia + 1 })}</p>` : ""}</section>`;
     const queda = r.ingresos - r.gastado;
     const cifras = `<div class="cifras">
-      <div class="tarjeta"><small>Entró</small><b class="ingreso" data-sin-traducir>${esc(dinero(r.ingresos))}</b></div>
-      <div class="tarjeta"><small>Salió</small><b data-sin-traducir>${esc(dinero(r.gastado))}</b></div>
-      <div class="tarjeta"><small>${queda >= 0 ? "Te queda" : "Te falta"}</small><b class="${queda >= 0 ? "ingreso" : ""}" data-sin-traducir style="${queda < 0 ? "color:var(--rojo)" : ""}">${esc(dinero(Math.abs(queda)))}</b>
+      <div class="tarjeta"><small>${frase("Entró · {m}", { m: esc(monedaPrincipal()) })}</small><b class="ingreso" data-sin-traducir>${esc(dinero(r.ingresos))}</b></div>
+      <div class="tarjeta"><small>${frase("Salió · {m}", { m: esc(monedaPrincipal()) })}</small><b data-sin-traducir>${esc(dinero(r.gastado))}</b></div>
+      <div class="tarjeta"><small>${frase(queda >= 0 ? "Te queda · {m}" : "Te falta · {m}", { m: esc(monedaPrincipal()) })}</small><b class="${queda >= 0 ? "ingreso" : ""}" data-sin-traducir style="${queda < 0 ? "color:var(--rojo)" : ""}">${esc(dinero(Math.abs(queda)))}</b>
         <div class="pista">Lo que entró menos lo que salió</div></div></div>`;
     const alertas = r.alertas.map((a) => {
       const c = cat(a.categoria), n = esc(nombreCat(c));
@@ -965,7 +965,7 @@
       <div class="campos-comp">
         <label class="campo ancho"><span>Nombre</span><input class="texto" id="ce-nombre" maxlength="60" data-ce="nombre" value="${esc(c.nombre)}" data-sin-traducir></label>
         <div class="dos"><label class="campo"><span>Tipo</span><select id="ce-tipo" data-ce="tipo" data-sin-traducir>${opc(TIPOS_COMP, c.tipo)}</select></label>
-          ${campoNum("monto", c.monto, T("Monto ({m})", { m: esc(c.moneda) }))}</div>
+          <div class="monto-moneda">${campoNum("monto", c.monto, tr("Monto"))}<label class="campo"><span>Moneda</span><select id="ce-moneda" data-ce="moneda" data-sin-traducir>${MONEDAS.concat(MONEDAS.includes(c.moneda) ? [] : [c.moneda]).filter(Boolean).map((m) => `<option ${m === c.moneda ? "selected" : ""}>${esc(m)}</option>`).join("")}</select></label></div></div>
         <div class="dos"><label class="campo"><span>Se repite</span><select id="ce-frecuencia" data-ce="frecuencia" data-sin-traducir>${opc(FRECUENCIAS, c.frecuencia)}</select></label>${cuando}</div>
         <div class="dos"><label class="campo"><span>Categoría</span><select id="ce-categoria" data-ce="categoria" data-sin-traducir>${opcionesCategoria(c.categoria)}</select></label>
           <label class="campo"><span>Palabras para reconocerlo</span><input class="texto" id="ce-buscar" data-ce="buscarTexto" value="${esc(c.buscarTexto)}" placeholder="${esc(tr("p. ej. DIVIDENDO"))}" data-sin-traducir></label></div>

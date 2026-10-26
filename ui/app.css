@@ -377,3 +377,7 @@ span.barra { display: block; }
   .sugerencia .acciones { grid-column: 2; justify-content: flex-start; }
 }
 .por-pagar .comp-fila:nth-last-child(2) { border-bottom: 0; }
+
+/* Moneda a la vista: «$» solo no dice si son pesos chilenos, argentinos o dólares */
+.codigo-moneda{font-size:.32em;font-weight:600;letter-spacing:.06em;color:inherit;opacity:.6;margin-left:.45em;vertical-align:.9em}
+.monto-moneda{display:grid;grid-template-columns:minmax(0,1fr) 7.5em;gap:10px}
