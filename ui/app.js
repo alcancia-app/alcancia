@@ -13,6 +13,7 @@
     conectores: [], conexiones: {}, vigilar: { activo: false, recientes: [] }, conectar: null, sincronizando: {}, iaExterna: [], mcpOcupado: {}, mcpError: {},
     histCat: null, compromisos: { compromisos: [], descartados: [] }, sugerencias: [], compEdit: null, compTexto: "",
     compIA: { pidiendo: false, error: "" }, sugTodas: false,
+    cifra: "gastaste", picker: null, ordenar: { i: 0, buscar: "", nueva: null }, saldoEdit: null, saldoAviso: null, reglasNo: [], compararAbierto: false,
   };
   const ENLACES = { sitio: "https://alcancia-app.github.io/alcancia/", codigo: "https://github.com/alcancia-app/alcancia",
     comunidad: "https://github.com/alcancia-app/alcancia/discussions", guiaIA: "https://alcancia-app.github.io/alcancia/ia.html",
@@ -172,22 +173,39 @@
     const fechas = new Set(movimientos.filter((m) => moneda == null || (m.moneda || moneda) === moneda).map((m) => m.fecha));
     return [...new Set([...fechas].map((f) => periodoDe(f, per)))].sort();
   }
+  // Cómo se pagó: compras en cuotas con crédito (igual que resumen.py).
+  const enteroTexto = (v) => { const f = Number(v); return Number.isInteger(f) ? f : 0; };
+  const cuotasDe = (m) => { const n = enteroTexto(m.cuotas || 0); return m.medio === "credito" && n >= 2 && n <= 72 && m.monto < 0 ? n : 0; };
+  const valorCuota = (m) => { const c = Number(m.cuota) || 0; return c > 0 ? c : Math.abs(m.monto) / cuotasDe(m); };
+  const fechaMasMeses = (f, n) => { const mes = sumarMes(f.slice(0, 7), n); return `${mes}-${pad2(Math.min(+f.slice(8, 10), diasDelMes(mes)))}`; };
+  function cargos(m) {
+    const n = cuotasDe(m);
+    if (!n) return [[m.fecha, m.monto, 0, 0]];
+    const c = valorCuota(m);
+    return Array.from({ length: n }, (_, k) => [fechaMasMeses(m.fecha, k), -c, k + 1, n]);
+  }
   function resumen(movimientos, mes, hoy, presupuesto, categorias, per = null) {
     const neutras = new Set(categorias.filter((c) => c.tipo === "neutro").map((c) => c.id));
+    const deGasto = new Set(categorias.filter((c) => c.tipo === "gasto").map((c) => c.id));
     const fijas = new Set(categorias.filter((c) => c.fijo).map((c) => c.id));
     const moneda = presupuesto.moneda || "CLP";
     const [inicio, fin] = rango(mes, per);
-    let delMes = movimientos.filter((m) => inicio <= m.fecha && m.fecha <= fin && !neutras.has(m.categoria));
+    let delMes = [];
+    for (const m of movimientos) {
+      if (neutras.has(m.categoria)) continue;
+      for (const [f, monto] of cargos(m)) if (inicio <= f && f <= fin) delMes.push({ ...m, fecha: f, monto });
+    }
     const otras = delMes.filter((m) => (m.moneda || moneda) !== moneda).length;
     delMes = delMes.filter((m) => (m.moneda || moneda) === moneda);
-    const porCat = {}, cuantos = {};
+    const porCat = {}, cuantos = {}, devuelto = {};
     for (const m of delMes) {
-      if (m.monto >= 0) continue;
       const c = m.categoria || "";
-      porCat[c] = (porCat[c] || 0) - m.monto; cuantos[c] = (cuantos[c] || 0) + 1;
+      if (m.monto < 0) { porCat[c] = (porCat[c] || 0) - m.monto; cuantos[c] = (cuantos[c] || 0) + 1; }
+      else if (m.monto > 0 && deGasto.has(c)) devuelto[c] = (devuelto[c] || 0) + m.monto;
     }
+    for (const [c, v] of Object.entries(devuelto)) { porCat[c] = Math.max(0, (porCat[c] || 0) - v); if (!porCat[c] && !cuantos[c]) delete porCat[c]; }
     const gastado = Object.values(porCat).reduce((a, b) => a + b, 0);
-    const ingresos = delMes.filter((m) => m.monto > 0).reduce((a, m) => a + m.monto, 0);
+    const ingresos = delMes.filter((m) => m.monto > 0 && !deGasto.has(m.categoria)).reduce((a, m) => a + m.monto, 0);
     const total = diasEntre(inicio, fin) + 1;
     const dia = hoy < inicio ? 0 : hoy > fin ? total : diasEntre(inicio, hoy) + 1;
     const enCurso = dia > 0 && dia < total;
@@ -427,6 +445,65 @@
     por.sort((a, b) => b.maximo - a.maximo || b.gastado - a.gastado || (a.categoria < b.categoria ? -1 : a.categoria > b.categoria ? 1 : 0));
     return { mes, moneda, ingreso, fuente, compromisos: comp, otros_fijos: otrosFijos, disponible, alcanza: disponible != null && disponible > 0, por_categoria: por };
   }
+  /** Lo que tienes: el saldo de cada cuenta (igual que resumen.lo_que_tienes en Python). */
+  function saldoBase(c) {
+    const s = c && c.saldo;
+    if (!s || typeof s !== "object" || typeof s.monto !== "number" || !/^\d{4}-\d{2}-\d{2}$/.test(String(s.fecha || ""))) return null;
+    return { monto: s.monto, fecha: s.fecha, origen: ["persona", "cartola", "conector"].includes(s.origen) ? s.origen : "persona" };
+  }
+  const red2 = (v) => Math.round(v * 100) / 100;
+  function loQueTienes(cuentas, movimientos, moneda) {
+    const lista = [], vistas = new Set();
+    for (const c of cuentas) if (c && c.id && !vistas.has(c.id)) { vistas.add(c.id); lista.push(c); }
+    for (const m of movimientos) if (m.cuenta && !vistas.has(m.cuenta)) { vistas.add(m.cuenta); lista.push({ id: m.cuenta, nombre: m.cuenta }); }
+    let total = 0, con = 0;
+    const r = lista.map((c) => {
+      const mon = c.moneda || moneda, base = saldoBase(c);
+      let saldo = null, despues = 0;
+      if (base) {
+        const mios = movimientos.filter((m) => m.cuenta === c.id && m.fecha > base.fecha && m.medio !== "credito" && (m.moneda || mon) === mon);
+        despues = mios.length;
+        saldo = red2(base.monto + mios.reduce((a, m) => a + m.monto, 0));
+        if (mon === moneda) { total += saldo; con++; }
+      }
+      return { id: c.id, nombre: c.nombre || c.id, moneda: mon, saldo, base, movimientos_despues: despues };
+    });
+    return { moneda, total: con ? red2(total) : null, con_saldo: con, sin_saldo: r.filter((x) => x.saldo == null && x.moneda === moneda).length, cuentas: r };
+  }
+  // Lo que debes (igual que compromisos.lo_que_debes en Python).
+  const PAGO_TARJETA = ["PAGO TARJETA", "PAGO DE TARJETA", "PAGO TC", "PAGO T C", "PAGO TARJ", "TARJETA DE CREDITO", "PAGO DE RESUMEN", "CREDIT CARD PAYMENT", "PAYMENT THANK YOU"];
+  const esPagoTarjeta = (m) => { const d = normalizar(String(m.descripcion || "").replace(/[.\-_/]/g, " ")); return m.monto < 0 && m.medio !== "credito" && PAGO_TARJETA.some((p) => d.includes(p)); };
+  const ORDEN_ESTADO = { atrasado: 0, hoy: 1, pendiente: 2 };
+  const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  function loQueDebes(compromisos, movimientos, hoy, moneda, per = null) {
+    const mes = periodoDe(hoy, per), [, fin] = rango(mes, per);
+    const e = estadoCompromisos(compromisos, movimientos, mes, hoy, moneda, per);
+    const conSaldo = new Map(e.compromisos.filter((c) => c.signo === "gasto" && c.tipo === "deuda" && c.moneda === moneda && c.por_pagar).map((c) => [c.id, c]));
+    const pendientes = e.items.filter((i) => i.signo === "gasto" && i.moneda === moneda && i.estado !== "pagado")
+      .sort((a, b) => ORDEN_ESTADO[a.estado] - ORDEN_ESTADO[b.estado] || cmp(a.vence, b.vence) || cmp(a.id, b.id));
+    const partes = [];
+    for (const i of pendientes) if (!conSaldo.has(i.id)) partes.push({ tipo: "compromiso", nombre: i.nombre, monto: Math.round(i.monto), este_mes: Math.round(i.monto),
+      estado: i.estado, vence: i.vence, dias: i.dias, categoria: i.categoria, clave: `${i.id}|${i.periodo}` });
+    const pagos = movimientos.filter((m) => m.fecha <= hoy && (m.moneda || moneda) === moneda && esPagoTarjeta(m)).map((m) => m.fecha).sort();
+    const ultimo = pagos.length ? pagos[pagos.length - 1] : null, desde = rango(sumarMes(mes, -1), per)[0];
+    let tarjeta = 0, compras = 0;
+    const cuotas = [];
+    for (const m of [...movimientos].sort((a, b) => cmp(a.fecha, b.fecha) || cmp(a.id || "", b.id || ""))) {
+      if (m.medio !== "credito" || m.monto >= 0 || (m.moneda || moneda) !== moneda) continue;
+      const enTarjeta = cargos(m).filter(([f]) => f <= fin && f >= desde && (ultimo == null || f > ultimo));
+      if (enTarjeta.length) { tarjeta += enTarjeta.reduce((a, [, v]) => a - v, 0); compras++; }
+      const n = cuotasDe(m), quedan = n ? cargos(m).filter(([f]) => f > fin).length : 0;
+      if (quedan) { const c = valorCuota(m); cuotas.push({ tipo: "cuotas", nombre: m.descripcion, monto: Math.round(quedan * c), este_mes: 0, cuota: Math.round(c), quedan, total: n, categoria: m.categoria || "" }); }
+    }
+    if (tarjeta) partes.push({ tipo: "tarjeta", nombre: "", monto: Math.round(tarjeta), este_mes: Math.round(tarjeta), compras, desde: ultimo });
+    for (const c of [...conSaldo.values()].sort((a, b) => cmp(a.id, b.id))) {
+      const mias = pendientes.filter((i) => i.id === c.id);
+      partes.push({ tipo: "deuda", nombre: c.nombre, monto: Math.round(c.por_pagar), este_mes: Math.round(mias.reduce((a, i) => a + i.monto, 0)), cuotas: c.cuotas, categoria: c.categoria, termina: c.termina,
+        pendientes: mias.map((i) => ({ estado: i.estado, vence: i.vence, dias: i.dias, monto: Math.round(i.monto), clave: `${i.id}|${i.periodo}` })) });
+    }
+    partes.push(...cuotas.sort((a, b) => b.monto - a.monto || cmp(a.nombre, b.nombre)));
+    return { mes, moneda, total: Math.round(partes.reduce((a, p) => a + p.monto, 0)), este_mes: Math.round(partes.reduce((a, p) => a + p.este_mes, 0)), ultimo_pago_tarjeta: ultimo, partes };
+  }
   const cat = (id) => E.categorias.find((c) => c.id === id) || { id: "", nombre: "Sin categoría", emoji: "🏷️", tipo: "gasto" };
   const nombreCat = (c) => (c.id && cat(c.id) === c ? c.nombre : tr("Sin categoría"));
   const nombreIA = () => E.ias.find((i) => i.id === E.config.ia)?.nombre || tr("tu IA");
@@ -470,7 +547,7 @@
     const scroll = $(".principal-area")?.scrollTop || 0;
     const activo = document.activeElement, idActivo = activo?.id, cursor = activo?.selectionStart;
     E._per = undefined;
-    raiz.innerHTML = `<div class="app">${lateral()}<main class="principal-area">${avisoActualizacion()}${principal()}</main></div>${dialogos()}`;
+    raiz.innerHTML = `<div class="app">${lateral()}<main class="principal-area">${avisoActualizacion()}${principal()}</main></div>${E.picker ? pickerHTML() : ""}${avisoRegla()}${dialogos()}`;
     traducirDOM(raiz);
     const area = $(".principal-area"); if (area) area.scrollTop = scroll;
     if (idActivo) { const el = document.getElementById(idActivo); if (el) { el.focus(); if (cursor != null && el.setSelectionRange) try { el.setSelectionRange(cursor, cursor); } catch {} } }
@@ -484,10 +561,11 @@
     presupuesto: '<circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r=".8" />',
     consejos: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" /><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z" />',
     conexiones: '<path d="M9 7V3M15 7V3M7 7h10v4a5 5 0 0 1-10 0z" /><path d="M12 16v5" />',
+    ordenar: '<path d="M3.5 12.5V5a1.5 1.5 0 0 1 1.5-1.5h7.5l8 8a1.5 1.5 0 0 1 0 2.1l-6.4 6.4a1.5 1.5 0 0 1-2.1 0z" /><circle cx="8" cy="8" r="1.4" />',
     compromisos: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /><path d="m9 15 2 2 4-4" />',
   };
   const icono = (id) => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONOS[id]}</svg>`;
-  const VISTAS = [["resumen", "Resumen"], ["compromisos", "Compromisos"], ["movimientos", "Movimientos"], ["presupuesto", "Presupuesto"], ["consejos", "Consejos"], ["conexiones", "Conexiones"]];
+  const VISTAS = [["resumen", "Resumen"], ["compromisos", "Compromisos"], ["movimientos", "Movimientos"], ["ordenar", "Por ordenar"], ["presupuesto", "Presupuesto"], ["consejos", "Consejos"], ["conexiones", "Conexiones"]];
   function lateral() {
     const sinCat = E.movimientos.filter((m) => !m.categoria).length;
     const atrasados = listaCompromisos().length ? estadoDelMes(periodoHoy()).items.filter((i) => i.estado === "atrasado" && i.signo === "gasto").length : 0;
@@ -495,8 +573,8 @@
       <div class="cabeza"><span class="marca">${LOGO}<span>Alcancía</span></span>
         <button class="icono" data-accion="ajustes" title="Ajustes" aria-label="Ajustes">⚙︎</button></div>
       <div class="agregar-caja"><button class="boton principal grande" data-accion="importar"><span aria-hidden="true">＋</span><span>Agregar movimientos</span></button></div>
-      <nav class="nav" aria-label="Secciones">${VISTAS.map(([id, nombre]) => `<button data-vista="${id}" ${E.vista === id ? 'aria-current="page"' : ""}>
-        <span class="ico">${icono(id)}</span><span>${nombre}</span>${id === "movimientos" && sinCat ? `<span class="contador" title="Sin categoría">${sinCat}</span>` : ""}${id === "compromisos" && atrasados ? `<span class="contador alerta-punto" title="${atrasados === 1 ? "1 compromiso atrasado" : "Compromisos atrasados"}">${atrasados}</span>` : ""}${id === "conexiones" && conexionesConError() ? `<span class="contador alerta-punto" title="Una conexión necesita atención">!</span>` : ""}</button>`).join("")}</nav>
+      <nav class="nav" aria-label="Secciones">${VISTAS.filter(([id]) => id !== "ordenar" || sinCat || E.vista === "ordenar").map(([id, nombre]) => `<button data-vista="${id}" ${E.vista === id ? 'aria-current="page"' : ""}>
+        <span class="ico">${icono(id)}</span><span>${nombre}</span>${id === "ordenar" && sinCat ? `<span class="contador" title="Sin categoría">${sinCat}</span>` : ""}${id === "compromisos" && atrasados ? `<span class="contador alerta-punto" title="${atrasados === 1 ? "1 compromiso atrasado" : "Compromisos atrasados"}">${atrasados}</span>` : ""}${id === "conexiones" && conexionesConError() ? `<span class="contador alerta-punto" title="Una conexión necesita atención">!</span>` : ""}</button>`).join("")}</nav>
       <div class="pie-lateral"><span aria-hidden="true">🔒</span><span><b>Tus datos son tuyos.</b> Todo queda en tu computador.</span></div>
     </aside>`;
   }
@@ -515,6 +593,7 @@
     if (E.vista === "compromisos") return vistaCompromisos();
     if (!E.movimientos.length && E.vista !== "presupuesto") return vacio();
     if (E.vista === "movimientos") return vistaMovimientos();
+    if (E.vista === "ordenar") return vistaOrdenar();
     if (E.vista === "presupuesto") return vistaPresupuesto();
     if (E.vista === "consejos") return vistaConsejos();
     return vistaResumen();
@@ -652,10 +731,185 @@
         <tbody>${filas}</tbody></table>${h.tope ? `<p>${frase("Presupuesto: {x}", { x: esc(dinero(h.tope)) })}</p>` : ""}</div>`;
   }
 
+  // ───────────── Resumen: tres números (lo que tienes, lo que gastaste, lo que debes) ─────────────
+  /** Lo primero que se lee: si te falta pagar algo (con los compromisos) o si estás al día. */
+  function lineaAlDia() {
+    if (!listaCompromisos().length) {
+      return `<div class="al-dia neutro"><span class="ico" aria-hidden="true">📌</span><p>${frase("Anota lo que pagas seguido (arriendo, créditos, cuentas) y te digo si te falta pagar algo.", {})}</p>
+        <button class="boton" data-vista="compromisos">Anotar</button></div>`;
+    }
+    const orden = { atrasado: 0, hoy: 1, pendiente: 2 };
+    const pend = estadoDelMes(periodoHoy()).items.filter((i) => i.signo === "gasto" && i.estado !== "pagado")
+      .sort((a, b) => orden[a.estado] - orden[b.estado] || cmp(a.vence, b.vence));
+    if (!pend.length) return `<div class="al-dia ok" role="status"><span class="ico" aria-hidden="true">✓</span><p>${frase("**Estás al día.** Pagaste todo lo de este mes.", {})}</p></div>`;
+    const p = pend[0], c = esc(p.nombre), x = esc(dinero(p.monto, p.moneda));
+    let texto;
+    if (p.estado === "atrasado") texto = p.dias === 1 ? T("Te falta pagar **{c}**: {x}, venció ayer.", { c, x }) : T("Te falta pagar **{c}**: {x}, vencido hace {n} días.", { c, x, n: p.dias });
+    else if (p.estado === "hoy") texto = T("Te falta pagar **{c}**: {x}, vence hoy.", { c, x });
+    else texto = p.dias === 1 ? T("Te falta pagar **{c}**: {x}, vence mañana.", { c, x }) : T("Te falta pagar **{c}**: {x}, vence en {n} días.", { c, x, n: p.dias });
+    const mas = pend.length > 1 ? " " + T(pend.length === 2 ? "Y 1 cosa más ({x} en total)." : "Y {n} cosas más ({x} en total).", { n: pend.length - 1, x: esc(dinero(pend.reduce((a, i) => a + i.monto, 0))) }) : "";
+    return `<div class="al-dia ${p.estado === "atrasado" ? "atrasado" : "pendiente"}" role="status"><span class="ico" aria-hidden="true">${p.estado === "atrasado" ? "!" : "•"}</span>
+      <p data-sin-traducir>${texto}${mas}</p>
+      <div class="acciones"><button class="boton" data-comp-pagado="${esc(`${p.id}|${p.periodo}`)}">Ya lo pagué</button>${pend.length > 1 ? `<button class="boton sutil" data-cifra-abrir="debes">Ver todo</button>` : ""}</div></div>`;
+  }
+
+  function filaCifra(id, etiqueta, num, sub) {
+    const abierta = E.cifra === id;
+    return `<button type="button" class="cifra-fila ${id} ${abierta ? "abierta" : ""}" data-cifra="${id}" aria-expanded="${abierta}" aria-controls="desglose">
+      <span class="cf-txt"><span class="cf-etiqueta"><i class="cf-punto" aria-hidden="true"></i>${etiqueta}</span><span class="cf-sub">${sub}</span></span>
+      <span class="cf-num">${num}</span><span class="cf-flecha" aria-hidden="true">›</span></button>`;
+  }
+  const cifraGrande = (v, moneda = monedaPrincipal()) => `<span data-sin-traducir>${esc(dinero(v, moneda))}<span class="codigo-moneda">${esc(moneda)}</span></span>`;
+
   function vistaResumen() {
+    const moneda = monedaPrincipal();
     const r = resumen(E.movimientos, E.mes, E.hoy, E.presupuesto, E.categorias, per());
     const enCurso = r.dia > 0 && r.dia < r.dias_mes;
-    const pct = r.presupuesto ? Math.min(100, r.gastado / r.presupuesto * 100) : 0;
+    const t = loQueTienes(E.cuentas, E.movimientos, moneda);
+    const d = loQueDebes(listaCompromisos(), E.movimientos, E.hoy, moneda, per());
+    // Lo que tienes: si falta el saldo de alguna cuenta, se invita a anotarlo (nunca un cero inventado).
+    const nombresSin = t.cuentas.filter((c) => c.saldo == null && c.moneda === moneda).map((c) => c.nombre);
+    const subTienes = t.total == null ? frase("¿Cuánto tienes hoy en tus cuentas? Anótalo una vez y yo sigo tus movimientos.", {})
+      : nombresSin.length ? frase(nombresSin.length === 1 ? "Falta anotar cuánto tienes en {c}." : "Falta anotar {n} cuentas.", { c: esc(nombresSin[0]), n: nombresSin.length })
+        : frase(t.con_saldo === 1 ? "Hoy, en tu cuenta" : "Hoy, sumando tus {n} cuentas", { n: t.con_saldo });
+    const numTienes = t.total == null ? `<span class="cf-invita">Anotar</span>` : cifraGrande(t.total, moneda);
+    const subGasto = r.presupuesto ? frase("de {x} de presupuesto", { x: esc(dinero(r.presupuesto)) })
+      : enCurso ? frase("En {m}, hasta hoy", { m: esc(nombreMes(E.mes)) }) : frase("En {m}", { m: esc(nombreMes(E.mes)) });
+    const atrasados = d.partes.filter((p) => p.estado === "atrasado").length;
+    const subDebes = !d.total ? frase("Nada pendiente", {})
+      : frase("Este mes: {x}", { x: esc(dinero(d.este_mes)) }) + (atrasados ? ` <span class="rojo-txt">${frase(atrasados === 1 ? "· 1 atrasado" : "· {n} atrasados", { n: atrasados })}</span>` : "");
+    const tres = `<section class="tres" aria-label="Tus tres números">
+      ${filaCifra("tienes", "Lo que tienes", numTienes, subTienes)}
+      ${filaCifra("gastaste", enCurso ? "Lo que llevas gastado" : "Lo que gastaste", cifraGrande(r.gastado, moneda), subGasto)}
+      ${filaCifra("debes", "Lo que debes", cifraGrande(d.total, moneda), subDebes)}</section>`;
+    const desglose = E.cifra === "tienes" ? desgloseTienes(t) : E.cifra === "debes" ? desgloseDebes(d) : desgloseGasto(r);
+    return `<div class="contenido resumen-simple"><div class="encabezado"><h1>Resumen</h1>${selectorMes()}</div>
+      ${lineaAlDia()}${tres}
+      <section class="tarjeta desglose ${esc(E.cifra)}" id="desglose">${desglose}</section>
+      ${aprendiHTML()}${sinCategoriaHTML(r)}${secundario(r, enCurso)}</div>`;
+  }
+
+  function desgloseTienes(t) {
+    const fila = (c) => {
+      const editando = E.saldoEdit && E.saldoEdit.cuenta === c.id;
+      const b = c.base;
+      let origen = "";
+      if (b) {
+        const f = esc(fechaCorta(b.fecha));
+        origen = b.origen === "conector" ? T("Según {s}, el {f}", { s: esc(c.nombre), f }) : b.origen === "cartola" ? T("Según tu cartola del {f}", { f }) : T("Lo anotaste el {f}", { f });
+        if (c.movimientos_despues) origen += " · " + T(c.movimientos_despues === 1 ? "más 1 movimiento después" : "más {n} movimientos después", { n: c.movimientos_despues });
+      }
+      const editor = `<form class="saldo-editor" data-saldo-form="${esc(c.id)}"><label class="oculto-accesible" data-sin-traducir for="saldo-${esc(c.id)}">${T("¿Cuánto tienes hoy en {c}?", { c: esc(c.nombre) })}</label>
+        <input class="texto" id="saldo-${esc(c.id)}" inputmode="numeric" data-saldo-input="${esc(c.id)}" value="${esc(E.saldoEdit?.cuenta === c.id ? E.saldoEdit.texto : "")}" placeholder="${esc(tr("Monto de hoy"))}" data-sin-traducir>
+        <button class="boton principal" type="submit">Guardar</button>${c.saldo != null ? `<button class="boton sutil" type="button" data-saldo-cancelar>Cancelar</button>` : ""}</form>`;
+      return `<div class="cuenta-fila ${c.saldo == null ? "sin" : ""}">
+        <div class="txt"><b data-sin-traducir>${esc(c.nombre)}</b>${c.saldo == null ? `<small data-sin-traducir>${T("¿Cuánto tienes hoy en {c}?", { c: esc(c.nombre) })}</small>` : `<small data-sin-traducir>${origen}</small>`}</div>
+        ${c.saldo != null && !editando ? `<span class="valor" data-sin-traducir>${esc(dinero(c.saldo, c.moneda))}</span><button class="boton sutil" data-saldo-editar="${esc(c.id)}">Corregir</button>` : editor}</div>`;
+    };
+    const aviso = E.saldoAviso ? `<p class="saldo-aviso ${E.saldoAviso.cuadra ? "ok" : ""}" role="status" data-sin-traducir>${E.saldoAviso.texto}</p>` : "";
+    const lista = t.cuentas.filter((c) => c.moneda === t.moneda || c.saldo != null);
+    return `<h2 class="desglose-titulo">Lo que tienes hoy</h2>
+      <p class="texto-suave intro-desglose">Lo que hay en tus cuentas. Si un servicio informa su saldo (como Mercado Pago), uso ese; si no, el que me anotes, y desde ahí sumo y resto tus movimientos.</p>
+      ${aviso}${lista.length ? lista.map(fila).join("") : `<p class="texto-suave">Aún no tienes cuentas: agrega una cartola o conecta una cuenta.</p>`}
+      <p class="nota-mcp">Lo que compras con tarjeta de crédito no sale de tu cuenta: va a «Lo que debes».</p>`;
+  }
+
+  function desgloseGasto(r) {
+    const mensual = E.presupuesto.mensual || {};
+    const ids = Object.keys(r.por_categoria).sort((a, b) => r.por_categoria[b] - r.por_categoria[a]);
+    const max = Math.max(1, ...Object.values(r.por_categoria));
+    const ver = E.verTodasCat ? ids : ids.slice(0, 6);
+    const filas = ver.map((id) => {
+      const c = cat(id), g = r.por_categoria[id], tope = mensual[id] || 0;
+      const alerta = r.alertas.find((a) => a.categoria === id);
+      const clase = !id ? "falta" : !tope ? "libre" : alerta?.tipo === "pasado" ? "pasado" : alerta ? "ojo" : "";
+      return `<button type="button" class="cat" data-ir-cat="${esc(id)}"><span class="emoji" aria-hidden="true">${c.emoji}</span><span class="nombre" data-sin-traducir>${esc(nombreCat(c))}</span>
+        <span class="monto" data-sin-traducir>${esc(dinero(g))}${tope ? ` <small>/ ${esc(dinero(tope))}</small>` : ""}</span>
+        <span class="barra ${clase}"><i style="width:${(tope ? Math.min(100, g / tope * 100) : g / max * 100).toFixed(1)}%"></i></span></button>`;
+    }).join("");
+    const hayCuotas = E.movimientos.some((m) => cuotasDe(m));
+    return `<div class="tarjeta-cabeza"><h2>En qué se fue</h2><button class="boton sutil" data-vista="presupuesto">Editar topes</button></div>
+      ${filas ? `<p class="pista-cat">Toca una categoría para ver sus movimientos.</p>${filas}` : `<p class="texto-suave">Aún no hay gastos este mes.</p>`}
+      ${ids.length > 6 ? `<button class="enlace mas" data-accion="ver-todas-cat" aria-expanded="${!!E.verTodasCat}">${E.verTodasCat ? "Ver menos" : frase("Ver las {n} categorías", { n: ids.length })}</button>` : ""}
+      ${hayCuotas ? `<p class="nota-mcp">Las compras en cuotas con crédito cuentan por la cuota de cada mes, y las devoluciones se descuentan.</p>` : ""}
+      ${r.otras_monedas ? `<p class="nota-mcp">${frase("{n} movimientos en otra moneda no entran en estas cuentas.", { n: r.otras_monedas })}</p>` : ""}`;
+  }
+
+  function desgloseDebes(d) {
+    if (!d.partes.length) {
+      return `<h2 class="desglose-titulo">Lo que debes</h2><p class="nada-debes">🎉 <span>No debes nada por ahora.</span></p>
+        <p class="texto-suave">${listaCompromisos().length ? tr("Cuando algo de tus compromisos esté por vencer, aparece aquí.") : tr("Anota tus créditos, cuentas y suscripciones en Compromisos y aquí ves lo que te falta pagar.")}</p>`;
+    }
+    // Por pagar este mes: cuentas y suscripciones, y la cuota del mes de cada crédito (su total va más abajo).
+    const comp = [...d.partes.filter((p) => p.tipo === "compromiso"),
+      ...d.partes.filter((p) => p.tipo === "deuda").flatMap((p) => (p.pendientes || []).map((i) => ({ ...i, nombre: p.nombre, categoria: p.categoria })))]
+      .sort((a, b) => ORDEN_ESTADO[a.estado] - ORDEN_ESTADO[b.estado] || cmp(a.vence, b.vence));
+    const filaComp = (p) => `<div class="comp-fila ${esc(p.estado)}"><span class="emoji" aria-hidden="true">${p.categoria && cat(p.categoria).id ? cat(p.categoria).emoji : "🧾"}</span>
+      <div class="txt"><b data-sin-traducir>${esc(p.nombre)}</b><small data-sin-traducir><span class="punto" aria-hidden="true"></span>${textoEstado({ ...p, signo: "gasto", pago: null })}</small></div>
+      <span class="valor" data-sin-traducir>${esc(dinero(p.monto))}</span><div class="acciones"><button class="boton" data-comp-pagado="${esc(p.clave)}">Ya lo pagué</button></div></div>`;
+    const fila = (ico, nombre, detalle, monto) => `<div class="debe-fila"><span class="emoji" aria-hidden="true">${ico}</span>
+      <div class="txt"><b data-sin-traducir>${nombre}</b><small data-sin-traducir>${detalle}</small></div><span class="valor" data-sin-traducir>${esc(dinero(monto))}</span></div>`;
+    const otras = d.partes.filter((p) => p.tipo !== "compromiso").map((p) => {
+      if (p.tipo === "tarjeta") return fila("💳", T("Por pagar en tu tarjeta"), p.desde ? T(p.compras === 1 ? "1 compra con crédito desde tu último pago ({f})" : "{n} compras con crédito desde tu último pago ({f})", { n: p.compras, f: esc(fechaCorta(p.desde)) })
+        : T(p.compras === 1 ? "1 compra con crédito: se paga cuando llegue el estado de cuenta" : "{n} compras con crédito: se pagan cuando llegue el estado de cuenta", { n: p.compras }), p.monto);
+      if (p.tipo === "deuda") return fila("🏦", esc(p.nombre), [p.cuotas ? T("Te quedan {q} de {t} cuotas", { q: p.cuotas.quedan, t: p.cuotas.total }) : T("Saldo que anotaste"),
+        p.este_mes ? T("este mes {x}", { x: esc(dinero(p.este_mes)) }) : ""].filter(Boolean).join(" · "), p.monto);
+      return fila(p.categoria && cat(p.categoria).id ? cat(p.categoria).emoji : "🧾", esc(p.nombre), T(p.quedan === 1 ? "Te queda 1 cuota de {c}" : "Te quedan {q} cuotas de {c}", { q: p.quedan, c: esc(dinero(p.cuota)) }), p.monto);
+    }).join("");
+    return `<h2 class="desglose-titulo">Lo que debes</h2>
+      ${comp.length ? `<div class="por-pagar"><h3 class="grupo">Por pagar este mes</h3>${comp.map(filaComp).join("")}</div>` : ""}
+      ${otras ? `<h3 class="grupo">Tarjeta, cuotas y créditos</h3>${otras}` : ""}
+      <div class="total-pres"><span>Este mes</span><span data-sin-traducir>${esc(dinero(d.este_mes))}</span></div>
+      <div class="total-pres sub"><span>En total</span><span data-sin-traducir>${esc(dinero(d.total))}</span></div>
+      <p class="nota-mcp"><button class="enlace" data-vista="compromisos">Ver y editar tus compromisos</button></p>`;
+  }
+
+  /** «Aprendí esto de tus movimientos»: reglas que se ven en lo que ya ordenaste y pagos que parecen compromisos. Máximo dos filas. */
+  function reglasSugeridas() {
+    const grupos = {};
+    for (const m of E.movimientos) {
+      const k = reglaPara(m.descripcion);
+      if (k.length < 3) continue;
+      const g = grupos[k] || (grupos[k] = { cats: {}, sin: 0 });
+      if (m.categoria) g.cats[m.categoria] = (g.cats[m.categoria] || 0) + 1; else g.sin++;
+    }
+    const r = [];
+    for (const [k, g] of Object.entries(grupos)) {
+      const cs = Object.entries(g.cats);
+      if (!g.sin || cs.length !== 1 || cs[0][1] < 2 || !cat(cs[0][0]).id || (E.reglasNo || []).includes(k)) continue;
+      if (E.reglas.some((x) => normalizar(x.contiene) === k)) continue;
+      r.push({ contiene: k, categoria: cs[0][0], n: g.sin, veces: cs[0][1] });
+    }
+    return r.sort((a, b) => b.n - a.n || b.veces - a.veces || cmp(a.contiene, b.contiene));
+  }
+  function aprendiHTML() {
+    const reglas = reglasSugeridas().slice(0, 2);
+    const sug = (E.sugerencias || []).filter((s) => !(E.compromisos.descartados || []).includes(s.clave));
+    const filas = [...reglas.map((r) => {
+      const c = cat(r.categoria);
+      return `<div class="aprendi-fila"><span class="emoji" aria-hidden="true">${c.emoji}</span><div class="txt">${frase(r.n === 1 ? "«{r}» siempre fue **{c}**. ¿Se lo pongo al que no tiene categoría y a los que vengan?" : "«{r}» siempre fue **{c}**. ¿Se lo pongo a los {n} que no tienen categoría y a los que vengan?", { r: esc(r.contiene), c: esc(nombreCat(c)), n: r.n })}</div>
+        <div class="acciones"><button class="boton sutil" data-regla-no="${esc(r.contiene)}">No</button><button class="boton principal" data-regla-si="${esc(r.contiene)}" data-regla-cat="${esc(r.categoria)}">Sí, siempre</button></div></div>`;
+    }), ...sug.slice(0, reglas.length ? 1 : 2).map((s) => `<div class="aprendi-fila"><span class="emoji" aria-hidden="true">${iconoComp(s)}</span><div class="txt">${textoSugerencia(s)}</div>
+        <div class="acciones"><button class="boton sutil" data-sug-no="${esc(s.clave)}">No es</button><button class="boton principal" data-sug-agregar="${esc(s.clave)}">¿Lo agrego?</button></div></div>`)];
+    if (!filas.length) return "";
+    return `<section class="tarjeta aprendi"><h2 class="aprendi-titulo"><span aria-hidden="true">💡</span> Aprendí esto de tus movimientos</h2>${filas.join("")}
+      ${sug.length > 2 ? `<button class="enlace" data-vista="compromisos">${frase("Ver {n} más en Compromisos", { n: sug.length - (reglas.length ? 1 : 2) })}</button>` : ""}</section>`;
+  }
+
+  /** Gastos sin categoría del mes: cada uno con su chip para ordenarlo ahí mismo, y el atajo a «Por ordenar». */
+  function sinCategoriaHTML(r) {
+    const [desde, hasta] = rango(E.mes, per());
+    const lista = E.movimientos.filter((m) => !m.categoria && desde <= m.fecha && m.fecha <= hasta).sort((a, b) => cmp(b.fecha, a.fecha));
+    if (!lista.length) return "";
+    const cuentas = Object.fromEntries(E.cuentas.map((c) => [c.id, c.nombre]));
+    return `<section class="tarjeta sin-categoria"><div class="tarjeta-cabeza"><h2>${frase(lista.length === 1 ? "1 sin categoría" : "{n} sin categoría", { n: lista.length })}</h2>
+        <button class="boton" data-vista="ordenar">Ordenar uno a uno</button></div>
+      ${lista.slice(0, 3).map((m) => filaMov(m, cuentas)).join("")}
+      ${lista.length > 3 ? `<button class="enlace mas" data-vista="ordenar">${frase("Y {n} más", { n: lista.length - 3 })}</button>` : ""}</section>`;
+  }
+
+  /** Lo de antes, en segundo plano: el ritmo, las alertas, la tendencia y los consejos. */
+  function secundario(r, enCurso) {
     let ritmo = "";
     if (r.presupuesto && enCurso && r.proyeccion != null) {
       const dif = r.presupuesto - r.proyeccion;
@@ -667,20 +921,6 @@
       ritmo = dif >= 0 ? `<div class="ritmo bien">🏆 ${frase("Terminaste {x} bajo tu presupuesto. ¡Bien hecho!", { x: dinero(dif) })}</div>`
         : `<div class="ritmo mal">📉 ${frase("Te pasaste {x} del presupuesto. El próximo mes se puede.", { x: dinero(-dif) })}</div>`;
     }
-    const heroe = `<section class="tarjeta heroe">${ALCANCIA_DIBUJO(r.presupuesto ? 1 - Math.min(1, r.gastado / r.presupuesto) : 0.5)}
-      <div class="etiqueta">${enCurso ? "Llevas gastado" : "Gastaste"}</div>
-      <div class="cifra" data-sin-traducir>${esc(dinero(r.gastado))}<span class="codigo-moneda">${esc(monedaPrincipal())}</span></div>
-      ${r.presupuesto ? `<div class="de">${frase("de **{x}** de presupuesto", { x: esc(dinero(r.presupuesto)) })}</div>`
-        : `<div class="de"><button class="enlace" data-vista="presupuesto">Arma tu presupuesto</button> <span>para saber si vas bien.</span></div>`}
-      ${r.presupuesto ? `<div class="medidor ${r.gastado > r.presupuesto ? "pasado" : ""}" role="img" aria-label="Avance del gasto del mes"><i style="width:${pct.toFixed(1)}%"></i>
-        ${enCurso ? `<span class="hoy" style="left:${(r.dia / r.dias_mes * 100).toFixed(1)}%" data-texto="${esc(tr("Hoy"))}"></span>` : ""}</div>` : ""}
-      ${ritmo}${per() && enCurso ? `<p class="pista-sueldo">${frase(r.dias_mes - r.dia + 1 === 1 ? "Mañana empieza tu próximo mes (llega tu sueldo)." : "Quedan {n} días para tu próximo sueldo.", { n: r.dias_mes - r.dia + 1 })}</p>` : ""}</section>`;
-    const queda = r.ingresos - r.gastado;
-    const cifras = `<div class="cifras">
-      <div class="tarjeta"><small>${frase("Entró · {m}", { m: esc(monedaPrincipal()) })}</small><b class="ingreso" data-sin-traducir>${esc(dinero(r.ingresos))}</b></div>
-      <div class="tarjeta"><small>${frase("Salió · {m}", { m: esc(monedaPrincipal()) })}</small><b data-sin-traducir>${esc(dinero(r.gastado))}</b></div>
-      <div class="tarjeta"><small>${frase(queda >= 0 ? "Te queda · {m}" : "Te falta · {m}", { m: esc(monedaPrincipal()) })}</small><b class="${queda >= 0 ? "ingreso" : ""}" data-sin-traducir style="${queda < 0 ? "color:var(--rojo)" : ""}">${esc(dinero(Math.abs(queda)))}</b>
-        <div class="pista">Lo que entró menos lo que salió</div></div></div>`;
     const alertas = r.alertas.map((a) => {
       const c = cat(a.categoria), n = esc(nombreCat(c));
       return a.tipo === "pasado"
@@ -689,35 +929,164 @@
         : `<div class="alerta ritmo"><span class="emoji" aria-hidden="true">${c.emoji}</span><div>${frase("{c}: vas muy rápido", { c: n }, "b")}
             ${frase("Llevas {g}. A este ritmo llegas a {p} y tu tope es {t}.", { g: esc(dinero(a.gastado)), p: esc(dinero(a.proyeccion)), t: esc(dinero(a.tope)) })}</div></div>`;
     }).join("");
-    const sinCat = r.sin_categoria ? `<div class="alerta ritmo"><span class="emoji" aria-hidden="true">🏷️</span><div>${frase(r.sin_categoria === 1 ? "Hay 1 movimiento sin categoría" : "Hay {n} movimientos sin categoría", { n: r.sin_categoria }, "b")}
-      <button class="enlace" data-accion="ver-sin-categoria">Ponles una</button> <span>para que el resumen cuadre.</span></div></div>` : "";
-    const mensual = E.presupuesto.mensual || {};
-    const ids = [...new Set([...Object.keys(r.por_categoria), ...Object.keys(mensual).filter((k) => mensual[k] > 0)])]
-      .sort((a, b) => (r.por_categoria[b] || 0) - (r.por_categoria[a] || 0));
-    const filas = ids.map((id) => {
-      const c = cat(id), g = r.por_categoria[id] || 0, tope = mensual[id] || 0;
-      const alerta = r.alertas.find((a) => a.categoria === id);
-      const clase = !tope ? "libre" : alerta?.tipo === "pasado" ? "pasado" : alerta ? "ojo" : "";
-      const abierta = E.histCat === id;
-      const hist = abierta ? `<div class="cat-historia" id="hist-cat">${frase("Últimos 6 meses de {c}", { c: esc(nombreCat(c)) }, "h3")}
-          ${bloqueHistoria(historia(E.movimientos, E.mes, E.hoy, E.presupuesto, E.categorias, id, 6, per()), T("Gasto en {c} de los últimos 6 meses", { c: esc(nombreCat(c)) }), true)}</div>` : "";
-      return `<button type="button" class="cat" data-historia="${esc(id)}" aria-expanded="${abierta}" ${abierta ? 'aria-controls="hist-cat"' : ""}><span class="emoji" aria-hidden="true">${c.emoji}</span><span class="nombre" data-sin-traducir>${esc(nombreCat(c))}</span>
-        <span class="monto" data-sin-traducir>${esc(dinero(g))}${tope ? ` <small>/ ${esc(dinero(tope))}</small>` : ""}</span>
-        <span class="barra ${clase}"><i style="width:${tope ? Math.min(100, g / tope * 100).toFixed(1) : Math.min(100, g / Math.max(1, r.gastado) * 100).toFixed(1)}%"></i></span></button>${hist}`;
-    }).join("");
-    const comparado = `<section class="tarjeta"><div class="tarjeta-cabeza"><h2>Comparado con los últimos meses</h2></div>
-      ${bloqueHistoria(historia(E.movimientos, E.mes, E.hoy, E.presupuesto, E.categorias, null, 6, per()), T("Gasto total de los últimos 6 meses"))}</section>`;
-    return `<div class="contenido"><div class="encabezado"><h1>Resumen</h1>${selectorMes()}</div>
-      ${tarjetaPorPagar()}${heroe}${cifras}${alertas || sinCat ? `<section class="tarjeta"><div class="tarjeta-cabeza"><h2>Para tener en cuenta</h2></div>${alertas}${sinCat}</section>` : ""}
-      ${comparado}
-      <section class="tarjeta"><div class="tarjeta-cabeza"><h2>En qué se fue</h2><button class="boton sutil" data-vista="presupuesto">Editar topes</button></div>
-        ${filas ? `<p class="pista-cat">Toca una categoría para ver sus últimos 6 meses.</p>${filas}` : `<p class="texto-suave">Aún no hay gastos este mes.</p>`}</section>
-      ${r.otras_monedas ? `<p class="texto-suave">${frase("{n} movimientos en otra moneda no entran en estas cuentas.", { n: r.otras_monedas })}</p>` : ""}</div>`;
+    const sueldo = per() && enCurso ? `<p class="pista-sueldo">${frase(r.dias_mes - r.dia + 1 === 1 ? "Mañana empieza tu próximo mes (llega tu sueldo)." : "Quedan {n} días para tu próximo sueldo.", { n: r.dias_mes - r.dia + 1 })}</p>` : "";
+    const h = historia(E.movimientos, E.mes, E.hoy, E.presupuesto, E.categorias, null, 6, per());
+    return `<h2 class="subtitulo">Cómo vas</h2>
+      ${ritmo || alertas || sueldo ? `<section class="tarjeta como-vas">${ritmo}${alertas}${sueldo}</section>` : ""}
+      <details class="tarjeta plegable" ${E.compararAbierto ? "open" : ""} data-plegable="comparar"><summary><span>Comparado con los últimos meses</span></summary>
+        ${bloqueHistoria(h, T("Gasto total de los últimos 6 meses"))}</details>
+      <button class="tarjeta fila-consejos" data-vista="consejos"><span aria-hidden="true">✦</span><span>${frase("Pídele consejos a {ia} sobre este mes", { ia: esc(nombreIA()) })}</span><span class="cf-flecha" aria-hidden="true">›</span></button>`;
   }
 
   function opcionesCategoria(elegida) {
     return [`<option value="" ${!elegida ? "selected" : ""}>🏷️ ${esc(tr("Sin categoría"))}</option>`,
       ...E.categorias.map((c) => `<option value="${esc(c.id)}" ${c.id === elegida ? "selected" : ""}>${c.emoji} ${esc(c.nombre)}</option>`)].join("");
+  }
+
+  // ───────────── Categorizar en uno o dos toques ─────────────
+  /** Cómo se pagó, en palabras: «Crédito · 6 cuotas de $61.000», «Débito», «Con saldo». */
+  function medioTexto(m) {
+    const n = cuotasDe(m);
+    if (n) return T("Crédito · {n} cuotas de {c}", { n, c: esc(dinero(valorCuota(m), m.moneda || monedaPrincipal())) });
+    return { credito: T("Crédito"), debito: T("Débito"), saldo: T("Con saldo") }[m.medio] || "";
+  }
+  function chipCat(m) {
+    const c = cat(m.categoria), falta = !m.categoria;
+    return `<button type="button" class="chip-cat ${falta ? "falta" : ""}" id="chip-${esc(m.id)}" data-elegir="${esc(m.id)}" aria-haspopup="dialog"
+      aria-label="${falta ? esc(tr("Ponle categoría")) : T("Categoría: {c}. Cambiar", { c: esc(nombreCat(c)) })}" data-sin-traducir><span aria-hidden="true">${c.emoji}</span><span class="n">${falta ? esc(tr("Ponle categoría")) : esc(nombreCat(c))}</span></button>`;
+  }
+  function filaMov(m, cuentas) {
+    const c = cat(m.categoria), neutro = c.tipo === "neutro", medio = medioTexto(m);
+    return `<div class="mov ${neutro ? "neutro" : ""}"><div class="mov-txt"><span class="t" data-sin-traducir>${esc(m.descripcion)}</span>
+        <span class="m" data-sin-traducir>${esc(cuentas[m.cuenta] || m.cuenta)}${medio ? ` · <span class="medio">${medio}</span>` : ""}</span></div>
+      ${chipCat(m)}<span class="valor ${m.monto > 0 && !neutro ? "ingreso" : ""}" data-sin-traducir>${esc(dinero(m.monto, m.moneda, true))}</span></div>`;
+  }
+  /** Categorías para elegir: primero las del tipo que corresponde (gasto o ingreso) y, dentro, las que más usas. */
+  function opcionesPara(m, buscar) {
+    const uso = {};
+    for (const x of E.movimientos) if (x.categoria) uso[x.categoria] = (uso[x.categoria] || 0) + 1;
+    const tipo = m && m.monto > 0 ? "ingreso" : "gasto", q = normalizar(buscar), sug = categoriaSugerida(m);
+    return E.categorias.map((c, i) => [c, i]).filter(([c]) => !q || normalizar(c.nombre).includes(q))
+      .sort(([a, i], [b, j]) => (b.id === sug) - (a.id === sug) || (a.tipo === tipo ? 0 : a.tipo === "neutro" ? 1 : 2) - (b.tipo === tipo ? 0 : b.tipo === "neutro" ? 1 : 2) || (uso[b.id] || 0) - (uso[a.id] || 0) || i - j)
+      .map(([c]) => c);
+  }
+  /** Lo que aprendí de tus movimientos: la categoría que más le has puesto a este mismo comercio (va primero al elegir). */
+  function categoriaSugerida(m) {
+    const k = m ? reglaPara(m.descripcion) : "";
+    if (k.length < 3) return "";
+    const n = {};
+    for (const x of E.movimientos) if (x !== m && x.categoria && reglaPara(x.descripcion) === k) n[x.categoria] = (n[x.categoria] || 0) + 1;
+    const mejor = Object.entries(n).sort((a, b) => b[1] - a[1])[0];
+    return mejor && cat(mejor[0]).id ? mejor[0] : "";
+  }
+  const EMOJIS = ["🏷️", "🍽️", "🎬", "🎉", "🎁", "✈️", "🛍️", "☕", "🎮", "🍻", "👕", "🏋️", "🧸", "💇", "🎵", "💻"];
+  const PISTAS_EMOJI = [[/CINE|PELICULA|SERIE/, "🎬"], [/DIVERSION|DIVERTID|PARQUE|ENTRETEN|FUN/, "🎢"], [/JUEGO|GAME|CONSOLA/, "🎮"], [/CAFE|COFFEE/, "☕"],
+    [/BAR|CERVEZA|COPETE|TRAGO|VINO|BEER|DRINK/, "🍻"], [/COMIDA|ALMUERZO|CENA|RESTAUR|FOOD|MEAL|LUNCH|DINNER/, "🍽️"], [/DELIVERY/, "🛵"], [/REGALO|GIFT|CUMPLE/, "🎁"],
+    [/VIAJE|VACACION|TRAVEL|HOTEL|PASAJE/, "✈️"], [/ROPA|ZAPAT|CLOTH/, "👕"], [/DEPORTE|GYM|GIMNASIO|SPORT|FUTBOL/, "🏋️"], [/NINO|HIJO|BEBE|KID|JUGUETE/, "🧸"],
+    [/PELUQ|BELLEZA|HAIR|BEAUTY/, "💇"], [/MUSICA|CONCIERTO|MUSIC/, "🎵"], [/TECNO|COMPUTA|TECH/, "💻"], [/FIESTA|PARTY|CARRETE/, "🎉"], [/LIBRO|BOOK/, "📚"],
+    [/MASCOTA|PERRO|GATO|PET/, "🐾"], [/AHORRO|SAVING/, "🐷"], [/DONACION|DONATION|CARIDAD/, "🤝"], [/SALUD|MEDIC|DOCTOR|HEALTH/, "🩺"], [/CASA|HOGAR|HOME/, "🏠"],
+    [/AUTO|CAR\b|BENCINA|FUEL/, "🚗"], [/TAXI|UBER/, "🚕"], [/COMPRA|SHOP/, "🛍️"]];
+  const sugerirEmoji = (nombre) => (PISTAS_EMOJI.find(([re]) => re.test(normalizar(nombre))) || [null, "🏷️"])[1];
+  function idNuevaCategoria(nombre) {
+    let base = normalizar(nombre).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 30) || "categoria";
+    if (base.length < 2) base += "_cat";
+    let id = base, n = 2;
+    while (E.categorias.some((c) => c.id === id)) id = `${base}_${n++}`;
+    return id;
+  }
+  /** El elegidor de categoría: en el panel que se abre desde el chip (lugar «picker») o en «Por ordenar» (con atajos 1–9). */
+  function elegidor(m, k, lugar) {
+    const ops = opcionesPara(m, k.buscar), q = String(k.buscar || "").trim();
+    const exacta = q && E.categorias.some((c) => normalizar(c.nombre) === normalizar(q));
+    const atajos = lugar === "ordenar";
+    const sug = categoriaSugerida(m);
+    const botones = ops.map((c, i) => `<button type="button" class="op-cat ${c.id === m.categoria ? "actual" : ""} ${c.id === sug && !m.categoria ? "sugerida" : ""}" data-pick="${esc(c.id)}" data-lugar="${lugar}" ${c.id === sug && !m.categoria ? `title="La que sueles usar para este comercio"` : ""}>
+        ${atajos && i < 9 ? `<kbd aria-hidden="true">${i + 1}</kbd>` : ""}<span class="e" aria-hidden="true">${c.emoji}</span><span class="n" data-sin-traducir>${esc(nombreCat(c))}</span></button>`).join("");
+    const crear = q && !exacta ? `<button type="button" class="op-cat crear" data-nueva-cat="${lugar}" data-con-nombre="1"><span class="e" aria-hidden="true">＋ ${sugerirEmoji(q)}</span><span class="n" data-sin-traducir>${T("Crear «{x}»", { x: esc(q) })}</span></button>`
+      : `<button type="button" class="op-cat nueva" data-nueva-cat="${lugar}"><span class="e" aria-hidden="true">＋</span><span class="n">Nueva</span></button>`;
+    const nueva = k.nueva ? `<div class="nueva-cat" role="group" aria-label="Nueva categoría">
+        <label class="campo"><span>Nombre de la categoría</span><input class="texto" id="${lugar}-nueva" data-nueva-nombre="${lugar}" maxlength="40" value="${esc(k.nueva.nombre)}" placeholder="${esc(tr("p. ej. Cine o Comida atípica"))}" data-sin-traducir></label>
+        <div class="emojis" role="radiogroup" aria-label="Emoji">${[...new Set([k.nueva.emoji || sugerirEmoji(k.nueva.nombre), ...EMOJIS])].slice(0, 12).map((e) =>
+          `<button type="button" role="radio" aria-checked="${e === (k.nueva.emoji || sugerirEmoji(k.nueva.nombre))}" data-nueva-emoji="${e}" data-lugar="${lugar}" data-sin-traducir>${e}</button>`).join("")}</div>
+        ${k.nueva.error ? `<p class="error-txt" data-sin-traducir>${esc(k.nueva.error)}</p>` : ""}
+        <div class="pie-dialogo"><button type="button" class="boton" data-nueva-cancelar="${lugar}">Cancelar</button><button type="button" class="boton principal" data-nueva-guardar="${lugar}">Crear y usar</button></div></div>` : "";
+    return `<input class="texto buscar-cat" id="${lugar}-buscar" type="search" data-buscar-cat="${lugar}" value="${esc(k.buscar || "")}" placeholder="${esc(tr("Buscar o crear categoría"))}" aria-label="${esc(tr("Buscar o crear categoría"))}" autocomplete="off" data-sin-traducir>
+      ${nueva || `<div class="opciones-cat">${botones}${crear}</div>`}`;
+  }
+  function pickerHTML() {
+    const k = E.picker, m = E.movimientos.find((x) => x.id === k.id);
+    if (!m) return "";
+    const pos = k.hoja ? "" : `style="top:${k.top}px;left:${k.left}px;max-height:${k.alto}px"`;
+    return `<div class="picker-capa" data-cerrar-picker></div><div class="picker ${k.hoja ? "hoja" : ""}" role="dialog" aria-modal="true" aria-labelledby="picker-titulo" ${pos}>
+      <p class="picker-titulo" id="picker-titulo"><span data-sin-traducir>${esc(m.descripcion)}</span> <span class="valor" data-sin-traducir>${esc(dinero(m.monto, m.moneda, true))}</span></p>
+      ${elegidor(m, k, "picker")}</div>`;
+  }
+  function abrirPicker(id) {
+    const chip = document.getElementById("chip-" + id), r = chip?.getBoundingClientRect();
+    const hoja = innerWidth < 600 || !r;
+    let top = r ? r.bottom + 6 : 0, alto = r ? innerHeight - top - 12 : 0;
+    if (!hoja && alto < 300) { alto = Math.min(420, r.top - 18); top = r.top - 6 - alto; }
+    E.picker = { id, buscar: "", nueva: null, hoja, top: Math.max(8, top), left: r ? Math.max(8, Math.min(r.left, innerWidth - 348)) : 0, alto: Math.min(420, Math.max(220, alto)) };
+    render();
+    $("#picker-buscar")?.focus();
+  }
+  const estadoElegidor = (lugar) => (lugar === "picker" ? E.picker : E.ordenar);
+  const movDe = (lugar) => (lugar === "picker" ? E.movimientos.find((x) => x.id === E.picker?.id) : colaOrdenar()[E.ordenar.i]);
+  /** Pone la categoría al tiro y ofrece, discreto, aprenderla para ese comercio. */
+  function elegirCategoria(m, id, lugar, enviada = false) {
+    m.categoria = id;
+    if (!enviada) host.enviar("categoria", { mes: mesDe(m.fecha), id: m.id, categoria: id });
+    const contiene = reglaPara(m.descripcion);
+    const parecidos = E.movimientos.filter((x) => x !== m && contiene && normalizar(x.descripcion).includes(contiene) && x.categoria !== id).length;
+    const ya = E.reglas.some((r) => normalizar(r.contiene) === contiene && r.categoria === id);
+    E.aprender = id && contiene.length >= 2 && !ya ? { contiene, categoria: id, parecidos } : null;
+    clearTimeout(elegirCategoria._t);
+    if (E.aprender) { const a = E.aprender; elegirCategoria._t = setTimeout(() => { if (E.aprender === a) { E.aprender = null; render(); } }, 12000); }
+    if (lugar === "picker") { E.picker = null; render(); document.getElementById("chip-" + m.id)?.focus(); return; }
+    if (lugar === "ordenar") { E.ordenar.buscar = ""; E.ordenar.nueva = null; render(); $(".vista-ordenar")?.focus(); return; }
+    render();
+  }
+  function crearCategoria(lugar) {
+    const k = estadoElegidor(lugar), m = movDe(lugar);
+    if (!k || !m) return;
+    const nombre = String(k.nueva?.nombre ?? k.buscar ?? "").replace(/\s+/g, " ").trim().slice(0, 40);
+    if (!nombre) { k.nueva = { ...(k.nueva || {}), nombre: "", error: tr("Ponle un nombre.") }; render(); return $(`#${lugar}-nueva`)?.focus(); }
+    const igual = E.categorias.find((c) => normalizar(c.nombre) === normalizar(nombre));
+    if (igual) return elegirCategoria(m, igual.id, lugar);
+    const c = { id: idNuevaCategoria(nombre), nombre, emoji: k.nueva?.emoji || sugerirEmoji(nombre), tipo: m.monto > 0 ? "ingreso" : "gasto" };
+    E.categorias = [...E.categorias, c];
+    host.enviar("categoriaNueva", { categoria: c, mes: mesDe(m.fecha), id: m.id });
+    toast(T("Creé «{c}»", { c: nombre }));
+    elegirCategoria(m, c.id, lugar, true);
+  }
+
+  // ───────────── Por ordenar: los sin categoría, uno a uno y con el teclado ─────────────
+  const colaOrdenar = () => E.movimientos.filter((m) => !m.categoria).sort((a, b) => cmp(b.fecha, a.fecha) || cmp(a.descripcion, b.descripcion) || cmp(a.id, b.id));
+  function vistaOrdenar() {
+    const cola = colaOrdenar(), k = E.ordenar;
+    const cab = (extra = "") => `<div class="encabezado"><h1>Por ordenar</h1>${extra}</div>`;
+    if (!cola.length) {
+      return `<div class="contenido vista-ordenar" tabindex="-1">${cab()}<section class="tarjeta ordenado"><p class="grande">🎉</p><h2>Todo ordenado</h2>
+        <p class="texto-suave">Cada movimiento tiene su categoría. Lo que agregues después y calce con lo que aprendí se ordena solo.</p>
+        <button class="boton principal" data-vista="resumen">Ver el resumen</button></section></div>`;
+    }
+    if (k.i >= cola.length) {
+      return `<div class="contenido vista-ordenar" tabindex="-1">${cab()}<section class="tarjeta ordenado"><h2>${frase(cola.length === 1 ? "Te saltaste 1" : "Te saltaste {n}", { n: cola.length })}</h2>
+        <p class="texto-suave">Quedan sin categoría. Puedes volver a mirarlos cuando quieras.</p>
+        <button class="boton principal" data-accion="ordenar-inicio">Volver al primero</button></section></div>`;
+    }
+    k.i = Math.max(0, k.i);
+    const m = cola[k.i], cuentas = Object.fromEntries(E.cuentas.map((c) => [c.id, c.nombre])), medio = medioTexto(m);
+    return `<div class="contenido vista-ordenar" tabindex="-1">${cab(`<span class="contador-ordenar" data-sin-traducir>${T("{i} de {n}", { i: k.i + 1, n: cola.length })}</span>`)}
+      <div class="avance-ordenar" aria-hidden="true"><i style="width:${(k.i / cola.length * 100).toFixed(1)}%"></i></div>
+      <section class="tarjeta mov-grande">
+        <p class="desc" data-sin-traducir>${esc(m.descripcion)}</p>
+        <p class="cifra ${m.monto > 0 ? "ingreso" : ""}" data-sin-traducir>${esc(dinero(m.monto, m.moneda, true))}<span class="codigo-moneda">${esc(m.moneda || monedaPrincipal())}</span></p>
+        <p class="texto-suave" data-sin-traducir>${esc(primeraMayuscula(nombreDia(m.fecha)))} · ${esc(cuentas[m.cuenta] || m.cuenta)}${medio ? ` · ${medio}` : ""}</p></section>
+      <section class="tarjeta elegir-ordenar">${elegidor(m, k, "ordenar")}</section>
+      <div class="pie-ordenar"><button class="boton" data-accion="ordenar-atras" ${k.i ? "" : "disabled"}>‹ <span>Anterior</span></button>
+        <p class="atajos">${frase("Atajos: **1–9** elige · **→** salta · **←** vuelve · **/** busca", {})}</p>
+        <button class="boton" data-accion="ordenar-saltar"><span>Saltar</span> ›</button></div></div>`;
   }
 
   function vistaMovimientos() {
@@ -735,25 +1104,30 @@
         const total = lista.filter((x) => x.fecha === dia && x.monto < 0 && cat(x.categoria).tipo !== "neutro").reduce((a, x) => a + x.monto, 0);
         html += `<div class="dia" data-sin-traducir><span>${esc(nombreDia(dia))}</span><span>${total ? esc(dinero(total)) : ""}</span></div>`;
       }
-      const c = cat(m.categoria), neutro = c.tipo === "neutro";
-      html += `<div class="mov ${neutro ? "neutro" : ""}">
-        <label class="elegir-envoltura" style="position:relative" title="Cambiar categoría">
-          <span class="elegir-cat ${m.categoria ? "" : "falta"}" style="display:grid;place-items:center" aria-hidden="true">${c.emoji}</span>
-          <select data-categoria="${esc(m.id)}" aria-label="${esc(tr("Categoría"))}" data-sin-traducir style="position:absolute;inset:0;opacity:0;cursor:pointer">${opcionesCategoria(m.categoria)}</select></label>
-        <div style="min-width:0"><span class="t" data-sin-traducir>${esc(m.descripcion)}</span>
-          <span class="m"><span data-sin-traducir>${esc(cuentas[m.cuenta] || m.cuenta)}</span> · <span data-sin-traducir>${esc(nombreCat(c))}</span></span></div>
-        <span class="valor ${m.monto > 0 && !neutro ? "ingreso" : ""}" data-sin-traducir>${esc(dinero(m.monto, m.moneda, true))}</span></div>`;
+      html += filaMov(m, cuentas);
     }
-    const aprender = E.aprender ? `<div class="aprender" role="status">${frase("¿Uso **{c}** para todo lo que diga «{r}», también en lo que agregues después?",
-      { c: esc(cat(E.aprender.categoria).emoji + " " + nombreCat(cat(E.aprender.categoria))), r: esc(E.aprender.contiene) }, "p")}
-      <button class="boton" data-accion="aprender-no">Solo este</button><button class="boton principal" data-accion="aprender-si">Sí, siempre</button></div>` : "";
-    return `<div class="contenido"><div class="encabezado"><h1>Movimientos</h1>${selectorMes()}</div>${aprender}
+    const c = f.categoria && f.categoria !== "__sin" ? cat(f.categoria) : null;
+    const hist = c && c.id ? `<section class="tarjeta"><div class="tarjeta-cabeza">${frase("Últimos 6 meses de {c}", { c: esc(nombreCat(c)) }, "h2")}</div>
+      ${bloqueHistoria(historia(E.movimientos, E.mes, E.hoy, E.presupuesto, E.categorias, c.id, 6, per()), T("Gasto en {c} de los últimos 6 meses", { c: esc(nombreCat(c)) }), true)}</section>` : "";
+    return `<div class="contenido"><div class="encabezado"><h1>Movimientos</h1>${selectorMes()}</div>
       <div class="filtros"><input id="buscar" class="texto" type="search" placeholder="Buscar" value="${esc(f.texto)}" data-filtro="texto" aria-label="Buscar" data-sin-traducir>
         <select data-filtro="categoria" aria-label="${esc(tr("Filtrar por categoría"))}" data-sin-traducir><option value="">${esc(tr("Todas las categorías"))}</option>
           <option value="__sin" ${f.categoria === "__sin" ? "selected" : ""}>🏷️ ${esc(tr("Sin categoría"))}</option>
-          ${E.categorias.map((c) => `<option value="${esc(c.id)}" ${f.categoria === c.id ? "selected" : ""} data-sin-traducir>${c.emoji} ${esc(c.nombre)}</option>`).join("")}</select></div>
+          ${E.categorias.map((c) => `<option value="${esc(c.id)}" ${f.categoria === c.id ? "selected" : ""} data-sin-traducir>${c.emoji} ${esc(c.nombre)}</option>`).join("")}</select>
+        ${f.categoria === "__sin" && lista.length ? `<button class="boton" data-vista="ordenar">Ordenar uno a uno</button>` : ""}</div>
+      ${hist}
       ${html || `<div class="vacio" style="padding:40px 20px"><p>${f.texto || f.categoria ? "Nada calza con ese filtro." : "No hay movimientos este mes."}</p>
         ${f.texto || f.categoria ? `<button class="boton" data-accion="limpiar-filtro">Ver todos</button>` : ""}</div>`}</div>`;
+  }
+
+  /** El aviso discreto después de elegir una categoría: «¿Siempre para este comercio?». */
+  function avisoRegla() {
+    const a = E.aprender;
+    if (!a || !cat(a.categoria).id) return "";
+    const c = cat(a.categoria);
+    return `<div class="aviso-regla" role="status"><p>${frase(a.parecidos ? (a.parecidos === 1 ? "¿Siempre {c} para «{r}»? También hay 1 parecido." : "¿Siempre {c} para «{r}»? También hay {n} parecidos.") : "¿Siempre {c} para «{r}»?",
+      { c: esc(c.emoji + " " + nombreCat(c)), r: esc(a.contiene), n: a.parecidos })}</p>
+      <button class="boton principal" data-accion="aprender-si">Sí, siempre</button><button class="icono" data-accion="aprender-no" title="Solo este" aria-label="Solo este">✕</button></div>`;
   }
 
   function vistaPresupuesto() {
@@ -850,20 +1224,6 @@
       <div class="txt"><b data-sin-traducir>${esc(i.nombre)}</b><small data-sin-traducir><span class="punto" aria-hidden="true"></span>${detalle.join(" · ")}</small></div>
       <span class="valor ${i.signo === "ingreso" ? "ingreso" : ""}" data-sin-traducir>${esc(dinero(i.monto, i.moneda))}</span>
       ${acciones ? `<div class="acciones">${acciones}</div>` : ""}</div>`;
-  }
-  /** «Por pagar este mes», arriba del Resumen: lo atrasado primero, después lo que vence en 5 días o menos, y el total pendiente. */
-  function tarjetaPorPagar() {
-    if (!listaCompromisos().length || E.mes !== periodoHoy()) return "";
-    const e = estadoDelMes();
-    const gastos = e.items.filter((i) => i.signo === "gasto" && i.estado !== "pagado");
-    const urgentes = [...gastos.filter((i) => i.estado === "atrasado").sort((a, b) => b.dias - a.dias),
-      ...gastos.filter((i) => i.estado === "hoy"), ...gastos.filter((i) => i.estado === "pendiente" && i.dias <= 5)];
-    if (!e.total && !e.arrastre) return "";
-    const pie = e.pendiente ? frase("Te falta pagar **{x}** este mes, de {t} en compromisos.", { x: esc(dinero(e.pendiente)), t: esc(dinero(e.total + e.arrastre)) }, "p")
-      : `<p>🎉 ${frase("Pagaste todos tus compromisos del mes ({t}).", { t: esc(dinero(e.total)) })}</p>`;
-    return `<section class="tarjeta por-pagar"><div class="tarjeta-cabeza"><h2>Por pagar este mes</h2><button class="boton sutil" data-vista="compromisos">Ver todos</button></div>
-      ${urgentes.length ? urgentes.map((i) => filaCompromiso(i, false)).join("") : e.pendiente ? `<p class="texto-suave">Nada urgente: lo que falta vence en más de 5 días.</p>` : ""}
-      <div class="pie-por-pagar">${pie}</div></section>`;
   }
   function textoFrecuencia(c) {
     if (c.frecuencia === "mensual") return T("el {d} de cada mes", { d: c.dia });
@@ -1230,11 +1590,35 @@
   // ───────────── Eventos ─────────────
   const ocupadoImportando = () => ["leyendo", "aprendiendo", "guardando"].includes(E.importar?.paso);
   document.addEventListener("click", (ev) => {
-    const el = ev.target.closest("[data-accion],[data-vista],[data-mes],[data-probar],[data-bv],[data-idioma-bv],[data-enlace],[data-respaldo],[data-consejo],[data-conectar],[data-sincronizar],[data-desconectar],[data-mcp],[data-mcp-quitar],[data-historia],[data-comp-pagado],[data-comp-noes],[data-comp-desmarcar],[data-comp-editar],[data-sug-agregar],[data-sug-no],[data-det-agregar],[data-det-no]");
+    const el = ev.target.closest("[data-accion],[data-vista],[data-mes],[data-probar],[data-bv],[data-idioma-bv],[data-enlace],[data-respaldo],[data-consejo],[data-conectar],[data-sincronizar],[data-desconectar],[data-mcp],[data-mcp-quitar],[data-historia],[data-comp-pagado],[data-comp-noes],[data-comp-desmarcar],[data-comp-editar],[data-sug-agregar],[data-sug-no],[data-det-agregar],[data-det-no],[data-cifra],[data-cifra-abrir],[data-ir-cat],[data-elegir],[data-pick],[data-nueva-cat],[data-nueva-emoji],[data-nueva-cancelar],[data-nueva-guardar],[data-cerrar-picker],[data-saldo-editar],[data-saldo-cancelar],[data-regla-si],[data-regla-no]");
     if (!el) return;
     const d = el.dataset;
     if (d.enlace) { ev.preventDefault(); return host.enviar("abrirEnlace", { url: d.enlace }); }
-    if (d.vista) { E.vista = d.vista; E.presEdit = null; E.aprender = null; return render(); }
+    if (d.cerrarPicker != null) { const id = E.picker?.id; E.picker = null; render(); return document.getElementById("chip-" + id)?.focus(); }
+    if (d.vista) { E.vista = d.vista; E.presEdit = null; E.picker = null; if (d.vista === "ordenar") E.ordenar = { i: 0, buscar: "", nueva: null }; render(); if (d.vista === "ordenar") $(".vista-ordenar")?.focus(); return; }
+    if (d.cifra || d.cifraAbrir) { E.cifra = d.cifraAbrir || d.cifra; E.saldoAviso = null; render(); if (d.cifraAbrir) $("#desglose")?.scrollIntoView?.({ block: "nearest" }); return $(`[data-cifra="${E.cifra}"]`)?.focus(); }
+    if (d.irCat != null) {
+      if (!d.irCat) { E.vista = "ordenar"; E.ordenar = { i: 0, buscar: "", nueva: null }; return render(); }
+      E.vista = "movimientos"; E.filtro = { texto: "", categoria: d.irCat }; return render();
+    }
+    if (d.elegir) return abrirPicker(d.elegir);
+    if (d.pick != null) { const m = movDe(d.lugar); if (m) elegirCategoria(m, d.pick, d.lugar); return; }
+    if (d.nuevaCat) {
+      const k = estadoElegidor(d.nuevaCat), nombre = d.conNombre ? String(k.buscar || "").trim() : "";
+      k.nueva = { nombre, emoji: "", error: "" };
+      if (nombre) return crearCategoria(d.nuevaCat);
+      render(); return $(`#${d.nuevaCat}-nueva`)?.focus();
+    }
+    if (d.nuevaEmoji) { const k = estadoElegidor(d.lugar); if (k?.nueva) { k.nueva.emoji = d.nuevaEmoji; render(); $(`[data-nueva-emoji="${d.nuevaEmoji}"]`)?.focus(); } return; }
+    if (d.nuevaCancelar) { estadoElegidor(d.nuevaCancelar).nueva = null; render(); return $(`#${d.nuevaCancelar}-buscar`)?.focus(); }
+    if (d.nuevaGuardar) return crearCategoria(d.nuevaGuardar);
+    if (d.saldoEditar) { E.saldoEdit = { cuenta: d.saldoEditar, texto: "" }; E.saldoAviso = null; render(); return $(`#saldo-${CSS.escape(d.saldoEditar)}`)?.focus(); }
+    if (d.saldoCancelar != null) { E.saldoEdit = null; return render(); }
+    if (d.reglaSi) {
+      const r = { contiene: d.reglaSi, categoria: d.reglaCat };
+      host.enviar("regla", r); E.reglas.push(r); aplicarRegla(r); toast("Aprendido"); return render();
+    }
+    if (d.reglaNo) { E.reglasNo = [...(E.reglasNo || []), d.reglaNo]; return render(); }
     if (d.mes) { E.mes = d.mes; E.aprender = null; return render(); }
     if (d.historia != null) { E.histCat = E.histCat === d.historia ? null : d.historia; render(); $(`[data-historia="${CSS.escape(d.historia)}"]`)?.focus(); return; }
     if (d.probar) { E.probando[d.probar] = true; delete E.resultadoIA[d.probar]; host.enviar("probarIA", { id: d.probar }); return render(); }
@@ -1256,7 +1640,7 @@
       const s = (E.sugerencias || []).find((x) => x.clave === (d.sugAgregar || d.sugNo));
       if (!s) return;
       if (d.sugNo) { E.compromisos.descartados = [...(E.compromisos.descartados || []), s.clave]; host.enviar("compromiso", { accion: "descartar", clave: s.clave }); toast("Listo: no te lo vuelvo a sugerir"); return render(); }
-      editarDesdeSugerencia(s); render(); return enfocarEditor();
+      editarDesdeSugerencia(s); E.vista = "compromisos"; render(); return enfocarEditor();
     }
     if (d.detAgregar != null || d.detNo != null) {
       const n = Number(d.detAgregar ?? d.detNo), s = E.importar?.resultado?.detectados?.[n];
@@ -1291,7 +1675,10 @@
       case "ver-movimientos": E.importar = null; E.vista = "movimientos"; E.filtro = { texto: "", categoria: "" }; return render();
       case "ver-sin-categoria": E.vista = "movimientos"; E.filtro = { texto: "", categoria: "__sin" }; return render();
       case "limpiar-filtro": E.filtro = { texto: "", categoria: "" }; return render();
-      case "aprender-si": host.enviar("regla", E.aprender); E.reglas.push(E.aprender); aplicarRegla(E.aprender); toast("Aprendido"); E.aprender = null; return render();
+      case "aprender-si": { const r = { contiene: E.aprender.contiene, categoria: E.aprender.categoria }; host.enviar("regla", r); E.reglas.push(r); aplicarRegla(r); toast("Aprendido"); E.aprender = null; return render(); }
+      case "ordenar-saltar": E.ordenar.i++; E.ordenar.buscar = ""; E.ordenar.nueva = null; render(); return $(".vista-ordenar")?.focus();
+      case "ordenar-atras": E.ordenar.i = Math.max(0, E.ordenar.i - 1); E.ordenar.buscar = ""; E.ordenar.nueva = null; render(); return $(".vista-ordenar")?.focus();
+      case "ordenar-inicio": E.ordenar = { i: 0, buscar: "", nueva: null }; render(); return $(".vista-ordenar")?.focus();
       case "aprender-no": E.aprender = null; return render();
       case "sugerir": {
         const s = presupuestoSugerido(E.movimientos, mesesCompletos(), E.categorias, E.presupuesto.moneda, per());
@@ -1326,6 +1713,7 @@
         host.enviar("compromiso", { accion: "borrar", id }); E.compEdit = null; toast("Compromiso borrado"); return render();
       }
       case "sug-todas": E.sugTodas = !E.sugTodas; return render();
+      case "ver-todas-cat": E.verTodasCat = !E.verTodasCat; return render();
       case "usar-maximos": {
         const g = gastoMaximo(E.movimientos, listaCompromisos(), E.mes, E.hoy, E.categorias, mesesCompletos(), monedaPrincipal(), per());
         E.presEdit = { ...E.presEdit, ...Object.fromEntries(g.por_categoria.filter((x) => x.maximo > 0).map((x) => [x.categoria, x.maximo])) };
@@ -1337,6 +1725,9 @@
   document.addEventListener("input", (ev) => {
     const ds = ev.target.dataset || {};
     if (ds.filtro === "texto") { E.filtro.texto = ev.target.value; return render(); }
+    if (ds.buscarCat) { estadoElegidor(ds.buscarCat).buscar = ev.target.value; return render(); }
+    if (ds.nuevaNombre) { const k = estadoElegidor(ds.nuevaNombre); k.nueva = { ...k.nueva, nombre: ev.target.value, error: "" }; return render(); }
+    if (ds.saldoInput) { E.saldoEdit = { cuenta: ds.saldoInput, texto: ev.target.value.replace(/[^\d\-]/g, "").replace(/(?!^)-/g, "") }; ev.target.value = E.saldoEdit.texto ? (E.saldoEdit.texto.startsWith("-") ? "-" : "") + numeroPlano(Math.abs(Number(E.saldoEdit.texto)) || 0) : ""; return; }
     if (ds.compTexto != null) { E.compTexto = ev.target.value; return; }
     if (ds.ce && E.compEdit && ev.target.tagName === "INPUT") {
       const numerico = ["monto", "cuotas_total", "cuotas_pagadas", "saldo"].includes(ds.ce);
@@ -1384,16 +1775,6 @@
     if (ds.vigilar != null) { E.vigilar.activo = ev.target.checked; host.enviar("vigilar", { activo: ev.target.checked });
       toast(ev.target.checked ? "Listo: las cartolas que descargues desde ahora se agregan solas" : "Ya no reviso tu carpeta de Descargas"); return render(); }
     if (ds.compartir != null) { E.importar.compartir = ev.target.checked; return; }
-    if (ds.categoria) {
-      const m = E.movimientos.find((x) => x.id === ds.categoria);
-      if (!m) return;
-      m.categoria = ev.target.value;
-      host.enviar("categoria", { mes: mesDe(m.fecha), id: m.id, categoria: m.categoria });
-      const contiene = reglaPara(m.descripcion);
-      const parecidos = E.movimientos.filter((x) => x !== m && contiene && normalizar(x.descripcion).includes(contiene) && x.categoria !== m.categoria).length;
-      E.aprender = m.categoria && contiene && parecidos ? { contiene, categoria: m.categoria } : null;
-      return render();
-    }
     const clave = ds.config;
     if (!clave) return;
     E.config[clave] = ev.target.value;
@@ -1405,13 +1786,57 @@
     render();
   });
   document.addEventListener("keydown", (ev) => {
+    const t = ev.target, ds = t?.dataset || {};
+    if (ev.key === "Enter" && (ds.buscarCat || ds.nuevaNombre)) {
+      ev.preventDefault();
+      const lugar = ds.buscarCat || ds.nuevaNombre, k = estadoElegidor(lugar), m = movDe(lugar);
+      if (ds.nuevaNombre || !m) return crearCategoria(lugar);
+      const primera = opcionesPara(m, k.buscar)[0];
+      if (primera) return elegirCategoria(m, primera.id, lugar);
+      if (String(k.buscar || "").trim()) { k.nueva = { nombre: k.buscar.trim(), emoji: "", error: "" }; return crearCategoria(lugar); }
+      return;
+    }
+    // «Por ordenar» con el teclado: 1–9 elige, → salta, ← vuelve, / busca (fuera de los campos de texto).
+    if (E.vista === "ordenar" && !E.picker && !E.importar && !E.conectar && !E.ajustes && E.bv === null && !E.ordenar.nueva && !t.matches?.("input, textarea, select") && !ev.metaKey && !ev.ctrlKey && !ev.altKey) {
+      const m = colaOrdenar()[E.ordenar.i];
+      if (m && /^[1-9]$/.test(ev.key)) { const c = opcionesPara(m, E.ordenar.buscar)[Number(ev.key) - 1]; if (c) { ev.preventDefault(); return elegirCategoria(m, c.id, "ordenar"); } }
+      if (ev.key === "ArrowRight") { ev.preventDefault(); E.ordenar.i++; render(); return $(".vista-ordenar")?.focus(); }
+      if (ev.key === "ArrowLeft") { ev.preventDefault(); E.ordenar.i = Math.max(0, E.ordenar.i - 1); render(); return $(".vista-ordenar")?.focus(); }
+      if (ev.key === "/") { ev.preventDefault(); return $("#ordenar-buscar")?.focus(); }
+    }
     if (ev.key !== "Escape") return;
+    if (E.picker) { const id = E.picker.id; if (E.picker.nueva) { E.picker.nueva = null; render(); return $("#picker-buscar")?.focus(); } E.picker = null; render(); return document.getElementById("chip-" + id)?.focus(); }
+    if (E.vista === "ordenar" && E.ordenar.nueva) { E.ordenar.nueva = null; render(); return $("#ordenar-buscar")?.focus(); }
     if (E.importar && !ocupadoImportando()) { E.importar = null; return render(); }
     if (E.conectar && !E.conectar.enviando) { E.conectar = null; return render(); }
     if (E.ajustes) { E.ajustes = false; return render(); }
     if (E.aprender) { E.aprender = null; return render(); }
     if (E.compEdit) { E.compEdit = null; return render(); }
   });
+  document.addEventListener("submit", (ev) => {
+    const cuenta = ev.target.dataset?.saldoForm;
+    if (cuenta == null) return;
+    ev.preventDefault();
+    guardarSaldo(cuenta);
+  });
+  document.addEventListener("toggle", (ev) => { if (ev.target.dataset?.plegable === "comparar") E.compararAbierto = ev.target.open; }, true);
+  /** Lo que la persona dice que tiene hoy en una cuenta: pasa a ser la base. Si no cuadra con lo que yo calculaba, lo digo en simple. */
+  function guardarSaldo(cuenta) {
+    const texto = (E.saldoEdit?.cuenta === cuenta ? E.saldoEdit.texto : $(`#saldo-${CSS.escape(cuenta)}`)?.value || "").replace(/[^\d\-]/g, "");
+    if (!/^-?\d+$/.test(texto)) { toast("Escribe cuánto tienes, solo el número"); return $(`#saldo-${CSS.escape(cuenta)}`)?.focus(); }
+    const monto = Number(texto), moneda = monedaPrincipal();
+    const antes = loQueTienes(E.cuentas, E.movimientos, moneda).cuentas.find((c) => c.id === cuenta);
+    let c = E.cuentas.find((x) => x.id === cuenta);
+    if (!c) { c = { id: cuenta, nombre: antes?.nombre || cuenta, receta: "", moneda: "" }; E.cuentas = [...E.cuentas, c]; }
+    c.saldo = { monto, fecha: E.hoy, origen: "persona" };
+    host.enviar("saldo", { cuenta, monto, fecha: E.hoy });
+    E.saldoEdit = null;
+    const dif = antes && antes.saldo != null ? monto - antes.saldo : null;
+    E.saldoAviso = dif == null ? { cuadra: true, texto: T("Listo: desde hoy sigo tus movimientos en {c}.", { c: esc(c.nombre) }) }
+      : Math.abs(dif) < 1 ? { cuadra: true, texto: T("✓ Cuadra con lo que yo calculaba para {c}.", { c: esc(c.nombre) }) }
+        : { cuadra: false, texto: T(dif > 0 ? "Había una diferencia de {x} (tienes más de lo que yo calculaba): puede ser plata que entró y no veo, como una devolución o un traspaso. Desde ahora parto de lo que me dijiste." : "Había una diferencia de {x} (tienes menos de lo que yo calculaba): puede ser plata en Reservas o movimientos que no veo. Desde ahora parto de lo que me dijiste.", { x: esc(dinero(Math.abs(dif))) }) };
+    render();
+  }
   /** Guarda el idioma por el mismo camino que Ajustes y sigue con la bienvenida, ya en ese idioma. */
   async function elegirIdioma(codigo) {
     if (codigo !== "es" && codigo !== "en") return;
@@ -1541,7 +1966,7 @@
       if ((r.sin_receta || []).length) toast(T("Descargaste «{x}», pero todavía no sé leerla. Agrégala a mano y tu IA aprende.", { x: r.sin_receta[0] }));
     },
     _probar(f) { f(E); render(); },
-    _pruebas: { resumen, historia, redondearArriba, presupuestoSugerido, reglaPara, estadoCompromisos, gastoMaximo, rango, periodoDe, periodoConfig },
+    _pruebas: { resumen, historia, redondearArriba, presupuestoSugerido, reglaPara, estadoCompromisos, gastoMaximo, rango, periodoDe, periodoConfig, loQueTienes, loQueDebes, cargos },
   };
 
   // ───────────── Vista previa en el navegador (datos ficticios de demo.json) ─────────────
@@ -1575,6 +2000,8 @@
       }
       case "categoria": { const m = DEMO.movimientos.find((x) => x.id === d.id); if (m) m.categoria = d.categoria; return; }
       case "regla": DEMO.reglas.push(d); return;
+      case "categoriaNueva": { DEMO.categorias = [...DEMO.categorias, d.categoria]; const m = DEMO.movimientos.find((x) => x.id === d.id); if (m) m.categoria = d.categoria.id; return; }
+      case "saldo": { const c = DEMO.cuentas.find((x) => x.id === d.cuenta); if (c) c.saldo = { monto: d.monto, fecha: d.fecha, origen: "persona" }; return; }
       case "presupuesto": DEMO.presupuesto.mensual = d.mensual; return;
       case "pedirConsejos": return luego(1300, () => A.consejosListos({ ok: true, fecha: d.hoy, texto: DEMO.consejos[0].texto }));
       case "abrirEnlace": return window.open(d.url, "_blank", "noopener");
@@ -1621,17 +2048,6 @@
   }
 
   const LOGO = `<svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="15" fill="#2b1d16"/><circle cx="30" cy="13.5" r="7" fill="#f2b632"/><rect x="27.5" y="10.5" width="5" height="6" rx="1.2" fill="#d99a1e"/><path d="M42 22.5 47.5 15l1.5 10z" fill="#cf6a3e"/><ellipse cx="30" cy="38" rx="20" ry="15" fill="#d9774b"/><rect x="23" y="23.6" width="14" height="3.4" rx="1.7" fill="#2b1d16"/><ellipse cx="50.5" cy="39" rx="4.6" ry="5.4" fill="#c2603a"/><circle cx="49.6" cy="37.4" r="1" fill="#2b1d16"/><circle cx="49.6" cy="40.8" r="1" fill="#2b1d16"/><circle cx="41.5" cy="33.5" r="1.9" fill="#2b1d16"/><rect x="17" y="49" width="6" height="7" rx="2" fill="#c2603a"/><rect x="34" y="49" width="6" height="7" rx="2" fill="#c2603a"/><path d="M10.5 36c-3 0-4.5-2-3.5-4" fill="none" stroke="#c2603a" stroke-width="2.2" stroke-linecap="round"/></svg>`;
-  /** La alcancía del resumen: se llena de monedas con lo que todavía te queda del presupuesto (0 a 1). */
-  function ALCANCIA_DIBUJO(lleno) {
-    const n = Math.round(Math.max(0, Math.min(1, lleno)) * 5);
-    const monedas = Array.from({ length: n }, (_, i) => `<circle cx="${20 + (i % 3) * 10 + (i > 2 ? 5 : 0)}" cy="${44 - (i > 2 ? 9 : 0)}" r="5" fill="var(--oro)" stroke="rgba(0,0,0,.15)"/>`).join("");
-    return `<svg class="alcancia-dibujo" viewBox="0 0 64 64" aria-hidden="true"><defs><clipPath id="cuerpo"><ellipse cx="30" cy="38" rx="20" ry="15"/></clipPath></defs>
-      <path d="M42 22.5 47.5 15l1.5 10z" fill="var(--acento)" opacity=".85"/><ellipse cx="30" cy="38" rx="20" ry="15" fill="var(--acento-suave)" stroke="var(--acento)" stroke-width="2"/>
-      <g clip-path="url(#cuerpo)">${monedas}</g><rect x="23" y="23.6" width="14" height="3.4" rx="1.7" fill="var(--acento)"/>
-      <ellipse cx="50.5" cy="39" rx="4.6" ry="5.4" fill="var(--acento)" opacity=".85"/><circle cx="41.5" cy="33.5" r="1.8" fill="var(--texto)"/>
-      <rect x="17" y="51" width="6" height="6" rx="2" fill="var(--acento)" opacity=".85"/><rect x="34" y="51" width="6" height="6" rx="2" fill="var(--acento)" opacity=".85"/></svg>`;
-  }
-
   async function iniciar() {
     if (HOST === "web") {
       try { DEMO = await (await fetch("demo.json")).json(); } catch { DEMO = { hoy: new Date().toISOString().slice(0, 10), config: {}, ias: [], movimientos: [], categorias: [] }; }

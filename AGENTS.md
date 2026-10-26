@@ -49,7 +49,20 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
   `pruebas/casos.json`. Si cambias una regla, cambia los dos lados y el caso. La proyección sigue el ritmo solo de lo variable
   (3+ gastos en el mes, categoría no `fijo`); lo fijo y lo esporádico queda como está. `historia` (Python) / `historia` (JS) da los
   6 meses que terminan en el mes elegido (total o una categoría, con su tope y el promedio de los meses anteriores con datos): la
-  tarjeta «Comparado con los últimos meses» y la historia al tocar una categoría. `consejos.py` le pasa a la IA solo esos totales.
+  tarjeta «Comparado con los últimos meses» (plegada, más abajo) y la historia de una categoría (en Movimientos, al filtrar por ella).
+  `consejos.py` le pasa a la IA solo esos totales.
+- **Resumen simple (tres cifras):** arriba, si falta pagar algo (`lineaAlDia`, con los compromisos) o «Estás al día»; después
+  **Lo que tienes** (`resumen.lo_que_tienes` / `loQueTienes`), **Lo que gastaste** (`resumen` con `cargos`: compras con crédito en
+  cuotas cuentan por la cuota del mes; las devoluciones descuentan) y **Lo que debes** (`compromisos.lo_que_debes` / `loQueDebes`:
+  compromisos pendientes y atrasados, créditos con lo que queda, tarjeta desde el último pago —`PAGO_TARJETA`, igual en los dos
+  lados— y cuotas futuras). Al tocar una cifra se abre su desglose. Probado con `pruebas/casos.json` (sección `tres_cifras`). Ritmo,
+  alertas, tendencia y consejos quedan abajo y compactos. «Aprendí esto de tus movimientos» muestra reglas sugeridas (`reglasSugeridas`:
+  un comercio que siempre tuvo la misma categoría y tiene movimientos sin ella) y sugerencias de compromisos. MCP `resumen_del_mes`
+  trae `tres_cifras` y `consejos.py` una línea con ellas: solo totales.
+- **Categorizar:** cada movimiento tiene un chip; el panel (`pickerHTML`/`elegidor`) pone primero la categoría que ese comercio suele
+  tener (`categoriaSugerida`), luego las del tipo correcto y las más usadas, con búsqueda y «Crear «X»» (emoji sugerido; acción
+  `categoriaNueva`, que crea y asigna en una sola llamada). Al elegir, aviso discreto «¿Siempre … para «X»?» (acción `regla`).
+  «Por ordenar» (`vistaOrdenar`) muestra los sin categoría uno a uno: 1–9 elige, → salta, ← vuelve, / busca.
 - **Compromisos:** `~/Alcancia/compromisos.json` (formato en el README). La misma lógica en `bin/compromisos.py` y `ui/app.js`
   (`vencimientos`, `coincide`, `asignar`, `estado_mes`/`estadoCompromisos`, `gasto_maximo`/`gastoMaximo`, `llegadas_sueldo`), probada
   con `pruebas/casos.json` (sección `compromisos`). Un pago se reconoce con signo, moneda, monto ±tolerancia y una palabra de `buscar`
@@ -71,7 +84,10 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
   redirecciones (se llevarían la llave a otro dominio) y la IA corre sin variables `ALCANCIA_*`. Al revisar cambios, mirar justo eso. `probar` revisa la llave y registra las cuentas en `cuentas.json` (campo `conector`);
   `traer` pide desde la última vez menos 10 días (o `dias_inicio` la primera vez), guarda sin duplicar con
   `id = sha1(conector|cuenta|id del servicio)` y categoriza igual que una cartola. El estado sin secretos queda en
-  `.alcancia/conexiones.json`. La app revisa sola al abrir y cada 6 horas.
+  `.alcancia/conexiones.json`. La app revisa sola al abrir y cada 6 horas. Opcional por conector: `saldo(cred, red)` (Mercado Pago,
+  Up, Akahu, SimpleFIN) → `cuentas.json` `saldo` con `origen: "conector"` en `probar` y `traer`; si falla, no rompe nada. Un
+  movimiento puede traer `medio`/`cuotas`/`cuota` (columnas opcionales del CSV) y `datos.completar` los agrega a lo ya guardado por id.
+  Al subir `REPARACIONES` (hoy 3), un conector con `RELEER_DIAS` vuelve a pedir ese rango una vez para completar lo guardado.
 - **Carpeta vigilada:** `vigilar.py activar` marca desde cuándo; `vigilar.py <carpeta>` importa los CSV/XLSX/PDF/OFX nuevos que reconozca
   una receta, una sola vez cada uno (por huella), y anota los que no sabe leer. Nunca borra ni mueve nada. En Mac la llama un
   `DispatchSource` sobre `~/Downloads` cuando la carpeta queda quieta 5 segundos.
@@ -100,7 +116,7 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
 ## Puente interfaz ↔ app
 La UI llama `host.enviar(accion, datos)` y la app responde con `window.Alcancia.<funcion>(json)`. En el navegador, `simular()` responde
 con datos ficticios. Acciones: `listo, config, probarIA, elegirCartola, vistaCartola, aprenderReceta, guardarReceta, importar,
-categoria, regla, presupuesto, pedirConsejos, abrirEnlace, abrirCarpeta, conectar, sincronizar, desconectar, vigilar, mcpConectar,
+categoria, categoriaNueva, saldo, regla, presupuesto, pedirConsejos, abrirEnlace, abrirCarpeta, conectar, sincronizar, desconectar, vigilar, mcpConectar,
 buscarActualizacion, actualizar, compromisoIA, compromiso, avisos`. Respuestas: `estado, iaProbada, cartolaElegida, vistaLista,
 recetaAprendida, importarProgreso, importado, consejosListos, conectado, sincronizado, importadoSolo, mcpListo, actualizacionRevisada,
 actualizacionProgreso, compromisoEntendido`. `pruebas/contrato.py` revisa que cada acción exista en `Ventana.swift` (y en Windows/Linux cuando exista), que cada

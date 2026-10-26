@@ -75,6 +75,22 @@ movs.append(("2026-06-21", "PASAJES AEREOS EJEMPLO", "ocio", -189000, "banco-eje
 movs.append(("2026-06-24", "HOSTAL VISTA AL MAR", "ocio", -96000, "banco-ejemplo"))
 movs.append((f"2026-10-16", "PAGO PENDIENTE 88231", "", -12990, "banco-ejemplo"))
 movs.append((f"2026-10-17", "TRANSFERENCIA A MATIAS SOTO", "", -25000, "billetera-ejemplo"))
+# Sin categoría para probar el ordenar rápido (el delivery ya se ordenó antes: Alcancía sugiere aprenderlo).
+movs.append(("2026-10-14", "ENTRADAS CONCIERTO EJEMPLO", "", -32000, "billetera-ejemplo"))
+movs.append(("2026-10-15", "HELADERIA POLO SUR", "", -4500, "billetera-ejemplo"))
+movs.append(("2026-10-17", "DELIVERY RAPIDITO *PEDIDO", "", -13990, "billetera-ejemplo"))
+# Cómo se pagó (lo que trae el conector): compras con crédito en cuotas, una en 1 cuota, una devolución y el pago de la tarjeta.
+COMO = {}
+def credito(f, desc, cat, monto, cuotas=0, cuota=0):
+    movs.append((f, desc, cat, monto, "billetera-ejemplo"))
+    COMO[(f, desc)] = {"medio": "credito", **({"cuotas": str(cuotas), "cuota": str(cuota)} if cuotas else {})}
+credito("2026-08-14", "TIENDA ELECTRO *LAVADORA", "casa", -349900, 6, 61000)
+credito("2026-10-08", "ZAPATILLAS DEPORTE EJEMPLO", "compras", -89970, 3, 29990)
+credito("2026-10-11", "LIBRERIA CENTRAL", "educacion", -15990)
+movs.append(("2026-10-05", "PAGO TARJETA BILLETERA EJEMPLO", "transferencia", -137990, "banco-ejemplo"))
+movs.append(("2026-10-02", "TIENDA ONLINE *AUDIFONOS", "compras", -24990, "billetera-ejemplo"))
+movs.append(("2026-10-13", "Devolución: TIENDA ONLINE *AUDIFONOS", "compras", 24990, "billetera-ejemplo"))
+COMO[("2026-10-02", "TIENDA ONLINE *AUDIFONOS")] = COMO[("2026-10-13", "Devolución: TIENDA ONLINE *AUDIFONOS")] = {"medio": "saldo"}
 
 vistos = {}
 salida = []
@@ -82,7 +98,7 @@ for f, desc, cat, monto, cuenta in sorted(movs):
     k = (f, desc, monto)
     vistos[k] = vistos.get(k, -1) + 1
     salida.append({"id": datos.nuevo_id(cuenta, f, desc, monto, vistos[k]), "fecha": f, "descripcion": desc, "monto": monto,
-                   "moneda": "CLP", "categoria": cat, "cuenta": cuenta, "origen": "demo", "nota": ""})
+                   "moneda": "CLP", "categoria": cat, "cuenta": cuenta, "origen": "demo", "nota": "", **COMO.get((f, desc), {})})
 
 def compromiso(**k):
     c, errores = compromisos.validar({**k, "origen": "manual"}, None, HOY)
@@ -108,8 +124,11 @@ demo = {
     "config": {"ia": "claude", "pais": "CL", "moneda": "CLP", "idioma_ui": "", "respaldo": "local"},
     "ias": [{"id": "claude", "nombre": "Claude", "instalada": True}, {"id": "codex", "nombre": "ChatGPT (Codex)", "instalada": True},
             {"id": "gemini", "nombre": "Gemini", "instalada": False}],
-    "cuentas": [{"id": "banco-ejemplo", "nombre": "Banco Ejemplo", "receta": "cl-banco-ejemplo", "moneda": "CLP"},
-                {"id": "billetera-ejemplo", "nombre": "Billetera Ejemplo", "receta": "cl-billetera-ejemplo", "moneda": "CLP"}],
+    # Ana anotó cuánto tenía en el banco el 30 de septiembre; la billetera informa su saldo (como Mercado Pago).
+    "cuentas": [{"id": "banco-ejemplo", "nombre": "Banco Ejemplo", "receta": "cl-banco-ejemplo", "moneda": "CLP",
+                 "saldo": {"monto": 612000, "fecha": "2026-09-30", "origen": "persona"}},
+                {"id": "billetera-ejemplo", "nombre": "Billetera Ejemplo", "receta": "cl-billetera-ejemplo", "moneda": "CLP",
+                 "saldo": {"monto": 84300, "fecha": "2026-10-18", "origen": "conector"}}],
     "categorias": datos.CATEGORIAS_BASE,
     "presupuesto": {"moneda": "CLP", "mensual": {"supermercado": 230000, "comida": 140000, "transporte": 55000, "auto": 80000,
                                                  "casa": 420000, "cuentas": 80000, "salud": 30000, "suscripciones": 16000,

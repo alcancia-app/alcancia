@@ -169,7 +169,7 @@ final class Ventana: NSObject, NSWindowDelegate, WKScriptMessageHandler {
                 Ventana.shared.llamar("importado", r)
                 Ventana.shared.enviarEstado()
             }
-        case "categoria", "regla", "presupuesto":
+        case "categoria", "regla", "presupuesto", "categoriaNueva", "saldo":
             // La interfaz ya pintó el cambio; si no se pudo guardar, se recarga el estado real y se avisa.
             Procesador.conEntrada("guardar.py", accion, d) { r in
                 if r["ok"] as? Bool != true { Ventana.shared.enviarEstado(aviso: r["error"] as? String) }

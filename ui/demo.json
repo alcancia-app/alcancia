@@ -31,13 +31,23 @@
    "id": "banco-ejemplo",
    "nombre": "Banco Ejemplo",
    "receta": "cl-banco-ejemplo",
-   "moneda": "CLP"
+   "moneda": "CLP",
+   "saldo": {
+    "monto": 612000,
+    "fecha": "2026-09-30",
+    "origen": "persona"
+   }
   },
   {
    "id": "billetera-ejemplo",
    "nombre": "Billetera Ejemplo",
    "receta": "cl-billetera-ejemplo",
-   "moneda": "CLP"
+   "moneda": "CLP",
+   "saldo": {
+    "monto": 84300,
+    "fecha": "2026-10-18",
+    "origen": "conector"
+   }
   }
  ],
  "categorias": [
@@ -2274,6 +2284,20 @@
    "nota": ""
   },
   {
+   "id": "f45846434e44",
+   "fecha": "2026-08-14",
+   "descripcion": "TIENDA ELECTRO *LAVADORA",
+   "monto": -349900,
+   "moneda": "CLP",
+   "categoria": "casa",
+   "cuenta": "billetera-ejemplo",
+   "origen": "demo",
+   "nota": "",
+   "medio": "credito",
+   "cuotas": "6",
+   "cuota": "61000"
+  },
+  {
    "id": "08ebe5b7275f",
    "fecha": "2026-08-14",
    "descripcion": "TIENDA ONLINE *COMPRA",
@@ -3132,6 +3156,18 @@
    "nota": ""
   },
   {
+   "id": "c959939bd313",
+   "fecha": "2026-10-02",
+   "descripcion": "TIENDA ONLINE *AUDIFONOS",
+   "monto": -24990,
+   "moneda": "CLP",
+   "categoria": "compras",
+   "cuenta": "billetera-ejemplo",
+   "origen": "demo",
+   "nota": "",
+   "medio": "saldo"
+  },
+  {
    "id": "8056c2968853",
    "fecha": "2026-10-03",
    "descripcion": "DELIVERY RAPIDITO *PEDIDO",
@@ -3161,6 +3197,17 @@
    "moneda": "CLP",
    "categoria": "compras",
    "cuenta": "billetera-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
+   "id": "e92b5c760a63",
+   "fecha": "2026-10-05",
+   "descripcion": "PAGO TARJETA BILLETERA EJEMPLO",
+   "monto": -137990,
+   "moneda": "CLP",
+   "categoria": "transferencia",
+   "cuenta": "banco-ejemplo",
    "origen": "demo",
    "nota": ""
   },
@@ -3275,6 +3322,20 @@
    "nota": ""
   },
   {
+   "id": "afd1d6efc722",
+   "fecha": "2026-10-08",
+   "descripcion": "ZAPATILLAS DEPORTE EJEMPLO",
+   "monto": -89970,
+   "moneda": "CLP",
+   "categoria": "compras",
+   "cuenta": "billetera-ejemplo",
+   "origen": "demo",
+   "nota": "",
+   "medio": "credito",
+   "cuotas": "3",
+   "cuota": "29990"
+  },
+  {
    "id": "c1db42e507e9",
    "fecha": "2026-10-09",
    "descripcion": "CREDITO CONSUMO CUOTA 4/24",
@@ -3328,6 +3389,18 @@
    "cuenta": "billetera-ejemplo",
    "origen": "demo",
    "nota": ""
+  },
+  {
+   "id": "44792231f398",
+   "fecha": "2026-10-11",
+   "descripcion": "LIBRERIA CENTRAL",
+   "monto": -15990,
+   "moneda": "CLP",
+   "categoria": "educacion",
+   "cuenta": "billetera-ejemplo",
+   "origen": "demo",
+   "nota": "",
+   "medio": "credito"
   },
   {
    "id": "d31ac48630ee",
@@ -3429,6 +3502,40 @@
    "nota": ""
   },
   {
+   "id": "61b18efbed1d",
+   "fecha": "2026-10-13",
+   "descripcion": "Devolución: TIENDA ONLINE *AUDIFONOS",
+   "monto": 24990,
+   "moneda": "CLP",
+   "categoria": "compras",
+   "cuenta": "billetera-ejemplo",
+   "origen": "demo",
+   "nota": "",
+   "medio": "saldo"
+  },
+  {
+   "id": "b04140731d3e",
+   "fecha": "2026-10-14",
+   "descripcion": "ENTRADAS CONCIERTO EJEMPLO",
+   "monto": -32000,
+   "moneda": "CLP",
+   "categoria": "",
+   "cuenta": "billetera-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
+   "id": "4e01b8babe64",
+   "fecha": "2026-10-15",
+   "descripcion": "HELADERIA POLO SUR",
+   "monto": -4500,
+   "moneda": "CLP",
+   "categoria": "",
+   "cuenta": "billetera-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
    "id": "ba71749b71e2",
    "fecha": "2026-10-15",
    "descripcion": "TRASPASO A BILLETERA",
@@ -3490,6 +3597,17 @@
    "monto": -3810,
    "moneda": "CLP",
    "categoria": "comida",
+   "cuenta": "billetera-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
+   "id": "1662e806f1c3",
+   "fecha": "2026-10-17",
+   "descripcion": "DELIVERY RAPIDITO *PEDIDO",
+   "monto": -13990,
+   "moneda": "CLP",
+   "categoria": "",
    "cuenta": "billetera-ejemplo",
    "origen": "demo",
    "nota": ""
