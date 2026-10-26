@@ -497,18 +497,19 @@
     "¿Qué día te pagan, más o menos?": "Roughly what day do you get paid?",
     "Si anotas tu sueldo en Compromisos, tu mes parte el día que de verdad llega: si te pagan antes, parte ese día. Los bonos cuentan como ingresos del mes en que caen.": "If you add your salary in Commitments, your month starts the day it actually arrives: if you're paid early, it starts that day. Bonuses count as income in the month they land.",
     "No encontré el monto. Prueba con algo como «el arriendo vence el 5 de cada mes, son 450.000».": "I couldn't find the amount. Try something like “rent is due on the 5th of every month, it's 450,000”.",
-    "Vence en {n} días: {x}": "Due in {n} days: {x}",
-    "Vence mañana: {x}": "Due tomorrow: {x}",
-    "Vence hoy: {x}": "Due today: {x}",
-    "Atrasado: {x}": "Overdue: {x}",
-    "{c} vence hoy": "{c} is due today",
-    "{c} vence pronto": "{c} is due soon",
-    "{c} está atrasado": "{c} is overdue",
     "Si ya lo pagaste, márcalo en Alcancía.": "If you already paid it, mark it in Alcancía.",
     "Entra a **Mercado Pago Developers** con tu cuenta, abre **Tus integraciones** y toca **Crear aplicación**.": "Sign in to **Mercado Pago Developers**, open **Your integrations** and tap **Create application**.",
     "En «Elige una solución para integrar» deja **Checkout Pro** (da lo mismo cuál: Alcancía solo lee tus pagos y no cobra nada).": "Under “Choose a solution to integrate” leave **Checkout Pro** (it doesn't matter which: Alcancía only reads your payments and never charges anything).",
     "En **Otros datos**, cambia el nombre por **Alcancia**, marca la casilla de autorización y toca **Crear aplicación**.": "Under **Other details**, change the name to **Alcancia**, tick the authorization box and tap **Create application**.",
     "Dentro de la aplicación, abre **Credenciales de producción** (en el menú de la izquierda). Si te pide activarlas, elige la industria «Otros» y como sitio web https://alcancia-app.github.io/alcancia/.": "Inside the application, open **Production credentials** (in the left menu). If it asks you to activate them, choose the industry “Others” and https://alcancia-app.github.io/alcancia/ as the website.",
-    "Copia el **Access Token** (empieza con `APP_USR-`; no la Public Key) y pégalo aquí.": "Copy the **Access Token** (starts with `APP_USR-`; not the Public Key) and paste it here."
+    "Copia el **Access Token** (empieza con `APP_USR-`; no la Public Key) y pégalo aquí.": "Copy the **Access Token** (starts with `APP_USR-`; not the Public Key) and paste it here.",
+    "Tienes un pago por vencer": "You have a payment coming up",
+    "Pago por vencer": "Payment coming up",
+    "Un pago vence hoy": "A payment is due today",
+    "Tienes un pago atrasado": "You have an overdue payment",
+    "{c} vence hoy.": "{c} is due today.",
+    "{c} está atrasado.": "{c} is overdue.",
+    "{c} vence mañana.": "{c} is due tomorrow.",
+    "{c} vence en {n} días.": "{c} is due in {n} days."
   }
 }

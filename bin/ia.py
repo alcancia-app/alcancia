@@ -1,7 +1,8 @@
 """La IA del usuario (Claude Code, Codex o Gemini), con su propia cuenta. Solo biblioteca estándar.
 
 Alcancía nunca llama a una IA con una cuenta propia: arma el comando del CLI que la persona ya tiene instalado y le pasa el texto.
-La IA corre en una carpeta temporal y en modo solo lectura: ve únicamente lo que le mandamos.
+La IA corre en una carpeta temporal y en modo solo lectura: ve únicamente lo que le mandamos. El pedido (con datos) va siempre por la
+entrada estándar o en un archivo de esa carpeta, nunca como argumento del comando: en los argumentos solo van frases fijas.
 """
 import os
 import shutil
@@ -55,18 +56,19 @@ def ejecutar_ia(prompt, timeout=600):
             salida = os.path.join(tmp, "respuesta.txt")
             cmd = [comando, "exec", "--skip-git-repo-check", "-s", "read-only", "-C", tmp, "-o", salida, "-"]
             r = subprocess.run(cmd, input=prompt, text=True, encoding="utf-8", capture_output=True, timeout=timeout, cwd=tmp, env=_entorno_ia())
-            texto = open(salida, encoding="utf-8").read() if os.path.exists(salida) else ""
+            texto = ""
+            if os.path.exists(salida):
+                with open(salida, encoding="utf-8") as f:
+                    texto = f.read()
             return subprocess.CompletedProcess(cmd, r.returncode, texto, r.stderr)
         es_agy = os.path.basename(comando).lower().split(".")[0] in ("agy", "antigravity")
         if ia == "gemini" and es_agy:
-            # Prompts largos en un archivo: la línea de comandos tiene límite.
-            if len(prompt) < 20000:
-                pedido = prompt
-            else:
-                with open(os.path.join(tmp, "instrucciones.md"), "w", encoding="utf-8") as f:
-                    f.write(prompt)
-                pedido = ("Lee el archivo instrucciones.md de esta carpeta y haz exactamente lo que pide. "
-                          "Entrega solo el resultado pedido, sin comentarios. No modifiques ni crees archivos.")
+            # Antigravity no lee la entrada estándar: el pedido va SIEMPRE en un archivo de la carpeta temporal, nunca en `-p`
+            # (los argumentos de un proceso los puede ver cualquier programa del computador). En `-p` solo va esta frase fija.
+            with open(os.path.join(tmp, "instrucciones.md"), "w", encoding="utf-8") as f:
+                f.write(prompt)
+            pedido = ("Lee el archivo instrucciones.md de esta carpeta y haz exactamente lo que pide. "
+                      "Entrega solo el resultado pedido, sin comentarios. No modifiques ni crees archivos.")
             cmd = [comando, "--output-format", "text", "--sandbox", "--add-dir", tmp, "-p", pedido]
             return subprocess.run(cmd, stdin=subprocess.DEVNULL, text=True, encoding="utf-8", capture_output=True, timeout=timeout, cwd=tmp, env=_entorno_ia())
         if ia == "gemini":

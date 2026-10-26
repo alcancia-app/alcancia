@@ -120,7 +120,7 @@ def compromiso(e):
         K.escribir(raw)
         return {"ok": True, "id": limpio["id"], "primero": not previo and len(lista) == 1}
     if accion == "descartar":
-        clave = datos.normalizar(e.get("clave"))
+        clave = K.limpiar_clave(e.get("clave"))  # como las palabras de `buscar`: nunca números largos
         if not 2 <= len(clave) <= 60:
             return {"ok": False, "error": "Sugerencia inválida."}
         if clave not in raw["descartados"]:

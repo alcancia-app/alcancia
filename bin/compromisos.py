@@ -78,12 +78,17 @@ def limpiar_nombre(t):
     return re.sub(r"\s+", " ", t).strip()[:60].strip()
 
 
+def limpiar_clave(t):
+    """Una palabra o clave para buscar en la cartola: sin tildes ni mayúsculas y sin secuencias de 6 o más dígitos."""
+    return datos.normalizar(re.sub(r"\d(?:[\s.\-/]?\d){5,}", " ", str(t or "")))
+
+
 def limpiar_buscar(lista):
     if isinstance(lista, str):
         lista = lista.split(",")
     r = []
     for p in lista if isinstance(lista, list) else []:
-        p = datos.normalizar(re.sub(r"\d(?:[\s.\-/]?\d){5,}", " ", str(p)))
+        p = limpiar_clave(p)
         if 2 <= len(p) <= 40 and p not in r:
             r.append(p)
     return r[:6]
@@ -632,8 +637,8 @@ def avisos(hoy):
         if not tipo or k in enviados or por_dia.get(i["id"]) == hoy:
             continue
         enviados[k], por_dia[i["id"]] = hoy, hoy
-        r.append({"id": i["id"], "nombre": i["nombre"], "monto": i["monto"], "moneda": i["moneda"], "tipo": tipo, "dias": i["dias"],
-                  "vence": i["vence"]})
+        # Sin monto: el aviso del sistema puede verse con la pantalla bloqueada.
+        r.append({"id": i["id"], "nombre": i["nombre"], "tipo": tipo, "dias": i["dias"], "vence": i["vence"]})
     if r:
         limite = _fecha(_num(hoy) - 120)
         datos.escribir_json(RUTA_AVISOS, {"enviados": {k: v for k, v in enviados.items() if v >= limite},

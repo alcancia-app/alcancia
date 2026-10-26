@@ -57,10 +57,10 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
   las parejas más cercanas en fecha y monto); un vencimiento anterior a `desde` solo con un pago anterior a `desde`. `estado.py`
   anota los reconocidos (`fijar_automaticos`) y manda las sugerencias; `importar.py` y `sincronizar.py` devuelven `detectados` (solo
   lo nuevo). Sugerir (solo Python): 3 de los últimos 4 meses con monto ±10 % y día ±4, o una palabra de `compromisos_conocidos.json`;
-  la cuota «N/M» sale de la descripción. Nunca se agregan solos. `compromiso_ia.py "<texto>" <hoy>` le pasa a la IA solo el texto
-  (sin RUT ni números de 10+ dígitos), la fecha y las categorías, y valida estricto (`validar(..., estricto=True)`); no guarda nada.
+  la cuota «N/M» sale de la descripción. Nunca se agregan solos. `compromiso_ia.py entender <entrada.json>` (el texto llega en un archivo, nunca como argumento) le pasa a la IA solo el texto
+  (sin RUT con o sin puntos, sin corridas de 7+ dígitos ni números largos), la fecha y las categorías, y valida estricto (`validar(..., estricto=True)`); no guarda nada.
   Avisos (Mac): `compromisos.py avisos <hoy>` decide (3 días antes, el día, atrasado; uno por compromiso al día, registro en
-  `.alcancia/avisos.json`) y `Avisos.swift` muestra. El permiso se pide al agregar el primer compromiso o al activar los avisos.
+  `.alcancia/avisos.json`) y `Avisos.swift` muestra, sin montos y con título genérico (con la pantalla bloqueada solo «Tienes un pago por vencer»). El permiso se pide al agregar el primer compromiso o al activar los avisos.
 - **Tu mes (periodos):** `config.inicio_mes` = `{"modo": "dia" | "sueldo", "dia"}`. `resumen.rango(mes, per)` da los días de un
   periodo «AAAA-MM» (se llama por el mes donde cae la mayor parte); `per` lleva las `llegadas` del sueldo (compromisos.periodo).
   `resumen`, `historia`, `presupuesto_sugerido`, `estado_mes` y `gasto_maximo` reciben `per` (sin él, mes calendario, igual que

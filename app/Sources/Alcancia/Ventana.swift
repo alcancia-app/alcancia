@@ -175,10 +175,10 @@ final class Ventana: NSObject, NSWindowDelegate, WKScriptMessageHandler {
                 if r["ok"] as? Bool != true { Ventana.shared.enviarEstado(aviso: r["error"] as? String) }
             }
         case "compromisoIA":
-            // El texto va como argumento del script (sin shell): lo limpia y lo valida bin/compromiso_ia.py.
+            // El texto va en un archivo de entrada, nunca como argumento (se vería en la lista de procesos). Lo limpia y valida bin/compromiso_ia.py.
             let texto = String((d["texto"] as? String ?? "").prefix(500))
             let hoy = (d["hoy"] as? String ?? "").filter { $0.isNumber || $0 == "-" }
-            Procesador.correrJSON("compromiso_ia.py", [texto, hoy]) { Ventana.shared.llamar("compromisoEntendido", $0) }
+            Procesador.conEntrada("compromiso_ia.py", "entender", ["texto": texto, "hoy": hoy]) { Ventana.shared.llamar("compromisoEntendido", $0) }
         case "compromiso":
             Procesador.conEntrada("guardar.py", "compromiso", d) { r in
                 guard r["ok"] as? Bool == true else { return Ventana.shared.enviarEstado(aviso: r["error"] as? String) }

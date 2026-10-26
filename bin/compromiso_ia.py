@@ -1,9 +1,10 @@
 """«Cuéntale a Alcancía»: tu IA convierte lo que escribes («tengo que pagar el dividendo los 15, son 500.000») en un compromiso.
 Solo biblioteca estándar.
 
-  compromiso_ia.py "<texto>" <hoy AAAA-MM-DD> <salida.json>
+  compromiso_ia.py entender <entrada.json> <salida.json>     entrada: {"texto": "...", "hoy": "AAAA-MM-DD"}
 
-A la IA le llega SOLO tu texto (sin RUT ni números largos, que se borran antes), la fecha de hoy y la lista de categorías.
+El texto llega en un archivo de entrada, nunca como argumento (los argumentos de un proceso los puede ver cualquier programa del
+computador). A la IA le llega SOLO tu texto (sin RUT ni números largos, que se borran antes), la fecha de hoy y la lista de categorías.
 Lo que devuelve se valida estrictamente (compromisos.validar); si no cumple, no se guarda nada y se avisa. Tampoco se guarda nada
 si cumple: la interfaz muestra la tarjeta para que la persona la revise y confirme.
 """
@@ -21,9 +22,13 @@ LARGO_MAXIMO = 500
 
 
 def limpiar_texto(texto):
-    """Lo que la persona escribió, sin caracteres de control, sin RUT y sin números de 10 o más dígitos (cuentas, tarjetas)."""
+    """Lo que la persona escribió, sin caracteres de control, sin RUT (con o sin puntos y guion), sin corridas de 7 o más dígitos
+    seguidos (un RUT o una cuenta sin separadores) y sin números de 10 o más dígitos con espacios o guiones (cuentas, tarjetas).
+    Los montos con separador de miles («500.000», «1.250.000») y los de hasta 6 dígitos («500000») se mantienen."""
     t = re.sub(r"[\x00-\x1f\x7f]", " ", str(texto or ""))
-    t = re.sub(r"\b\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]\b", " ", t)
+    t = re.sub(r"(?<![\d.])\d{1,2}\.?\d{3}\.?\d{3}-[\dkK](?![\dA-Za-z])", " ", t)
+    t = re.sub(r"(?<!\d)\d{7,8}[kK](?![A-Za-z\d])", " ", t)
+    t = re.sub(r"(?<!\d)\d{7,}(?!\d)", " ", t)
     t = re.sub(r"\d(?:[\s\-]?\d){9,}", " ", t)
     return re.sub(r"\s+", " ", t).strip()[:LARGO_MAXIMO]
 
@@ -90,9 +95,11 @@ def main(texto, hoy):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
+    if len(sys.argv) != 4 or sys.argv[1] != "entender":
         print(__doc__)
         sys.exit(2)
-    r = main(sys.argv[1], sys.argv[2])
+    entrada = datos.leer_json(sys.argv[2], {})
+    entrada = entrada if isinstance(entrada, dict) else {}
+    r = main(str(entrada.get("texto") or ""), str(entrada.get("hoy") or ""))
     datos.escribir_json(sys.argv[3], r)
     print(json.dumps(r, ensure_ascii=False)[:400])

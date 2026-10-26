@@ -409,22 +409,44 @@ class Compromisos(unittest.TestCase):
                 self.assertTrue(all(p == datos.normalizar(p) for p in e["palabras"]), "en mayúsculas y sin tildes")
 
     def test_compromiso_con_ia(self):
-        r = correr("compromiso_ia.py", "tengo que pagar el crédito hipotecario los 15, son 500000, me quedan 120 cuotas", "2026-10-26")
+        r = self.entender("tengo que pagar el crédito hipotecario los 15, son 500000, me quedan 120 cuotas", "2026-10-26")
         self.assertTrue(r["ok"], r)
         c = r["compromiso"]
         self.assertEqual((c["tipo"], c["monto"], c["dia"], c["cuotas_total"], c["origen"], c["desde"]), ("deuda", 500000, 15, 120, "ia", "2026-10-26"))
         self.assertNotIn("12345678", c["nombre"], "lo que propone la IA también se limpia")
         self.assertFalse(os.path.exists(compromisos.RUTA), "no se guarda nada hasta que la persona confirma")
-        malo = correr("compromiso_ia.py", "ROMPER todo", "2026-10-26")
+        malo = self.entender("ROMPER todo", "2026-10-26")
         self.assertFalse(malo["ok"])
         self.assertIn("Campos desconocidos", malo["error"])
-        self.assertFalse(correr("compromiso_ia.py", "NADA que ver", "2026-10-26")["ok"])
-        self.assertFalse(correr("compromiso_ia.py", "x", "2026-10-26")["ok"])
-        rut = "11.111.111" + "-1"  # ficticio y armado por partes: ningún RUT entero queda escrito en el repo
-        limpio = compromiso_ia.limpiar_texto(f"mi rut {rut} y cuenta 001234567890, pago 450.000 el 15")
-        self.assertNotIn("111", limpio)
-        self.assertNotIn("1234567890", limpio)
-        self.assertIn("450.000", limpio, "los montos se mantienen")
+        self.assertFalse(self.entender("NADA que ver", "2026-10-26")["ok"])
+        self.assertFalse(self.entender("x", "2026-10-26")["ok"])
+        # RUT y cuentas ficticios, armados por partes: ningún RUT entero queda escrito en el repo.
+        rut = "11.111.111" + "-1"
+        sin_puntos = "1111111" + "1"
+        for texto, fuera in [(f"mi rut {rut} y pago 450.000 el 15", "111"), (f"mi cuentarut {sin_puntos} y pago 450.000 el 15", sin_puntos),
+                             (f"rut {sin_puntos}1 y pago 450.000 el 15", sin_puntos), (f"rut {sin_puntos}k y pago 450.000 el 15", sin_puntos),
+                             (f"rut{sin_puntos} y pago 450.000 el 15", sin_puntos), ("cuenta 0012-3456-7890 y pago 450.000 el 15", "3456"),
+                             ("cuenta 001234567890 y pago 450.000 el 15", "1234567890"), ("pago 1234567 y 450.000 el 15", "1234567")]:
+            limpio = compromiso_ia.limpiar_texto(texto)
+            self.assertNotIn(fuera, limpio, texto)
+            self.assertIn("450.000", limpio, "los montos con separador de miles se mantienen")
+        self.assertEqual(compromiso_ia.limpiar_texto("son 500.000 o 500000 o 1.250.000, el 15"), "son 500.000 o 500000 o 1.250.000, el 15")
+
+    def entender(self, texto, hoy):
+        """Como lo llama la app: el texto en un archivo de entrada, nunca como argumento."""
+        ruta = os.path.join(TMP, "entrada-ia.json")
+        with open(ruta, "w", encoding="utf-8") as f:
+            json.dump({"texto": texto, "hoy": hoy}, f)
+        return correr("compromiso_ia.py", "entender", ruta)
+
+    def test_el_texto_no_va_como_argumento(self):
+        with open(os.path.join(RAIZ, "app", "Sources", "Alcancia", "Ventana.swift"), encoding="utf-8") as f:
+            swift = f.read()
+        self.assertIn('conEntrada("compromiso_ia.py", "entender"', swift)
+        self.assertNotIn('correrJSON("compromiso_ia.py"', swift)
+        p = subprocess.run([sys.executable, os.path.join(RAIZ, "bin", "compromiso_ia.py"), "el arriendo son 450.000", "2026-10-26",
+                            os.path.join(TMP, "x.json")], capture_output=True, text=True)
+        self.assertEqual(p.returncode, 2, "la firma vieja (texto como argumento) ya no se acepta")
 
     def guardar(self, entrada):
         ruta = os.path.join(TMP, "entrada.json")
@@ -453,7 +475,9 @@ class Compromisos(unittest.TestCase):
         self.assertFalse(self.guardar({"accion": "pagado", "id": cid, "periodo": "octubre"})["ok"])
         self.assertFalse(self.guardar({"accion": "pagado", "id": "c-noexiste1", "periodo": "2026-10"})["ok"])
         self.assertTrue(self.guardar({"accion": "descartar", "clave": "seguro hogar"})["ok"])
-        self.assertEqual(compromisos.leer()["descartados"], ["SEGURO HOGAR"])
+        self.assertTrue(self.guardar({"accion": "descartar", "clave": "transferencia 0012345678 hogar"})["ok"])
+        self.assertEqual(compromisos.leer()["descartados"], ["SEGURO HOGAR", "TRANSFERENCIA HOGAR"], "sin números largos, como buscar")
+        self.assertFalse(self.guardar({"accion": "descartar", "clave": "123456789"})["ok"])
         self.assertTrue(self.guardar({"accion": "borrar", "id": cid})["ok"])
         self.assertEqual(compromisos.leer()["compromisos"], [])
         with open(compromisos.RUTA, encoding="utf-8") as f:
@@ -503,6 +527,7 @@ class Compromisos(unittest.TestCase):
         datos.escribir_json(os.path.join(datos.INTERNO, "config.json"), {"avisos": True})
         a = correr("compromisos.py", "avisos", hoy.isoformat())["avisos"]
         self.assertEqual([(x["nombre"], x["tipo"], x["dias"]) for x in a], [("Luz", "pronto", 2)])
+        self.assertNotIn("monto", a[0], "el aviso puede verse con la pantalla bloqueada: sin montos")
         self.assertEqual(correr("compromisos.py", "avisos", hoy.isoformat())["avisos"], [], "uno por compromiso al día")
         self.assertEqual(compromisos.avisos((hoy + timedelta(days=1)).isoformat())["avisos"], [], "«pronto» se avisa una sola vez")
         self.assertEqual([x["tipo"] for x in compromisos.avisos(dia.isoformat())["avisos"]], ["hoy"])
@@ -515,6 +540,46 @@ class Compromisos(unittest.TestCase):
         self.assertIn("disponible para gastos variables", texto)
         self.assertNotIn("Plan de celular", texto, "a la IA solo le llegan totales")
         self.assertIn("no ha anotado compromisos", consejos.prompt("2026-10-18", movs, {"moneda": "CLP", "mensual": {}}, cats))
+
+
+class IaSinArgumentos(unittest.TestCase):
+    """El pedido a la IA (con datos de la persona) nunca va en los argumentos del comando: se verían en la lista de procesos."""
+
+    def setUp(self):
+        limpiar()
+
+    def tearDown(self):
+        for n in ("agy", "codex"):
+            try:
+                os.remove(os.path.join(BIN_FALSO, n))
+            except OSError:
+                pass
+
+    def falsa(self, nombre, codigo):
+        ruta = os.path.join(BIN_FALSO, nombre)
+        with open(ruta, "w", encoding="utf-8") as f:
+            f.write("#!" + sys.executable + "\nimport json, os, sys\n" + codigo)
+        os.chmod(ruta, 0o755)
+
+    def test_ningun_proveedor_pone_el_pedido_en_argv(self):
+        import ia
+        pedido = "SECRETO de la persona: arriendo 450000"
+        # Antigravity: el pedido en instrucciones.md (aunque sea corto); en -p solo una frase fija.
+        self.falsa("agy", "datos = open('instrucciones.md', encoding='utf-8').read() if os.path.exists('instrucciones.md') else ''\n"
+                          "print(json.dumps({'argv': sys.argv, 'archivo': datos}))\n")
+        # Codex: el pedido por la entrada estándar.
+        self.falsa("codex", "entrada = sys.stdin.read()\nsalida = sys.argv[sys.argv.index('-o') + 1]\n"
+                            "open(salida, 'w', encoding='utf-8').write(json.dumps({'argv': sys.argv, 'archivo': entrada}))\n")
+        for proveedor in ("gemini", "codex", "claude"):
+            datos.escribir_json(os.path.join(datos.INTERNO, "config.json"), {"ia": proveedor})
+            if proveedor == "claude":  # la IA falsa de siempre: lee la entrada estándar
+                r = ia.ejecutar_ia(pedido, timeout=30)
+                self.assertNotIn("SECRETO", " ".join(r.args), proveedor)
+                continue
+            r = ia.ejecutar_ia(pedido, timeout=30)
+            visto = json.loads(r.stdout)
+            self.assertNotIn("SECRETO", " ".join(visto["argv"]), proveedor)
+            self.assertIn("SECRETO", visto["archivo"], f"{proveedor} recibe el pedido por archivo o entrada estándar")
 
 
 class Ofx(unittest.TestCase):
