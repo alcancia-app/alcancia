@@ -66,7 +66,7 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
 - **Compromisos:** `~/Alcancia/compromisos.json` (formato en el README). La misma lógica en `bin/compromisos.py` y `ui/app.js`
   (`vencimientos`, `coincide`, `asignar`, `estado_mes`/`estadoCompromisos`, `gasto_maximo`/`gastoMaximo`, `llegadas_sueldo`), probada
   con `pruebas/casos.json` (sección `compromisos`). Un pago se reconoce con signo, moneda, monto ±tolerancia y una palabra de `buscar`
-  (o monto exacto), entre 10 días antes y 7 después; un movimiento cuenta para un solo compromiso (lo marcado a mano primero, luego
+  (o monto exacto), entre 10 días antes y 7 después (hasta 20 si es mensual o anual: pago atrasado); un movimiento cuenta para un solo compromiso (lo marcado a mano primero, luego
   las parejas más cercanas en fecha y monto); un vencimiento anterior a `desde` solo con un pago anterior a `desde`. `estado.py`
   anota los reconocidos (`fijar_automaticos`) y manda las sugerencias; `importar.py` y `sincronizar.py` devuelven `detectados` (solo
   lo nuevo). Sugerir (solo Python): 3 de los últimos 4 meses con monto ±10 % y día ±4, o una palabra de `compromisos_conocidos.json`;
@@ -86,6 +86,11 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
   aproximado calza en su rango solo si trae una palabra de `buscar` (sin palabras, monto exacto); uno en UF calza por sus palabras y,
   con un valor en Ajustes, por el monto ±15 %. Totales `_max` (gasto máximo y «Lo que debes» usan el máximo; los ingresos, el mínimo).
   Casos en `pruebas/casos.json` (sección `aproximados`).
+- **Interés por mora:** `asignar` reconoce pagos mensuales/anuales hasta `ATRASO_MAX` (20) días tarde y, ya vencidos, más altos
+  que el tope (`coincide_tarde`/`coincideTarde`, hasta +30 %, con palabras). Con `palabras_mora` (de `compromisos_conocidos.json`,
+  llegan a la interfaz en el estado) `_moras`/`moras` anotan `pago.mora` {monto, dias, movimiento?}; `fijar_automaticos` lo guarda y
+  deja el cargo en la categoría `intereses` (nueva predeterminada; `datos.NUEVAS` la suma a un categorias.json de antes).
+  `mora_del_anio`/`moraDelAnio` para el Resumen y los consejos. Casos en `pruebas/casos.json` (sección `mora`).
 - **Préstamos:** tipo `prestamo` con `con` y `prestamo` {total, interes, cuota, ultima}. `calcular_prestamo`/`calcularPrestamo`
   (cuota hacia abajo, la última ajusta; interés simple % sobre el total), `completar_prestamo` (día del sueldo o 25). `estado_mes`
   usa `ultima` en la última cuota; `lo_que_debes`/`loQueDebes` suman lo que debes y aparte `te_deben` (signo `ingreso`), que nunca se

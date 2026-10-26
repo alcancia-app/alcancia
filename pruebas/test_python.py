@@ -1625,6 +1625,48 @@ class Sueldo(unittest.TestCase):
         self.assertIn("2026-09-18", e["feriados"])
 
 
+class Mora(unittest.TestCase):
+    """Interés por mora de un pago atrasado (casos «mora»)."""
+
+    def setUp(self):
+        limpiar()
+
+    def test_casos_compartidos(self):
+        k = CASOS["mora"]
+        self.assertEqual(k["palabras"], compromisos.palabras_mora("CL"))
+        for e in k["estado"]:
+            r = compromisos.estado_mes(k["compromisos"], k["movimientos"], e["mes"], e["hoy"], "CLP", None, None, k["palabras"])
+            self.assertEqual(r, e["esperado"], e["nombre"])
+        self.assertEqual(compromisos.mora_del_anio(k["compromisos"], k["movimientos"], k["anio"]["hoy"], "CLP", None, k["palabras"]),
+                         k["anio"]["esperado"])
+        # En palabras: pagó 8 días tarde y 8.000 de más; otro, 4 días tarde con un cargo aparte; a tiempo o dentro del rango, nada.
+        pagos = {(i["nombre"], e["mes"]): (i["pago"] or {}).get("mora") for e in k["estado"] for i in e["esperado"]["items"] if i["pago"]}
+        self.assertEqual(pagos[("Crédito Ejemplo", "2026-09")], {"monto": 8000, "dias": 8})
+        self.assertEqual(pagos[("Dividendo Ejemplo", "2026-10")], {"monto": 4320, "dias": 4, "movimiento": "m007"})
+        self.assertIsNone(pagos[("Colegio Ejemplo", "2026-10")])
+        self.assertIsNone(pagos[("Luz Ejemplo", "2026-10")])
+
+    def test_se_anota_y_categoriza(self):
+        k = CASOS["mora"]
+        datos.agregar([dict(m) for m in k["movimientos"]])
+        compromisos.escribir({"formato": 1, "compromisos": k["compromisos"], "descartados": []})
+        compromisos.fijar_automaticos("2026-10-26")
+        lista = {c["id"]: c for c in compromisos.leer()["compromisos"]}
+        self.assertEqual(lista["c-credito0001"]["pagos"]["2026-09"]["mora"], {"monto": 8000, "dias": 8})
+        self.assertEqual(lista["c-dividendo01"]["pagos"]["2026-10"]["mora"]["monto"], 4320)
+        cats = {m["descripcion"]: m["categoria"] for m in datos.leer_todos()}
+        self.assertEqual(cats["INT. MORA DIVIDENDO"], "intereses")
+        self.assertEqual(cats["INTERESES LINEA DE CREDITO"], "")  # el colegio se pagó a tiempo: ese cargo no es mora
+        self.assertIn("12320 en intereses por atraso", consejos.linea_compromisos("2026-10-26", datos.leer_todos(), {"moneda": "CLP"},
+                                                                                datos.categorias(), compromisos.validos(None, "2026-10-26", "CLP")))
+
+    def test_categoria_nueva_en_un_categorias_json_de_antes(self):
+        datos.escribir_json(os.path.join(datos.BASE, "categorias.json"), [{"id": "comida", "nombre": "Comida", "emoji": "🍔", "tipo": "gasto"}])
+        ids = [c["id"] for c in datos.categorias()]
+        self.assertEqual(ids, ["comida", "intereses"])
+        self.assertEqual(next(c for c in datos.categorias() if c["id"] == "intereses")["emoji"], "🧾")
+
+
 if __name__ == "__main__":
     try:
         unittest.main(verbosity=1)

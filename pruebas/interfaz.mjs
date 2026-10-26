@@ -185,6 +185,10 @@ const navegador = await chromium.launch();
     for (const k of su.rango) if (canon(P.rango(k.mes, k.per)) !== canon(k.esperado)) malos.push(`sueldo: rango «${k.nombre}» = ${P.rango(k.mes, k.per)}`);
     for (const k of su.periodo_de) if (P.periodoDe(k.fecha, k.per) !== k.esperado) malos.push(`sueldo: periodoDe(${k.fecha}) = ${P.periodoDe(k.fecha, k.per)}`);
     for (const k of su.regla) if (P.reglaHabil(k.dia, k.llegadas, su.feriados_cl) !== k.esperado) malos.push(`reglaHabil(${k.llegadas}) = ${P.reglaHabil(k.dia, k.llegadas, su.feriados_cl)}`);
+    // Interés por mora de un pago atrasado.
+    const mo = c.mora;
+    for (const k of mo.estado) { const r = P.estadoCompromisos(mo.compromisos, mo.movimientos, k.mes, k.hoy, "CLP", null, null, mo.palabras); if (canon(r) !== canon(k.esperado)) malos.push(`mora «${k.nombre}» = ${canon(r).slice(0, 700)}`); }
+    if (P.moraDelAnio(mo.compromisos, mo.movimientos, mo.anio.hoy, "CLP", null, mo.palabras) !== mo.anio.esperado) malos.push(`moraDelAnio = ${P.moraDelAnio(mo.compromisos, mo.movimientos, mo.anio.hoy, "CLP", null, mo.palabras)}`);
     // Préstamos entre personas.
     const pr = c.prestamos;
     for (const [t, n, i, m, esp] of pr.calcular) if (canon(P.calcularPrestamo(t, n, i, m)) !== canon(esp)) malos.push(`calcularPrestamo(${t}, ${n}, ${i}, ${m}) = ${canon(P.calcularPrestamo(t, n, i, m))}`);
@@ -601,6 +605,33 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
   }
 }
 console.log("  ✓ Sueldo: detectado solo, próximo sueldo en día hábil, «¿Aún no te pagan?» y la invitación si no hay sueldo claro");
+
+// Interés por mora: el plan de celular se pagó 7 días tarde con un recargo aparte.
+const TEXTOS_MO = {
+  español: { pago: "Pagado el 17 oct con 7 días de atraso · $2.500 de interés por mora", anio: "Este año pagaste $2.500 en intereses por atraso." },
+  inglés: { pago: "Paid on Oct 17, 7 days late · $2.500 in late-payment interest", anio: "This year you paid $2.500 in late-payment interest." },
+};
+for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma=en"]]) {
+  for (const [modo, opciones] of [["escritorio", { viewport: { width: 1200, height: 820 } }], ["celular", { viewport: { width: 390, height: 844 }, colorScheme: "dark" }]]) {
+    const t = TEXTOS_MO[idioma], donde = `(${idioma}, ${modo})`;
+    const p = await navegador.newPage(opciones);
+    p.on("pageerror", (e) => falla(`error de JavaScript en mora ${donde}: ${e.message}`));
+    await p.goto(BASE + "?" + consulta);
+    await p.waitForSelector(".app");
+    const d = JSON.parse(fs.readFileSync(path.join(RAIZ, "ui", "demo.json"), "utf8"));
+    d.config.bienvenida = true;
+    d.movimientos.push({ id: "mora-pago", fecha: "2026-10-17", descripcion: "PLAN MOVIL EJEMPLO", monto: -15990, moneda: "CLP", cuenta: "banco-ejemplo", categoria: "cuentas" },
+      { id: "mora-cargo", fecha: "2026-10-17", descripcion: "RECARGO POR ATRASO PLAN MOVIL", monto: -2500, moneda: "CLP", cuenta: "banco-ejemplo", categoria: "intereses" });
+    await p.evaluate((x) => window.Alcancia.estado(x), d);
+    const todo = async () => (await p.$eval(".contenido", (el) => el.textContent.replace(/\s+/g, " ")));
+    if (!(await todo()).includes(t.anio)) falla(`el resumen dice lo pagado en intereses por atraso ${donde}`);
+    await p.click('.nav [data-vista="compromisos"]');
+    if (!(await todo()).includes(t.pago)) falla(`el compromiso dice el atraso y la mora ${donde}`);
+    if (modo === "celular" && (await p.evaluate(() => document.documentElement.scrollWidth)) > 392) falla(`se sale de la pantalla con la mora ${donde}`);
+    await p.close();
+  }
+}
+console.log("  ✓ Mora: el pago atrasado dice los días y el interés, y el resumen lo pagado este año");
 
 // Contraste del botón principal en modo claro y oscuro (WCAG AA: 4.5).
 for (const esquema of ["light", "dark"]) {

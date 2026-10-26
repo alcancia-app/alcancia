@@ -352,9 +352,52 @@
     const d = normalizar(m.descripcion);
     return palabras.some((p) => d.includes(p));
   }
+  // Interés por mora (igual que compromisos.py): un pago atrasado puede venir más alto (hasta +30 %) y traer un cargo aparte.
+  const MORA_MAX = 30, ATRASO_MAX = 20;
+  function tope(c, uf) {
+    if (c.moneda === UF) { if (!uf) return null; const hi = rangoUF(c, uf, MARGEN_UF)[1]; return [hi, hi]; }
+    const r = rangoAprox(c), esperado = r ? r[1] : c.monto;
+    return [esperado, Math.max(esperado, c.monto * (1 + (c.tolerancia ?? TOLERANCIA) / 100))];
+  }
+  function coincideTarde(m, c, moneda, uf = null) {
+    if (m.monto >= 0 || c.signo !== "gasto" || (m.categoria === "transferencia" && c.tipo !== "transferencia")) return false;
+    const palabras = (c.buscar || []).map(normalizar).filter(Boolean), t = tope(c, uf);
+    if (!palabras.length || !t || (m.moneda || moneda) !== (c.moneda === UF ? moneda : c.moneda)) return false;
+    if (!(t[1] + 1e-9 < -m.monto && -m.monto <= t[1] * (1 + MORA_MAX / 100) + 1e-9)) return false;
+    const d = normalizar(m.descripcion);
+    return palabras.some((p) => d.includes(p));
+  }
+  const sinPuntos = (t) => normalizar(String(t || "").replace(/[.\-_/]/g, " "));
+  const escRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const esMora = (m, palabras) => { const d = sinPuntos(m.descripcion); return palabras.some((p) => new RegExp(`(?<![A-Z0-9])${escRe(sinPuntos(p))}(?![A-Z0-9])`).test(d)); };
+  function moras(ocs, pagos, movimientos, moneda, uf, palabras, usados) {
+    const porId = new Map(movimientos.map((m) => [m.id, m]));
+    const cargos = palabras.length ? movimientos.filter((m) => m.monto < 0 && !usados.has(m.id) && esMora(m, palabras))
+      .sort((a, b) => (a.fecha !== b.fecha ? (a.fecha < b.fecha ? -1 : 1) : a.id < b.id ? -1 : a.id > b.id ? 1 : 0)) : [];
+    const tomados = new Set();
+    for (const [c, o] of ocs) {
+      const p = pagos[`${c.id}|${o.periodo}`];
+      if (!p || p.como !== "automatico" || c.signo !== "gasto") continue;
+      const dias = dnum(p.fecha) - dnum(o.vence);
+      if (dias <= 0) continue;
+      const m = porId.get(p.movimiento), t = tope(c, uf);
+      let extra = t && m && -m.monto > t[1] + 1e-9 ? -m.monto - t[0] : 0;
+      const mon = m ? m.moneda || moneda : moneda;
+      const cerca = cargos.filter((x) => !tomados.has(x.id) && Math.abs(dnum(x.fecha) - dnum(p.fecha)) <= 7 && (x.moneda || moneda) === mon);
+      const lejos = (x) => Math.abs(dnum(x.fecha) - dnum(p.fecha));
+      const cargo = cerca.sort((a, b) => lejos(a) - lejos(b) || (a.fecha !== b.fecha ? (a.fecha < b.fecha ? -1 : 1) : a.id < b.id ? -1 : 1))[0];
+      if (cargo) { tomados.add(cargo.id); extra += -cargo.monto; }
+      if (extra > 0) p.mora = { monto: Math.round(extra), dias, ...(cargo ? { movimiento: cargo.id } : {}) };
+    }
+  }
+  /** Lo pagado este año en intereses por atraso (igual que compromisos.mora_del_anio). */
+  function moraDelAnio(compromisos, movimientos, hoy, moneda, uf = null, mora = []) {
+    const { pagos } = asignar(compromisos.filter((c) => c.activo !== false), movimientos, hoy, moneda, uf ? uf.valor ?? null : null, mora);
+    return Math.round(Object.values(pagos).reduce((a, p) => a + (p.mora && p.fecha.slice(0, 4) === hoy.slice(0, 4) && p.fecha <= hoy ? p.mora.monto : 0), 0));
+  }
   const pagoDe = (m) => ({ como: "automatico", fecha: m.fecha, monto: Math.abs(m.monto), movimiento: m.id, descripcion: m.descripcion });
   const menorTupla = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] < b[i]; return false; };
-  function asignar(compromisos, movimientos, hasta, moneda, uf = null) {
+  function asignar(compromisos, movimientos, hasta, moneda, uf = null, mora = []) {
     const ocs = compromisos.flatMap((c) => vencimientos(c, hasta).map((o) => [c, o]));
     const porId = new Map(movimientos.map((m) => [m.id, m]));
     const pagos = {}, usados = new Set(), pendientes = [];
@@ -366,10 +409,11 @@
     }
     const candidatos = {}, pares = [];
     for (const [c, o, noEs] of pendientes) {
-      if (!candidatos[c.id]) candidatos[c.id] = movimientos.filter((m) => coincide(m, c, moneda, uf)).map((m) => [dnum(m.fecha), m]);
+      if (!candidatos[c.id]) candidatos[c.id] = [...movimientos.filter((m) => coincide(m, c, moneda, uf)).map((m) => [dnum(m.fecha), m, false]),
+        ...movimientos.filter((m) => coincideTarde(m, c, moneda, uf)).map((m) => [dnum(m.fecha), m, true])];
       const v = dnum(o.vence), esperado = c.moneda === UF ? (uf ? c.monto * uf : 0) : c.monto;
-      for (const [n, m] of candidatos[c.id]) {
-        if (n >= v - ANTES && n <= v + DESPUES && !usados.has(m.id) && !noEs.has(m.id) && (o.vence >= c.desde || m.fecha < c.desde))
+      for (const [n, m, tarde] of candidatos[c.id]) {
+        if ((!tarde || n > v) && n >= v - ANTES && n <= v + (c.frecuencia === "mensual" || c.frecuencia === "anual" ? ATRASO_MAX : DESPUES) && !usados.has(m.id) && !noEs.has(m.id) && (o.vence >= c.desde || m.fecha < c.desde))
           pares.push([[Math.abs(n - v), esperado ? Math.abs(Math.abs(m.monto) - esperado) : 0, o.vence < c.desde, o.vence, c.id, o.periodo, m.fecha, m.id], c, o, m]);
       }
     }
@@ -379,6 +423,7 @@
       if (pagos[clave] || usados.has(m.id)) continue;
       usados.add(m.id); pagos[clave] = pagoDe(m);
     }
+    moras(ocs, pagos, movimientos, moneda, uf, mora || [], usados);
     return { ocs, pagos, usados };
   }
   const mensualDe = (c, x = c.monto) => Math.round(c.frecuencia === "mensual" ? x : c.frecuencia === "semanal" ? x * 52 / 12 : c.frecuencia === "anual" ? x / 12 : 0);
@@ -421,10 +466,10 @@
   }
   const maximoDe = (x) => (x.rango ? x.rango.max : x.monto), minimoDe = (x) => (x.rango ? x.rango.min : x.monto);
   /** Estado de cada compromiso en el mes (igual que compromisos.estado_mes en Python). */
-  function estadoCompromisos(compromisos, movimientos, mes, hoy, moneda, per = null, uf = null) {
+  function estadoCompromisos(compromisos, movimientos, mes, hoy, moneda, per = null, uf = null, mora = []) {
     const activos = compromisos.filter((c) => c.activo !== false);
     const [inicio, fin] = rango(mes, per);
-    const { ocs, pagos } = asignar(activos, movimientos, fin, moneda, uf ? uf.valor ?? null : null);
+    const { ocs, pagos } = asignar(activos, movimientos, fin, moneda, uf ? uf.valor ?? null : null, mora);
     const valores = valoresUF(activos, pagos, uf), ufMes = uf && uf.variacion_mensual != null ? uf.variacion_mensual : UF_MENSUAL;
     const antes = inicio <= hoy && hoy <= fin ? rango(sumarMes(mes, -1), per) : null, h = dnum(hoy);
     const items = [];
@@ -1150,8 +1195,10 @@
     const prox = enCurso ? proximoSueldo(per(), E.hoy, E.feriados || []) : null, n = prox ? diasEntre(E.hoy, prox.fecha) : 0;
     const sueldo = prox && n >= 0 ? `<p class="pista-sueldo">${frase(n === 0 ? "Tu sueldo debería llegar hoy ({f})." : n === 1 ? "Próximo sueldo: {f} (aprox.), mañana." : "Próximo sueldo: {f} (aprox.), en {n} días.", { f: esc(fechaLarga(prox.fecha)), n })}</p>` : "";
     const h = historia(E.movimientos, E.mes, E.hoy, E.presupuesto, E.categorias, null, 6, per());
+    const pagoMora = moraDelAnio(listaCompromisos(), E.movimientos, E.hoy, monedaPrincipal(), ufCfg(), E.palabrasMora || []);
+    const mora = pagoMora > 0 ? `<p class="pista-sueldo mora-anio">${frase("Este año pagaste {x} en intereses por atraso.", { x: esc(dinero(pagoMora)) })}</p>` : "";
     return `<h2 class="subtitulo">Cómo vas</h2>
-      ${ritmo || alertas || sueldo ? `<section class="tarjeta como-vas">${ritmo}${alertas}${sueldo}</section>` : ""}
+      ${ritmo || alertas || sueldo || mora ? `<section class="tarjeta como-vas">${ritmo}${alertas}${sueldo}${mora}</section>` : ""}
       <details class="tarjeta plegable" ${E.compararAbierto ? "open" : ""} data-plegable="comparar"><summary><span>Comparado con los últimos meses</span></summary>
         ${bloqueHistoria(h, T("Gasto total de los últimos 6 meses"))}</details>
       <button class="tarjeta fila-consejos" data-vista="consejos"><span aria-hidden="true">✦</span><span>${frase("Pídele consejos a {ia} sobre este mes", { ia: esc(nombreIA()) })}</span><span class="cf-flecha" aria-hidden="true">›</span></button>`;
@@ -1434,7 +1481,7 @@
   const DIAS_SEMANA = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
   const monedaPrincipal = () => E.presupuesto.moneda || E.config.moneda || "CLP";
   const listaCompromisos = () => (E.compromisos && E.compromisos.compromisos) || [];
-  const estadoDelMes = (mes = E.mes) => estadoCompromisos(listaCompromisos(), E.movimientos, mes, E.hoy, monedaPrincipal(), per(), ufCfg());
+  const estadoDelMes = (mes = E.mes) => estadoCompromisos(listaCompromisos(), E.movimientos, mes, E.hoy, monedaPrincipal(), per(), ufCfg(), E.palabrasMora || []);
   const iconoComp = (c) => (c.categoria && cat(c.categoria).id ? cat(c.categoria).emoji : (TIPOS_COMP.find((t) => t[0] === c.tipo) || TIPOS_COMP[TIPOS_COMP.length - 1])[2]);
   /** «viernes 24 de noviembre» / «Friday, November 24». */
   function fechaLarga(f) {
@@ -1452,6 +1499,8 @@
   /** «Vence en 3 días», «Atrasado 8 días», «Pagado el 30 sept»… (para ingresos: «Llega…», «Llegó…»). */
   function textoEstado(i) {
     const ing = i.signo === "ingreso";
+    if (i.estado === "pagado" && !ing && i.pago.mora) return T(i.pago.mora.dias === 1 ? "Pagado el {f} con 1 día de atraso · {x} de interés por mora" : "Pagado el {f} con {n} días de atraso · {x} de interés por mora",
+      { f: esc(fechaCorta(i.pago.fecha)), n: i.pago.mora.dias, x: esc(dinero(i.pago.mora.monto, i.moneda)) });
     if (i.estado === "pagado") return T(ing ? "Llegó el {f}" : "Pagado el {f}", { f: esc(fechaCorta(i.pago.fecha)) });
     if (i.estado === "hoy") return T(ing ? "Llega hoy" : "Vence hoy");
     if (i.estado === "pendiente") return i.dias === 1 ? T(ing ? "Llega mañana" : "Vence mañana") : T(ing ? "Llega en {n} días" : "Vence en {n} días", { n: i.dias });
@@ -2342,7 +2391,7 @@
         presupuesto: e.presupuesto || { mensual: {} }, reglas: e.reglas || [], consejos: (e.consejos || []).slice().sort((a, b) => b.fecha.localeCompare(a.fecha)),
         cuentas: e.cuentas || [], version: e.version || "", carpeta: e.carpeta || "", actualizacion: e.actualizacion || { hay: false },
         conectores: e.conectores || [], conexiones: e.conexiones || {}, vigilar: e.vigilar || { activo: false, recientes: [] }, iaExterna: e.ia_externa || [],
-        compromisos: e.compromisos || { compromisos: [], descartados: [] }, sugerencias: e.sugerencias || [], feriados: e.feriados || [] });
+        compromisos: e.compromisos || { compromisos: [], descartados: [] }, sugerencias: e.sugerencias || [], feriados: e.feriados || [], palabrasMora: e.palabras_mora || [] });
       if (!E.presupuesto.moneda) E.presupuesto.moneda = E.config.moneda || "CLP";
       sueldoSolo();
       E._per = undefined;
@@ -2426,7 +2475,7 @@
       if ((r.sin_receta || []).length) toast(T("Descargaste «{x}», pero todavía no sé leerla. Agrégala a mano y tu IA aprende.", { x: r.sin_receta[0] }));
     },
     _probar(f) { f(E); render(); },
-    _pruebas: { calcularPrestamo, resumen, historia, redondearArriba, presupuestoSugerido, reglaPara, estadoCompromisos, gastoMaximo, rango, periodoDe, periodoConfig, detectarSueldo, reglaHabil, proximoSueldo, correrHabil, loQueTienes, loQueDebes, cargos },
+    _pruebas: { calcularPrestamo, resumen, historia, redondearArriba, presupuestoSugerido, reglaPara, estadoCompromisos, gastoMaximo, rango, periodoDe, periodoConfig, detectarSueldo, reglaHabil, proximoSueldo, correrHabil, moraDelAnio, loQueTienes, loQueDebes, cargos },
   };
 
   // ───────────── Vista previa en el navegador (datos ficticios de demo.json) ─────────────

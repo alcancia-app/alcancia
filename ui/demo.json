@@ -81,6 +81,28 @@
   "2028-12-08",
   "2028-12-25"
  ],
+ "palabras_mora": [
+  "INTERES POR MORA",
+  "INTERESES POR MORA",
+  "INT MORA",
+  "INT. MORA",
+  "MORA",
+  "INTERES MORATORIO",
+  "INTERESES",
+  "INTERES",
+  "RECARGO",
+  "RECARGO POR ATRASO",
+  "GASTOS DE COBRANZA",
+  "GASTO DE COBRANZA",
+  "COBRANZA",
+  "MULTA",
+  "LATE FEE",
+  "LATE CHARGE",
+  "LATE PAYMENT FEE",
+  "PENALTY",
+  "INTEREST CHARGE",
+  "FINANCE CHARGE"
+ ],
  "ias": [
   {
    "id": "claude",
@@ -197,6 +219,12 @@
    "id": "mascotas",
    "nombre": "Mascotas",
    "emoji": "🐾",
+   "tipo": "gasto"
+  },
+  {
+   "id": "intereses",
+   "nombre": "Intereses y cargos",
+   "emoji": "🧾",
    "tipo": "gasto"
   },
   {

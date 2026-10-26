@@ -121,11 +121,17 @@ devolución y con la categoría de la compra (si ya la tenía); su id sale de «
 | `activo` | `false` = en pausa (ni se recuerda ni se busca). |
 | `desde` | Desde qué día cuenta (AAAA-MM-DD). Un vencimiento anterior solo se da por pagado si ya estaba pagado. |
 | `origen` | `manual`, `detectado` (salió de tu cartola) o `ia` (lo entendió tu IA). |
-| `pagos` | Por periodo (`AAAA-MM` en mensual, `AAAA` en anual, la fecha en semanal y una vez): `{"como": "automatico", "fecha", "movimiento", "monto"}` cuando se reconoció en la cartola, `{"como": "manual", "fecha"}` cuando marcaste «ya lo pagué», y `"no_es": ["<id de movimiento>"]` cuando dijiste «no es este». |
+| `pagos` | Por periodo (`AAAA-MM` en mensual, `AAAA` en anual, la fecha en semanal y una vez): `{"como": "automatico", "fecha", "movimiento", "monto", "mora"?}` cuando se reconoció en la cartola (`mora`: `{"monto", "dias", "movimiento"?}` si se pagó atrasado con interés por mora), `{"como": "manual", "fecha"}` cuando marcaste «ya lo pagué», y `"no_es": ["<id de movimiento>"]` cuando dijiste «no es este». |
+
+**Interés por mora.** Un pago mensual o anual se reconoce hasta 20 días después del vencimiento; si llegó atrasado y más alto
+que lo esperado (más allá de la tolerancia o del rango, hasta +30 % y con sus palabras), la diferencia es interés por mora. Si
+además hay un cargo aparte hasta 7 días antes o después del pago (INTERES, MORA, RECARGO, COBRANZA, MULTA, LATE FEE…: la lista
+está en `compromisos_conocidos.json`, `mora`), se suma y ese cargo queda en la categoría «Intereses y cargos» 🧾 (si no tenía
+otra). Se muestra «Pagado el 18 con 8 días de atraso · $4.320 de interés por mora» y, en el Resumen, lo pagado este año.
 
 `descartados` son las sugerencias que dijiste que no son compromisos. **Cómo se reconoce un pago:** el movimiento del signo
 correcto, en la moneda del compromiso, con el monto dentro de la tolerancia y alguna palabra de `buscar`, entre 10 días antes y 7
-después del vencimiento. Un movimiento cuenta para un solo compromiso: primero lo marcado a mano y después las parejas que calzan
+después del vencimiento (hasta 20 días después si es mensual o anual: un pago atrasado). Un movimiento cuenta para un solo compromiso: primero lo marcado a mano y después las parejas que calzan
 mejor (más cerca de la fecha, luego del monto). La lista de palabras que delatan un compromiso (dividendo, crédito, cuota, PAC,
 seguro, arriendo, colegio, plan celular…) es solo datos: [`bin/compromisos_conocidos.json`](bin/compromisos_conocidos.json), por país.
 

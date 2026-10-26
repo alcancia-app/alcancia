@@ -6331,5 +6331,655 @@
     "esperado": "anterior"
    }
   ]
+ },
+ "mora": {
+  "_nota": "Interés por mora de un pago atrasado (compromisos.asignar con palabras_mora / mora_del_anio ↔ asignar / moraDelAnio).",
+  "palabras": [
+   "INTERES POR MORA",
+   "INTERESES POR MORA",
+   "INT MORA",
+   "INT. MORA",
+   "MORA",
+   "INTERES MORATORIO",
+   "INTERESES",
+   "INTERES",
+   "RECARGO",
+   "RECARGO POR ATRASO",
+   "GASTOS DE COBRANZA",
+   "GASTO DE COBRANZA",
+   "COBRANZA",
+   "MULTA",
+   "LATE FEE",
+   "LATE CHARGE",
+   "LATE PAYMENT FEE",
+   "PENALTY",
+   "INTEREST CHARGE",
+   "FINANCE CHARGE"
+  ],
+  "compromisos": [
+   {
+    "id": "c-credito0001",
+    "nombre": "Crédito Ejemplo",
+    "tipo": "deuda",
+    "signo": "gasto",
+    "moneda": "CLP",
+    "monto": 100000,
+    "frecuencia": "mensual",
+    "dia": 10,
+    "categoria": "",
+    "buscar": [
+     "CREDITO EJEMPLO"
+    ],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-08-01",
+    "origen": "manual",
+    "pagos": {}
+   },
+   {
+    "id": "c-dividendo01",
+    "nombre": "Dividendo Ejemplo",
+    "tipo": "deuda",
+    "signo": "gasto",
+    "moneda": "CLP",
+    "monto": 250000,
+    "frecuencia": "mensual",
+    "dia": 5,
+    "categoria": "",
+    "buscar": [
+     "DIVIDENDO EJEMPLO"
+    ],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-08-01",
+    "origen": "manual",
+    "pagos": {}
+   },
+   {
+    "id": "c-colegio0001",
+    "nombre": "Colegio Ejemplo",
+    "tipo": "deuda",
+    "signo": "gasto",
+    "moneda": "CLP",
+    "monto": 30000,
+    "frecuencia": "mensual",
+    "dia": 15,
+    "categoria": "",
+    "buscar": [
+     "COLEGIO EJEMPLO"
+    ],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-08-01",
+    "origen": "manual",
+    "pagos": {}
+   },
+   {
+    "id": "c-luz00000001",
+    "nombre": "Luz Ejemplo",
+    "tipo": "deuda",
+    "signo": "gasto",
+    "moneda": "CLP",
+    "monto": 55000,
+    "frecuencia": "mensual",
+    "dia": 3,
+    "categoria": "",
+    "buscar": [
+     "LUZ EJEMPLO"
+    ],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-08-01",
+    "origen": "manual",
+    "pagos": {},
+    "aproximado": {
+     "min": 50000,
+     "max": 60000
+    }
+   }
+  ],
+  "movimientos": [
+   {
+    "id": "m001",
+    "fecha": "2026-08-10",
+    "descripcion": "CREDITO EJEMPLO CUOTA",
+    "monto": -100000,
+    "moneda": "CLP",
+    "cuenta": "banco-ejemplo",
+    "categoria": ""
+   },
+   {
+    "id": "m002",
+    "fecha": "2026-09-18",
+    "descripcion": "CREDITO EJEMPLO CUOTA",
+    "monto": -108000,
+    "moneda": "CLP",
+    "cuenta": "banco-ejemplo",
+    "categoria": ""
+   },
+   {
+    "id": "m003",
+    "fecha": "2026-10-09",
+    "descripcion": "CREDITO EJEMPLO CUOTA",
+    "monto": -100000,
+    "moneda": "CLP",
+    "cuenta": "banco-ejemplo",
+    "categoria": ""
+   },
+   {
+    "id": "m004",
+    "fecha": "2026-08-05",
+    "descripcion": "DIVIDENDO EJEMPLO",
+    "monto": -250000,
+    "moneda": "CLP",
+    "cuenta": "banco-ejemplo",
+    "categoria": ""
+   },
+   {
+    "id": "m005",
+    "fecha": "2026-09-04",
+    "descripcion": "DIVIDENDO EJEMPLO",
+    "monto": -250000,
+    "moneda": "CLP",
+    "cuenta": "banco-ejemplo",
+    "categoria": ""
+   },
+   {
+    "id": "m006",
+    "fecha": "2026-10-09",
+    "descripcion": "DIVIDENDO EJEMPLO",
+    "monto": -250000,
+    "moneda": "CLP",
+    "cuenta": "banco-ejemplo",
+    "categoria": ""
+   },
+   {
+    "id": "m007",
+    "fecha": "2026-10-09",
+    "descripcion": "INT. MORA DIVIDENDO",
+    "monto": -4320,
+    "moneda": "CLP",
+    "cuenta": "banco-ejemplo",
+    "categoria": ""
+   },
+   {
+    "id": "m008",
+    "fecha": "2026-10-14",
+    "descripcion": "COLEGIO EJEMPLO",
+    "monto": -30000,
+    "moneda": "CLP",
+    "cuenta": "banco-ejemplo",
+    "categoria": ""
+   },
+   {
+    "id": "m009",
+    "fecha": "2026-10-15",
+    "descripcion": "INTERESES LINEA DE CREDITO",
+    "monto": -500,
+    "moneda": "CLP",
+    "cuenta": "banco-ejemplo",
+    "categoria": ""
+   },
+   {
+    "id": "m010",
+    "fecha": "2026-10-06",
+    "descripcion": "LUZ EJEMPLO",
+    "monto": -59000,
+    "moneda": "CLP",
+    "cuenta": "banco-ejemplo",
+    "categoria": ""
+   },
+   {
+    "id": "m011",
+    "fecha": "2026-10-20",
+    "descripcion": "SUPERMERCADO EJEMPLO",
+    "monto": -45000,
+    "moneda": "CLP",
+    "cuenta": "banco-ejemplo",
+    "categoria": ""
+   }
+  ],
+  "estado": [
+   {
+    "nombre": "septiembre: pago atrasado con monto mayor",
+    "mes": "2026-09",
+    "hoy": "2026-10-26",
+    "esperado": {
+     "mes": "2026-09",
+     "moneda": "CLP",
+     "items": [
+      {
+       "id": "c-luz00000001",
+       "nombre": "Luz Ejemplo",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 55000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 50000,
+        "max": 60000
+       },
+       "original": null,
+       "categoria": "",
+       "periodo": "2026-09",
+       "vence": "2026-09-03",
+       "estado": "atrasado",
+       "dias": 53,
+       "pago": null,
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-dividendo01",
+       "nombre": "Dividendo Ejemplo",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 250000,
+       "moneda": "CLP",
+       "rango": null,
+       "original": null,
+       "categoria": "",
+       "periodo": "2026-09",
+       "vence": "2026-09-05",
+       "estado": "pagado",
+       "dias": 0,
+       "pago": {
+        "como": "automatico",
+        "fecha": "2026-09-04",
+        "monto": 250000,
+        "movimiento": "m005",
+        "descripcion": "DIVIDENDO EJEMPLO"
+       },
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-credito0001",
+       "nombre": "Crédito Ejemplo",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 100000,
+       "moneda": "CLP",
+       "rango": null,
+       "original": null,
+       "categoria": "",
+       "periodo": "2026-09",
+       "vence": "2026-09-10",
+       "estado": "pagado",
+       "dias": 0,
+       "pago": {
+        "como": "automatico",
+        "fecha": "2026-09-18",
+        "monto": 108000,
+        "movimiento": "m002",
+        "descripcion": "CREDITO EJEMPLO CUOTA",
+        "mora": {
+         "monto": 8000,
+         "dias": 8
+        }
+       },
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-colegio0001",
+       "nombre": "Colegio Ejemplo",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 30000,
+       "moneda": "CLP",
+       "rango": null,
+       "original": null,
+       "categoria": "",
+       "periodo": "2026-09",
+       "vence": "2026-09-15",
+       "estado": "atrasado",
+       "dias": 41,
+       "pago": null,
+       "cuota": null,
+       "anterior": false
+      }
+     ],
+     "total": 435000,
+     "pagado": 350000,
+     "pendiente": 85000,
+     "atrasado": 85000,
+     "arrastre": 0,
+     "ingresos_esperados": 0,
+     "ingresos_recibidos": 0,
+     "total_max": 440000,
+     "pendiente_max": 90000,
+     "arrastre_max": 0,
+     "ingresos_esperados_min": 0,
+     "aprox": true,
+     "sin_valor": 0,
+     "compromisos": [
+      {
+       "id": "c-credito0001",
+       "nombre": "Crédito Ejemplo",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 100000,
+       "moneda": "CLP",
+       "rango": null,
+       "original": null,
+       "frecuencia": "mensual",
+       "categoria": "",
+       "mensual": 100000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null,
+       "con": null
+      },
+      {
+       "id": "c-dividendo01",
+       "nombre": "Dividendo Ejemplo",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 250000,
+       "moneda": "CLP",
+       "rango": null,
+       "original": null,
+       "frecuencia": "mensual",
+       "categoria": "",
+       "mensual": 250000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null,
+       "con": null
+      },
+      {
+       "id": "c-colegio0001",
+       "nombre": "Colegio Ejemplo",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 30000,
+       "moneda": "CLP",
+       "rango": null,
+       "original": null,
+       "frecuencia": "mensual",
+       "categoria": "",
+       "mensual": 30000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null,
+       "con": null
+      },
+      {
+       "id": "c-luz00000001",
+       "nombre": "Luz Ejemplo",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 55000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 50000,
+        "max": 60000
+       },
+       "original": null,
+       "frecuencia": "mensual",
+       "categoria": "",
+       "mensual": 55000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null,
+       "con": null
+      }
+     ]
+    }
+   },
+   {
+    "nombre": "octubre: cargo aparte, a tiempo sin mora y aproximado dentro del rango",
+    "mes": "2026-10",
+    "hoy": "2026-10-26",
+    "esperado": {
+     "mes": "2026-10",
+     "moneda": "CLP",
+     "items": [
+      {
+       "id": "c-luz00000001",
+       "nombre": "Luz Ejemplo",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 55000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 50000,
+        "max": 60000
+       },
+       "original": null,
+       "categoria": "",
+       "periodo": "2026-09",
+       "vence": "2026-09-03",
+       "estado": "atrasado",
+       "dias": 53,
+       "pago": null,
+       "cuota": null,
+       "anterior": true
+      },
+      {
+       "id": "c-colegio0001",
+       "nombre": "Colegio Ejemplo",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 30000,
+       "moneda": "CLP",
+       "rango": null,
+       "original": null,
+       "categoria": "",
+       "periodo": "2026-09",
+       "vence": "2026-09-15",
+       "estado": "atrasado",
+       "dias": 41,
+       "pago": null,
+       "cuota": null,
+       "anterior": true
+      },
+      {
+       "id": "c-luz00000001",
+       "nombre": "Luz Ejemplo",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 55000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 50000,
+        "max": 60000
+       },
+       "original": null,
+       "categoria": "",
+       "periodo": "2026-10",
+       "vence": "2026-10-03",
+       "estado": "pagado",
+       "dias": 0,
+       "pago": {
+        "como": "automatico",
+        "fecha": "2026-10-06",
+        "monto": 59000,
+        "movimiento": "m010",
+        "descripcion": "LUZ EJEMPLO"
+       },
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-dividendo01",
+       "nombre": "Dividendo Ejemplo",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 250000,
+       "moneda": "CLP",
+       "rango": null,
+       "original": null,
+       "categoria": "",
+       "periodo": "2026-10",
+       "vence": "2026-10-05",
+       "estado": "pagado",
+       "dias": 0,
+       "pago": {
+        "como": "automatico",
+        "fecha": "2026-10-09",
+        "monto": 250000,
+        "movimiento": "m006",
+        "descripcion": "DIVIDENDO EJEMPLO",
+        "mora": {
+         "monto": 4320,
+         "dias": 4,
+         "movimiento": "m007"
+        }
+       },
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-credito0001",
+       "nombre": "Crédito Ejemplo",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 100000,
+       "moneda": "CLP",
+       "rango": null,
+       "original": null,
+       "categoria": "",
+       "periodo": "2026-10",
+       "vence": "2026-10-10",
+       "estado": "pagado",
+       "dias": 0,
+       "pago": {
+        "como": "automatico",
+        "fecha": "2026-10-09",
+        "monto": 100000,
+        "movimiento": "m003",
+        "descripcion": "CREDITO EJEMPLO CUOTA"
+       },
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-colegio0001",
+       "nombre": "Colegio Ejemplo",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 30000,
+       "moneda": "CLP",
+       "rango": null,
+       "original": null,
+       "categoria": "",
+       "periodo": "2026-10",
+       "vence": "2026-10-15",
+       "estado": "pagado",
+       "dias": 0,
+       "pago": {
+        "como": "automatico",
+        "fecha": "2026-10-14",
+        "monto": 30000,
+        "movimiento": "m008",
+        "descripcion": "COLEGIO EJEMPLO"
+       },
+       "cuota": null,
+       "anterior": false
+      }
+     ],
+     "total": 435000,
+     "pagado": 435000,
+     "pendiente": 85000,
+     "atrasado": 85000,
+     "arrastre": 85000,
+     "ingresos_esperados": 0,
+     "ingresos_recibidos": 0,
+     "total_max": 440000,
+     "pendiente_max": 90000,
+     "arrastre_max": 90000,
+     "ingresos_esperados_min": 0,
+     "aprox": true,
+     "sin_valor": 0,
+     "compromisos": [
+      {
+       "id": "c-credito0001",
+       "nombre": "Crédito Ejemplo",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 100000,
+       "moneda": "CLP",
+       "rango": null,
+       "original": null,
+       "frecuencia": "mensual",
+       "categoria": "",
+       "mensual": 100000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null,
+       "con": null
+      },
+      {
+       "id": "c-dividendo01",
+       "nombre": "Dividendo Ejemplo",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 250000,
+       "moneda": "CLP",
+       "rango": null,
+       "original": null,
+       "frecuencia": "mensual",
+       "categoria": "",
+       "mensual": 250000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null,
+       "con": null
+      },
+      {
+       "id": "c-colegio0001",
+       "nombre": "Colegio Ejemplo",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 30000,
+       "moneda": "CLP",
+       "rango": null,
+       "original": null,
+       "frecuencia": "mensual",
+       "categoria": "",
+       "mensual": 30000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null,
+       "con": null
+      },
+      {
+       "id": "c-luz00000001",
+       "nombre": "Luz Ejemplo",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 55000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 50000,
+        "max": 60000
+       },
+       "original": null,
+       "frecuencia": "mensual",
+       "categoria": "",
+       "mensual": 55000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null,
+       "con": null
+      }
+     ]
+    }
+   }
+  ],
+  "anio": {
+   "hoy": "2026-10-26",
+   "esperado": 12320
+  }
  }
 }

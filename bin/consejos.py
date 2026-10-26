@@ -41,6 +41,10 @@ def linea_compromisos(hoy, movimientos, presupuesto, categorias, compromisos, pe
     aprox = lambda x, y: f"cerca de {x} (hasta {y})" if y != x else f"{x}"
     lineas = [f"- Compromisos del mes (deudas, cuentas, suscripciones): {aprox(e['total'], e['total_max'])}; pagado {e['pagado']}; "
               f"pendiente {aprox(e['pendiente'], e['pendiente_max'])}" + (f" (atrasado {e['atrasado']})" if e["atrasado"] else "")]
+    mora = K.mora_del_anio(compromisos, movimientos, hoy, moneda, uf, K.palabras_mora(datos.config().get("pais") or "CL"))
+    if mora:
+        lineas.append(f"- Este año pagó {mora} en intereses por atraso (pagos de compromisos hechos después del vencimiento): "
+                      "sugiere cómo evitarlo")
     if e["sin_valor"]:
         lineas.append(f"- {e['sin_valor']} compromiso(s) en UF sin estimar en pesos (no están en los totales)")
     if g["disponible"] is not None:

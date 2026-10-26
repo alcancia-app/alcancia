@@ -482,14 +482,91 @@ def coincide(m, c, moneda, uf=None):
     return any(p in d for p in palabras)
 
 
+#: Un pago atrasado se reconoce aunque venga hasta 30 % más alto que lo esperado (por el interés por mora), solo con sus palabras.
+MORA_MAX = 30
+#: Un pago mensual o anual se reconoce hasta 20 días después del vencimiento (más de 7 es un pago atrasado; a veces con mora).
+ATRASO_MAX = 20
+
+
+def _tope(c, uf):
+    """(lo esperado, lo más alto que se reconoce sin mora) en la moneda del pago; None si no hay cómo saberlo (UF sin valor)."""
+    if c["moneda"] == UF:
+        if not uf:
+            return None
+        hi = _rango_uf(c, uf, MARGEN_UF)[1]
+        return hi, hi
+    r = rango_aprox(c)
+    esperado = r[1] if r else c["monto"]
+    return esperado, max(esperado, c["monto"] * (1 + c.get("tolerancia", TOLERANCIA) / 100))
+
+
+def coincide_tarde(m, c, moneda, uf=None):
+    """¿Puede ser el pago atrasado de este compromiso, con interés por mora encima? Como coincide, pero el monto pasa del tope
+    (hasta +30 %) y siempre con alguna palabra de `buscar`. Solo se usa para pagos después del vencimiento."""
+    monto = m["monto"]
+    if monto >= 0 or c["signo"] != "gasto" or m.get("categoria") == "transferencia" and c["tipo"] != "transferencia":
+        return False
+    palabras = [datos.normalizar(p) for p in c.get("buscar") or [] if datos.normalizar(p)]
+    t = _tope(c, uf)
+    if not palabras or not t or (m.get("moneda") or moneda) != (moneda if c["moneda"] == UF else c["moneda"]):
+        return False
+    if not t[1] + 1e-9 < -monto <= t[1] * (1 + MORA_MAX / 100) + 1e-9:
+        return False
+    d = datos.normalizar(m.get("descripcion"))
+    return any(p in d for p in palabras)
+
+
+def palabras_mora(pais="*"):
+    """Las palabras de un cargo por atraso (INTERES, MORA, RECARGO, COBRANZA, LATE FEE…): solo datos, en compromisos_conocidos.json."""
+    j = datos.leer_json(CONOCIDOS, {}).get("mora", {})
+    return [p for k in ("*", pais) for p in j.get(k, []) if isinstance(p, str) and p.strip()]
+
+
+def _es_mora(m, palabras):
+    d = re.sub(r"\s+", " ", datos.normalizar(re.sub(r"[.\-_/]", " ", str(m.get("descripcion") or ""))))
+    return any(re.search(r"(?<![A-Z0-9])" + re.escape(re.sub(r"\s+", " ", re.sub(r"[.\-_/]", " ", datos.normalizar(p))).strip()) + r"(?![A-Z0-9])", d)
+               for p in palabras)
+
+
+def _moras(ocs, pagos, movimientos, moneda, uf, palabras, usados):
+    """El interés por mora de cada pago atrasado: lo que pagó de más (sobre el tope) y un cargo aparte (INTERES, MORA, COBRANZA…)
+    hasta 7 días antes o después del pago. Lo anota en el pago: {"monto", "dias", "movimiento"?}."""
+    por_id = {m["id"]: m for m in movimientos}
+    cargos = sorted((m for m in movimientos if m["monto"] < 0 and m["id"] not in usados and palabras and _es_mora(m, palabras)),
+                    key=lambda m: (m["fecha"], m["id"]))
+    tomados = set()
+    for c, o in ocs:
+        p = pagos.get(f"{c['id']}|{o['periodo']}")
+        if not p or p["como"] != "automatico" or c["signo"] != "gasto":
+            continue
+        dias = _num(p["fecha"]) - _num(o["vence"])
+        if dias <= 0:
+            continue
+        m = por_id.get(p["movimiento"])
+        extra = 0
+        t = _tope(c, uf)
+        if t and m and -m["monto"] > t[1] + 1e-9:
+            extra = -m["monto"] - t[0]
+        cerca = [x for x in cargos if x["id"] not in tomados and abs(_num(x["fecha"]) - _num(p["fecha"])) <= 7
+                 and (x.get("moneda") or moneda) == (m.get("moneda") or moneda if m else moneda)]
+        cargo = min(cerca, key=lambda x: (abs(_num(x["fecha"]) - _num(p["fecha"])), x["fecha"], x["id"])) if cerca else None
+        if cargo:
+            tomados.add(cargo["id"])
+            extra += -cargo["monto"]
+        if extra > 0:
+            p["mora"] = {"monto": redondear(extra), "dias": dias, **({"movimiento": cargo["id"]} if cargo else {})}
+
+
 def _pago(m):
     return {"como": "automatico", "fecha": m["fecha"], "monto": abs(m["monto"]), "movimiento": m["id"], "descripcion": m["descripcion"]}
 
 
-def asignar(compromisos, movimientos, hasta, moneda, uf=None):
+def asignar(compromisos, movimientos, hasta, moneda, uf=None, mora=None):
     """Para cada vencimiento hasta `hasta`, el pago que le corresponde. Lo marcado a mano manda; después, por orden de
     las parejas que calzan mejor (más cerca de la fecha, luego del monto). Un movimiento cuenta para un solo compromiso.
     `uf`: el valor de la UF escrito en Ajustes (o None), para reconocer pagos de compromisos en UF por el monto.
+    `mora`: las palabras de un cargo por atraso (palabras_mora); con ellas, un pago atrasado trae `mora` (ver _moras).
+    Un pago atrasado también se reconoce si viene más alto que el tope (interés por mora, coincide_tarde).
     Devuelve (vencimientos [(compromiso, v)], {"id|periodo": pago}, ids usados)."""
     ocs = [(c, o) for c in compromisos for o in vencimientos(c, hasta)]
     por_id = {m["id"]: m for m in movimientos}
@@ -509,12 +586,14 @@ def asignar(compromisos, movimientos, hasta, moneda, uf=None):
     candidatos, pares = {}, []
     for c, o, no_es in pendientes:
         if c["id"] not in candidatos:
-            candidatos[c["id"]] = [(_num(m["fecha"]), m) for m in movimientos if coincide(m, c, moneda, uf)]
+            candidatos[c["id"]] = [(_num(m["fecha"]), m, False) for m in movimientos if coincide(m, c, moneda, uf)] + \
+                [(_num(m["fecha"]), m, True) for m in movimientos if coincide_tarde(m, c, moneda, uf)]
         v = _num(o["vence"])
         esperado = c["monto"] * uf if c["moneda"] == UF and uf else 0 if c["moneda"] == UF else c["monto"]
-        for n, m in candidatos[c["id"]]:
+        for n, m, tarde in candidatos[c["id"]]:
             # Un vencimiento anterior a `desde` solo se da por pagado con algo de antes de `desde` (ya estaba pagado al agregarlo).
-            if v - ANTES <= n <= v + DESPUES and m["id"] not in usados and m["id"] not in no_es and (o["vence"] >= c["desde"] or m["fecha"] < c["desde"]):
+            hasta_ = v + (ATRASO_MAX if c["frecuencia"] in ("mensual", "anual") else DESPUES)
+            if (not tarde or n > v) and v - ANTES <= n <= hasta_ and m["id"] not in usados and m["id"] not in no_es and (o["vence"] >= c["desde"] or m["fecha"] < c["desde"]):
                 pares.append(((abs(n - v), abs(abs(m["monto"]) - esperado) if esperado else 0, o["vence"] < c["desde"], o["vence"], c["id"], o["periodo"],
                                m["fecha"], m["id"]), c, o, m))
     pares.sort(key=lambda x: x[0])
@@ -524,6 +603,7 @@ def asignar(compromisos, movimientos, hasta, moneda, uf=None):
             continue
         usados.add(m["id"])
         pagos[clave] = _pago(m)
+    _moras(ocs, pagos, movimientos, moneda, uf, mora or [], usados)
     return ocs, pagos, usados
 
 
@@ -595,14 +675,14 @@ def _minimo(x):
     return x["rango"]["min"] if x.get("rango") else x["monto"]
 
 
-def estado_mes(compromisos, movimientos, mes, hoy, moneda, per=None, uf=None):
+def estado_mes(compromisos, movimientos, mes, hoy, moneda, per=None, uf=None, mora=None):
     """Estado de cada compromiso activo en el periodo `mes` (ver resumen.rango): pagado (con fecha), pendiente (vence en N días),
     hoy o atrasado (N días). En el periodo en curso también trae lo del anterior que quedó sin pagar (`anterior`). Totales solo
     en `moneda`. `compromisos` trae el avance de cada uno (cuotas, término, cuánto falta) para «Lo que estás pagando».
     `uf`: el ajuste de la UF (uf_config). Los montos aproximados o en UF traen `rango`; los totales `_max` usan su máximo."""
     activos = [c for c in compromisos if c.get("activo", True)]
     inicio, fin = rango(mes, per)
-    ocs, pagos, _ = asignar(activos, movimientos, fin, moneda, (uf or {}).get("valor"))
+    ocs, pagos, _ = asignar(activos, movimientos, fin, moneda, (uf or {}).get("valor"), mora)
     valores, uf_mes = valores_uf(activos, pagos, uf), (uf or {}).get("variacion_mensual", UF_MENSUAL)
     antes = rango(sumar_mes(mes, -1), per) if inicio <= hoy <= fin else None
     h = _num(hoy)
@@ -1125,8 +1205,10 @@ def fijar_automaticos(hoy, movimientos=None):
     lista = [c for c in validos(raw, hoy, moneda) if c.get("activo", True)]
     if not lista:
         return 0
-    _, pagos, _ = asignar(lista, datos.leer_todos() if movimientos is None else movimientos, hoy, moneda, (uf_config() or {}).get("valor"))
+    movs = datos.leer_todos() if movimientos is None else movimientos
+    _, pagos, _ = asignar(lista, movs, hoy, moneda, (uf_config() or {}).get("valor"), palabras_mora(datos.config().get("pais") or "CL"))
     nuevos = 0
+    _categorizar_mora(pagos, movs)
     for c in raw["compromisos"]:
         if not isinstance(c, dict):
             continue
@@ -1135,13 +1217,41 @@ def fijar_automaticos(hoy, movimientos=None):
             if cid != c.get("id") or p["como"] != "automatico":
                 continue
             e = c.setdefault("pagos", {}).setdefault(periodo, {}) if isinstance(c.get("pagos", {}), dict) else None
-            if e is None or e.get("como"):
+            if e is None:
                 continue
-            e.update({"como": "automatico", "fecha": p["fecha"], "movimiento": p["movimiento"], "monto": p["monto"]})
+            if e.get("como") == "automatico" and e.get("movimiento") == p["movimiento"] and e.get("mora") != p.get("mora"):
+                if p.get("mora"):
+                    e["mora"] = p["mora"]  # el interés por mora de ese pago (lo pagado de más y el cargo aparte)
+                else:
+                    e.pop("mora", None)
+                nuevos += 1
+            if e.get("como"):
+                continue
+            e.update({"como": "automatico", "fecha": p["fecha"], "movimiento": p["movimiento"], "monto": p["monto"],
+                      **({"mora": p["mora"]} if p.get("mora") else {})})
             nuevos += 1
     if nuevos:
         escribir(raw)
     return nuevos
+
+
+def _categorizar_mora(pagos, movimientos):
+    """El cargo aparte por atraso queda en «Intereses y cargos» (si no tenía categoría; lo que eligió la persona no se toca)."""
+    if not any(c["id"] == "intereses" for c in datos.categorias()):
+        return
+    por_id = {m["id"]: m for m in movimientos}
+    for p in pagos.values():
+        m = por_id.get((p.get("mora") or {}).get("movimiento"))
+        if m and not m.get("categoria"):
+            datos.cambiar(m["fecha"][:7], m["id"], {"categoria": "intereses"})
+            m["categoria"] = "intereses"
+
+
+def mora_del_anio(compromisos, movimientos, hoy, moneda, uf=None, mora=None):
+    """Lo que se pagó este año (por la fecha del pago) en intereses por atraso: la suma de `mora` de cada pago (igual que moraDelAnio)."""
+    activos = [c for c in compromisos if c.get("activo", True)]
+    _, pagos, _ = asignar(activos, movimientos, hoy, moneda, (uf or {}).get("valor"), mora)
+    return redondear(sum(p["mora"]["monto"] for p in pagos.values() if p.get("mora") and p["fecha"][:4] == hoy[:4] and p["fecha"] <= hoy))
 
 
 # ───────────── Avisos (la app de Mac los muestra como notificaciones del sistema) ─────────────

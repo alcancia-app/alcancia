@@ -49,6 +49,7 @@ CATEGORIAS_BASE = [
     {"id": "compras", "nombre": "Compras", "emoji": "🛍️", "tipo": "gasto"},
     {"id": "ocio", "nombre": "Panoramas", "emoji": "🎉", "tipo": "gasto"},
     {"id": "mascotas", "nombre": "Mascotas", "emoji": "🐾", "tipo": "gasto"},
+    {"id": "intereses", "nombre": "Intereses y cargos", "emoji": "🧾", "tipo": "gasto"},
     {"id": "otros", "nombre": "Otros gastos", "emoji": "📦", "tipo": "gasto"},
     {"id": "sueldo", "nombre": "Sueldo", "emoji": "💼", "tipo": "ingreso"},
     {"id": "otros_ingresos", "nombre": "Otros ingresos", "emoji": "💰", "tipo": "ingreso"},
@@ -86,14 +87,22 @@ def config():
 NOMBRES_EN = {"supermercado": "Groceries", "comida": "Eating out & delivery", "transporte": "Transport", "auto": "Car & fuel",
               "casa": "Home", "cuentas": "Utilities", "salud": "Health", "educacion": "Education", "suscripciones": "Subscriptions",
               "compras": "Shopping", "ocio": "Fun", "mascotas": "Pets", "otros": "Other expenses", "sueldo": "Salary",
-              "otros_ingresos": "Other income", "transferencia": "Between my accounts"}
+              "otros_ingresos": "Other income", "transferencia": "Between my accounts", "intereses": "Interest & charges"}
+
+
+#: Categorías que se sumaron a las de siempre después de la primera versión (se agregan a un categorias.json que no las tenga).
+NUEVAS = ("intereses",)
 
 
 def categorias():
     """Las de la persona (categorias.json) o, si aún no existen, las base en el idioma de la app."""
     propias = leer_json(os.path.join(BASE, "categorias.json"), None)
     if propias:
-        return propias
+        # Las que se suman a las de siempre después (como «Intereses y cargos») aparecen también en un categorias.json de antes.
+        ids = {c.get("id") for c in propias if isinstance(c, dict)}
+        idioma = config().get("idioma_ui") or ""
+        return propias + [{**c, "nombre": NOMBRES_EN.get(c["id"], c["nombre"])} if idioma == "en" else c
+                          for c in CATEGORIAS_BASE if c["id"] in NUEVAS and c["id"] not in ids]
     idioma = config().get("idioma_ui") or ""
     if idioma == "en":
         return [{**c, "nombre": NOMBRES_EN.get(c["id"], c["nombre"])} for c in CATEGORIAS_BASE]

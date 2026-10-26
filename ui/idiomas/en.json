@@ -720,6 +720,10 @@
     "Márcalo como recibido hoy": "Mark it as received today",
     "Listo: tu mes parte el {f}": "Done: your month starts on {f}",
     "Entendido: vuelvo a mirar mañana": "Got it: I'll check again tomorrow",
-    "Lo detecté de tus movimientos: tu sueldo suele llegar el día {d}. Si lo cambias, uso lo que elijas.": "I detected it from your transactions: your salary usually arrives on day {d}. If you change it, I'll use what you choose."
+    "Lo detecté de tus movimientos: tu sueldo suele llegar el día {d}. Si lo cambias, uso lo que elijas.": "I detected it from your transactions: your salary usually arrives on day {d}. If you change it, I'll use what you choose.",
+    "Pagado el {f} con 1 día de atraso · {x} de interés por mora": "Paid on {f}, 1 day late · {x} in late-payment interest",
+    "Pagado el {f} con {n} días de atraso · {x} de interés por mora": "Paid on {f}, {n} days late · {x} in late-payment interest",
+    "Este año pagaste {x} en intereses por atraso.": "This year you paid {x} in late-payment interest.",
+    "Intereses y cargos": "Interest & charges"
   }
 }
