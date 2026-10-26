@@ -916,10 +916,15 @@ def detectar_sueldo(movimientos, hoy, categorias, moneda):
     total_mes = {}
     for m in ingresos:
         total_mes[m["fecha"][:7]] = total_mes.get(m["fecha"][:7], 0) + m["monto"]
-    for ancla in sorted(ingresos, key=lambda m: (-m["monto"], m["fecha"], m["id"])):
+    clave_de = {m["id"]: categorizar.regla_para(m["descripcion"]) for m in ingresos}
+    # Primero lo que se parece a lo que la persona ya marcó como Sueldo; y entonces solo con esa misma descripción (que un ingreso
+    # grande y suelto, como una devolución de impuestos, no se cuele en las llegadas).
+    for ancla in sorted(ingresos, key=lambda m: (clave_de[m["id"]] not in sueldo_claves, -m["monto"], m["fecha"], m["id"])):
         miembros = []
+        mismo = clave_de[ancla["id"]] in sueldo_claves
         for x in meses4:
-            cerca = [m for m in ingresos if m["fecha"][:7] == x and abs(m["monto"] - ancla["monto"]) <= ancla["monto"] * SUELDO_PARECIDO / 100 + 1e-9]
+            cerca = [m for m in ingresos if m["fecha"][:7] == x and abs(m["monto"] - ancla["monto"]) <= ancla["monto"] * SUELDO_PARECIDO / 100 + 1e-9
+                     and (not mismo or clave_de[m["id"]] == clave_de[ancla["id"]])]
             if cerca:
                 miembros.append(min(cerca, key=lambda m: (abs(m["monto"] - ancla["monto"]), m["fecha"], m["id"])))
         en3 = sum(1 for m in miembros if m["fecha"][:7] in meses4[1:])

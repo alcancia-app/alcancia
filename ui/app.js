@@ -541,11 +541,15 @@
     const totalMes = {};
     for (const m of ingresos) totalMes[m.fecha.slice(0, 7)] = (totalMes[m.fecha.slice(0, 7)] || 0) + m.monto;
     const orden = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
-    const anclas = [...ingresos].sort((a, b) => b.monto - a.monto || orden(a.fecha, b.fecha) || orden(a.id, b.id));
+    const claveDe = new Map(ingresos.map((m) => [m.id, reglaPara(m.descripcion)]));
+    const marcado = (m) => sueldoClaves.has(claveDe.get(m.id));
+    // Primero lo que se parece a lo ya marcado como Sueldo, y solo con esa misma descripción (igual que en Python).
+    const anclas = [...ingresos].sort((a, b) => (marcado(a) === marcado(b) ? 0 : marcado(a) ? -1 : 1) || b.monto - a.monto || orden(a.fecha, b.fecha) || orden(a.id, b.id));
     for (const ancla of anclas) {
-      const miembros = [];
+      const miembros = [], mismo = marcado(ancla);
       for (const x of meses4) {
-        const cerca = ingresos.filter((m) => m.fecha.slice(0, 7) === x && Math.abs(m.monto - ancla.monto) <= ancla.monto * SUELDO_PARECIDO / 100 + 1e-9);
+        const cerca = ingresos.filter((m) => m.fecha.slice(0, 7) === x && Math.abs(m.monto - ancla.monto) <= ancla.monto * SUELDO_PARECIDO / 100 + 1e-9
+          && (!mismo || claveDe.get(m.id) === claveDe.get(ancla.id)));
         if (cerca.length) miembros.push(cerca.sort((a, b) => Math.abs(a.monto - ancla.monto) - Math.abs(b.monto - ancla.monto) || orden(a.fecha, b.fecha) || orden(a.id, b.id))[0]);
       }
       const en3 = miembros.filter((m) => meses4.slice(1).includes(m.fecha.slice(0, 7))).length;

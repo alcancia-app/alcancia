@@ -6043,7 +6043,7 @@
     "esperado": null
    },
    {
-    "nombre": "lo que la persona ya marcó como Sueldo manda aunque otros meses quedaron «entre mis cuentas»",
+    "nombre": "lo que la persona ya marcó como Sueldo manda aunque otros meses quedaron «entre mis cuentas» (y una devolución grande no se cuela)",
     "hoy": "2026-10-26",
     "movimientos": [
      {
@@ -6081,19 +6081,38 @@
       "moneda": "CLP",
       "cuenta": "billetera-ejemplo",
       "categoria": "transferencia"
+     },
+     {
+      "id": "u5",
+      "fecha": "2026-07-13",
+      "descripcion": "Transferencia: Devolución de impuestos",
+      "monto": 2650000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": "otros_ingresos"
+     },
+     {
+      "id": "u6",
+      "fecha": "2026-07-23",
+      "descripcion": "Carga de saldo: Empresa Ejemplo SpA",
+      "monto": 2470000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": ""
      }
     ],
     "esperado": {
-     "dia": 21,
-     "monto": 2480000,
+     "dia": 22,
+     "monto": 2470000,
      "variacion": 2,
      "llegadas": [
+      "2026-07-23",
       "2026-08-21",
       "2026-09-15",
       "2026-10-22"
      ],
      "clave": "CARGA DE SALDO",
-     "meses": 3
+     "meses": 4
     }
    }
   ],
