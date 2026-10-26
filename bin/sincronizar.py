@@ -85,6 +85,26 @@ def registrar_cuentas(mod, cuentas):
         datos.escribir_json(ruta, lista)
 
 
+# Las únicas categorías que un conector puede proponer (el resto lo decide Alcancía con reglas, comercios conocidos o la IA).
+CATEGORIAS_CONECTOR = {"transferencia"}
+REPARACIONES = 1  # sube cuando un conector trae una reparación nueva para lo ya guardado
+
+
+def reparar_guardado(mod, cid):
+    """Corre una sola vez la reparación del conector (si tiene) sobre todos los meses guardados."""
+    if not hasattr(mod, "reparar") or estado_conexiones().get(cid, {}).get("reparado", 0) >= REPARACIONES:
+        return 0
+    total = 0
+    for mes in datos.meses():
+        lista = datos.leer_mes(mes)
+        n = mod.reparar(lista)
+        if n:
+            datos.escribir_mes(mes, lista)
+            total += n
+    _guardar_estado(cid, {"reparado": REPARACIONES})
+    return total
+
+
 def a_movimientos(mod, crudos):
     r = []
     for m in crudos:
@@ -96,7 +116,7 @@ def a_movimientos(mod, crudos):
         desc = " ".join(str(m.get("descripcion") or "").split())[:200] or mod.INFO["nombre"]
         cuenta = cuenta_id(mod.INFO["id"], str(m.get("cuenta") or ""))
         r.append({"id": id_movimiento(mod.INFO["id"], cuenta, str(m["id_externo"])), "fecha": fecha, "descripcion": desc, "monto": monto,
-                  "moneda": str(m.get("moneda") or "").upper()[:3], "categoria": "", "cuenta": cuenta,
+                  "moneda": str(m.get("moneda") or "").upper()[:3], "categoria": m.get("categoria") if m.get("categoria") in CATEGORIAS_CONECTOR else "", "cuenta": cuenta,
                   "origen": f"conector:{mod.INFO['id']}", "nota": ""})
     return r
 
@@ -143,11 +163,17 @@ def traer(cid, salida, hoy=None):
     movs = a_movimientos(mod, crudos)
     cuentas = {(m.get("cuenta") or "") for m in crudos}
     registrar_cuentas(mod, [{"id": c, "nombre": c or mod.INFO["nombre"], "moneda": ""} for c in sorted(cuentas)])
-    categorizar.por_reglas(movs, datos.reglas())
+    reglas = datos.reglas()
+    for m in movs:  # lo que aprendió la persona manda sobre lo que propone el conector (p. ej. una «carga de saldo» que en verdad es su sueldo)
+        if m["categoria"] and any(r.get("contiene") and datos.normalizar(r["contiene"]) in datos.normalizar(m["descripcion"]) for r in reglas):
+            m["categoria"] = ""
+    categorizar.por_reglas(movs, reglas)
     import importar
     ya = importar.ids_guardados(movs)
     nuevos, repetidos = datos.agregar(movs)
-    resultado = {"ok": True, "nombre": mod.INFO["nombre"], "nuevos": nuevos, "repetidos": repetidos, "categorizados_ia": 0, "error_ia": ""}
+    reparados = reparar_guardado(mod, cid)
+    resultado = {"ok": True, "nombre": mod.INFO["nombre"], "nuevos": nuevos, "repetidos": repetidos, "categorizados_ia": 0, "error_ia": "",
+                 "reparados": reparados}
     if nuevos and datos.config().get("ia_en_conexiones", True):
         resultado.update(importar.completar_con_ia(movs))
     if nuevos:

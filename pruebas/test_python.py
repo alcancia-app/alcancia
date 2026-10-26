@@ -922,6 +922,35 @@ class Conectores(unittest.TestCase):
         cuentas = datos.leer_json(os.path.join(datos.BASE, "cuentas.json"), None)
         self.assertEqual(cuentas[0]["conector"], "mercadopago")
 
+    def test_mercadopago_pagos_a_ti_mismo(self):
+        """Cargar saldo o mover plata a una reserva sale en las dos búsquedas (pagador y cobrador): va una sola vez y entre tus cuentas."""
+        from servidor_falso import ServidorFalso
+        propio = {"id": 21, "status": "approved", "transaction_amount": 300000, "currency_id": "CLP", "date_approved": "2026-10-22T10:00:00.000-03:00",
+                  "description": "", "operation_type": "account_fund", "collector_id": 999, "payer": {"id": 999}}
+        compra = {"id": 22, "status": "approved", "transaction_amount": 5990, "currency_id": "CLP", "date_approved": "2026-10-22T13:00:00.000-03:00",
+                  "description": "Panadería Ejemplo", "operation_type": "regular_payment", "collector_id": 555, "payer": {"id": 999}}
+        def buscar(q, b, h):
+            return 200, {"paging": {"total": 2 if "payer.id" in q else 1}, "results": [propio, compra] if "payer.id" in q else [propio]}
+        rutas = {("GET", "api.mercadopago.com/users/me"): lambda q, b, h: (200, {"id": 999, "site_id": "MLC"}),
+                 ("GET", "api.mercadopago.com/v1/payments/search"): buscar}
+        # Lo que dejó la versión anterior: el mismo pago a ti mismo como gasto y como ingreso.
+        viejo = [{"id": i, "fecha": "2026-09-15", "descripcion": "Carga de saldo", "monto": m, "moneda": "CLP", "categoria": "", "cuenta": "mercadopago",
+                  "origen": "conector:mercadopago", "nota": ""} for i, m in (("a1", -200000), ("a2", 200000))]
+        viejo.append({"id": "a3", "fecha": "2026-09-15", "descripcion": "Café Ejemplo", "monto": -2500, "moneda": "CLP", "categoria": "comida",
+                      "cuenta": "mercadopago", "origen": "conector:mercadopago", "nota": ""})
+        datos.escribir_mes("2026-09", viejo)
+        with ServidorFalso(rutas) as srv:
+            self.sinc(srv, "probar", "mercadopago", {"token": "APP_USR-123"})
+            r = self.sinc(srv, "traer", "mercadopago", {"token": "APP_USR-123"})
+            self.assertEqual((r["ok"], r["nuevos"], r["reparados"]), (True, 2, 1), r)
+            octubre = [(m["monto"], m["categoria"]) for m in datos.leer_mes("2026-10")]
+            self.assertIn((300000, "transferencia"), octubre, "una sola vez y entre tus cuentas")
+            self.assertNotIn(-300000, [m for m, _ in octubre], "no queda como gasto")
+            self.assertIn(-5990, [m for m, _ in octubre])
+            self.assertEqual(sorted((m["monto"], m["categoria"]) for m in datos.leer_mes("2026-09")), [(-2500, "comida"), (200000, "transferencia")],
+                             "lo guardado antes se repara: se va el gasto espejo, lo demás queda igual")
+            self.assertEqual(self.sinc(srv, "traer", "mercadopago", {"token": "APP_USR-123"})["reparados"], 0, "la reparación corre una sola vez")
+
     def test_paypal(self):
         from servidor_falso import ServidorFalso
         def token(q, b, h):
