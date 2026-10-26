@@ -23,13 +23,15 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
 
 | Ruta | Qué es |
 |---|---|
-| `bin/` | Python **solo biblioteca estándar**. `datos.py` (formato en disco, ids, escritura atómica), `recetas.py` (validar, detectar y aplicar recetas; lee CSV y .xlsx sin librerías), `categorizar.py` (reglas, comercios conocidos, IA), `resumen.py` (cuentas del mes, proyección, alertas, presupuesto sugerido), `ia.py` (`preguntar()` con la IA del usuario). Scripts que llama la app: `importar.py`, `receta_ia.py`, `consejos.py` (el último argumento siempre es la ruta del JSON de salida). |
+| `bin/` | Python **solo biblioteca estándar**. `datos.py` (formato en disco, ids, escritura atómica), `recetas.py` (validar, detectar y aplicar recetas; lee CSV y .xlsx sin librerías), `categorizar.py` (reglas, comercios conocidos, IA), `resumen.py` (cuentas del mes, proyección, alertas, presupuesto sugerido), `ia.py` (`preguntar()` con la IA del usuario). Scripts que llama la app: `estado.py` (todo lo que pinta la interfaz), `importar.py`, `receta_ia.py`, `consejos.py` y `guardar.py` (categoría, regla, presupuesto, receta; lo de la interfaz llega en un archivo JSON de entrada). El último argumento siempre es la ruta del JSON de salida. |
 | `recetas/` | Recetas incluidas en la app (solo las probadas con una cartola real) y `README.md` con el formato. |
 | `ui/` | Interfaz web única (`app.js`, `app.css`), `demo.json` (ficticio, se genera con `herramientas/generar_demo.py`) e `idiomas/en.json`. |
 | `docs/` | Página pública (GitHub Pages). `pagina.yml` la publica junto a `ui/` en `/demo/`. |
 | `pruebas/` | `correr.sh` (todo), `test_python.py`, `interfaz.mjs` (Playwright), `casos.json` (casos compartidos Python ↔ JS), `ia_falsa.py`, `datos/` (cartola ficticia). |
 | `herramientas/` | `revisar_privacidad.sh`, `generar_demo.py`. |
 | `ejemplos/` | Scripts para construir encima del formato abierto. |
+| `app/` | App de Mac (SwiftPM, macOS 15, sin proyecto de Xcode). `AlcanciaApp.swift` (arranque y barra de menú), `Ventana.swift` (WKWebView + puente: un `case` por acción), `Servicios.swift` (rutas, config, idioma, IA del usuario, `Procesador.correrJSON`), `Actualizaciones.swift` (GitHub Releases o `git pull` en un checkout de desarrollo). |
+| `build.sh`, `herramientas/empaquetar.sh` | Arman `dist/Alcancia.app` (con Python portátil verificado por SHA-256 y bin/, ui/, recetas/ adentro) + zip + `.sha256`; `build.sh` la instala en `~/Applications`. |
 
 ## Cómo funciona
 - **Importar:** `importar.py vista <archivo> [receta]` detecta la receta (la que reconoce más encabezados) y devuelve una muestra sin
@@ -50,7 +52,16 @@ La UI llama `host.enviar(accion, datos)` y la app responde con `window.Alcancia.
 con datos ficticios. Acciones: `listo, config, probarIA, elegirCartola, vistaCartola, aprenderReceta, guardarReceta, importar,
 categoria, regla, presupuesto, pedirConsejos, abrirEnlace, abrirCarpeta, buscarActualizacion, actualizar`. Respuestas: `estado,
 iaProbada, cartolaElegida, vistaLista, recetaAprendida, importarProgreso, importado, consejosListos, actualizacionRevisada,
-actualizacionProgreso`. Cuando existan las apps nativas, `pruebas/contrato.py` revisará que cada acción exista en todas.
+actualizacionProgreso`. `pruebas/contrato.py` revisa que cada acción exista en `Ventana.swift` (y en Windows/Linux cuando exista), que cada
+función que llama la app exista en `window.Alcancia` y que los scripts que llama existan. Una acción nueva va en `ui/app.js`, en `Ventana.swift`
+y simulada en `simular()`.
+
+## App de Mac
+- Datos en `~/Alcancia`; el código va dentro de la app (`Contents/Resources/alcancia`) y los scripts corren con el Python portátil incluido
+  (`ALCANCIA_RECURSOS` apunta ahí). La app nunca usa `ui/demo.json` (se quita al empaquetar).
+- Lo que manda la interfaz no arma comandos: rutas de archivo se revisan, ids se filtran y los datos van en un JSON de entrada.
+- Desarrollo en el Mac: `~/Developer/alcancia` es el checkout; `bash build.sh` (se niega si hay una importación en curso) e instala en
+  `~/Applications/Alcancia.app`. Compilar solo: `cd app && swift build -c release`. Swift solo compila en un Mac (o en el job `mac` de GitHub).
 
 ## Reglas al cambiar cosas
 - Código, comentarios, commits y textos en **español** (de Chile neutro). Todo texto nuevo visible va con su traducción en

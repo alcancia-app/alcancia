@@ -208,6 +208,38 @@ class Flujo(unittest.TestCase):
         nuevo = next(x for x in datos.leer_mes("2026-10") if x["id"] == m["id"])
         self.assertEqual((nuevo["categoria"], nuevo["monto"]), ("casa", m["monto"]), "solo cambia lo permitido")
 
+    def test_estado_vacio_y_con_datos(self):
+        limpiar()
+        e = correr("estado.py")
+        self.assertEqual((e["movimientos"], e["consejos"], e["cuentas"]), ([], [], []), "sin ~/Alcancia la app muestra la bienvenida")
+        self.assertTrue(e["categorias"])
+        datos.escribir_json(os.path.join(datos.INTERNO, "recetas", "cl-banco-ejemplo.json"), RECETA)
+        correr("importar.py", "guardar", CARTOLA, "cl-banco-ejemplo", "0")
+        correr("consejos.py", "2026-10-12")
+        e = correr("estado.py")
+        self.assertEqual(len(e["movimientos"]), 9)
+        self.assertEqual(e["consejos"][0]["fecha"], "2026-10-12")
+        self.assertTrue(e["consejos"][0]["texto"].startswith("### Lo que va bien"), "sin el encabezado del archivo")
+
+    def guardar(self, accion, entrada):
+        ruta = os.path.join(TMP, "entrada.json")
+        with open(ruta, "w", encoding="utf-8") as f:
+            json.dump(entrada, f)
+        return correr("guardar.py", accion, ruta)
+
+    def test_guardar(self):
+        correr("importar.py", "guardar", CARTOLA, "cl-banco-ejemplo", "0")
+        m = next(x for x in datos.leer_mes("2026-10") if x["descripcion"] == "CAFE LA ESQUINA")
+        self.assertTrue(self.guardar("categoria", {"mes": "2026-10", "id": m["id"], "categoria": "comida"})["ok"])
+        self.assertFalse(self.guardar("categoria", {"mes": "2026-10", "id": m["id"], "categoria": "inventada"})["ok"])
+        r = self.guardar("regla", {"contiene": "cafe la esquina", "categoria": "ocio"})
+        self.assertEqual((r["ok"], r["cambiados"]), (True, 2), "la regla se aplica a los dos cafés")
+        self.assertEqual(datos.reglas()[-1], {"contiene": "CAFE LA ESQUINA", "categoria": "ocio"})
+        self.assertTrue(self.guardar("presupuesto", {"mensual": {"comida": 90000, "inventada": 5, "ocio": -1}})["ok"])
+        self.assertEqual(datos.presupuesto()["mensual"], {"comida": 90000})
+        self.assertFalse(self.guardar("receta", {"receta": {**RECETA, "id": "MAL"}})["ok"])
+        self.assertTrue(self.guardar("receta", {"receta": {**RECETA, "id": "cl-otro-banco"}})["ok"])
+
 
 if __name__ == "__main__":
     try:

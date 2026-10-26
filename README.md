@@ -32,8 +32,8 @@ Gratis, de código abierto y con tus datos en tu computador.</p>
   en tu computador, con una llave que solo tú tienes.
 
 ## Estado
-Versión 0.1, recién nacida. Ya funcionan el motor (leer cartolas, recetas, categorías, resumen y consejos) y la interfaz; la app
-de escritorio para Mac, Windows y Linux viene en camino. Puedes [ver la interfaz con datos ficticios](https://alcancia-app.github.io/alcancia/demo/).
+Versión 0.1, recién nacida. Ya funcionan el motor (leer cartolas, recetas, categorías, resumen y consejos), la interfaz y la app de
+Mac (todavía sin versión publicada: por ahora se compila desde el código, ver abajo). Windows y Linux vienen en camino. Puedes [ver la interfaz con datos ficticios](https://alcancia-app.github.io/alcancia/demo/).
 
 ## Cómo funciona
 ```
@@ -60,6 +60,15 @@ Una receta es un JSON de **solo datos** (nunca código), así que cualquiera pue
 [`recetas/README.md`](recetas/README.md) y el catálogo comunitario vive en
 [alcancia-app/alcancia-catalogo](https://github.com/alcancia-app/alcancia-catalogo). ¿Tu banco no está? Abre la app, agrega la cartola
 y deja que tu IA aprenda a leerla: al final te ofrece compartir **solo la receta**, nunca tus movimientos.
+
+## Instalar en Mac (desde el código)
+Necesitas macOS 15 y las herramientas de Xcode (`xcode-select --install`).
+```bash
+git clone https://github.com/alcancia-app/alcancia ~/Developer/alcancia
+cd ~/Developer/alcancia && bash build.sh      # compila, arma la app con su propio Python y la instala en ~/Applications
+open ~/Applications/Alcancia.app
+```
+La app no está firmada por Apple todavía: si macOS avisa, ve a Ajustes del Sistema → Privacidad y seguridad → «Abrir igualmente».
 
 ## Desarrollo
 Necesitas Python 3 (solo biblioteca estándar) y Node para las pruebas de la interfaz.
