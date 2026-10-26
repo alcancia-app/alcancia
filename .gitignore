@@ -32,3 +32,11 @@ capturas/
 *.xls
 *.csv
 !/pruebas/datos/*.csv
+*.ofx
+*.qfx
+*.qif
+!/pruebas/datos/*.ofx
+!/pruebas/datos/*.qif
+*.xml
+!/pruebas/datos/*.xml
+!/docs/*.xml

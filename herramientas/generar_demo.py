@@ -8,6 +8,7 @@ import sys
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(RAIZ, "bin"))
+import conectores  # noqa: E402
 import datos  # noqa: E402
 
 random.seed(7)
@@ -81,6 +82,16 @@ demo = {
     "reglas": [{"contiene": "CAFE LA ESQUINA", "categoria": "comida"}],
     "consejos": [{"fecha": "2026-10-14", "texto": "### Lo que va bien\n- Tus cuentas básicas y suscripciones están justo en lo presupuestado.\n- Supermercado va en un 46% con el mes a la mitad: bien encaminado.\n\n### Ojo con\n- **Comida fuera y delivery** ya pasó los 100.000 y quedan dos semanas: a este ritmo terminas cerca de 190.000.\n- Hay 2 movimientos sin categoría: ponles una para que el resumen cuadre.\n\n### Para esta semana\n- Cocina 3 noches en vez de pedir delivery: ahorras cerca de 40.000.\n- Lleva café en un termo dos días: son 7.000 menos."}],
     "movimientos": salida,
+    "conectores": conectores.info_publica(),
+    "conexiones": {"mercadopago": {"conectado": True, "ultima": "2026-10-18T12:40:00+00:00", "error": "", "nuevos": 3, "esperando": False}},
+    "ia_externa": [{"id": "claude_desktop", "nombre": "Claude (app de escritorio)", "instalado": True, "conectado": True, "al_dia": True,
+                    "nota": "Cierra y vuelve a abrir Claude para que aparezca."},
+                   {"id": "claude_code", "nombre": "Claude Code", "instalado": True, "conectado": False, "al_dia": False, "nota": ""},
+                   {"id": "codex", "nombre": "ChatGPT (app de escritorio y Codex)", "instalado": True, "conectado": False, "al_dia": False, "nota": ""},
+                   {"id": "gemini", "nombre": "Gemini CLI", "instalado": False, "conectado": False, "al_dia": False, "nota": ""},
+                   {"id": "antigravity", "nombre": "Antigravity (Gemini)", "instalado": False, "conectado": False, "al_dia": False, "nota": ""}],
+    "vigilar": {"activo": True, "recientes": [{"archivo": "cartola-banco-ejemplo-octubre.csv", "resultado": "importado", "institucion": "Banco Ejemplo",
+                                               "nuevos": 12, "cuando": 1792332000}]},
 }
 with open(os.path.join(RAIZ, "ui", "demo.json"), "w", encoding="utf-8") as f:
     json.dump(demo, f, ensure_ascii=False, indent=1)

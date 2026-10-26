@@ -227,3 +227,43 @@ html[data-host="mac"] .contenido { padding-top: 46px; }
   .fila-pres { grid-template-columns: 26px minmax(0, 1fr) 118px; }
 }
 .dialogo .error-txt, .dialogo p.error-txt { color: var(--rojo); }
+
+/* Conexiones */
+.intro-vista { color: var(--suave); line-height: 1.6; margin: -8px 0 20px; max-width: 70ch; }
+.intro-vista b { color: var(--texto); }
+.subtitulo { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--suave); margin: 26px 0 10px; font-weight: 700; }
+.conectores { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.conector { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 16px; background: var(--panel); border: 1px solid var(--linea); border-radius: 14px; min-width: 0; }
+.conector.conectado { border-color: color-mix(in srgb, var(--verde) 45%, var(--linea)); }
+.conector .txt { flex: 1 1 170px; min-width: 0; display: grid; gap: 3px; }
+.conector .acciones { margin-left: auto; }
+.dialogo a, .tarjeta a { color: var(--acento); }
+.conector .txt b { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.conector .txt small { color: var(--suave); line-height: 1.4; overflow-wrap: anywhere; }
+.conector .acciones { display: flex; align-items: center; gap: 4px; flex: none; }
+.ok-txt { color: var(--verde) !important; font-weight: 600; }
+.fila.sin-borde { border: 0; padding: 0; }
+.fila .txt small { line-height: 1.5; }
+.tarjeta.suave { background: transparent; border-style: dashed; margin-top: 26px; }
+.tarjeta.suave p { color: var(--suave); line-height: 1.6; margin: 6px 0 10px; }
+.tarjeta.suave a { color: var(--acento); font-weight: 600; font-size: 13.5px; }
+.recientes { margin: 12px 0 0; padding-left: 18px; color: var(--suave); font-size: 13px; line-height: 1.7; }
+.otros-paises { margin-top: 22px; } .otros-paises summary { cursor: pointer; color: var(--suave); font-weight: 650; margin-bottom: 10px; }
+.interruptor { position: relative; flex: none; cursor: pointer; }
+.interruptor input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.interruptor .visual { display: block; width: 46px; height: 28px; border-radius: 99px; background: var(--linea); transition: background .15s; position: relative; }
+.interruptor .visual::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .15s; }
+.interruptor input:checked + .visual { background: var(--verde); }
+.interruptor input:checked + .visual::after { transform: translateX(18px); }
+.interruptor input:focus-visible + .visual { outline: 2px solid var(--acento); outline-offset: 2px; }
+.oculto-accesible { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.pasos-conectar { padding-left: 20px; line-height: 1.6; margin: 6px 0 12px; } .pasos-conectar li { margin-bottom: 6px; }
+.pasos-conectar code { font-size: 12px; background: var(--acento-suave); padding: 1px 5px; border-radius: 5px; overflow-wrap: anywhere; }
+.nota-conector { font-size: 13px; color: var(--suave); line-height: 1.5; background: var(--fondo); padding: 10px 12px; border-radius: 10px; }
+.campos-conectar { display: grid; gap: 12px; margin: 14px 0 16px; }
+.entrada { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--linea); background: var(--fondo); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+.alerta-punto { background: var(--rojo) !important; color: #fff !important; }
+.acciones-vacio { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+@media (prefers-reduced-motion: reduce) { .interruptor .visual, .interruptor .visual::after { transition: none; } }
+.intro-tarjeta { margin: 0 0 8px; line-height: 1.6; color: var(--suave); } .intro-tarjeta b { color: var(--texto); font-weight: 600; }
+.nota-mcp { font-size: 12.5px; color: var(--suave); line-height: 1.5; margin: 12px 0 0; }

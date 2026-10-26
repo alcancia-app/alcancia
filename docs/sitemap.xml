@@ -2,5 +2,6 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://alcancia-app.github.io/alcancia/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
   <url><loc>https://alcancia-app.github.io/alcancia/ia.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://alcancia-app.github.io/alcancia/conectar.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://alcancia-app.github.io/alcancia/demo/</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
 </urlset>

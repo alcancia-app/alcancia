@@ -28,6 +28,11 @@ def _preparar_path():
 
 _preparar_path()
 
+
+def _entorno_ia():
+    """La IA corre sin las variables de Alcancía (ni credenciales ni modos de prueba): solo ve lo que le mandamos."""
+    return {k: v for k, v in os.environ.items() if not k.startswith("ALCANCIA_")}
+
 #: id → (comandos posibles, nombre visible). Gemini: Antigravity CLI (`agy`) o el Gemini CLI antiguo.
 IAS = {"claude": (("claude",), "Claude"), "codex": (("codex",), "ChatGPT (Codex)"), "gemini": (("agy", "gemini"), "Gemini")}
 
@@ -49,7 +54,7 @@ def ejecutar_ia(prompt, timeout=600):
         if ia == "codex":
             salida = os.path.join(tmp, "respuesta.txt")
             cmd = [comando, "exec", "--skip-git-repo-check", "-s", "read-only", "-C", tmp, "-o", salida, "-"]
-            r = subprocess.run(cmd, input=prompt, text=True, encoding="utf-8", capture_output=True, timeout=timeout, cwd=tmp)
+            r = subprocess.run(cmd, input=prompt, text=True, encoding="utf-8", capture_output=True, timeout=timeout, cwd=tmp, env=_entorno_ia())
             texto = open(salida, encoding="utf-8").read() if os.path.exists(salida) else ""
             return subprocess.CompletedProcess(cmd, r.returncode, texto, r.stderr)
         es_agy = os.path.basename(comando).lower().split(".")[0] in ("agy", "antigravity")
@@ -63,12 +68,12 @@ def ejecutar_ia(prompt, timeout=600):
                 pedido = ("Lee el archivo instrucciones.md de esta carpeta y haz exactamente lo que pide. "
                           "Entrega solo el resultado pedido, sin comentarios. No modifiques ni crees archivos.")
             cmd = [comando, "--output-format", "text", "--sandbox", "--add-dir", tmp, "-p", pedido]
-            return subprocess.run(cmd, stdin=subprocess.DEVNULL, text=True, encoding="utf-8", capture_output=True, timeout=timeout, cwd=tmp)
+            return subprocess.run(cmd, stdin=subprocess.DEVNULL, text=True, encoding="utf-8", capture_output=True, timeout=timeout, cwd=tmp, env=_entorno_ia())
         if ia == "gemini":
             cmd = [comando, "-p", "Responde a las instrucciones de arriba. Entrega solo el resultado pedido.", "-o", "text"]
         else:
             cmd = [comando, "-p", "--output-format", "text"]
-        return subprocess.run(cmd, input=prompt, text=True, encoding="utf-8", capture_output=True, timeout=timeout, cwd=tmp)
+        return subprocess.run(cmd, input=prompt, text=True, encoding="utf-8", capture_output=True, timeout=timeout, cwd=tmp, env=_entorno_ia())
 
 
 def preguntar(prompt, timeout=600):

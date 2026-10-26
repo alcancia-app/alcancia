@@ -29,7 +29,7 @@ enum Config {
     static func leer() -> [String: Any] { Archivos.leerJSON(Rutas.config) }
 
     /// Solo se aceptan claves conocidas con valores simples (lo que manda la interfaz no puede escribir cualquier cosa).
-    static let permitidas: Set<String> = ["ia", "idioma_ui", "pais", "moneda", "respaldo", "bienvenida"]
+    static let permitidas: Set<String> = ["ia", "idioma_ui", "pais", "moneda", "respaldo", "bienvenida", "vigilar", "ia_en_conexiones"]
 
     static func guardar(_ cambios: [String: Any]) {
         var d = leer()
@@ -133,25 +133,40 @@ enum IA {
 
 @MainActor
 enum Procesador {
-    static func correrJSON(_ script: String, _ args: [String], fin: @escaping @MainActor ([String: Any]) -> Void) {
+    /// `secreto` (la llave de un conector) viaja por la entrada estándar: nunca en un archivo, en un argumento ni en el entorno.
+    /// Si el script responde una llave nueva, llega por su salida estándar («CREDENCIAL {json}») y se entrega en "credencial".
+    static func correrJSON(_ script: String, _ args: [String], secreto: String? = nil, fin: @escaping @MainActor ([String: Any]) -> Void) {
         let salida = FileManager.default.temporaryDirectory.appendingPathComponent("alcancia-\(UUID().uuidString).json")
         let p = Process()
         p.executableURL = Rutas.python
         p.arguments = [Rutas.recursos.appendingPathComponent("bin/\(script)").path] + args + [salida.path]
-        var env = ProcessInfo.processInfo.environment
+        // Nada de lo que venga del entorno con nombre ALCANCIA_* (p. ej. un modo de prueba puesto por otro programa) llega a los scripts.
+        var env = ProcessInfo.processInfo.environment.filter { !$0.key.hasPrefix("ALCANCIA_") }
         env["ALCANCIA_RECURSOS"] = Rutas.recursos.path
         env["PYTHONIOENCODING"] = "utf-8"
         p.environment = env
-        p.standardOutput = FileHandle.nullDevice
+        let entrada = Pipe(), salidaEstandar = Pipe()
+        p.standardInput = secreto == nil ? FileHandle.nullDevice : entrada
+        p.standardOutput = secreto == nil ? FileHandle.nullDevice : salidaEstandar
         p.standardError = FileHandle.nullDevice
         p.terminationHandler = { _ in
+            let texto = secreto == nil ? "" : (String(data: salidaEstandar.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? "")
             Task { @MainActor in
-                let r = Archivos.leerJSON(salida)
+                var r = Archivos.leerJSON(salida)
                 try? FileManager.default.removeItem(at: salida)
+                if let linea = texto.split(separator: "\n").last(where: { $0.hasPrefix("CREDENCIAL ") }),
+                   let d = linea.dropFirst("CREDENCIAL ".count).data(using: .utf8),
+                   let nueva = try? JSONSerialization.jsonObject(with: d) as? [String: Any] {
+                    r["credencial"] = nueva
+                }
                 fin(r.isEmpty ? ["ok": false, "error": Idioma.t("No pude terminar. Intenta de nuevo.")] : r)
             }
         }
-        do { try p.run() } catch { fin(["ok": false, "error": error.localizedDescription]) }
+        do { try p.run() } catch { fin(["ok": false, "error": error.localizedDescription]); return }
+        if let secreto {
+            entrada.fileHandleForWriting.write(Data(secreto.utf8))
+            try? entrada.fileHandleForWriting.close()
+        }
     }
 
     /// Igual que correrJSON, pero lo que manda la interfaz va en un archivo de entrada (nada de armar comandos con su texto).

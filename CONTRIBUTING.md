@@ -25,12 +25,33 @@ Reglas que importan: código, comentarios y textos en español (todo texto nuevo
 
 Los aportes entran con la licencia del proyecto, [AGPL-3.0](LICENSE).
 
+## Agregar un conector (conexión automática)
+Un conector trae los movimientos solo, desde la **API oficial** de un banco, billetera o servicio, con una llave que la persona crea
+en ese servicio. Como es código que habla por internet, lo revisamos con más cuidado que una receta. Requisitos:
+
+1. **API oficial y documentada**, que una persona pueda usar con su propia cuenta. Nada de entrar al sitio del banco con usuario y
+   clave, ni APIs "no oficiales". Si el servicio exige ser empresa o firmar convenio, no sirve (todavía).
+2. **Solo lectura.** Si el servicio permite elegir permisos, pide solo los de leer movimientos.
+3. Un archivo en `bin/conectores/<id>.py` con `INFO`, `probar()` y `movimientos()` (el contrato está al inicio de
+   `bin/conectores/__init__.py`). Todos los pedidos van por `red` (el objeto que recibes), que solo deja hablar con `INFO["hosts"]`.
+4. **Solo biblioteca estándar** de Python. Sin SDKs.
+5. Una prueba en `pruebas/test_python.py` contra `pruebas/servidor_falso.py`, con respuestas copiadas de la documentación oficial
+   (datos inventados). Que revise que la llave va en la cabecera correcta, la paginación y el signo de los montos.
+6. Los pasos para crear la llave (`INFO["pasos"]`) con su traducción en `ui/idiomas/en.json`, y una sección en `docs/conectar.html`.
+7. Entra como `"estado": "beta"`. Pasa a `"probado"` cuando alguien lo usa con su cuenta real y cuenta en el PR que los movimientos
+   calzan con los de la app del servicio (sin pegar sus movimientos).
+
+¿Quieres un conector pero no programas? Abre una idea en [Discussions](https://github.com/alcancia-app/alcancia/discussions) con el
+enlace a la documentación de la API: así sabemos dónde hay conexiones oficiales.
+
 ## Cómo revisamos
 Todo entra por pull request y lo junta alguien que mantiene el proyecto: nadie puede subir cambios directo. Revisamos:
 - **Siempre:** que las pruebas de GitHub pasen, que no haya datos personales y que el cambio haga lo que dice. Si es tu primer
   aporte, GitHub espera a que aprobemos correr las pruebas (es normal).
 - **Código:** que no cambie el formato de los datos, que los textos nuevos tengan su traducción y que no agregue dependencias,
   conexiones a internet nuevas ni nada que pida claves o datos bancarios.
+- **Conectores:** API oficial, llave de la persona, solo lectura, solo los dominios declarados, sin dependencias, con prueba contra el
+  servidor falso. Leemos cada línea que toca la red.
 - **Recetas:** que sea válida (`recetas.validar`), que no traiga datos de la cartola (solo nombres de columnas y formatos) y, para
   incluirla en la app, que alguien la haya probado con una cartola real de ese banco.
 - **Traducciones:** que una persona que hable el idioma revise el texto.
@@ -45,6 +66,9 @@ Al participar aceptas el [código de conducta](CODE_OF_CONDUCT.md).
 ---
 
 ## Contributing (English)
+- **Connectors (automatic sync):** a module in `bin/conectores/` using an official, documented API with a key the user creates;
+  read-only, stdlib only, requests only to its declared hosts, tested against `pruebas/servidor_falso.py`. Ships as `beta` until someone
+  confirms it with a real account. No scraping with bank usernames/passwords, ever.
 - **No code needed:** add your bank (let your AI learn your statement and share just the *recipe*, never your transactions), chat in
   [Discussions](https://github.com/alcancia-app/alcancia/discussions), report bugs or ideas in
   [issues](https://github.com/alcancia-app/alcancia/issues/new/choose), test it on your system (label `probar`), add well-known

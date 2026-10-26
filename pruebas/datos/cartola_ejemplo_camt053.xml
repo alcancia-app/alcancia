@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
+ <BkToCstmrStmt>
+  <GrpHdr><MsgId>EJEMPLO-1</MsgId><CreDtTm>2026-10-20T10:00:00</CreDtTm></GrpHdr>
+  <Stmt>
+   <Id>1</Id>
+   <Acct><Id><IBAN>NL00EJEM0000000000</IBAN></Id><Ccy>EUR</Ccy></Acct>
+   <Ntry>
+    <Amt Ccy="EUR">42.10</Amt><CdtDbtInd>DBIT</CdtDbtInd><Sts>BOOK</Sts>
+    <BookgDt><Dt>2026-10-02</Dt></BookgDt><AcctSvcrRef>REF-001</AcctSvcrRef>
+    <NtryDtls><TxDtls><RltdPties><Cdtr><Nm>Supermercado Ejemplo</Nm></Cdtr></RltdPties><RmtInf><Ustrd>Compra con tarjeta</Ustrd></RmtInf></TxDtls></NtryDtls>
+   </Ntry>
+   <Ntry>
+    <Amt Ccy="EUR">2100.00</Amt><CdtDbtInd>CRDT</CdtDbtInd><Sts>BOOK</Sts>
+    <BookgDt><Dt>2026-10-15</Dt></BookgDt><AcctSvcrRef>REF-002</AcctSvcrRef>
+    <NtryDtls><TxDtls><RltdPties><Dbtr><Nm>Empresa Ejemplo</Nm></Dbtr></RltdPties><RmtInf><Ustrd>Salario octubre</Ustrd></RmtInf></TxDtls></NtryDtls>
+   </Ntry>
+   <Ntry>
+    <Amt Ccy="EUR">9.99</Amt><CdtDbtInd>DBIT</CdtDbtInd><Sts>PDNG</Sts><BookgDt><Dt>2026-10-19</Dt></BookgDt>
+   </Ntry>
+  </Stmt>
+ </BkToCstmrStmt>
+</Document>

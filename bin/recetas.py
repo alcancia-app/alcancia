@@ -156,6 +156,9 @@ def fila_encabezados(filas, encabezados):
 
 def detectar(ruta, recetas=None):
     """La receta que calza con el archivo (la que reconoce más encabezados gana), o None."""
+    estandar = receta_estandar(ruta)
+    if estandar:
+        return estandar
     recetas = disponibles() if recetas is None else recetas
     ext = ruta.lower().rsplit(".", 1)[-1]
     candidatas = []
@@ -170,6 +173,217 @@ def detectar(ruta, recetas=None):
         if fila_encabezados(filas, r["reconocer"]["encabezados"]) >= 0:
             candidatas.append((len(r["reconocer"]["encabezados"]), r))
     return max(candidatas, key=lambda x: x[0])[1] if candidatas else None
+
+
+# ───────────── OFX / QFX (formato estándar que exportan muchos bancos del mundo) ─────────────
+#: Receta virtual: los archivos OFX traen todo lo necesario (fecha, monto con signo, id único), así que no necesitan receta propia.
+RECETA_OFX = {"formato": 1, "id": "xx-ofx", "nombre": "Archivo OFX/QFX", "institucion": "Cuenta OFX", "pais": "XX", "moneda": "",
+              "tipo": "cartola", "archivo": {"extension": ["ofx", "qfx"]}, "reconocer": {"encabezados": []}, "columnas": {}, "fecha": "%Y%m%d"}
+
+
+def _ofx_texto(ruta):
+    with open(ruta, "rb") as f:
+        crudo = f.read(30_000_000)
+    for cod in ("utf-8-sig", "cp1252", "latin-1"):
+        try:
+            return crudo.decode(cod)
+        except UnicodeDecodeError:
+            continue
+    return ""
+
+
+def _ofx_campo(bloque, nombre):
+    """OFX 1 (SGML, sin etiquetas de cierre) y OFX 2 (XML): «<NAME>Café» o «<NAME>Café</NAME>»."""
+    m = re.search(rf"<{nombre}>([^<\r\n]*)", bloque, re.I)
+    return m.group(1).strip() if m else ""
+
+
+def es_ofx(ruta):
+    return ruta.lower().endswith((".ofx", ".qfx")) and "<STMTTRN>" in _ofx_texto(ruta).upper()
+
+
+def receta_ofx(ruta):
+    texto = _ofx_texto(ruta)
+    org = _ofx_campo(texto, "ORG") or _ofx_campo(texto, "BANKID")
+    r = dict(RECETA_OFX)
+    if org and len(org) <= 60 and "<" not in org:
+        r["institucion"] = org
+        r["nombre"] = f"{org} (OFX)"
+    r["moneda"] = (_ofx_campo(texto, "CURDEF") or "").upper()[:3]
+    return r
+
+
+def leer_ofx(ruta, cuenta):
+    """Movimientos de un OFX: DTPOSTED (AAAAMMDD…), TRNAMT (negativo = gasto), FITID (id único del banco), NAME/MEMO."""
+    texto = _ofx_texto(ruta)
+    moneda = (_ofx_campo(texto, "CURDEF") or "").upper()[:3]
+    movimientos, avisos = [], []
+    for bloque in re.findall(r"<STMTTRN>(.*?)(?=</STMTTRN>|<STMTTRN>|</BANKTRANLIST>)", texto, re.S | re.I):
+        f = _ofx_campo(bloque, "DTPOSTED")[:8]
+        try:
+            f = datetime.strptime(f, "%Y%m%d").date().isoformat()
+        except ValueError:
+            f = None
+        monto = numero(_ofx_campo(bloque, "TRNAMT").replace(",", "."), ".", "")
+        nombre, memo = _ofx_campo(bloque, "NAME"), _ofx_campo(bloque, "MEMO")
+        desc = nombre if not memo or memo in nombre else f"{nombre} {memo}".strip()
+        desc = desc or _ofx_campo(bloque, "TRNTYPE")
+        fitid = _ofx_campo(bloque, "FITID")
+        if not f or monto is None or not desc:
+            if len(avisos) < 5:
+                avisos.append("Movimiento OFX incompleto ignorado.")
+            continue
+        clave = fitid or f"{desc}|{monto}|{len(movimientos)}"
+        movimientos.append({"id": datos.nuevo_id(cuenta, f, "OFX:" + clave, monto), "fecha": f, "descripcion": desc[:200], "monto": monto,
+                            "moneda": (_ofx_campo(bloque, "CURRENCY") or moneda or "").upper()[:3], "categoria": "", "cuenta": cuenta,
+                            "origen": "xx-ofx", "nota": ""})
+    return movimientos, avisos
+
+
+# ───────────── CAMT.053 (estándar ISO 20022 de Europa) y QIF (formato antiguo de Quicken) ─────────────
+RECETA_CAMT = {**RECETA_OFX, "id": "xx-camt053", "nombre": "Cartola CAMT.053", "institucion": "Cuenta CAMT.053", "archivo": {"extension": ["xml"]}}
+RECETA_QIF = {**RECETA_OFX, "id": "xx-qif", "nombre": "Archivo QIF", "institucion": "Cuenta QIF", "archivo": {"extension": ["qif"]}}
+
+
+def _sin_ns(raiz):
+    for e in raiz.iter():
+        if isinstance(e.tag, str) and "}" in e.tag:
+            e.tag = e.tag.split("}", 1)[1]
+    return raiz
+
+
+def es_camt(ruta):
+    if not ruta.lower().endswith(".xml"):
+        return False
+    with open(ruta, "rb") as f:
+        inicio = f.read(4000)
+    return b"BkToCstmrStmt" in inicio or b"camt.053" in inicio
+
+
+def leer_camt(ruta, cuenta):
+    """Ntry: Amt (siempre positivo) + CdtDbtInd (CRDT/DBIT), BookgDt, Sts BOOK; texto en RmtInf/Ustrd o la contraparte."""
+    raiz = _sin_ns(ElementTree.parse(ruta).getroot())
+    movimientos, avisos, vistos = [], [], {}
+    for st in raiz.iter("Stmt"):
+        moneda_cta = (st.findtext("Acct/Ccy") or "").upper()[:3]
+        for n in st.iter("Ntry"):
+            sts = (n.findtext("Sts/Cd") or n.findtext("Sts") or "BOOK").strip()
+            if sts != "BOOK":
+                continue
+            amt = n.find("Amt")
+            monto = numero(amt.text if amt is not None else "", ".", "")
+            f = (n.findtext("BookgDt/Dt") or n.findtext("BookgDt/DtTm") or n.findtext("ValDt/Dt") or "")[:10]
+            if monto is None or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", f):
+                if len(avisos) < 5:
+                    avisos.append("Movimiento CAMT incompleto ignorado.")
+                continue
+            if (n.findtext("CdtDbtInd") or "").strip() == "DBIT":
+                monto = -abs(monto)
+            credito = monto > 0
+            contraparte = (n.findtext(".//RltdPties/Dbtr/Nm") or n.findtext(".//RltdPties/Dbtr/Pty/Nm")) if credito else \
+                (n.findtext(".//RltdPties/Cdtr/Nm") or n.findtext(".//RltdPties/Cdtr/Pty/Nm"))
+            texto = " ".join(x.text.strip() for x in n.iter("Ustrd") if x.text)
+            desc = " ".join(x for x in (contraparte, texto) if x).strip() or (n.findtext("AddtlNtryInf") or "").strip() or "Movimiento"
+            desc = re.sub(r"\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b", "", desc).strip() or "Movimiento"  # sin IBAN de nadie
+            ref = n.findtext("AcctSvcrRef") or n.findtext("NtryRef") or n.findtext(".//Refs/AcctSvcrRef") or ""
+            llave = (f, desc, monto)
+            vistos[llave] = vistos.get(llave, -1) + 1
+            clave = f"CAMT:{ref}" if ref else f"{desc}#{vistos[llave]}"
+            movimientos.append({"id": datos.nuevo_id(cuenta, f, clave, monto), "fecha": f, "descripcion": " ".join(desc.split())[:200],
+                                "monto": monto, "moneda": ((amt.get("Ccy") if amt is not None else "") or moneda_cta).upper()[:3],
+                                "categoria": "", "cuenta": cuenta, "origen": RECETA_CAMT["id"], "nota": ""})
+    return movimientos, avisos
+
+
+def es_qif(ruta):
+    if not ruta.lower().endswith(".qif"):
+        return False
+    with open(ruta, "rb") as f:
+        return f.read(200).lstrip().startswith(b"!")
+
+
+def _fechas_qif(textos):
+    """QIF no dice si la fecha es día/mes o mes/día: se mira si algún número pasa de 12; si no, se usa la costumbre del país."""
+    partes = [re.split(r"[/\-.' ]+", t.strip()) for t in textos if t.strip()]
+    if any(len(p) >= 2 and p[0].isdigit() and int(p[0]) > 12 for p in partes):
+        orden = "dm"
+    elif any(len(p) >= 2 and p[1].isdigit() and int(p[1]) > 12 for p in partes):
+        orden = "md"
+    else:
+        orden = "md" if datos.config().get("pais") in ("US", "CA") else "dm"
+
+    def una(t):
+        p = [x for x in re.split(r"[/\-.' ]+", t.strip()) if x]
+        if len(p) != 3 or not all(x.isdigit() for x in p):
+            return None
+        a, b, c = (int(x) for x in p)
+        if a > 31:  # AAAA-MM-DD
+            anio, mes, dia = a, b, c
+        else:
+            dia, mes = (a, b) if orden == "dm" else (b, a)
+            anio = c + (2000 if c < 70 else 1900) if c < 100 else c
+        try:
+            return date(anio, mes, dia).isoformat()
+        except ValueError:
+            return None
+    return una
+
+
+def leer_qif(ruta, cuenta):
+    texto = None
+    with open(ruta, "rb") as f:
+        crudo = f.read(30_000_000)
+    for cod in ("utf-8-sig", "cp1252", "latin-1"):
+        try:
+            texto = crudo.decode(cod)
+            break
+        except UnicodeDecodeError:
+            continue
+    registros, actual = [], {}
+    for linea in (texto or "").splitlines():
+        if not linea or linea.startswith("!"):
+            continue
+        if linea.startswith("^"):
+            if actual:
+                registros.append(actual)
+            actual = {}
+            continue
+        actual.setdefault(linea[0], linea[1:].strip())
+    if actual:
+        registros.append(actual)
+    fecha_de = _fechas_qif([r.get("D", "") for r in registros])
+    movimientos, avisos, vistos = [], [], {}
+    for r in registros:
+        f = fecha_de(r.get("D", ""))
+        monto = numero((r.get("T") or r.get("U") or "").replace(",", ""), ".", "")
+        desc = " ".join(x for x in (r.get("P"), r.get("M")) if x).strip()
+        if not f or monto is None or not desc:
+            if len(avisos) < 5:
+                avisos.append("Movimiento QIF incompleto ignorado.")
+            continue
+        llave = (f, datos.normalizar(desc), monto)
+        vistos[llave] = vistos.get(llave, -1) + 1
+        movimientos.append({"id": datos.nuevo_id(cuenta, f, desc, monto, vistos[llave]), "fecha": f, "descripcion": desc[:200], "monto": monto,
+                            "moneda": "", "categoria": "", "cuenta": cuenta, "origen": RECETA_QIF["id"], "nota": ""})
+    return movimientos, avisos
+
+
+VIRTUALES = {RECETA_OFX["id"]: (lambda r: receta_ofx(r), leer_ofx), RECETA_CAMT["id"]: (lambda r: dict(RECETA_CAMT), leer_camt),
+             RECETA_QIF["id"]: (lambda r: dict(RECETA_QIF), leer_qif)}
+
+
+def receta_estandar(ruta):
+    """Archivos de formato estándar (OFX, CAMT.053, QIF): se leen sin receta."""
+    try:
+        if es_ofx(ruta):
+            return receta_ofx(ruta)
+        if es_camt(ruta):
+            return dict(RECETA_CAMT)
+        if es_qif(ruta):
+            return dict(RECETA_QIF)
+    except OSError:
+        return None
+    return None
 
 
 # ───────────── Números y fechas ─────────────
@@ -206,6 +420,8 @@ def fecha(texto, formatos):
 # ───────────── Aplicar ─────────────
 def aplicar(ruta, receta, cuenta):
     """Lee la cartola con la receta. Devuelve (movimientos, avisos)."""
+    if receta.get("id") in VIRTUALES:
+        return VIRTUALES[receta["id"]][1](ruta, cuenta)
     filas = leer_tabla(ruta, receta.get("archivo"))
     i = fila_encabezados(filas, receta["reconocer"]["encabezados"])
     if i < 0:

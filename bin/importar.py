@@ -40,7 +40,8 @@ def cuenta_de(receta):
 
 def vista(archivo, receta_id, salida):
     todas = recetas.disponibles()
-    receta = todas.get(receta_id) if receta_id else recetas.detectar(archivo, todas)
+    receta = recetas.VIRTUALES[receta_id][0](archivo) if receta_id in recetas.VIRTUALES else \
+        (todas.get(receta_id) if receta_id else recetas.detectar(archivo, todas))
     if not receta:
         salir(salida, {"ok": False, "sin_receta": True, "archivo": os.path.basename(archivo)})
     movs, avisos = recetas.aplicar(archivo, receta, "vista")
@@ -54,8 +55,21 @@ def vista(archivo, receta_id, salida):
                    "muestra": sorted(movs, key=lambda m: m["fecha"], reverse=True)[:6]})
 
 
+def completar_con_ia(movs):
+    """Le pide a la IA las categorías que faltan en estos movimientos (ya guardados) y las escribe. Devuelve el resumen."""
+    meses_tocados = {m["fecha"][:7] for m in movs}
+    ids_nuevos = {m["id"] for m in movs}
+    por_mes = {mes: datos.leer_mes(mes) for mes in meses_tocados}
+    pendientes = [m for lista in por_mes.values() for m in lista if m["id"] in ids_nuevos and not m["categoria"]]
+    hechos, error = categorizar.por_ia(pendientes, datos.categorias()) if pendientes else (0, "")
+    if hechos:
+        for mes, lista in por_mes.items():
+            datos.escribir_mes(mes, lista)
+    return {"categorizados_ia": hechos, "error_ia": error}
+
+
 def guardar(archivo, receta_id, usar_ia, salida):
-    receta = recetas.disponibles().get(receta_id)
+    receta = recetas.VIRTUALES[receta_id][0](archivo) if receta_id in recetas.VIRTUALES else recetas.disponibles().get(receta_id)
     if not receta:
         salir(salida, {"ok": False, "error": "No encontré esa receta."})
     total = 3 if usar_ia else 2
@@ -67,15 +81,7 @@ def guardar(archivo, receta_id, usar_ia, salida):
     resultado = {"ok": True, "nuevos": nuevos, "repetidos": repetidos, "avisos": avisos, "categorizados_ia": 0, "error_ia": ""}
     if usar_ia and nuevos:
         avance(3, total, f"{ia.nombre()} está poniendo categorías…")
-        meses_tocados = {m["fecha"][:7] for m in movs}
-        ids_nuevos = {m["id"] for m in movs}
-        por_mes = {mes: datos.leer_mes(mes) for mes in meses_tocados}
-        pendientes = [m for lista in por_mes.values() for m in lista if m["id"] in ids_nuevos and not m["categoria"]]
-        hechos, error = categorizar.por_ia(pendientes, datos.categorias())
-        if hechos:
-            for mes, lista in por_mes.items():
-                datos.escribir_mes(mes, lista)
-        resultado.update(categorizados_ia=hechos, error_ia=error)
+        resultado.update(completar_con_ia(movs))
     resultado["sin_categoria"] = sum(1 for mes in {m["fecha"][:7] for m in movs} for m in datos.leer_mes(mes) if not m["categoria"])
     try:
         os.remove(os.path.join(datos.INTERNO, "estado.json"))

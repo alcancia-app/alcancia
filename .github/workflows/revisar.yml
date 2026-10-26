@@ -21,13 +21,15 @@ jobs:
       - name: Sintaxis
         run: |
           node --check ui/app.js
-          python3 -m py_compile bin/*.py pruebas/*.py ejemplos/*.py
+          python3 -m py_compile bin/*.py bin/conectores/*.py pruebas/*.py ejemplos/*.py herramientas/*.py
           python3 -c "import json, glob; [json.load(open(f, encoding='utf-8')) for f in glob.glob('ui/idiomas/*.json') + glob.glob('recetas/*.json') + ['ui/demo.json', 'pruebas/casos.json']]"
           for f in build.sh herramientas/*.sh pruebas/*.sh; do bash -n "$f"; done
       - name: Privacidad (correos personales, rutas de usuario y RUT)
         run: bash herramientas/revisar_privacidad.sh --generico
       - name: Contrato entre la interfaz y las apps
         run: python3 pruebas/contrato.py
+      - name: Página de conexiones al día con los conectores
+        run: python3 herramientas/generar_conectar.py --revisar
       - name: Pruebas de Python
         run: python3 pruebas/test_python.py
       - name: Pruebas de la interfaz

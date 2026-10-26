@@ -33,8 +33,10 @@ import recetas  # noqa: E402
 import resumen  # noqa: E402
 
 CARTOLA = os.path.join(DATOS_PRUEBA, "cartola_ejemplo.csv")
-RECETA = json.load(open(os.path.join(DATOS_PRUEBA, "recetas_prueba.json"), encoding="utf-8"))
-CASOS = json.load(open(os.path.join(RAIZ, "pruebas", "casos.json"), encoding="utf-8"))
+with open(os.path.join(DATOS_PRUEBA, "recetas_prueba.json"), encoding="utf-8") as _f:
+    RECETA = json.load(_f)
+with open(os.path.join(RAIZ, "pruebas", "casos.json"), encoding="utf-8") as _f:
+    CASOS = json.load(_f)
 
 
 def correr(script, *args):
@@ -239,6 +241,414 @@ class Flujo(unittest.TestCase):
         self.assertEqual(datos.presupuesto()["mensual"], {"comida": 90000})
         self.assertFalse(self.guardar("receta", {"receta": {**RECETA, "id": "MAL"}})["ok"])
         self.assertTrue(self.guardar("receta", {"receta": {**RECETA, "id": "cl-otro-banco"}})["ok"])
+
+
+class Ofx(unittest.TestCase):
+    def setUp(self):
+        limpiar()
+
+    def test_leer_ofx(self):
+        ruta = os.path.join(DATOS_PRUEBA, "cartola_ejemplo.ofx")
+        r = recetas.detectar(ruta, {})
+        self.assertEqual((r["id"], r["institucion"], r["moneda"]), ("xx-ofx", "Banco Ejemplo", "USD"))
+        movs, avisos = recetas.aplicar(ruta, r, "banco-ejemplo")
+        self.assertEqual([(m["fecha"], m["monto"]) for m in movs], [("2026-10-03", -45.2), ("2026-10-05", -12.0), ("2026-10-15", 1500.0)])
+        self.assertEqual(movs[0]["descripcion"], "SUPERMERCADO EJEMPLO Compra con tarjeta")
+        self.assertEqual(len({m["id"] for m in movs}), 3)
+
+    def test_importar_ofx_sin_duplicar(self):
+        ruta = os.path.join(DATOS_PRUEBA, "cartola_ejemplo.ofx")
+        v = correr("importar.py", "vista", ruta)
+        self.assertEqual((v["ok"], v["receta"]["id"], v["total"]), (True, "xx-ofx", 3))
+        self.assertEqual(correr("importar.py", "guardar", ruta, "xx-ofx", "0")["nuevos"], 3)
+        self.assertEqual(correr("importar.py", "guardar", ruta, "xx-ofx", "0")["repetidos"], 3)
+
+    def test_camt053(self):
+        ruta = os.path.join(DATOS_PRUEBA, "cartola_ejemplo_camt053.xml")
+        r = recetas.detectar(ruta, {})
+        self.assertEqual(r["id"], "xx-camt053")
+        movs, _ = recetas.aplicar(ruta, r, "banco-europa")
+        self.assertEqual([(m["fecha"], m["monto"], m["moneda"]) for m in movs], [("2026-10-02", -42.1, "EUR"), ("2026-10-15", 2100.0, "EUR")],
+                         "DBIT es negativo y las pendientes (PDNG) no entran")
+        self.assertEqual(movs[0]["descripcion"], "Supermercado Ejemplo Compra con tarjeta")
+
+    def test_qif(self):
+        ruta = os.path.join(DATOS_PRUEBA, "cartola_ejemplo.qif")
+        r = recetas.detectar(ruta, {})
+        self.assertEqual(r["id"], "xx-qif")
+        movs, _ = recetas.aplicar(ruta, r, "cuenta-qif")
+        self.assertEqual([(m["fecha"], m["monto"]) for m in movs], [("2026-10-25", -15.5), ("2026-10-03", 1200.0)], "25/10 → día/mes")
+
+
+class Vigilar(unittest.TestCase):
+    def setUp(self):
+        limpiar()
+        self.carpeta = os.path.join(TMP, "Descargas")
+        shutil.rmtree(self.carpeta, ignore_errors=True)
+        os.makedirs(self.carpeta)
+        os.makedirs(os.path.join(datos.INTERNO, "recetas"), exist_ok=True)
+        datos.escribir_json(os.path.join(datos.INTERNO, "recetas", RECETA["id"] + ".json"), RECETA)
+
+    def test_solo_lo_nuevo_y_una_vez(self):
+        import time
+        import vigilar
+        viejo = os.path.join(self.carpeta, "vieja.csv")
+        shutil.copy(CARTOLA, viejo)
+        os.utime(viejo, (time.time() - 3600, time.time() - 3600))
+        self.assertFalse(vigilar.revisar(self.carpeta)["ok"], "sin activar no hace nada")
+        vigilar.activar()
+        shutil.copy(CARTOLA, os.path.join(self.carpeta, "cartola.csv"))
+        for nombre, texto in (("notas.csv", "a,b\n1,2\n"), ("foto.jpg", "x")):
+            with open(os.path.join(self.carpeta, nombre), "w") as f:
+                f.write(texto)
+        r = vigilar.revisar(self.carpeta, ahora=time.time() + 10)
+        self.assertEqual([x["archivo"] for x in r["importados"]], ["cartola.csv"], "la vieja (de antes de activar) no se toca")
+        self.assertGreater(r["importados"][0]["nuevos"], 0)
+        self.assertEqual(r["sin_receta"], ["notas.csv"])
+        r = vigilar.revisar(self.carpeta, ahora=time.time() + 20)
+        self.assertEqual((r["importados"], r["sin_receta"]), ([], []), "lo revisado no se vuelve a revisar")
+        self.assertTrue(os.path.exists(viejo) and os.path.exists(os.path.join(self.carpeta, "cartola.csv")), "nunca borra")
+
+    def test_espera_que_termine_la_descarga(self):
+        import vigilar
+        vigilar.activar()
+        shutil.copy(CARTOLA, os.path.join(self.carpeta, "cartola.csv"))
+        self.assertEqual(vigilar.revisar(self.carpeta)["importados"], [], "recién escrito: espera unos segundos")
+
+
+class Mcp(unittest.TestCase):
+    """El servidor MCP como lo usa una IA: initialize, tools/list y tools/call por stdio."""
+
+    def setUp(self):
+        limpiar()
+        datos.escribir_json(os.path.join(datos.INTERNO, "recetas", "cl-banco-ejemplo.json"), RECETA)
+        correr("importar.py", "guardar", CARTOLA, "cl-banco-ejemplo", "0")
+
+    def hablar(self, *mensajes):
+        entrada = "\n".join(json.dumps(m) for m in mensajes) + "\n"
+        p = subprocess.run([sys.executable, os.path.join(RAIZ, "bin", "mcp_servidor.py")], input=entrada, capture_output=True, text=True, timeout=30)
+        self.assertEqual(p.returncode, 0, p.stderr)
+        return [json.loads(x) for x in p.stdout.splitlines() if x.strip()]
+
+    def test_protocolo_y_herramientas(self):
+        r = self.hablar({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "prueba"}}},
+                        {"jsonrpc": "2.0", "method": "notifications/initialized"},
+                        {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+                        {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "buscar_movimientos", "arguments": {"texto": "cafe la esquina", "desde": "2026-10-01"}}},
+                        {"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "gastos_por_categoria", "arguments": {"desde": "2026-10-01", "hasta": "2026-10-31"}}},
+                        {"jsonrpc": "2.0", "id": 5, "method": "tools/call", "params": {"name": "borrar_todo", "arguments": {}}},
+                        {"jsonrpc": "2.0", "id": 6, "method": "tools/call", "params": {"name": "buscar_movimientos", "arguments": {"desde": "ayer"}}})
+        self.assertEqual(len(r), 6, "la notificación no lleva respuesta")
+        self.assertEqual(r[0]["result"]["protocolVersion"], "2025-06-18")
+        nombres = {t["name"] for t in r[1]["result"]["tools"]}
+        self.assertTrue({"resumen_del_mes", "buscar_movimientos", "gastos_por_categoria", "presupuesto", "cuentas_y_datos"} <= nombres)
+        self.assertTrue(all(t["annotations"]["readOnlyHint"] for t in r[1]["result"]["tools"]), "todo es de solo lectura")
+        cafe = r[2]["result"]["structuredContent"]
+        self.assertEqual(cafe["encontrados"], 2)
+        self.assertLess(cafe["suma_montos"], 0)
+        self.assertNotIn("id", cafe["movimientos"][0], "no hace falta mostrar ids internos")
+        self.assertGreater(r[3]["result"]["structuredContent"]["total_gastado"], 0)
+        self.assertIn("error", r[4])
+        self.assertTrue(r[5]["result"]["isError"])
+
+    def test_no_escribe_nada(self):
+        antes = {f: os.path.getmtime(os.path.join(datos.MOVIMIENTOS, f)) for f in os.listdir(datos.MOVIMIENTOS)}
+        for n in ["resumen_del_mes", "presupuesto", "comparar_meses", "principales_comercios", "cuentas_y_datos"]:
+            r = self.hablar({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": n, "arguments": {}}})
+            self.assertFalse(r[0]["result"]["isError"], n)
+        self.assertEqual(antes, {f: os.path.getmtime(os.path.join(datos.MOVIMIENTOS, f)) for f in os.listdir(datos.MOVIMIENTOS)})
+
+
+class McpConectar(unittest.TestCase):
+    """Conectar con cada IA en un HOME falso, con CLI falsos que anotan lo que se les pide (nunca toca tu configuración real)."""
+
+    def setUp(self):
+        self.home = os.path.join(TMP, "home")
+        shutil.rmtree(self.home, ignore_errors=True)
+        os.makedirs(os.path.join(self.home, "bin"))
+        self.registro = os.path.join(self.home, "registro.txt")
+        for cli in ("claude", "codex", "gemini"):
+            ruta = os.path.join(self.home, "bin", cli)
+            with open(ruta, "w") as f:
+                f.write(f"#!/bin/sh\necho {cli} \"$@\" >> {self.registro}\n")
+            os.chmod(ruta, 0o755)
+
+    def correr(self, *args, extra=None):
+        salida = os.path.join(self.home, "salida.json")
+        env = {**os.environ, "HOME": self.home, "PATH": os.path.join(self.home, "bin") + os.pathsep + "/usr/bin:/bin", **(extra or {})}
+        p = subprocess.run([sys.executable, os.path.join(RAIZ, "bin", "mcp_conectar.py"), *args, salida], capture_output=True, text=True, env=env)
+        self.assertEqual(p.returncode, 0, p.stderr)
+        with open(salida, encoding="utf-8") as f:
+            return json.load(f)
+
+    def test_cli_y_archivos(self):
+        e = {c["id"]: c for c in self.correr("estado")["clientes"]}
+        self.assertTrue(e["claude_code"]["instalado"] and e["codex"]["instalado"] and e["gemini"]["instalado"])
+        self.assertTrue(self.correr("conectar", "claude_code")["ok"])
+        self.assertTrue(self.correr("conectar", "codex")["ok"])
+        with open(self.registro) as f:
+            lineas = f.read().splitlines()
+        self.assertTrue(lineas[0].startswith("claude mcp add --scope user alcancia -- "), lineas[0])
+        self.assertTrue(lineas[0].endswith("bin/mcp_servidor.py"))
+        self.assertTrue(lineas[1].startswith("codex mcp add alcancia -- "))
+        # Claude Desktop y Antigravity: se edita su archivo sin tocar lo demás y se guarda una copia
+        cfg = os.path.join(self.home, ".config", "Claude", "claude_desktop_config.json") if sys.platform != "darwin" else \
+            os.path.join(self.home, "Library", "Application Support", "Claude", "claude_desktop_config.json")
+        os.makedirs(os.path.dirname(cfg))
+        with open(cfg, "w") as f:
+            json.dump({"mcpServers": {"otro": {"command": "x"}}, "tema": "oscuro"}, f)
+        r = self.correr("conectar", "claude_desktop")
+        self.assertTrue(r["ok"], r)
+        with open(cfg) as f:
+            d = json.load(f)
+        self.assertEqual(d["tema"], "oscuro")
+        self.assertEqual(set(d["mcpServers"]), {"otro", "alcancia"})
+        self.assertTrue(os.path.exists(cfg + ".antes-de-alcancia"))
+        self.assertTrue(next(c for c in r["clientes"] if c["id"] == "claude_desktop")["al_dia"])
+        self.assertTrue(self.correr("quitar", "claude_desktop")["ok"])
+        with open(cfg) as f:
+            self.assertEqual(set(json.load(f)["mcpServers"]), {"otro"})
+
+    def test_archivo_roto_no_se_toca(self):
+        cfg = os.path.join(self.home, ".gemini", "config", "mcp_config.json")
+        os.makedirs(os.path.dirname(cfg))
+        with open(cfg, "w") as f:
+            f.write("{ esto no es json")
+        r = self.correr("conectar", "antigravity")
+        self.assertFalse(r["ok"])
+        with open(cfg) as f:
+            self.assertEqual(f.read(), "{ esto no es json")
+
+    def test_reparar_ruta_vieja(self):
+        cfg = os.path.join(self.home, ".gemini", "config", "mcp_config.json")
+        os.makedirs(os.path.dirname(cfg))
+        with open(cfg, "w") as f:
+            json.dump({"mcpServers": {"alcancia": {"command": "python3", "args": ["/ruta/vieja/mcp_servidor.py"]}}}, f)
+        r = self.correr("reparar")
+        self.assertEqual(r["arreglados"], ["antigravity"])
+        with open(cfg) as f:
+            self.assertTrue(json.load(f)["mcpServers"]["alcancia"]["args"][0].endswith("bin/mcp_servidor.py"))
+
+
+class Conectores(unittest.TestCase):
+    """Cada conector contra un servidor falso con respuestas como las de su documentación (datos inventados)."""
+
+    def setUp(self):
+        limpiar()
+        sys.path.insert(0, os.path.join(RAIZ, "pruebas"))
+
+    def sinc(self, srv, accion, conector, cred):
+        salida = os.path.join(TMP, "salida-conector.json")
+        env = {**os.environ, "ALCANCIA_RED_PRUEBA": srv.url}
+        env.pop("ALCANCIA_RECURSOS", None)
+        p = subprocess.run([sys.executable, os.path.join(RAIZ, "bin", "sincronizar.py"), accion, conector, salida], capture_output=True, text=True,
+                           env=env, input=json.dumps(cred))
+        self.assertEqual(p.returncode, 0, p.stderr)
+        self.ultima_salida = p.stdout
+        with open(salida, encoding="utf-8") as f:
+            r = json.load(f)
+        for v in (x for x in cred.values() if len(str(x)) >= 6):  # (las de prueba muy cortas calzarían con cualquier texto)
+            self.assertNotIn(str(v), p.stdout + p.stderr + json.dumps(r), "la credencial nunca se imprime ni va al archivo de salida")
+        nueva = [x for x in p.stdout.splitlines() if x.startswith("CREDENCIAL ")]
+        if nueva:
+            r["credencial_stdout"] = json.loads(nueva[-1][len("CREDENCIAL "):])
+        return r
+
+    def movs(self, conector):
+        return sorted((m for m in datos.leer_todos() if m["origen"] == f"conector:{conector}"), key=lambda m: (m["fecha"], m["monto"]))
+
+    def test_registro_y_red(self):
+        import conectores
+        from red import ErrorRed, Red
+        todos = conectores.todos()
+        self.assertTrue({"mercadopago", "paypal", "simplefin", "up", "akahu", "stripe", "buda"} <= set(todos))
+        for c in todos.values():
+            for k in ("id", "nombre", "paises", "hosts", "campos", "pasos", "estado"):
+                self.assertIn(k, c.INFO, f"{c.INFO.get('id')}: falta {k}")
+            self.assertTrue(all(h and "/" not in h for h in c.INFO["hosts"]))
+        red = Red(["api.ejemplo.com"], "Ejemplo")
+        for mala in ("http://api.ejemplo.com/x", "https://otro.com/x", "https://api.ejemplo.com.otro.com/x"):
+            with self.assertRaises(ErrorRed):
+                red.get(mala)
+
+    def test_textos_traducidos(self):
+        import conectores
+        en = datos.leer_json(os.path.join(RAIZ, "ui", "idiomas", "en.json"), {})["textos"]
+        for c in conectores.todos().values():
+            for t in c.INFO["pasos"] + [f["etiqueta"] for f in c.INFO["campos"]] + ([c.INFO["nota"]] if c.INFO.get("nota") else []):
+                self.assertIn(t, en, f"{c.INFO['id']}: falta la traducción de «{t[:50]}»")
+
+    def test_conector_desconocido_y_llave_mala(self):
+        from servidor_falso import ServidorFalso
+        with ServidorFalso({("GET", "api.mercadopago.com/users/me"): lambda q, b, h: (401, {"message": "invalid token"})}) as srv:
+            r = self.sinc(srv, "probar", "mercadopago", {"token": "APP_USR-mala"})
+            self.assertFalse(r["ok"])
+            self.assertIn("no aceptó la llave", r["error"])
+            self.assertFalse(self.sinc(srv, "probar", "inventado", {})["ok"])
+            self.assertFalse(self.sinc(srv, "probar", "mercadopago", {})["ok"], "sin llave ni siquiera intenta")
+
+    def test_mercadopago(self):
+        from servidor_falso import ServidorFalso
+        def buscar(q, b, h):
+            self.assertEqual(h["authorization"], "Bearer APP_USR-123")
+            if "payer.id" in q:
+                return 200, {"paging": {"total": 2, "limit": 50, "offset": 0}, "results": [
+                    {"id": 11, "status": "approved", "transaction_amount": 12990, "currency_id": "CLP", "date_approved": "2026-10-03T12:10:44.000-03:00",
+                     "description": "Pedido Delivery Ejemplo", "operation_type": "regular_payment"},
+                    {"id": 12, "status": "rejected", "transaction_amount": 5000, "currency_id": "CLP", "date_created": "2026-10-04T10:00:00.000-03:00"}]}
+            return 200, {"paging": {"total": 1}, "results": [{"id": 13, "status": "approved", "transaction_amount": 20000, "currency_id": "CLP",
+                                                              "date_approved": "2026-10-05T09:00:00.000-03:00", "description": "", "operation_type": "money_transfer"}]}
+        rutas = {("GET", "api.mercadopago.com/users/me"): lambda q, b, h: (200, {"id": 999, "site_id": "MLC"}),
+                 ("GET", "api.mercadopago.com/v1/payments/search"): buscar}
+        with ServidorFalso(rutas) as srv:
+            p = self.sinc(srv, "probar", "mercadopago", {"token": "APP_USR-123"})
+            self.assertEqual((p["ok"], p["cuentas"][0]["moneda"]), (True, "CLP"))
+            r = self.sinc(srv, "traer", "mercadopago", {"token": "APP_USR-123"})
+            self.assertEqual((r["ok"], r["nuevos"]), (True, 2), r)
+            self.assertEqual([(m["fecha"], m["monto"], m["descripcion"]) for m in self.movs("mercadopago")],
+                             [("2026-10-03", -12990, "Pago: Pedido Delivery Ejemplo"), ("2026-10-05", 20000, "Transferencia")])
+            self.assertEqual(self.sinc(srv, "traer", "mercadopago", {"token": "APP_USR-123"})["nuevos"], 0, "no duplica")
+        e = datos.leer_json(os.path.join(datos.INTERNO, "conexiones.json"), None)["mercadopago"]
+        self.assertTrue(e["conectado"] and e["hasta"])
+        self.assertNotIn("APP_USR", json.dumps(e), "el estado no guarda la llave")
+        cuentas = datos.leer_json(os.path.join(datos.BASE, "cuentas.json"), None)
+        self.assertEqual(cuentas[0]["conector"], "mercadopago")
+
+    def test_paypal(self):
+        from servidor_falso import ServidorFalso
+        def token(q, b, h):
+            import base64
+            self.assertEqual(h["authorization"], "Basic " + base64.b64encode(b"id:sec").decode())
+            self.assertIn("grant_type=client_credentials", b)
+            return 200, {"access_token": "A21", "scope": "https://uri.paypal.com/services/reporting/search/read openid"}
+        def trans(q, b, h):
+            self.assertEqual(q["transaction_status"], "S")
+            if q["page"] == "1":
+                return 200, {"total_pages": 2, "transaction_details": [{"transaction_info": {"transaction_id": "5TY", "transaction_event_code": "T0006",
+                    "transaction_initiation_date": "2026-10-05T10:15:00-03:00", "transaction_amount": {"currency_code": "USD", "value": "-25.00"},
+                    "transaction_status": "S", "transaction_subject": "Suscripción Ejemplo"}}]}
+            return 200, {"total_pages": 2, "transaction_details": [{"transaction_info": {"transaction_id": "6UZ", "transaction_event_code": "T0011",
+                    "transaction_initiation_date": "2026-10-06T10:15:00-03:00", "transaction_amount": {"currency_code": "USD", "value": "100.00"},
+                    "transaction_status": "S"}, "payer_info": {"payer_name": {"alternate_full_name": "Matías Soto"}}}]}
+        with ServidorFalso({("POST", "api-m.paypal.com/v1/oauth2/token"): token, ("GET", "api-m.paypal.com/v1/reporting/transactions"): trans}) as srv:
+            self.assertTrue(self.sinc(srv, "probar", "paypal", {"client_id": "id", "secret": "sec"})["ok"])
+            self.assertTrue(self.sinc(srv, "traer", "paypal", {"client_id": "id", "secret": "sec"})["ok"])
+            ventanas = [x for x in srv.pedidos if x[1].endswith("reporting/transactions")]
+            self.assertGreaterEqual(len(ventanas), 2 * 6, "ventanas de 31 días como máximo (180 días = 6+ ventanas, 2 páginas c/u)")
+        movs = self.movs("paypal")
+        self.assertEqual({(m["descripcion"], m["monto"]) for m in movs}, {("Suscripción Ejemplo", -25.0), ("Matías Soto", 100.0)})
+
+    def test_paypal_sin_transaction_search(self):
+        from servidor_falso import ServidorFalso
+        with ServidorFalso({("POST", "api-m.paypal.com/v1/oauth2/token"): lambda q, b, h: (200, {"access_token": "A", "scope": "openid"})}) as srv:
+            r = self.sinc(srv, "probar", "paypal", {"client_id": "id", "secret": "sec"})
+            self.assertIn("Transaction Search", r["error"])
+
+    def test_simplefin_canjea_una_vez(self):
+        import base64
+        from servidor_falso import ServidorFalso
+        rutas = {("POST", "beta-bridge.simplefin.org/simplefin/claim/abc"): lambda q, b, h: (200, "https://usu:cla@beta-bridge.simplefin.org/simplefin"),
+                 ("GET", "beta-bridge.simplefin.org/simplefin/accounts"): lambda q, b, h: (200, {"errors": [], "accounts": [{"id": "A1", "name": "Checking",
+                    "currency": "USD", "transactions": [
+                        {"id": "t1", "posted": 1791460800, "amount": "-33.20", "description": "Grocery Example", "pending": False},
+                        {"id": "t2", "posted": 0, "amount": "-5.00", "description": "Pendiente", "pending": True}]}]})}
+        token = base64.b64encode(b"https://beta-bridge.simplefin.org/simplefin/claim/abc").decode()
+        with ServidorFalso(rutas) as srv:
+            r = self.sinc(srv, "probar", "simplefin", {"token": token})
+            self.assertNotIn("credencial", r, "la llave nueva nunca va al archivo de salida")
+            self.assertEqual(r["credencial_stdout"], {"acceso": "https://usu:cla@beta-bridge.simplefin.org/simplefin"}, "devuelve la llave definitiva por stdout")
+            self.assertEqual(r["cuentas"][0]["nombre"], "Checking")
+            auth = [x[4]["authorization"] for x in srv.pedidos if x[1].endswith("/accounts")][0]
+            self.assertEqual(auth, "Basic " + base64.b64encode(b"usu:cla").decode())
+            t = self.sinc(srv, "traer", "simplefin", r["credencial_stdout"])
+            self.assertEqual(t["nuevos"], 1, "las pendientes no se guardan")
+            self.assertNotIn("credencial_stdout", t, "ya canjeada, no hay llave nueva")
+
+    def test_up_paginado(self):
+        from servidor_falso import ServidorFalso
+        def tx(q, b, h):
+            mov = lambda i, desc, valor, f: {"id": i, "attributes": {"status": "SETTLED", "description": desc, "amount": {"currencyCode": "AUD", "value": valor},
+                                                                    "settledAt": f}, "relationships": {"account": {"data": {"id": "acc"}}}}
+            if q.get("cursor") == "2":
+                return 200, {"data": [mov("u2", "Café Ejemplo", "-4.50", "2026-10-02T09:00:00+10:00")], "links": {"next": None}}
+            self.assertEqual(q["filter[status]"], "SETTLED")
+            # links.next real apunta a https://api.up.com.au/…; red.py lo manda al servidor falso
+            return 200, {"data": [mov("u1", "Sueldo Ejemplo", "2500.00", "2026-10-01T09:00:00+10:00")],
+                         "links": {"next": "https://api.up.com.au/api/v1/transactions?cursor=2"}}
+        with ServidorFalso({("GET", "api.up.com.au/api/v1/transactions"): tx}) as srv:
+            self.assertEqual(self.sinc(srv, "traer", "up", {"token": "up:yeah:x"})["nuevos"], 2)
+        self.assertEqual([m["monto"] for m in self.movs("up")], [2500.0, -4.5])
+
+    def test_stripe_monedas(self):
+        from servidor_falso import ServidorFalso
+        def bt(q, b, h):
+            if "starting_after" not in q:
+                return 200, {"has_more": True, "data": [{"id": "txn_1", "net": -400, "currency": "usd", "created": 1791460800, "type": "stripe_fee", "description": None}]}
+            return 200, {"has_more": False, "data": [{"id": "txn_2", "net": 15000, "currency": "clp", "created": 1791547200, "type": "charge", "description": "Venta Ejemplo"}]}
+        with ServidorFalso({("GET", "api.stripe.com/v1/balance_transactions"): bt}) as srv:
+            self.assertIn("restringida", self.sinc(srv, "probar", "stripe", {"llave": "sk_live_x"})["error"], "no acepta la clave secreta completa")
+            self.assertEqual(self.sinc(srv, "traer", "stripe", {"llave": "rk_live_x"})["nuevos"], 2)
+        self.assertEqual({(m["moneda"], m["monto"]) for m in self.movs("stripe")}, {("USD", -4.0), ("CLP", 15000.0)})
+
+    def test_buda_firma(self):
+        import hashlib
+        import hmac
+        from servidor_falso import ServidorFalso
+        def dep(q, b, h):
+            ruta = "/api/v2/currencies/clp/deposits?" + "&".join(f"{k}={v}" for k, v in q.items())
+            esperada = hmac.new(b"sec", f"GET {ruta} {h['x-sbtc-nonce']}".encode(), hashlib.sha384).hexdigest()
+            self.assertEqual(h["x-sbtc-signature"], esperada)
+            return 200, {"deposits": [{"id": "D1", "created_at": "2026-10-01T15:00:00.000Z", "amount": ["50000.0", "CLP"], "state": "confirmed"},
+                                      {"id": "D0", "created_at": "2020-01-01T15:00:00.000Z", "amount": ["1.0", "CLP"], "state": "confirmed"}], "meta": {"total_pages": 9}}
+        rutas = {("GET", "www.buda.com/api/v2/currencies/clp/deposits"): dep}
+        rutas.update({("GET", f"www.buda.com/api/v2/currencies/{m}/{t}"): (lambda q, b, h, t=t: (200, {t: [], "meta": {"total_pages": 1}}))
+                      for m in ("clp", "pen", "cop") for t in ("deposits", "withdrawals") if (m, t) != ("clp", "deposits")})
+        with ServidorFalso(rutas) as srv:
+            r = self.sinc(srv, "traer", "buda", {"llave": "k", "secreto": "sec"})
+            self.assertEqual(r["nuevos"], 1, r)
+            self.assertEqual(len([x for x in srv.pedidos if "clp/deposits" in x[1]]), 1, "deja de paginar al pasar la fecha pedida")
+        self.assertEqual(self.movs("buda")[0]["monto"], 50000)
+
+    def test_no_sigue_redirecciones(self):
+        from servidor_falso import ServidorFalso
+        import http.server, threading
+        robadas = []
+
+        class Ladron(http.server.BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_GET(self):
+                robadas.append(self.headers.get("Authorization"))
+                self.send_response(200)
+                self.end_headers()
+
+        ladron = http.server.HTTPServer(("127.0.0.1", 0), Ladron)
+        threading.Thread(target=ladron.serve_forever, daemon=True).start()
+        destino = f"http://127.0.0.1:{ladron.server_address[1]}/robar"
+
+        with ServidorFalso({("GET", "api.stripe.com/v1/balance_transactions"): lambda q, b, h: (302, "", {"Location": destino})}) as srv:
+            r = self.sinc(srv, "probar", "stripe", {"llave": "rk_live_SECRETO_DE_PRUEBA"})
+        ladron.shutdown()
+        ladron.server_close()
+        self.assertFalse(r["ok"])
+        self.assertEqual(robadas, [], "la llave nunca viaja a otro dominio")
+
+    def test_la_ia_no_hereda_nada_de_alcancia(self):
+        import ia
+        os.environ["ALCANCIA_RED_PRUEBA"] = "http://127.0.0.1:1"
+        try:
+            self.assertFalse(any(k.startswith("ALCANCIA_") for k in ia._entorno_ia()))
+        finally:
+            del os.environ["ALCANCIA_RED_PRUEBA"]
+
+    def test_esperar_y_error_quedan_en_estado(self):
+        from servidor_falso import ServidorFalso
+        with ServidorFalso({("GET", "api.mercadopago.com/users/me"): lambda q, b, h: (429, {})}) as srv:
+            r = self.sinc(srv, "traer", "mercadopago", {"token": "x"})
+        self.assertFalse(r["ok"])
+        e = datos.leer_json(os.path.join(datos.INTERNO, "conexiones.json"), None)["mercadopago"]
+        self.assertIn("esperar", e["error"])
 
 
 if __name__ == "__main__":

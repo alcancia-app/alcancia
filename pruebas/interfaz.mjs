@@ -27,6 +27,7 @@ const casos = JSON.parse(fs.readFileSync(path.join(RAIZ, "pruebas", "casos.json"
 // Textos que vienen de los datos (descripciones, nombres de IA y de categorías) o que no se traducen.
 const esDato = (t) => demo.includes(t) || /^(Alcancía|Claude|ChatGPT \(Codex\)|Gemini|English|Español|CLP|USD)$/.test(t);
 
+const CONECTORES = JSON.parse(fs.readFileSync(path.join(RAIZ, "ui", "demo.json"), "utf8")).conectores || [];
 const VISTAS = [
   ["resumen", "E=>{E.vista='resumen'}"],
   ["resumen-mes-pasado", "E=>{E.mes='2026-09'}"],
@@ -53,7 +54,13 @@ const VISTAS = [
   ["actualizando", "E=>{E.act={paso:'2',texto:'Preparando la versión nueva…',pct:40}}"],
   ["actualizacion-error", "E=>{E.act={paso:'error',texto:'x'}}"],
   ["sin-presupuesto", "E=>{E.act=null;E.actualizacion={hay:false};E.presupuesto={moneda:'CLP',mensual:{}}}"],
-  ["vacio", "E=>{E.movimientos=[]}"],
+  ["conexiones", "E=>{E.vista='conexiones'}"],
+  ["conexiones-estados", "E=>{const ids=E.conectores.map(c=>c.id);if(ids[0])E.conexiones[ids[0]]={conectado:true,error:'Mercado Pago no aceptó la llave (puede estar vencida o sin permiso de lectura).'};if(ids[1])E.conexiones[ids[1]]={conectado:true,esperando:true};if(ids[2])E.sincronizando[ids[2]]=true;E.vigilar={activo:true,recientes:[{archivo:'cartola.csv',resultado:'importado',nuevos:1},{archivo:'otra.xlsx',resultado:'sin_receta'}]}}"],
+  ["conexiones-otro-pais", "E=>{E.config.pais='US';E.sincronizando={}}"],
+  ["conectar-error", "E=>{E.config.pais='CL';E.conectar={id:E.conectores[0].id,campos:{},error:'Falta: x.',enviando:false}}"],
+  ["conectar-enviando", "E=>{E.conectar.enviando=true;E.conectar.error=''}"],
+  ...CONECTORES.map((c) => [`conectar-${c.id}`, `E=>{E.conectar={id:'${c.id}',campos:{},error:'',enviando:false}}`]),
+  ["vacio", "E=>{E.conectar=null;E.vista='resumen';E.movimientos=[]}"],
 ];
 const navegador = await chromium.launch();
 

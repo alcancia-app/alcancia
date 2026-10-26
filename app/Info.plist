@@ -22,6 +22,8 @@
     <string>15.0</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.finance</string>
+    <key>NSDownloadsFolderUsageDescription</key>
+    <string>Para agregar solas las cartolas que descargues de tu banco (solo si activas «Cartolas que descargues»).</string>
     <key>NSHumanReadableCopyright</key>
     <string>Alcancía · AGPL-3.0</string>
 </dict>

@@ -6,6 +6,7 @@
   regla        {"contiene", "categoria"}            aprende una regla y la aplica a todos los movimientos que calzan
   presupuesto  {"mensual": {"<categoria>": tope}}   guarda los topes del mes
   receta       {"receta": {...}}                    guarda una receta nueva (validada) en ~/Alcancia/.alcancia/recetas/
+  desconectar  {"conector"}                         olvida el estado de una conexión (la llave la borra la app del Llavero)
 
 Todo lo que llega se valida: categorías que existen, montos positivos, recetas con recetas.validar.
 """
@@ -73,7 +74,20 @@ def receta(e):
     return {"ok": True, "id": r["id"]}
 
 
-ACCIONES = {"categoria": categoria, "regla": regla, "presupuesto": presupuesto, "receta": receta}
+def desconectar(e):
+    """Olvida el estado de una conexión (la app ya borró la llave del Llavero). Los movimientos que trajo se quedan."""
+    import re
+    cid = str(e.get("conector", ""))
+    if not re.fullmatch(r"[a-z0-9_]{2,40}", cid):
+        return {"ok": False, "error": "Conector inválido."}
+    ruta = os.path.join(datos.INTERNO, "conexiones.json")
+    todo = datos.leer_json(ruta, {})
+    todo[cid] = {"conectado": False}
+    datos.escribir_json(ruta, todo)
+    return {"ok": True}
+
+
+ACCIONES = {"categoria": categoria, "regla": regla, "presupuesto": presupuesto, "receta": receta, "desconectar": desconectar}
 
 if __name__ == "__main__":
     if len(sys.argv) != 4 or sys.argv[1] not in ACCIONES:

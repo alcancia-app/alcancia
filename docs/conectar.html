@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Conectar tus cuentas a Alcancía: Mercado Pago, PayPal, Stripe, Buda y más — sin la clave del banco</title>
+<meta name="description" content="Cómo hacer que tus movimientos lleguen solos a Alcancía con conexiones oficiales (Mercado Pago, PayPal, Stripe, Buda.com, SimpleFIN, Up, Akahu), la carpeta de descargas y cómo conectar tu propia IA por MCP. Nunca con la clave de tu banco.">
+<link rel="canonical" href="https://alcancia-app.github.io/alcancia/conectar.html">
+<meta name="theme-color" content="#15100c">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Alcancía">
+<meta property="og:url" content="https://alcancia-app.github.io/alcancia/conectar.html">
+<meta property="og:title" content="Que tus movimientos lleguen solos a Alcancía">
+<meta property="og:description" content="Conexiones oficiales con una llave que creas tú, la carpeta de descargas y tu propia IA por MCP.">
+<meta property="og:image" content="https://alcancia-app.github.io/alcancia/img/compartir.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  :root { --titulo: "Bricolage Grotesque", Inter, system-ui, -apple-system, sans-serif; --fondo: #15100c; --fondo2: #1c1510; --panel: #241b15; --linea: #3a2e24; --texto: #f6eee7; --suave: #b6a79a; --acento: #f2a57e; --acento2: #c4602f; --verde: #3ddc84; --papel: #f7f1e3; --tinta: #23201a; }
+  * { box-sizing: border-box; } html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+  body { margin: 0; background: var(--fondo); color: var(--texto); font: 16.5px/1.65 Inter, system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  a { color: var(--acento); } :focus-visible { outline: 2px solid var(--acento); outline-offset: 3px; border-radius: 6px; }
+  .ancho { width: min(860px, 100% - 32px); margin: 0 auto; }
+  h1, h2, h3 { font-family: var(--titulo); letter-spacing: -.02em; line-height: 1.08; margin: 0; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; background: #08080b; border: 1px solid var(--linea); padding: 1px 6px; border-radius: 6px; }
+  p code, li code, .nota code { overflow-wrap: anywhere; }
+  kbd { font: 600 .85em Inter, sans-serif; padding: 1px 7px; border-radius: 6px; border: 1px solid var(--linea); border-bottom-width: 2px; background: var(--panel); }
+  .barra { position: sticky; top: 0; z-index: 20; backdrop-filter: blur(14px); background: color-mix(in srgb, var(--fondo) 80%, transparent); border-bottom: 1px solid var(--linea); }
+  .barra .ancho { width: min(1140px, 100% - 32px); display: flex; align-items: center; gap: 14px; height: 60px; }
+  .marca { display: flex; align-items: center; gap: 9px; font-family: var(--titulo); font-weight: 800; font-size: 20px; text-decoration: none; color: var(--texto); }
+  .marca img { width: 28px; height: 28px; border-radius: 7px; }
+  .barra nav { display: flex; gap: 18px; margin-left: auto; font-size: 14px; } .barra nav a { color: var(--suave); text-decoration: none; } .barra nav a:hover { color: var(--texto); }
+  .idioma { border: 1px solid var(--linea); background: none; color: var(--texto); border-radius: 999px; padding: 5px 11px; font: 600 12px Inter, sans-serif; cursor: pointer; }
+  @media (max-width: 720px) { .barra nav { display: none; } .idioma { margin-left: auto; } }
+
+  .cab { padding: 64px 0 24px; }
+  .cab h1 { font-size: clamp(36px, 5.4vw, 60px); font-weight: 800; max-width: 17ch; }
+  .cab p { font-size: 19px; color: var(--suave); margin: 18px 0 0; max-width: 60ch; }
+  .cab p b { color: var(--texto); font-weight: 600; }
+  section { padding: 44px 0; }
+  h2 { font-size: clamp(28px, 3.6vw, 38px); margin-bottom: 14px; }
+  .ancho > p, section p { color: #d3d0da; } section p.suave { color: var(--suave); }
+
+  /* explicación */
+  .analogia { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 14px; align-items: center; margin-top: 22px; }
+  .analogia > div { padding: 18px; border-radius: 16px; background: var(--fondo2); border: 1px solid var(--linea); }
+  .analogia b { display: block; font-family: var(--titulo); font-size: 18px; margin-bottom: 4px; } .analogia span.t { color: var(--suave); font-size: 15px; }
+  .analogia .igual { font: 800 22px var(--titulo); color: var(--acento); text-align: center; }
+  @media (max-width: 640px) { .analogia { grid-template-columns: minmax(0, 1fr); } .analogia .igual { transform: rotate(90deg); } }
+  .tranqui { margin-top: 18px; padding: 16px 18px; border-radius: 14px; background: color-mix(in srgb, var(--verde) 9%, var(--fondo2)); border: 1px solid color-mix(in srgb, var(--verde) 35%, var(--linea)); font-size: 15.5px; }
+
+  /* elegir */
+  .elegir { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 20px; }
+  @media (max-width: 760px) { .elegir { grid-template-columns: minmax(0, 1fr); } }
+  .opcion { display: flex; flex-direction: column; gap: 6px; padding: 20px; border-radius: 18px; background: var(--fondo2); border: 1px solid var(--linea); text-decoration: none; color: var(--texto); transition: border-color .15s, transform .15s; }
+  .opcion:hover { border-color: var(--acento); transform: translateY(-2px); }
+  .opcion small { color: var(--suave); font-size: 14px; } .opcion strong { font-family: var(--titulo); font-size: 22px; line-height: 1.1; } .opcion span { color: var(--suave); font-size: 14.5px; } .opcion em { margin-top: auto; padding-top: 8px; font-style: normal; color: var(--acento); font-weight: 600; font-size: 14.5px; }
+  .beta { font: 700 11px Inter, sans-serif; padding: 2px 7px; border-radius: 999px; background: color-mix(in srgb, var(--acento2) 20%, transparent); color: #ffd9c4; vertical-align: 4px; margin-left: 6px; letter-spacing: 0; }
+  .ninguna { margin-top: 14px; color: var(--suave); font-size: 15.5px; } .ninguna b { color: var(--texto); }
+
+  /* sistema */
+  .sistemas-caja { position: sticky; top: 60px; z-index: 10; padding: 12px 0; background: color-mix(in srgb, var(--fondo) 92%, transparent); backdrop-filter: blur(10px); }
+  .sistemas-caja .ancho { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+  .sistemas-caja span.l { color: var(--suave); font-size: 14px; }
+  .sistemas { display: inline-flex; gap: 4px; padding: 4px; border-radius: 14px; border: 1px solid var(--linea); background: var(--fondo2); }
+  .sistemas button { border: 0; background: none; color: var(--suave); font: 600 14px Inter, system-ui, sans-serif; padding: 8px 14px; border-radius: 10px; cursor: pointer; }
+  .sistemas button[aria-pressed="true"] { background: var(--panel); color: var(--texto); box-shadow: 0 1px 0 rgba(255,255,255,.06) inset; }
+  html[data-so="mac"] [data-solo]:not([data-solo~="mac"]), html[data-so="windows"] [data-solo]:not([data-solo~="windows"]), html[data-so="linux"] [data-solo]:not([data-solo~="linux"]) { display: none !important; }
+
+  /* pasos */
+  .ia { border-top: 1px solid var(--linea); }
+  .ia-cab { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+  .ia-cab .logo { width: 48px; height: 48px; flex: none; border-radius: 14px; display: grid; place-items: center; font: 800 22px var(--titulo); }
+  .ia-cab h2 { margin: 0; } .ia-cab small { display: block; color: var(--suave); font: 500 15px Inter, sans-serif; margin-top: 4px; }
+  ol.pasos { list-style: none; counter-reset: paso; padding: 0; margin: 24px 0 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+  ol.pasos > li { counter-increment: paso; position: relative; padding: 0 0 26px 52px; }
+  ol.pasos > li::before { content: counter(paso); position: absolute; left: 0; top: 0; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--acento); color: #15130c; font: 800 15px Inter, sans-serif; }
+  ol.pasos > li::after { content: ""; position: absolute; left: 15px; top: 38px; bottom: 6px; border-left: 2px dashed var(--linea); }
+  ol.pasos > li:last-child::after { display: none; }
+  ol.pasos h3 { font-size: 20px; margin: 3px 0 6px; } ol.pasos p { margin: 6px 0 0; }
+  .comando { margin-top: 10px; display: flex; align-items: center; gap: 10px; padding: 11px 11px 11px 16px; border-radius: 14px; background: #08080b; border: 1px solid var(--linea); }
+  .comando code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; border: 0; background: none; padding: 0; color: #dcdad3; font-size: 13.5px; scrollbar-width: thin; }
+  .comando code::before { content: "$ "; color: var(--verde); } .comando.ps code::before { content: "> "; }
+  .comando button { border: 1px solid var(--linea); background: var(--panel); color: var(--texto); border-radius: 9px; padding: 7px 12px; font: 600 12px Inter, sans-serif; cursor: pointer; flex: none; }
+  .otras { margin-top: 10px; } .otras summary { cursor: pointer; color: var(--suave); font-size: 14.5px; } .otras ul { margin: 8px 0 0; padding-left: 20px; color: var(--suave); font-size: 14.5px; display: grid; gap: 6px; }
+  .nota { margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--fondo2); border: 1px solid var(--linea); color: var(--suave); font-size: 14.5px; } .nota b { color: var(--texto); }
+  .listo { margin-top: 8px; padding: 18px 20px; border-radius: 16px; background: var(--papel); color: var(--tinta); }
+  .listo h3 { font-size: 20px; margin-bottom: 4px; } .listo p { color: var(--tinta); margin: 0; }
+
+  /* problemas */
+  details.p { border-bottom: 1px solid var(--linea); padding: 15px 0; } details.p summary { cursor: pointer; font-weight: 600; font-size: 16.5px; list-style: none; display: flex; justify-content: space-between; gap: 20px; }
+  details.p summary::-webkit-details-marker { display: none; } details.p summary::after { content: "+"; color: var(--acento); font-size: 22px; line-height: 1; } details.p[open] summary::after { content: "–"; }
+  details.p p, details.p ul { color: var(--suave); margin: 10px 0 0; } details.p ul { padding-left: 20px; display: grid; gap: 6px; }
+  .final { margin: 30px 0 90px; padding: 26px; border-radius: 22px; background: var(--acento); color: #15130c; display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: center; }
+  .final p { margin: 0; flex: 1; min-width: 240px; color: #15130c; font-size: 16px; } .final p b { display: block; font: 800 22px var(--titulo); margin-bottom: 2px; }
+  .final a { display: inline-flex; padding: 12px 18px; border-radius: 12px; background: #15130c; color: var(--acento); font-weight: 600; text-decoration: none; }
+  footer { padding: 36px 0 50px; border-top: 1px solid var(--linea); color: var(--suave); font-size: 14px; }
+  footer .ancho { width: min(1140px, 100% - 32px); display: flex; flex-wrap: wrap; gap: 12px 18px; justify-content: space-between; } footer a { color: var(--texto); }
+  [data-en] { display: none; } html[lang="en"] [data-es] { display: none; } html[lang="en"] [data-en] { display: revert; }
+  .lista { padding-left: 20px; line-height: 1.7; } .lista li { margin-bottom: 8px; }
+  .enlaces { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+</style>
+</head>
+<body>
+<header class="barra"><div class="ancho">
+  <a class="marca" href="./"><img src="favicon.svg" alt="">Alcancía</a>
+  <nav><a href="#como"><span data-es>Cómo funciona</span><span data-en>How it works</span></a><a href="#descargas"><span data-es>Descargas</span><span data-en>Downloads</span></a><a href="#buda">Buda.com</a><a href="#mercadopago">Mercado Pago</a><a href="#paypal">PayPal</a><a href="#stripe">Stripe</a><a href="#akahu">Akahu</a><a href="#simplefin">SimpleFIN</a><a href="#up">Up</a><a href="#mcp"><span data-es>Tu IA</span><span data-en>Your AI</span></a></nav>
+  <button class="idioma" id="idioma" aria-label="Cambiar idioma / Change language">EN</button>
+</div></header>
+
+<main>
+<div class="ancho cab">
+  <h1><span data-es>Que tus movimientos lleguen solos</span><span data-en>Let your transactions arrive on their own</span></h1>
+  <p><span data-es>Alcancía junta todas las conexiones <b>oficiales</b> que existen para que una persona traiga sus propios movimientos, siempre con una llave que creas tú en cada servicio. <b>Nunca te pedimos la clave de tu banco</b> ni entramos a su sitio haciéndonos pasar por ti.</span><span data-en>Alcancía brings together every <b>official</b> connection that lets a person fetch their own transactions, always with a key you create in each service. <b>We never ask for your bank password</b> or log into its website pretending to be you.</span></p>
+</div>
+
+<section id="como" class="ia"><div class="ancho">
+  <h2><span data-es>Cómo funciona</span><span data-en>How it works</span></h2>
+  <ul class="lista">
+    <li><span data-es>La llave se guarda <b>cifrada en el Llavero</b> de tu computador (nunca en un archivo) y solo se usa para leer.</span><span data-en>The key is stored <b>encrypted in your computer&#x27;s Keychain</b> (never in a file) and is only used to read.</span></li>
+    <li><span data-es>Alcancía revisa sola al abrirse y cada 6 horas, trae lo nuevo, <b>no duplica nada</b> y le pone categoría igual que a una cartola.</span><span data-en>Alcancía checks on its own when it opens and every 6 hours, fetches what&#x27;s new, <b>never duplicates anything</b> and categorizes it like a statement.</span></li>
+    <li><span data-es>Habla <b>solo</b> con el servicio que conectaste. No hay servidores de Alcancía en el medio.</span><span data-en>It talks <b>only</b> to the service you connected. There are no Alcancía servers in between.</span></li>
+    <li><span data-es><b>Beta</b> = funciona con la API oficial y pasa nuestras pruebas, pero falta que alguien lo use con su cuenta real. Si lo pruebas, cuéntanos en la comunidad.</span><span data-en><b>Beta</b> = works with the official API and passes our tests, but nobody has used it with a real account yet. If you try it, tell us in the community.</span></li>
+  </ul>
+</div></section>
+
+<section id="descargas" class="ia"><div class="ancho">
+  <div class="ia-cab"><span class="logo" style="background:#20302a;color:#7fe0b4">⬇</span><div><h2><span data-es>Cartolas que descargues</span><span data-en>Statements you download</span></h2><small><span data-es>Cualquier banco del mundo</span><span data-en>Any bank in the world</span></small></div></div>
+  <p><span data-es>Para los bancos sin API (casi todos): en <b>Conexiones</b>, activa <b>Cartolas que descargues</b>. Desde ese momento, cada cartola que descargues a tu carpeta de <b>Descargas</b> se agrega sola si Alcancía sabe leerla: CSV o Excel con su receta, <b>OFX/QFX</b>, <b>QIF</b> o <b>CAMT.053</b>. Si no la sabe leer, te avisa para que tu IA aprenda. Nunca borra ni mueve tus archivos.</span><span data-en>For banks without an API (almost all of them): in <b>Connections</b>, turn on <b>Statements you download</b>. From then on, every statement you download to your <b>Downloads</b> folder is added automatically if Alcancía can read it: CSV or Excel with its recipe, <b>OFX/QFX</b>, <b>QIF</b> or <b>CAMT.053</b>. If it can&#x27;t, it lets you know so your AI can learn it. It never deletes or moves your files.</span></p>
+</div></section>
+
+<section id="buda" class="ia"><div class="ancho">
+  <div class="ia-cab"><span class="logo" style="background:#2a2420;color:#f2b632">B</span><div><h2><span data-es>Buda.com</span><span data-en>Buda.com</span> <span class="beta">beta</span></h2><small><span data-es>Chile</span><span data-en>Chile</span> · <span data-es>Perú</span><span data-en>Peru</span> · <span data-es>Colombia</span><span data-en>Colombia</span></small></div></div>
+  <ol class="pasos">
+    <li><p><span data-es>En <b>buda.com</b> ve a <b>Configuración → API Keys</b> y crea una llave nueva.</span><span data-en>On <b>buda.com</b> go to <b>Settings → API Keys</b> and create a new key.</span></p></li>
+    <li><p><span data-es>Dale permiso <b>solo de lectura</b> (sin operar ni retirar) y la fecha de vencimiento que quieras.</span><span data-en>Give it <b>read-only</b> permission (no trading or withdrawals) and any expiry date you like.</span></p></li>
+    <li><p><span data-es>Copia la <b>API Key</b> y el <b>API Secret</b> y pégalos aquí.</span><span data-en>Copy the <b>API Key</b> and <b>API Secret</b> and paste them here.</span></p></li>
+    <li><p><span data-es>En Alcancía, abre <b>Conexiones</b>, toca <b>Conectar</b> en Buda.com y pega lo que copiaste. Listo: tus movimientos llegan solos al abrir la app y cada 6 horas.</span><span data-en>In Alcancía, open <b>Connections</b>, click <b>Connect</b> on Buda.com and paste what you copied. Done: your transactions arrive on their own when the app opens and every 6 hours.</span></p></li>
+  </ol>
+  <p><a href="https://www.buda.com/" rel="noopener"><span data-es>Abrir la página de Buda.com</span><span data-en>Open the Buda.com page</span> ↗</a></p>
+</div></section>
+
+<section id="mercadopago" class="ia"><div class="ancho">
+  <div class="ia-cab"><span class="logo" style="background:#2a2420;color:#f2b632">M</span><div><h2><span data-es>Mercado Pago</span><span data-en>Mercado Pago</span> <span class="beta">beta</span></h2><small><span data-es>Argentina</span><span data-en>Argentina</span> · <span data-es>Brasil</span><span data-en>Brazil</span> · <span data-es>Chile</span><span data-en>Chile</span> · <span data-es>Colombia</span><span data-en>Colombia</span> · <span data-es>México</span><span data-en>Mexico</span> · <span data-es>Perú</span><span data-en>Peru</span> · <span data-es>Uruguay</span><span data-en>Uruguay</span></small></div></div>
+  <ol class="pasos">
+    <li><p><span data-es>Entra a <b>Mercado Pago Developers</b> con tu cuenta y abre <b>Tus integraciones</b>.</span><span data-en>Sign in to <b>Mercado Pago Developers</b> and open <b>Your integrations</b>.</span></p></li>
+    <li><p><span data-es>Toca <b>Crear aplicación</b> y ponle de nombre «Alcancía».</span><span data-en>Click <b>Create application</b> and name it “Alcancía”.</span></p></li>
+    <li><p><span data-es>En la aplicación, ve a <b>Credenciales de producción</b> y actívalas. Te pide industria y sitio web: elige «Otros» y, si no tienes sitio, pon https://alcancia-app.github.io/alcancia/.</span><span data-en>In the application, go to <b>Production credentials</b> and activate them. It asks for an industry and website: choose “Other” and, if you don&#x27;t have a website, use https://alcancia-app.github.io/alcancia/.</span></p></li>
+    <li><p><span data-es>Copia el <b>Access Token</b> (empieza con <code>APP_USR-</code>) y pégalo aquí.</span><span data-en>Copy the <b>Access Token</b> (it starts with <code>APP_USR-</code>) and paste it here.</span></p></li>
+    <li><p><span data-es>En Alcancía, abre <b>Conexiones</b>, toca <b>Conectar</b> en Mercado Pago y pega lo que copiaste. Listo: tus movimientos llegan solos al abrir la app y cada 6 horas.</span><span data-en>In Alcancía, open <b>Connections</b>, click <b>Connect</b> on Mercado Pago and paste what you copied. Done: your transactions arrive on their own when the app opens and every 6 hours.</span></p></li>
+  </ol>
+  <p class="nota"><span data-es>Ojo: la llave de Mercado Pago da acceso completo a tu cuenta (Mercado Pago no ofrece una de solo lectura). Alcancía solo la usa para leer tus pagos, la guarda cifrada en tu computador y nunca sale de ahí salvo hacia Mercado Pago.</span><span data-en>Heads up: the Mercado Pago key gives full access to your account (Mercado Pago doesn&#x27;t offer a read-only one). Alcancía only uses it to read your payments, keeps it encrypted on your computer, and it never leaves it except to Mercado Pago.</span></p>
+  <p><a href="https://www.mercadopago.cl/developers/panel/app" rel="noopener"><span data-es>Abrir la página de Mercado Pago</span><span data-en>Open the Mercado Pago page</span> ↗</a></p>
+</div></section>
+
+<section id="paypal" class="ia"><div class="ancho">
+  <div class="ia-cab"><span class="logo" style="background:#2a2420;color:#f2b632">P</span><div><h2><span data-es>PayPal</span><span data-en>PayPal</span> <span class="beta">beta</span></h2><small><span data-es>Todo el mundo</span><span data-en>Worldwide</span></small></div></div>
+  <ol class="pasos">
+    <li><p><span data-es>Necesitas una cuenta <b>PayPal Business</b> (las cuentas personales no tienen acceso a esta API).</span><span data-en>You need a <b>PayPal Business</b> account (personal accounts don&#x27;t have access to this API).</span></p></li>
+    <li><p><span data-es>Entra a <b>developer.paypal.com → Apps &amp; Credentials</b>, elige <b>Live</b> y toca <b>Create App</b> («Alcancía»).</span><span data-en>Go to <b>developer.paypal.com → Apps &amp; Credentials</b>, choose <b>Live</b> and click <b>Create App</b> (“Alcancía”).</span></p></li>
+    <li><p><span data-es>En la app, marca <b>Transaction Search</b> en las funciones y guarda. PayPal puede tardar unas horas en activarlo.</span><span data-en>In the app, check <b>Transaction Search</b> under features and save. PayPal may take a few hours to enable it.</span></p></li>
+    <li><p><span data-es>Copia el <b>Client ID</b> y el <b>Secret</b> y pégalos aquí.</span><span data-en>Copy the <b>Client ID</b> and <b>Secret</b> and paste them here.</span></p></li>
+    <li><p><span data-es>En Alcancía, abre <b>Conexiones</b>, toca <b>Conectar</b> en PayPal y pega lo que copiaste. Listo: tus movimientos llegan solos al abrir la app y cada 6 horas.</span><span data-en>In Alcancía, open <b>Connections</b>, click <b>Connect</b> on PayPal and paste what you copied. Done: your transactions arrive on their own when the app opens and every 6 hours.</span></p></li>
+  </ol>
+  <p><a href="https://developer.paypal.com/dashboard/applications/live" rel="noopener"><span data-es>Abrir la página de PayPal</span><span data-en>Open the PayPal page</span> ↗</a></p>
+</div></section>
+
+<section id="stripe" class="ia"><div class="ancho">
+  <div class="ia-cab"><span class="logo" style="background:#2a2420;color:#f2b632">S</span><div><h2><span data-es>Stripe</span><span data-en>Stripe</span> <span class="beta">beta</span></h2><small><span data-es>Todo el mundo</span><span data-en>Worldwide</span></small></div></div>
+  <ol class="pasos">
+    <li><p><span data-es>En el <b>Dashboard de Stripe</b> (modo real, no de prueba) ve a <b>Desarrolladores → Claves de API</b>.</span><span data-en>In the <b>Stripe Dashboard</b> (live mode, not test) go to <b>Developers → API keys</b>.</span></p></li>
+    <li><p><span data-es>Toca <b>Crear clave restringida</b>, ponle «Alcancía» y deja todo en <b>Ninguno</b> salvo <b>Balance</b> en <b>Lectura</b>.</span><span data-en>Click <b>Create restricted key</b>, name it “Alcancía” and leave everything on <b>None</b> except <b>Balance</b> on <b>Read</b>.</span></p></li>
+    <li><p><span data-es>Crea la clave, cópiala (empieza con <code>rk_live_</code>) y pégala aquí. Stripe no la vuelve a mostrar.</span><span data-en>Create the key, copy it (it starts with <code>rk_live_</code>) and paste it here. Stripe won&#x27;t show it again.</span></p></li>
+    <li><p><span data-es>En Alcancía, abre <b>Conexiones</b>, toca <b>Conectar</b> en Stripe y pega lo que copiaste. Listo: tus movimientos llegan solos al abrir la app y cada 6 horas.</span><span data-en>In Alcancía, open <b>Connections</b>, click <b>Connect</b> on Stripe and paste what you copied. Done: your transactions arrive on their own when the app opens and every 6 hours.</span></p></li>
+  </ol>
+  <p><a href="https://dashboard.stripe.com/apikeys" rel="noopener"><span data-es>Abrir la página de Stripe</span><span data-en>Open the Stripe page</span> ↗</a></p>
+</div></section>
+
+<section id="akahu" class="ia"><div class="ancho">
+  <div class="ia-cab"><span class="logo" style="background:#2a2420;color:#f2b632">A</span><div><h2><span data-es>Akahu (bancos de Nueva Zelanda)</span><span data-en>Akahu (New Zealand banks)</span> <span class="beta">beta</span></h2><small><span data-es>Nueva Zelanda</span><span data-en>New Zealand</span></small></div></div>
+  <ol class="pasos">
+    <li><p><span data-es>Entra a <b>my.akahu.nz</b>, conecta tus bancos y abre <b>Developers</b>.</span><span data-en>Sign in to <b>my.akahu.nz</b>, connect your banks and open <b>Developers</b>.</span></p></li>
+    <li><p><span data-es>Crea una <b>personal app</b> y copia el <b>App ID Token</b> y el <b>User Token</b>.</span><span data-en>Create a <b>personal app</b> and copy the <b>App ID Token</b> and <b>User Token</b>.</span></p></li>
+    <li><p><span data-es>Pégalos aquí.</span><span data-en>Paste them here.</span></p></li>
+    <li><p><span data-es>En Alcancía, abre <b>Conexiones</b>, toca <b>Conectar</b> en Akahu y pega lo que copiaste. Listo: tus movimientos llegan solos al abrir la app y cada 6 horas.</span><span data-en>In Alcancía, open <b>Connections</b>, click <b>Connect</b> on Akahu and paste what you copied. Done: your transactions arrive on their own when the app opens and every 6 hours.</span></p></li>
+  </ol>
+  <p><a href="https://my.akahu.nz/developers" rel="noopener"><span data-es>Abrir la página de Akahu</span><span data-en>Open the Akahu page</span> ↗</a></p>
+</div></section>
+
+<section id="simplefin" class="ia"><div class="ancho">
+  <div class="ia-cab"><span class="logo" style="background:#2a2420;color:#f2b632">S</span><div><h2><span data-es>SimpleFIN (bancos de EE. UU. y Canadá)</span><span data-en>SimpleFIN (US and Canada banks)</span> <span class="beta">beta</span></h2><small><span data-es>Estados Unidos</span><span data-en>United States</span> · <span data-es>Canadá</span><span data-en>Canada</span></small></div></div>
+  <ol class="pasos">
+    <li><p><span data-es>Crea una cuenta en <b>SimpleFIN Bridge</b> (cuesta US$1,50 al mes) y conecta ahí tus bancos.</span><span data-en>Create a <b>SimpleFIN Bridge</b> account (US$1.50 a month) and connect your banks there.</span></p></li>
+    <li><p><span data-es>Toca <b>New connection</b> para una app nueva y copia el <b>Setup Token</b>.</span><span data-en>Click <b>New connection</b> for a new app and copy the <b>Setup Token</b>.</span></p></li>
+    <li><p><span data-es>Pégalo aquí. Alcancía lo canjea una sola vez por una llave que guarda cifrada.</span><span data-en>Paste it here. Alcancía exchanges it once for a key it keeps encrypted.</span></p></li>
+    <li><p><span data-es>En Alcancía, abre <b>Conexiones</b>, toca <b>Conectar</b> en SimpleFIN y pega lo que copiaste. Listo: tus movimientos llegan solos al abrir la app y cada 6 horas.</span><span data-en>In Alcancía, open <b>Connections</b>, click <b>Connect</b> on SimpleFIN and paste what you copied. Done: your transactions arrive on their own when the app opens and every 6 hours.</span></p></li>
+  </ol>
+  <p class="nota"><span data-es>SimpleFIN es un servicio aparte que se conecta con tus bancos; Alcancía solo habla con SimpleFIN.</span><span data-en>SimpleFIN is a separate service that connects to your banks; Alcancía only talks to SimpleFIN.</span></p>
+  <p><a href="https://beta-bridge.simplefin.org/" rel="noopener"><span data-es>Abrir la página de SimpleFIN</span><span data-en>Open the SimpleFIN page</span> ↗</a></p>
+</div></section>
+
+<section id="up" class="ia"><div class="ancho">
+  <div class="ia-cab"><span class="logo" style="background:#2a2420;color:#f2b632">U</span><div><h2><span data-es>Up</span><span data-en>Up</span> <span class="beta">beta</span></h2><small><span data-es>Australia</span><span data-en>Australia</span></small></div></div>
+  <ol class="pasos">
+    <li><p><span data-es>En la app de <b>Up</b>, desliza a la derecha y abre <b>Data sharing → Personal Access Token</b>.</span><span data-en>In the <b>Up</b> app, swipe right and open <b>Data sharing → Personal Access Token</b>.</span></p></li>
+    <li><p><span data-es>Toca <b>Generate a token</b>, elige cuánto tiempo dura y cópialo (empieza con <code>up:yeah:</code>).</span><span data-en>Tap <b>Generate a token</b>, choose how long it lasts and copy it (it starts with <code>up:yeah:</code>).</span></p></li>
+    <li><p><span data-es>Pégalo aquí. Es de solo lectura: no puede mover dinero.</span><span data-en>Paste it here. It&#x27;s read-only: it can&#x27;t move money.</span></p></li>
+    <li><p><span data-es>En Alcancía, abre <b>Conexiones</b>, toca <b>Conectar</b> en Up y pega lo que copiaste. Listo: tus movimientos llegan solos al abrir la app y cada 6 horas.</span><span data-en>In Alcancía, open <b>Connections</b>, click <b>Connect</b> on Up and paste what you copied. Done: your transactions arrive on their own when the app opens and every 6 hours.</span></p></li>
+  </ol>
+  <p><a href="https://api.up.com.au/getting_started" rel="noopener"><span data-es>Abrir la página de Up</span><span data-en>Open the Up page</span> ↗</a></p>
+</div></section>
+
+<section id="mcp" class="ia"><div class="ancho">
+  <div class="ia-cab"><span class="logo" style="background:#222b40;color:#f2b632">✦</span><div><h2><span data-es>Tu IA, fuera de Alcancía (MCP)</span><span data-en>Your AI, outside Alcancía (MCP)</span></h2><small>Claude · ChatGPT · Gemini</small></div></div>
+  <p><span data-es>Alcancía trae un pequeño servidor <b>MCP</b> (el estándar con que las IA se conectan a herramientas). Corre en tu computador, solo puede <b>leer</b> y no abre nada a internet. Con él, la IA que ya usas puede responder preguntas como «¿cuánto gasté en delivery este mes?» o «¿en qué se me va la plata?».</span><span data-en>Alcancía ships a small <b>MCP</b> server (the standard AIs use to connect to tools). It runs on your computer, can only <b>read</b> and opens nothing to the internet. With it, the AI you already use can answer questions like “how much did I spend on delivery this month?” or “where is my money going?”.</span></p>
+  <ol class="pasos">
+    <li><p><span data-es>En Alcancía, abre <b>Conexiones → Tu IA, fuera de Alcancía</b>. Aparecen las IA que tienes instaladas: Claude (app de escritorio), Claude Code, ChatGPT (app de escritorio y Codex), Gemini CLI o Antigravity.</span><span data-en>In Alcancía, open <b>Connections → Your AI, outside Alcancía</b>. The AIs installed on your computer show up: Claude (desktop app), Claude Code, ChatGPT (desktop app and Codex), Gemini CLI or Antigravity.</span></p></li>
+    <li><p><span data-es>Toca <b>Conectar</b>. Alcancía agrega la conexión con el comando oficial de cada IA o editando con cuidado su configuración (guarda una copia la primera vez).</span><span data-en>Click <b>Connect</b>. Alcancía adds the connection with each AI&#x27;s official command or by carefully editing its settings (it keeps a backup the first time).</span></p></li>
+    <li><p><span data-es>Abre tu IA (la app de Claude hay que cerrarla y abrirla de nuevo) y pregúntale: «Según Alcancía, ¿cómo voy este mes?».</span><span data-en>Open your AI (quit and reopen the Claude app) and ask: “According to Alcancía, how am I doing this month?”.</span></p></li>
+  </ol>
+  <details class="otras"><summary><span data-es>Conectarlo a mano</span><span data-en>Connect it manually</span></summary>
+    <div class="comando"><code id="m1">claude mcp add --scope user alcancia -- python3 ~/Developer/alcancia/bin/mcp_servidor.py</code><button data-copiar="m1"><span data-es>Copiar</span><span data-en>Copy</span></button></div>
+    <div class="comando"><code id="m2">codex mcp add alcancia -- python3 ~/Developer/alcancia/bin/mcp_servidor.py</code><button data-copiar="m2"><span data-es>Copiar</span><span data-en>Copy</span></button></div>
+    <div class="comando"><code id="m3">gemini mcp add -s user alcancia python3 ~/Developer/alcancia/bin/mcp_servidor.py</code><button data-copiar="m3"><span data-es>Copiar</span><span data-en>Copy</span></button></div>
+    <p><span data-es>Usa la ruta donde tengas Alcancía. Con la app de Mac instalada, el botón Conectar pone la ruta correcta por ti.</span><span data-en>Use the path where you have Alcancía. With the Mac app installed, the Connect button sets the right path for you.</span></p>
+  </details>
+  <p class="nota"><span data-es>Cuando le preguntes, tu IA puede leer tus movimientos (fecha, descripción, monto y categoría), y lo que consulta viaja a tu proveedor de IA con tu cuenta, igual que si se lo escribieras. Alcancía no tiene servidores: todo corre en tu computador.</span><span data-en>When you ask, your AI can read your transactions (date, description, amount and category), and what it looks up goes to your AI provider with your account, just as if you typed it. Alcancía has no servers: everything runs on your computer.</span></p>
+</div></section>
+
+<section id="otros" class="ia"><div class="ancho">
+  <h2><span data-es>¿Y mi banco?</span><span data-en>What about my bank?</span></h2>
+  <p><span data-es>Casi ningún banco deja que una persona use su propia API todavía: las que existen son para empresas con convenio. Las <b>finanzas abiertas</b> oficiales lo van a cambiar (en Chile, la CMF parte en julio de 2027) y Alcancía las va a sumar cuando no exijan un servidor nuestro. ¿Conoces una API oficial que una persona pueda usar con su propia cuenta? Cuéntanos en la comunidad o agrégala tú: está explicado en «Agregar un conector» de la guía para aportar.</span><span data-en>Almost no bank lets individuals use their own API yet: the ones that exist are for companies under contract. Official <b>open finance</b> will change that (in Chile, the CMF starts in July 2027) and Alcancía will add it when it doesn&#x27;t require a server of ours. Know an official API that a person can use with their own account? Tell us in the community or add it yourself: it&#x27;s explained under “Add a connector” in the contributing guide.</span></p>
+  <div class="enlaces"><a href="https://github.com/alcancia-app/alcancia/discussions"><span data-es>Comunidad</span><span data-en>Community</span></a> · <a href="https://github.com/alcancia-app/alcancia/blob/main/CONTRIBUTING.md#agregar-un-conector-conexión-automática"><span data-es>Agregar un conector</span><span data-en>Add a connector</span></a></div>
+</div></section>
+</main>
+
+<footer><div class="ancho">
+  <span><a href="./">Alcancía</a> · <span data-es>Licencia AGPL-3.0</span><span data-en>AGPL-3.0 License</span></span>
+  <span><span data-es>Las marcas mencionadas son de sus dueños. Alcancía es un proyecto independiente, sin relación con esos servicios.</span><span data-en>The brands mentioned belong to their owners. Alcancía is an independent project, not affiliated with those services.</span></span>
+</div></footer>
+
+<script>
+  const html = document.documentElement, boton = document.getElementById("idioma");
+  const TITULOS = { es: document.title, en: "Connect your accounts to Alcancía: Mercado Pago, PayPal, Stripe, Buda and more — no bank password" };
+  let guardado = null; try { guardado = localStorage.getItem("alcancia-idioma"); } catch (e) {}
+  const poner = (l) => { html.lang = l; boton.textContent = l === "es" ? "EN" : "ES"; document.title = TITULOS[l]; };
+  poner(guardado || ((navigator.language || "es").toLowerCase().startsWith("es") ? "es" : "en"));
+  boton.onclick = () => { const l = html.lang === "es" ? "en" : "es"; poner(l); try { localStorage.setItem("alcancia-idioma", l); } catch (e) {} };
+  document.querySelectorAll("[data-copiar]").forEach((b) => b.onclick = async () => {
+    try { await navigator.clipboard.writeText(document.getElementById(b.dataset.copiar).textContent); } catch (e) {}
+    const antes = b.innerHTML; b.textContent = html.lang === "es" ? "¡Copiado!" : "Copied!"; setTimeout(() => (b.innerHTML = antes), 1600);
+  });
+</script>
+</body>
+</html>

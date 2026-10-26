@@ -20,8 +20,9 @@ else
   CONTENIDO=$(git diff --cached -U0 | grep '^+' | grep -v '^+++')
 fi
 PATRON=$(grep -v '^\s*#' "$LISTA" | grep -v '^\s*$' | sed 's/[.[\*^$]/\\&/g' | paste -sd'|' -)
-PATRON="${PATRON}|[A-Za-z0-9._%+-]+@(gmail|hotmail|outlook|yahoo)\.com|/Users/[a-z]|[0-9]{1,2}\.?[0-9]{3}\.?[0-9]{3}-[0-9kK]\b"
-HALLAZGOS=$(printf '%s\n' "$CONTENIDO" | grep -inE "$PATRON" | grep -v 'users.noreply.github.com' | head -40)
+GENERICO="[A-Za-z0-9._%+-]+@(gmail|hotmail|outlook|yahoo)\.com|/Users/[a-z]|[0-9]{1,2}\.?[0-9]{3}\.?[0-9]{3}-[0-9kK]\b"
+# Los términos privados sin distinguir mayúsculas; las rutas /Users/ sí (así «/users/me» de una API no es un falso positivo).
+HALLAZGOS=$({ printf '%s\n' "$CONTENIDO" | grep -inE "$PATRON"; printf '%s\n' "$CONTENIDO" | grep -nE "$GENERICO"; } | grep -v 'users.noreply.github.com' | head -40)
 if [ -n "$HALLAZGOS" ]; then
   echo "✗ Posibles datos personales:"; printf '%s\n' "$HALLAZGOS"; exit 1
 fi

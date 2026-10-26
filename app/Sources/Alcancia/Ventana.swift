@@ -129,8 +129,8 @@ final class Ventana: NSObject, NSWindowDelegate, WKScriptMessageHandler {
             let panel = NSOpenPanel()
             panel.allowsMultipleSelection = false
             panel.canChooseDirectories = false
-            panel.allowedContentTypes = [.commaSeparatedText, .tabSeparatedText, .plainText] + ["xlsx", "csv"].compactMap { UTType(filenameExtension: $0) }
-            panel.message = Idioma.t("Elige la cartola que descargaste de tu banco o billetera (CSV o Excel)")
+            panel.allowedContentTypes = [.commaSeparatedText, .tabSeparatedText, .plainText] + ["xlsx", "csv", "ofx", "qfx", "qif", "xml"].compactMap { UTType(filenameExtension: $0) }
+            panel.message = Idioma.t("Elige la cartola que descargaste de tu banco o billetera (CSV, Excel, OFX, QIF o CAMT.053)")
             guard let v = ventana else { return }
             panel.beginSheetModal(for: v) { r in
                 guard r == .OK, let u = panel.url else { return }
@@ -169,6 +169,29 @@ final class Ventana: NSObject, NSWindowDelegate, WKScriptMessageHandler {
             if let u = URL(string: d["url"] as? String ?? ""), u.scheme == "https" { NSWorkspace.shared.open(u) }
         case "abrirCarpeta":
             abrirCarpetaDatos()
+        case "conectar":
+            let id = Conexiones.valido(d["conector"] as? String ?? "")
+            Conexiones.conectar(id, campos: d["campos"] as? [String: Any] ?? [:]) { r in
+                var x = r
+                x["conector"] = id
+                Ventana.shared.llamar("conectado", x)
+                Ventana.shared.enviarEstado()
+            }
+        case "sincronizar":
+            Conexiones.traer(Conexiones.valido(d["conector"] as? String ?? ""), manual: true)
+        case "desconectar":
+            Conexiones.desconectar(Conexiones.valido(d["conector"] as? String ?? ""))
+        case "vigilar":
+            Vigilante.activar(d["activo"] as? Bool ?? false)
+        case "mcpConectar":
+            let cliente = Conexiones.valido(d["cliente"] as? String ?? "")
+            let quitar = d["quitar"] as? Bool ?? false
+            Procesador.correrJSON("mcp_conectar.py", [quitar ? "quitar" : "conectar", cliente]) { r in
+                var x = r
+                x["cliente"] = cliente
+                x["quitar"] = quitar
+                Ventana.shared.llamar("mcpListo", x)
+            }
         case "buscarActualizacion":
             Actualizaciones.revisar { hay, detalle in
                 Ventana.shared.llamar("actualizacionRevisada", ["hay": hay, "detalle": detalle, "sinConexion": detalle == Actualizaciones.sinConexion])

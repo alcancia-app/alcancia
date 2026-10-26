@@ -17,6 +17,10 @@ final class AlcanciaApp: NSObject, NSApplicationDelegate {
         Menu.instalar()
         Ventana.shared.mostrar()
         Actualizaciones.revisarCadaRato()
+        Conexiones.revisarCadaRato()
+        Vigilante.empezar()
+        // Si la app cambió de lugar (o se actualizó), las IA conectadas por MCP siguen apuntando a la ruta nueva.
+        Procesador.correrJSON("mcp_conectar.py", ["reparar"]) { _ in }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {

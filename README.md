@@ -15,8 +15,13 @@ Gratis, de código abierto y con tus datos en tu computador.</p>
 ---
 
 ## Qué hace
-- **Lee la cartola de cualquier banco o billetera del mundo** (CSV o Excel). Cada banco tiene una *receta*: un archivo corto que dice
+- **Lee la cartola de cualquier banco o billetera del mundo** (CSV, Excel, OFX/QFX, QIF o CAMT.053). Cada banco tiene una *receta*: un archivo corto que dice
   cómo leer su cartola. Si tu banco aún no está, **tu IA aprende a leerlo** y puedes compartir la receta con la comunidad.
+- **Movimientos que llegan solos:** conexiones oficiales con una llave que creas tú (Mercado Pago, PayPal, Stripe, Buda.com, bancos
+  de EE. UU. y Canadá con SimpleFIN, Up en Australia, Akahu en Nueva Zelanda… y las que sume la comunidad), y la **carpeta vigilada**:
+  descargas la cartola de cualquier banco y Alcancía la agrega sola. Nunca con la clave de tu banco.
+- **Pregúntale a tu propia IA:** Alcancía trae un servidor MCP, así que Claude, ChatGPT (app y Codex) o Gemini en tu computador pueden
+  consultar tus finanzas («¿cuánto gasté en delivery este mes?»). Se conecta con un clic en Conexiones.
 - **No duplica nada:** puedes subir la misma cartola dos veces, o cartolas que se traslapan.
 - **Pone las categorías sola:** primero lo que tú le enseñaste, después comercios conocidos y al final tu IA.
 - **Te dice si vas bien:** cuánto llevas gastado, a qué ritmo vas y qué categoría se te está pasando, antes de que termine el mes.
@@ -53,13 +58,46 @@ Todo vive en `~/Alcancia/` (en Windows, `C:\Users\<tú>\Alcancia`). Es un format
 | `reglas.json` | `[{"contiene": "TEXTO", "categoria": "<id>"}]`: lo que Alcancía aprende cuando corriges una categoría. |
 | `cuentas.json` | `[{"id", "nombre", "receta", "moneda"}]` |
 | `consejos/AAAA-MM-DD.md` | Los consejos de tu IA. |
-| `.alcancia/` | Ajustes de la app y recetas descargadas o creadas por ti. |
+| `cuentas.json` (cont.) | Las cuentas que vienen de una conexión llevan `"conector"` en vez de `"receta"`. |
+| `.alcancia/` | Ajustes de la app, recetas descargadas o creadas por ti, `conexiones.json` (estado de cada conexión, sin llaves) y `vigilar.json` (cartolas ya revisadas en Descargas). Las llaves de las conexiones viven en el Llavero de tu sistema, nunca en esta carpeta. |
 
 ## Recetas: cada banco del mundo
 Una receta es un JSON de **solo datos** (nunca código), así que cualquiera puede agregar su banco sin programar. El formato está en
 [`recetas/README.md`](recetas/README.md) y el catálogo comunitario vive en
 [alcancia-app/alcancia-catalogo](https://github.com/alcancia-app/alcancia-catalogo). ¿Tu banco no está? Abre la app, agrega la cartola
 y deja que tu IA aprenda a leerla: al final te ofrece compartir **solo la receta**, nunca tus movimientos.
+
+## Conexiones automáticas
+Casi ningún banco deja que una persona use su propia API todavía, así que Alcancía junta todo lo que sí existe, siempre con
+**conexiones oficiales y una llave que creas tú** (nunca tu usuario y clave del banco):
+
+| Servicio | Dónde | Qué trae | Ojo |
+|---|---|---|---|
+| Mercado Pago | AR, BR, CL, CO, MX, PE, UY | Pagos hechos y recibidos (últimos 12 meses) | La llave da acceso completo a la cuenta (no existe una de solo lectura). Beta. |
+| PayPal | Todo el mundo | Movimientos de 3 años | Solo cuentas Business. Beta. |
+| Stripe | Todo el mundo | Cobros, comisiones y transferencias | Llave restringida de solo lectura. Beta. |
+| Buda.com | CL, PE, CO | Depósitos y retiros en pesos/soles | Llave de solo lectura. Beta. |
+| SimpleFIN | EE. UU. y Canadá | Miles de bancos | Servicio aparte, US$1,50 al mes. Beta. |
+| Up | Australia | Todas tus cuentas | Token personal de solo lectura. Beta. |
+| Akahu | Nueva Zelanda | Casi todos los bancos | App personal gratuita. Beta. |
+
+*Beta* = funciona con la API oficial y pasa las pruebas, pero falta que alguien lo use con su cuenta real. Si lo pruebas, cuéntanos.
+Para todo lo demás está la **carpeta vigilada**: descargas la cartola como siempre y Alcancía la agrega sola. Cuando tu país tenga
+finanzas abiertas oficiales (en Chile, la CMF parte en julio de 2027), las sumamos. Guía paso a paso:
+[alcancia-app.github.io/alcancia/conectar.html](https://alcancia-app.github.io/alcancia/conectar.html). ¿Conoces otra API oficial?
+Mira [Agregar un conector](CONTRIBUTING.md#agregar-un-conector-conexión-automática).
+
+## Tu IA, fuera de Alcancía (MCP)
+`bin/mcp_servidor.py` es un servidor [MCP](https://modelcontextprotocol.io) de **solo lectura**: corre en tu computador, lo abre tu
+IA cuando lo necesita y no tiene servidores ni puertos abiertos. Herramientas: `resumen_del_mes`, `gastos_por_categoria`,
+`buscar_movimientos`, `principales_comercios`, `comparar_meses`, `presupuesto` y `cuentas_y_datos`. En la app: **Conexiones → Tu IA,
+fuera de Alcancía → Conectar** (Claude Desktop, Claude Code, ChatGPT/Codex, Gemini CLI y Antigravity). A mano:
+```bash
+claude mcp add --scope user alcancia -- python3 ~/Developer/alcancia/bin/mcp_servidor.py
+codex mcp add alcancia -- python3 ~/Developer/alcancia/bin/mcp_servidor.py
+gemini mcp add -s user alcancia python3 ~/Developer/alcancia/bin/mcp_servidor.py
+```
+Lo que tu IA consulta viaja a tu proveedor de IA con tu cuenta, igual que si se lo escribieras.
 
 ## Instalar en Mac (desde el código)
 Necesitas macOS 15 y las herramientas de Xcode (`xcode-select --install`).
@@ -90,5 +128,7 @@ tienes que publicar tu código con la misma licencia: así nadie puede tomarla y
 statements from any bank or wallet in the world (CSV or Excel); Alcancía sorts them without duplicates, your own AI (Claude Code,
 Codex or Gemini, with your account) fills in categories and gives you concrete tips, and you see in time when a category is running
 over budget. Your data stays on your computer in open files: no servers, no accounts, no ads, and it never asks for your bank
-password. Each bank is supported through a data-only *recipe*; if yours is missing, your AI learns it and you can share just the
-recipe with the community. Spanish-first, English included. Licensed under AGPL-3.0.
+password. Each bank is supported through a data-only *recipe* (plus OFX, QIF and CAMT.053 out of the box); if yours is missing, your AI
+learns it and you can share just the recipe with the community. Transactions can also arrive automatically: official APIs with a key
+you create (Mercado Pago, PayPal, Stripe, Buda.com, SimpleFIN for US/Canada banks, Up, Akahu) and a watched Downloads folder. A
+read-only local MCP server lets your own AI (Claude, ChatGPT/Codex, Gemini) answer questions about your finances. Spanish-first, English included. Licensed under AGPL-3.0.

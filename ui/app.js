@@ -10,6 +10,7 @@
     consejos: [], cuentas: [], version: "", carpeta: "", actualizacion: { hay: false }, filtro: { texto: "", categoria: "" },
     aprender: null, presEdit: null, importar: null, bv: null, bvCerrada: false, ajustes: false, probando: {}, resultadoIA: {},
     consejoSel: null, pidiendoConsejos: false, errorConsejos: "", act: null, buscando: null, idioma: "es", textos: {},
+    conectores: [], conexiones: {}, vigilar: { activo: false, recientes: [] }, conectar: null, sincronizando: {}, iaExterna: [], mcpOcupado: {}, mcpError: {},
   };
   const ENLACES = { sitio: "https://alcancia-app.github.io/alcancia/", codigo: "https://github.com/alcancia-app/alcancia",
     comunidad: "https://github.com/alcancia-app/alcancia/discussions", guiaIA: "https://alcancia-app.github.io/alcancia/ia.html",
@@ -81,12 +82,14 @@
   }
 
   // ───────────── Dinero y fechas ─────────────
-  const LOCALES = { CL: "es-CL", AR: "es-AR", MX: "es-MX", CO: "es-CO", PE: "es-PE", UY: "es-UY", ES: "es-ES", US: "en-US", BR: "pt-BR", EC: "es-EC", BO: "es-BO", PY: "es-PY", VE: "es-VE", GB: "en-GB", CA: "en-CA", DE: "de-DE", FR: "fr-FR", IT: "it-IT", PT: "pt-PT" };
+  const LOCALES = { NL: "nl-NL", BE: "nl-BE", IE: "en-IE", AT: "de-AT", FI: "fi-FI", SE: "sv-SE", DK: "da-DK", NO: "nb-NO", PL: "pl-PL", AU: "en-AU", CL: "es-CL", AR: "es-AR", MX: "es-MX", CO: "es-CO", PE: "es-PE", UY: "es-UY", ES: "es-ES", US: "en-US", BR: "pt-BR", EC: "es-EC", BO: "es-BO", PY: "es-PY", VE: "es-VE", GB: "en-GB", CA: "en-CA", DE: "de-DE", FR: "fr-FR", IT: "it-IT", PT: "pt-PT" };
   const PAISES = [["CL", "Chile", "CLP"], ["AR", "Argentina", "ARS"], ["MX", "México", "MXN"], ["CO", "Colombia", "COP"], ["PE", "Perú", "PEN"],
     ["UY", "Uruguay", "UYU"], ["EC", "Ecuador", "USD"], ["BO", "Bolivia", "BOB"], ["PY", "Paraguay", "PYG"], ["ES", "España", "EUR"],
     ["US", "Estados Unidos", "USD"], ["BR", "Brasil", "BRL"], ["GB", "Reino Unido", "GBP"], ["CA", "Canadá", "CAD"], ["DE", "Alemania", "EUR"],
-    ["FR", "Francia", "EUR"], ["IT", "Italia", "EUR"], ["PT", "Portugal", "EUR"]];
-  const MONEDAS = ["CLP", "ARS", "MXN", "COP", "PEN", "UYU", "BOB", "PYG", "BRL", "USD", "EUR", "GBP", "CAD"];
+    ["FR", "Francia", "EUR"], ["IT", "Italia", "EUR"], ["PT", "Portugal", "EUR"], ["NL", "Países Bajos", "EUR"], ["BE", "Bélgica", "EUR"],
+    ["IE", "Irlanda", "EUR"], ["AT", "Austria", "EUR"], ["FI", "Finlandia", "EUR"], ["SE", "Suecia", "SEK"], ["DK", "Dinamarca", "DKK"],
+    ["NO", "Noruega", "NOK"], ["PL", "Polonia", "PLN"], ["AU", "Australia", "AUD"]];
+  const MONEDAS = ["CLP", "ARS", "MXN", "COP", "PEN", "UYU", "BOB", "PYG", "BRL", "USD", "EUR", "GBP", "CAD", "AUD", "SEK", "DKK", "NOK", "PLN"];
   const locNumeros = () => LOCALES[E.config.pais] || "es-CL";
   const locFechas = () => (E.idioma === "es" ? locNumeros().startsWith("es") ? locNumeros() : "es-CL" : "en-US");
   function dinero(v, moneda = E.presupuesto.moneda || E.config.moneda || "CLP", signo = false) {
@@ -222,9 +225,10 @@
     movimientos: '<path d="M4 7h16M4 12h16M4 17h10" />',
     presupuesto: '<circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r=".8" />',
     consejos: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" /><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z" />',
+    conexiones: '<path d="M9 7V3M15 7V3M7 7h10v4a5 5 0 0 1-10 0z" /><path d="M12 16v5" />',
   };
   const icono = (id) => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONOS[id]}</svg>`;
-  const VISTAS = [["resumen", "Resumen"], ["movimientos", "Movimientos"], ["presupuesto", "Presupuesto"], ["consejos", "Consejos"]];
+  const VISTAS = [["resumen", "Resumen"], ["movimientos", "Movimientos"], ["presupuesto", "Presupuesto"], ["consejos", "Consejos"], ["conexiones", "Conexiones"]];
   function lateral() {
     const sinCat = E.movimientos.filter((m) => !m.categoria).length;
     return `<aside class="lateral">
@@ -232,7 +236,7 @@
         <button class="icono" data-accion="ajustes" title="Ajustes" aria-label="Ajustes">⚙︎</button></div>
       <div class="agregar-caja"><button class="boton principal grande" data-accion="importar"><span aria-hidden="true">＋</span><span>Agregar movimientos</span></button></div>
       <nav class="nav" aria-label="Secciones">${VISTAS.map(([id, nombre]) => `<button data-vista="${id}" ${E.vista === id ? 'aria-current="page"' : ""}>
-        <span class="ico">${icono(id)}</span><span>${nombre}</span>${id === "movimientos" && sinCat ? `<span class="contador" title="Sin categoría">${sinCat}</span>` : ""}</button>`).join("")}</nav>
+        <span class="ico">${icono(id)}</span><span>${nombre}</span>${id === "movimientos" && sinCat ? `<span class="contador" title="Sin categoría">${sinCat}</span>` : ""}${id === "conexiones" && conexionesConError() ? `<span class="contador alerta-punto" title="Una conexión necesita atención">!</span>` : ""}</button>`).join("")}</nav>
       <div class="pie-lateral"><span aria-hidden="true">🔒</span><span><b>Tus datos son tuyos.</b> Todo queda en tu computador.</span></div>
     </aside>`;
   }
@@ -247,6 +251,7 @@
   }
 
   function principal() {
+    if (E.vista === "conexiones") return vistaConexiones();
     if (!E.movimientos.length && E.vista !== "presupuesto") return vacio();
     if (E.vista === "movimientos") return vistaMovimientos();
     if (E.vista === "presupuesto") return vistaPresupuesto();
@@ -263,7 +268,92 @@
         <div><b>2</b><span>Agrégala aquí: se lee en tu computador y no se duplica si la vuelves a subir.</span></div>
         <div><b>3</b><span>Tu IA pone las categorías y te dice qué va bien y a qué ponerle ojo.</span></div>
       </div>
-      <button class="boton principal" data-accion="importar">＋ <span>Agregar mi primera cartola</span></button></div>`;
+      <div class="acciones-vacio"><button class="boton principal" data-accion="importar">＋ <span>Agregar mi primera cartola</span></button>
+        <button class="boton" data-vista="conexiones">🔌 <span>Conectar una cuenta</span></button></div></div>`;
+  }
+
+  // ───────────── Conexiones: APIs oficiales con una llave de la persona, y la carpeta de descargas ─────────────
+  const nombrePais = (id) => tr((PAISES.find((p) => p[0] === id) || [id, id])[1]);
+  const conexionesConError = () => Object.values(E.conexiones || {}).some((c) => c.conectado && c.error);
+  function hace(iso) {
+    if (!iso) return "";
+    const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if (!(min >= 0)) return "";
+    if (min < 2) return tr("recién");
+    if (min < 60) return T("hace {n} min", { n: min });
+    const h = Math.round(min / 60);
+    return h < 24 ? T("hace {n} h", { n: h }) : T("hace {n} días", { n: Math.round(h / 24) });
+  }
+  function tarjetaConector(c) {
+    const est = E.conexiones[c.id] || {}, sinc = E.sincronizando[c.id];
+    const paises = c.paises.includes("*") ? tr("Todo el mundo") : c.paises.join(" · ");
+    let estado;
+    if (sinc) estado = `<small>Trayendo movimientos…</small>`;
+    else if (est.conectado && est.error) estado = `<small class="error-txt" data-sin-traducir>${esc(est.error)}</small>`;
+    else if (est.conectado && est.esperando) estado = `<small>${frase("{s} está preparando tus movimientos. Llegan en la próxima revisión.", { s: esc(c.nombre) })}</small>`;
+    else if (est.conectado) estado = `<small class="ok-txt">${est.ultima ? frase("✓ Conectado · revisado {h}", { h: esc(hace(est.ultima)) }) : "✓ Conectado"}</small>`;
+    else estado = `<small data-sin-traducir>${esc(paises)}</small>`;
+    const botones = est.conectado
+      ? `<button class="boton" data-sincronizar="${esc(c.id)}" ${sinc ? "disabled" : ""}>Revisar ahora</button><button class="icono" data-desconectar="${esc(c.id)}" title="Desconectar" aria-label="Desconectar">✕</button>`
+      : `<button class="boton principal" data-conectar="${esc(c.id)}">Conectar</button>`;
+    return `<div class="conector ${est.conectado ? "conectado" : ""}"><div class="txt"><b><span data-sin-traducir>${esc(tr(c.nombre))}</span>${c.estado === "beta" ? `<span class="chip pronto" title="Funciona con la API oficial, pero aún falta que alguien lo pruebe con su cuenta real">Beta</span>` : ""}</b>${estado}</div>
+      <div class="acciones">${botones}</div></div>`;
+  }
+  function vistaConexiones() {
+    const pais = E.config.pais || "CL";
+    const delPais = E.conectores.filter((c) => c.paises.includes(pais)), mundo = E.conectores.filter((c) => c.paises.includes("*"));
+    const otros = E.conectores.filter((c) => !c.paises.includes(pais) && !c.paises.includes("*"));
+    const v = E.vigilar || {};
+    const recientes = (v.recientes || []).slice(0, 4).map((r) => `<li data-sin-traducir>${esc(r.archivo)} · ${r.resultado === "importado"
+      ? esc(T(r.nuevos === 1 ? "1 movimiento nuevo" : "{n} movimientos nuevos", { n: r.nuevos })) : esc(tr("no la sé leer todavía"))}</li>`).join("");
+    return `<div class="contenido"><div class="encabezado"><h1>Conexiones</h1></div>
+      <p class="intro-vista">${frase("Que tus movimientos lleguen solos. Alcancía usa la conexión oficial de cada servicio con una llave que creas tú, y la guarda cifrada en tu computador. **Nunca te pide la clave de tu banco.**", {})}</p>
+      <section class="tarjeta"><div class="fila sin-borde"><div class="txt"><b>📥 Cartolas que descargues</b>
+        <small>Descargas la cartola desde tu banco, como siempre, y Alcancía la agrega sola apenas llega a tu carpeta de Descargas. Sirve para cualquier banco del mundo.</small></div>
+        <label class="interruptor"><input type="checkbox" data-vigilar ${v.activo ? "checked" : ""}><span class="visual" aria-hidden="true"></span><span class="oculto-accesible">Importar solas las cartolas que descargue</span></label></div>
+        ${v.activo && recientes ? `<ul class="recientes">${recientes}</ul>` : ""}</section>
+      ${delPais.length ? `<h2 class="subtitulo">${frase("En {p}", { p: esc(nombrePais(pais)) })}</h2><div class="conectores">${delPais.map(tarjetaConector).join("")}</div>` : ""}
+      ${mundo.length ? `<h2 class="subtitulo">En todo el mundo</h2><div class="conectores">${mundo.map(tarjetaConector).join("")}</div>` : ""}
+      ${otros.length ? `<details class="otros-paises"><summary>${frase("Otros países ({n})", { n: otros.length })}</summary><div class="conectores">${otros.map(tarjetaConector).join("")}</div></details>` : ""}
+      ${seccionIAExterna()}
+      <section class="tarjeta suave"><b>¿Tu banco no aparece?</b><p>Casi ningún banco deja que una persona use su propia API todavía. Mientras, descarga la cartola (CSV, Excel u OFX) y activa «Cartolas que descargues»: es casi igual de automático. Cuando tu país tenga finanzas abiertas oficiales, Alcancía las va a sumar.</p>
+        <a href="#" data-enlace="${ENLACES.comunidad}">Proponer una conexión en la comunidad</a></section></div>`;
+  }
+  function seccionIAExterna() {
+    const lista = E.iaExterna || [];
+    const instaladas = lista.filter((c) => c.instalado || c.conectado);
+    const filas = instaladas.map((c) => {
+      const ocupado = E.mcpOcupado[c.id], error = E.mcpError[c.id];
+      const estado = error ? `<small class="error-txt" data-sin-traducir>${esc(error)}</small>`
+        : c.conectado ? `<small class="ok-txt">${c.al_dia ? "✓ Conectada: ya puede consultar tus finanzas" : "Conectada (actualizando la ruta…)"}</small>`
+          : `<small>Instalada en este computador</small>`;
+      const boton = c.conectado ? `<button class="boton" data-mcp-quitar="${esc(c.id)}" ${ocupado ? "disabled" : ""}>Quitar</button>`
+        : `<button class="boton principal" data-mcp="${esc(c.id)}" ${ocupado ? "disabled" : ""}>${ocupado ? "Conectando…" : "Conectar"}</button>`;
+      return `<div class="fila"><div class="txt"><b data-sin-traducir>${esc(tr(c.nombre))}</b>${estado}</div>${boton}</div>`;
+    }).join("");
+    const alguna = lista.some((c) => c.conectado);
+    return `<h2 class="subtitulo">Tu IA, fuera de Alcancía</h2>
+      <section class="tarjeta"><p class="intro-tarjeta">${frase("Conecta Alcancía con la IA que ya usas (Claude, ChatGPT o Gemini en tu computador) y pregúntale por tus finanzas desde ahí: **«¿cuánto gasté en comida este mes?»**, **«¿en qué se me va la plata?»**. Tu IA solo puede leer, nunca cambiar nada.", {})}</p>
+        ${filas || `<p class="texto-suave">No encontré ninguna IA de escritorio en este computador. <a href="#" data-enlace="${ENLACES.guiaIA}">Cómo instalar una</a></p>`}
+        ${alguna ? `<div class="candado" style="margin:14px 0 0"><span class="grande-ico" aria-hidden="true">💬</span><div>${frase("**Pruébalo:** abre tu IA y pregúntale «Según Alcancía, ¿cómo voy este mes?». Si usas la app de Claude, ciérrala y vuelve a abrirla la primera vez.", {})}</div></div>` : ""}
+        <p class="nota-mcp">Cuando le preguntes, tu IA puede leer tus movimientos (fecha, descripción, monto y categoría), y lo que consulta viaja a tu proveedor de IA con tu cuenta, igual que si se lo escribieras. Alcancía no tiene servidores: todo corre en tu computador.</p></section>`;
+  }
+  /** Markdown mínimo para los pasos de los conectores: **negrita** y `código`. Todo lo demás se escapa. */
+  const mdCorto = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`([^`]+)`/g, "<code>$1</code>");
+  function dialogoConectar() {
+    const c = E.conectores.find((x) => x.id === E.conectar.id);
+    if (!c) return "";
+    const k = E.conectar;
+    const campos = c.campos.map((f) => `<label class="campo"><span data-sin-traducir>${esc(tr(f.etiqueta))}</span>
+      <input class="entrada" type="${f.secreto ? "password" : "text"}" id="campo-${esc(f.id)}" data-campo="${esc(f.id)}" autocomplete="off" spellcheck="false" value="${esc(k.campos[f.id] || "")}" ${k.enviando ? "disabled" : ""}></label>`).join("");
+    return `<h2 id="t-conectar">${frase("Conectar {s}", { s: esc(tr(c.nombre)) })}</h2>
+      <ol class="pasos-conectar">${c.pasos.map((p) => `<li data-sin-traducir>${mdCorto(tr(p))}</li>`).join("")}</ol>
+      ${c.enlace ? `<p><a href="#" data-enlace="${esc(c.enlace)}">${frase("Abrir la página de {s}", { s: esc(c.nombre) })} ↗</a></p>` : ""}
+      ${c.nota ? `<p class="nota-conector" data-sin-traducir>${mdCorto(tr(c.nota))}</p>` : ""}
+      <div class="campos-conectar">${campos}</div>
+      <div class="candado"><span class="grande-ico" aria-hidden="true">🔐</span><div>La llave se guarda cifrada en el llavero de tu computador y solo se usa para leer tus movimientos. Puedes desconectar cuando quieras.</div></div>
+      ${k.error ? `<p class="error-txt" data-sin-traducir>${esc(k.error)}</p>` : ""}
+      <div class="pie-dialogo"><button class="boton" data-accion="cerrar-conectar">Cancelar</button><button class="boton principal" data-accion="enviar-conectar" ${k.enviando ? "disabled" : ""}>${k.enviando ? "Revisando…" : "Conectar"}</button></div>`;
   }
 
   function vistaResumen() {
@@ -489,7 +579,7 @@
       default:
         return `${cab}<p>Descarga la cartola desde la página de tu banco o billetera y elígela aquí. Se lee en tu computador: nada sale de aquí.</p>
           <div class="zona-archivo"><span class="grande-ico" aria-hidden="true">📄</span><button class="boton principal" data-accion="elegir-cartola">Elegir archivo</button>
-            <small>CSV o Excel (.xlsx). Si la subes dos veces, no se duplica nada.</small></div>
+            <small>CSV, Excel (.xlsx), OFX, QIF o CAMT.053. Si la subes dos veces, no se duplica nada.</small></div>
           <div class="pie-dialogo">${cerrar}</div>`;
     }
   }
@@ -533,6 +623,7 @@
   function dialogos() {
     const capa = (id, html) => `<div class="capa"><div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="${id}">${html}</div></div>`;
     if (E.importar) return capa("t-importar", dialogoImportar());
+    if (E.conectar) return capa("t-conectar", dialogoConectar());
     if (E.bv !== null) return capa("t-bv", bienvenida());
     if (E.ajustes) return capa("t-ajustes", dialogoAjustes());
     return "";
@@ -541,7 +632,7 @@
   // ───────────── Eventos ─────────────
   const ocupadoImportando = () => ["leyendo", "aprendiendo", "guardando"].includes(E.importar?.paso);
   document.addEventListener("click", (ev) => {
-    const el = ev.target.closest("[data-accion],[data-vista],[data-mes],[data-probar],[data-bv],[data-enlace],[data-respaldo],[data-consejo]");
+    const el = ev.target.closest("[data-accion],[data-vista],[data-mes],[data-probar],[data-bv],[data-enlace],[data-respaldo],[data-consejo],[data-conectar],[data-sincronizar],[data-desconectar],[data-mcp],[data-mcp-quitar]");
     if (!el) return;
     const d = el.dataset;
     if (d.enlace) { ev.preventDefault(); return host.enviar("abrirEnlace", { url: d.enlace }); }
@@ -551,6 +642,10 @@
     if (d.bv) { E.bv = Number(d.bv); return render(); }
     if (d.respaldo) { if (d.respaldo !== "local") return toast("Muy pronto: el respaldo con candado llega en la próxima versión"); E.config.respaldo = d.respaldo; host.enviar("config", { respaldo: d.respaldo }); return render(); }
     if (d.consejo) { E.consejoSel = d.consejo; return render(); }
+    if (d.conectar) { E.conectar = { id: d.conectar, campos: {}, error: "", enviando: false }; render(); const p = $(".campos-conectar input"); if (p) p.focus(); return; }
+    if (d.mcp || d.mcpQuitar) { const id = d.mcp || d.mcpQuitar; E.mcpOcupado[id] = true; delete E.mcpError[id]; host.enviar("mcpConectar", { cliente: id, quitar: !!d.mcpQuitar }); return render(); }
+    if (d.sincronizar) { E.sincronizando[d.sincronizar] = true; host.enviar("sincronizar", { conector: d.sincronizar }); return render(); }
+    if (d.desconectar) { host.enviar("desconectar", { conector: d.desconectar }); E.conexiones[d.desconectar] = { conectado: false }; toast("Desconectado. Tus movimientos siguen aquí."); return render(); }
     const im = E.importar;
     switch (d.accion) {
       case "ajustes": E.ajustes = true; return render();
@@ -558,6 +653,15 @@
       case "importar": E.importar = { paso: "elegir", ia: !!E.config.ia, compartir: false }; return render();
       case "bv-importar": E.bv = null; E.bvCerrada = true; host.enviar("config", { bienvenida: true }); E.importar = { paso: "elegir", ia: !!E.config.ia, compartir: false }; return render();
       case "elegir-cartola": return host.enviar("elegirCartola");
+      case "cerrar-conectar": if (!E.conectar?.enviando) E.conectar = null; return render();
+      case "enviar-conectar": {
+        const k = E.conectar, c = E.conectores.find((x) => x.id === k.id);
+        const faltan = c.campos.filter((f) => !String(k.campos[f.id] || "").trim());
+        if (faltan.length) { k.error = T("Completa: {x}", { x: faltan.map((f) => tr(f.etiqueta)).join(", ") }); return render(); }
+        k.enviando = true; k.error = "";
+        host.enviar("conectar", { conector: k.id, campos: Object.fromEntries(c.campos.map((f) => [f.id, String(k.campos[f.id]).trim()])) });
+        return render();
+      }
       case "cerrar-importar": if (!ocupadoImportando()) E.importar = null; return render();
       case "aprender-receta": im.paso = "aprendiendo"; im.error = ""; host.enviar("aprenderReceta", { ruta: im.ruta, pais: E.config.pais || "CL" }); return render();
       case "receta-mal": im.paso = "sin_receta"; im.receta = null; im.error = tr("Entendido: no guardé nada. Puedes intentarlo otra vez o pedir ayuda en la comunidad."); return render();
@@ -593,6 +697,7 @@
   document.addEventListener("input", (ev) => {
     const ds = ev.target.dataset || {};
     if (ds.filtro === "texto") { E.filtro.texto = ev.target.value; return render(); }
+    if (ds.campo && E.conectar) { E.conectar.campos[ds.campo] = ev.target.value; return; }
     if (ds.pres) {
       const v = Number(ev.target.value.replace(/\D/g, "")) || 0;
       E.presEdit[ds.pres] = v;
@@ -607,6 +712,8 @@
     if (ds.pres) { ev.target.value = numeroPlano(E.presEdit[ds.pres]); return; }
     if (ds.filtro === "categoria") { E.filtro.categoria = ev.target.value; return render(); }
     if (ds.importarIa != null) { E.importar.ia = ev.target.checked; return; }
+    if (ds.vigilar != null) { E.vigilar.activo = ev.target.checked; host.enviar("vigilar", { activo: ev.target.checked });
+      toast(ev.target.checked ? "Listo: las cartolas que descargues desde ahora se agregan solas" : "Ya no reviso tu carpeta de Descargas"); return render(); }
     if (ds.compartir != null) { E.importar.compartir = ev.target.checked; return; }
     if (ds.categoria) {
       const m = E.movimientos.find((x) => x.id === ds.categoria);
@@ -631,6 +738,7 @@
   document.addEventListener("keydown", (ev) => {
     if (ev.key !== "Escape") return;
     if (E.importar && !ocupadoImportando()) { E.importar = null; return render(); }
+    if (E.conectar && !E.conectar.enviando) { E.conectar = null; return render(); }
     if (E.ajustes) { E.ajustes = false; return render(); }
     if (E.aprender) { E.aprender = null; return render(); }
   });
@@ -650,7 +758,8 @@
     async estado(e) {
       Object.assign(E, { hoy: e.hoy, config: e.config || {}, ias: e.ias || [], movimientos: e.movimientos || [], categorias: e.categorias || [],
         presupuesto: e.presupuesto || { mensual: {} }, reglas: e.reglas || [], consejos: (e.consejos || []).slice().sort((a, b) => b.fecha.localeCompare(a.fecha)),
-        cuentas: e.cuentas || [], version: e.version || "", carpeta: e.carpeta || "", actualizacion: e.actualizacion || { hay: false } });
+        cuentas: e.cuentas || [], version: e.version || "", carpeta: e.carpeta || "", actualizacion: e.actualizacion || { hay: false },
+        conectores: e.conectores || [], conexiones: e.conexiones || {}, vigilar: e.vigilar || { activo: false, recientes: [] }, iaExterna: e.ia_externa || [] });
       if (!E.presupuesto.moneda) E.presupuesto.moneda = E.config.moneda || "CLP";
       if (!E.mes || E.mes > mesDe(E.hoy)) E.mes = mesDe(E.hoy);
       if (!E.config.bienvenida && E.bv === null && !E.bvCerrada) E.bv = 0;
@@ -691,6 +800,32 @@
     },
     actualizacionRevisada(r) { E.buscando = r.hay ? null : r.sinConexion ? "sinConexion" : "alDia"; if (r.hay) { E.actualizacion = r; E.actOculto = false; } render(); },
     actualizacionProgreso(d) { E.act = d; render(); },
+    conectado(r) {
+      if (!E.conectar || E.conectar.id !== r.conector) return;
+      if (r.ok) {
+        const c = E.conectores.find((x) => x.id === r.conector);
+        E.conectar = null; E.conexiones[r.conector] = { conectado: true }; E.sincronizando[r.conector] = true;
+        toast(T("{s} conectado. Trayendo tus movimientos…", { s: c ? c.nombre : "" }));
+      } else Object.assign(E.conectar, { enviando: false, error: r.error || tr("No se pudo conectar.") });
+      render();
+    },
+    sincronizado(r) {
+      delete E.sincronizando[r.conector];
+      if (r.ok && r.nuevos) toast(T(r.nuevos === 1 ? "1 movimiento nuevo de {s}" : "{n} movimientos nuevos de {s}", { n: r.nuevos, s: r.nombre || "" }));
+      else if (r.ok && !r.esperando && r.manual) toast("Todo al día");
+      render();
+    },
+    mcpListo(r) {
+      delete E.mcpOcupado[r.cliente];
+      if (r.clientes) E.iaExterna = r.clientes;
+      if (!r.ok) E.mcpError[r.cliente] = r.error || tr("No se pudo conectar.");
+      else if (!r.quitar) toast(r.nota ? tr(r.nota) : tr("Listo: tu IA ya puede consultar Alcancía"));
+      render();
+    },
+    importadoSolo(r) {
+      for (const x of r.importados || []) toast(T(x.nuevos === 1 ? "Agregué tu cartola de {b}: 1 movimiento nuevo" : "Agregué tu cartola de {b}: {n} movimientos nuevos", { b: x.institucion, n: x.nuevos }));
+      if ((r.sin_receta || []).length) toast(T("Descargaste «{x}», pero todavía no sé leerla. Agrégala a mano y tu IA aprende.", { x: r.sin_receta[0] }));
+    },
     _probar(f) { f(E); render(); },
     _pruebas: { resumen, redondearArriba, presupuestoSugerido, reglaPara },
   };
@@ -729,6 +864,16 @@
       case "pedirConsejos": return luego(1300, () => A.consejosListos({ ok: true, fecha: d.hoy, texto: DEMO.consejos[0].texto }));
       case "abrirEnlace": return window.open(d.url, "_blank", "noopener");
       case "abrirCarpeta": return toast("En la app, aquí se abre tu carpeta");
+      case "conectar": return luego(900, () => {
+        A.conectado({ conector: d.conector, ok: true });
+        luego(1200, () => { DEMO.conexiones[d.conector] = { conectado: true, ultima: new Date().toISOString(), nuevos: 3 }; E.conexiones = DEMO.conexiones;
+          A.sincronizado({ conector: d.conector, ok: true, nuevos: 3, nombre: (DEMO.conectores.find((c) => c.id === d.conector) || {}).nombre }); });
+      });
+      case "sincronizar": return luego(900, () => { DEMO.conexiones[d.conector] = { ...DEMO.conexiones[d.conector], ultima: new Date().toISOString(), error: "" }; E.conexiones = DEMO.conexiones; A.sincronizado({ conector: d.conector, ok: true, nuevos: 0, manual: true }); });
+      case "desconectar": delete DEMO.conexiones[d.conector]; return;
+      case "vigilar": DEMO.vigilar.activo = d.activo; return;
+      case "mcpConectar": return luego(700, () => { const c = DEMO.ia_externa.find((x) => x.id === d.cliente); if (c) { c.conectado = !d.quitar; c.al_dia = !d.quitar; }
+        A.mcpListo({ ok: true, cliente: d.cliente, quitar: d.quitar, nota: c && c.nota, clientes: DEMO.ia_externa }); });
       case "buscarActualizacion": return luego(500, () => A.actualizacionRevisada({ hay: false }));
       case "actualizar": { let n = 1; const iv = setInterval(() => { A.actualizacionProgreso({ paso: String(n), texto: ["", "Descargando la versión nueva…", "Preparando la versión nueva…", "Instalando: Alcancía se cerrará y volverá a abrirse sola"][n], pct: n * 33 }); if (++n > 3) clearInterval(iv); }, 700); return; }
     }

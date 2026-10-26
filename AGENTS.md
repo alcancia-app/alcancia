@@ -10,8 +10,10 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
 
 **Principios que no se negocian**
 1. **Los datos son del usuario.** Viven en su computador (`~/Alcancia`), en formato abierto. No hay servidores propios ni telemetría.
-2. **Nunca pedimos la clave del banco** ni nos conectamos a bancos con credenciales de la persona. Las cartolas las descarga ella.
-   Las conexiones oficiales (banca abierta) se evaluarán cuando existan y no exijan un servidor nuestro.
+2. **Nunca pedimos la clave del banco** ni entramos al sitio de un banco con el usuario y la clave de la persona (nada de "scraping").
+   Lo automático va por dos caminos: **conectores** a APIs oficiales con una llave que la persona crea ella misma en el servicio
+   (guardada en el Llavero, solo lectura) y la **carpeta vigilada** (las cartolas que descarga se agregan solas). Las finanzas
+   abiertas oficiales de cada país se suman cuando existan y no exijan un servidor nuestro (Chile: CMF, desde julio de 2027).
 3. **La IA es la del usuario** y ve lo mínimo: descripción y monto para categorizar; totales por categoría y principales comercios
    para los consejos. Nunca números de cuenta, RUT ni claves.
 4. **Recetas = solo datos.** Una receta nunca ejecuta código. Todo lo que viene de afuera (recetas, traducciones, respuestas de la
@@ -24,6 +26,8 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
 | Ruta | Qué es |
 |---|---|
 | `bin/` | Python **solo biblioteca estándar**. `datos.py` (formato en disco, ids, escritura atómica), `recetas.py` (validar, detectar y aplicar recetas; lee CSV y .xlsx sin librerías), `categorizar.py` (reglas, comercios conocidos, IA), `resumen.py` (cuentas del mes, proyección, alertas, presupuesto sugerido), `ia.py` (`preguntar()` con la IA del usuario). Scripts que llama la app: `estado.py` (todo lo que pinta la interfaz), `importar.py`, `receta_ia.py`, `consejos.py` y `guardar.py` (categoría, regla, presupuesto, receta; lo de la interfaz llega en un archivo JSON de entrada). El último argumento siempre es la ruta del JSON de salida. |
+| `bin/conectores/` | Un módulo por servicio con API oficial (`INFO`, `probar`, `movimientos`). `bin/red.py` hace los pedidos HTTPS (solo a los dominios de cada conector). `bin/sincronizar.py probar|traer <conector>` los usa; `bin/vigilar.py` es la carpeta vigilada. |
+| `bin/mcp_servidor.py`, `bin/mcp_conectar.py` | Servidor MCP de solo lectura (stdio, JSON-RPC, sin dependencias) para que la IA de la persona consulte sus finanzas, y el script que lo registra en Claude Desktop, Claude Code, Codex/ChatGPT, Gemini CLI y Antigravity (con su comando oficial o editando su JSON con respaldo). |
 | `recetas/` | Recetas incluidas en la app (solo las probadas con una cartola real) y `README.md` con el formato. |
 | `ui/` | Interfaz web única (`app.js`, `app.css`), `demo.json` (ficticio, se genera con `herramientas/generar_demo.py`) e `idiomas/en.json`. |
 | `docs/` | Página pública (GitHub Pages). `pagina.yml` la publica junto a `ui/` en `/demo/`. |
@@ -44,15 +48,31 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
 - **Resumen:** la misma lógica en `bin/resumen.py` y en `ui/app.js` (`resumen`, `presupuestoSugerido`, `reglaPara`), probada con
   `pruebas/casos.json`. Si cambias una regla, cambia los dos lados y el caso. La proyección sigue el ritmo solo de lo variable
   (3+ gastos en el mes, categoría no `fijo`); lo fijo y lo esporádico queda como está.
+- **Conectores:** la app guarda la llave en el Llavero y se la pasa a `sincronizar.py` por la **entrada estándar** (nunca en un
+  archivo, un argumento ni el entorno); una llave nueva vuelve por la salida estándar (`CREDENCIAL {json}`). `red.py` no sigue
+  redirecciones (se llevarían la llave a otro dominio) y la IA corre sin variables `ALCANCIA_*`. Al revisar cambios, mirar justo eso. `probar` revisa la llave y registra las cuentas en `cuentas.json` (campo `conector`);
+  `traer` pide desde la última vez menos 10 días (o `dias_inicio` la primera vez), guarda sin duplicar con
+  `id = sha1(conector|cuenta|id del servicio)` y categoriza igual que una cartola. El estado sin secretos queda en
+  `.alcancia/conexiones.json`. La app revisa sola al abrir y cada 6 horas.
+- **Carpeta vigilada:** `vigilar.py activar` marca desde cuándo; `vigilar.py <carpeta>` importa los CSV/XLSX/OFX nuevos que reconozca
+  una receta, una sola vez cada uno (por huella), y anota los que no sabe leer. Nunca borra ni mueve nada. En Mac la llama un
+  `DispatchSource` sobre `~/Downloads` cuando la carpeta queda quieta 5 segundos.
+- **Formatos estándar:** `recetas.py` lee sin receta OFX/QFX (`xx-ofx`, `FITID` como id), CAMT.053 (`xx-camt053`, `CdtDbtInd` da el
+  signo, solo `BOOK`) y QIF (`xx-qif`, el orden día/mes se deduce de las fechas o del país).
+- **MCP:** las herramientas (`resumen_del_mes`, `gastos_por_categoria`, `buscar_movimientos`, `principales_comercios`, `comparar_meses`,
+  `presupuesto`, `cuentas_y_datos`) solo leen ~/Alcancia y nunca devuelven ids internos. Agregar una herramienta: función + entrada en
+  `HERRAMIENTAS` con su esquema y `readOnlyHint`, prueba en `test_python.py` (clase `Mcp`). La app corre `mcp_conectar.py reparar` al
+  abrirse para que las IA conectadas sigan apuntando a la ruta actual de la app.
+- **docs/conectar.html** se genera con `herramientas/generar_conectar.py` desde `bin/conectores` (las pruebas revisan que esté al día).
 - **Consejos:** `consejos.py <hoy>` arma un prompt con totales y exige las tres secciones (`### Lo que va bien`, `### Ojo con`,
   `### Para esta semana`). Si no vienen, no se guarda nada.
 
 ## Puente interfaz ↔ app
 La UI llama `host.enviar(accion, datos)` y la app responde con `window.Alcancia.<funcion>(json)`. En el navegador, `simular()` responde
 con datos ficticios. Acciones: `listo, config, probarIA, elegirCartola, vistaCartola, aprenderReceta, guardarReceta, importar,
-categoria, regla, presupuesto, pedirConsejos, abrirEnlace, abrirCarpeta, buscarActualizacion, actualizar`. Respuestas: `estado,
-iaProbada, cartolaElegida, vistaLista, recetaAprendida, importarProgreso, importado, consejosListos, actualizacionRevisada,
-actualizacionProgreso`. `pruebas/contrato.py` revisa que cada acción exista en `Ventana.swift` (y en Windows/Linux cuando exista), que cada
+categoria, regla, presupuesto, pedirConsejos, abrirEnlace, abrirCarpeta, conectar, sincronizar, desconectar, vigilar, mcpConectar,
+buscarActualizacion, actualizar`. Respuestas: `estado, iaProbada, cartolaElegida, vistaLista, recetaAprendida, importarProgreso,
+importado, consejosListos, conectado, sincronizado, importadoSolo, mcpListo, actualizacionRevisada, actualizacionProgreso`. `pruebas/contrato.py` revisa que cada acción exista en `Ventana.swift` (y en Windows/Linux cuando exista), que cada
 función que llama la app exista en `window.Alcancia` y que los scripts que llama existan. Una acción nueva va en `ui/app.js`, en `Ventana.swift`
 y simulada en `simular()`.
 
@@ -77,4 +97,7 @@ y simulada en `simular()`.
 ## Revisar aportes
 Todo entra por pull request y lo junta quien mantiene el proyecto, solo con su aprobación. Leer todo el diff antes de correr nada
 (alerta roja: workflows, scripts de instalación, red nueva, dependencias nuevas, binarios, cualquier cosa que lea claves). Las recetas
-nuevas se validan con `recetas.validar` y se prueban con una cartola **ficticia** que imite el formato. Detalle en `CONTRIBUTING.md`.
+nuevas se validan con `recetas.validar` y se prueban con una cartola **ficticia** que imite el formato. Un **conector nuevo** es
+código con red: solo API oficial documentada, llave creada por la persona, solo lectura, solo sus dominios en `INFO["hosts"]`, sin
+dependencias, con prueba contra el servidor falso (`pruebas/servidor_falso.py`) y entra como `beta` hasta que alguien lo use con su
+cuenta real. Detalle en `CONTRIBUTING.md`.
