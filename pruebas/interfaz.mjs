@@ -31,6 +31,8 @@ const EDITOR = "{nombre:'Crédito hipotecario',tipo:'deuda',signo:'gasto',monto:
 const CONECTORES = JSON.parse(fs.readFileSync(path.join(RAIZ, "ui", "demo.json"), "utf8")).conectores || [];
 const VISTAS = [
   ["resumen", "E=>{E.vista='resumen'}"],
+  ["resumen-queda", "E=>{E.cifra='queda'}"],
+  ["resumen-gastaste", "E=>{E.cifra='gastaste'}"],
   ["resumen-tienes", "E=>{E.cifra='tienes'}"],
   ["resumen-debes", "E=>{E.cifra='debes'}"],
   ["resumen-todas-categorias", "E=>{E.cifra='gastaste';E.verTodasCat=true;E.compararAbierto=true}"],
@@ -46,6 +48,7 @@ const VISTAS = [
   ["movimientos-aprender", "E=>{E.aprender={contiene:'PAGO PENDIENTE',categoria:'cuentas'}}"],
   ["movimientos-categoria", "E=>{E.aprender={contiene:'CAFE',categoria:'comida',parecidos:3};E.filtro={texto:'',categoria:'comida'}}"],
   ["movimientos-sin-categoria", "E=>{E.aprender=null;E.filtro={texto:'',categoria:'__sin'}}"],
+  ["movimientos-detalle", "E=>{E.movVer=E.movimientos.find(m=>m.fecha.startsWith('2026-10')).id}"],
   ["picker", "E=>{E.filtro={texto:'',categoria:''};E.picker={id:E.movimientos.find(m=>!m.categoria).id,buscar:'',nueva:null,hoja:false,top:140,left:300,alto:400}}"],
   ["picker-buscar", "E=>{E.picker.buscar='Cine'}"],
   ["picker-nueva", "E=>{E.picker.nueva={nombre:'Comida atípica',emoji:'',error:''}}"],
@@ -54,7 +57,8 @@ const VISTAS = [
   ["ordenar-nueva", "E=>{E.ordenar.nueva={nombre:'',emoji:'',error:'Ponle un nombre.'}}"],
   ["ordenar-saltados", "E=>{E.ordenar={i:99,buscar:'',nueva:null}}"],
   ["movimientos-filtro", "E=>{E.vista='movimientos';E.aprender=null;E.filtro={texto:'zzz',categoria:''}}"],
-  ["presupuesto", "E=>{E.filtro={texto:'',categoria:''};E.vista='presupuesto'}"],
+  ["mas", "E=>{E.movVer=null;E.filtro={texto:'',categoria:''};E.vista='mas'}"],
+  ["presupuesto", "E=>{E.vista='presupuesto'}"],
   ["consejos", "E=>{E.vista='consejos'}"],
   ["consejos-pidiendo", "E=>{E.pidiendoConsejos=true}"],
   ["consejos-vacio", "E=>{E.pidiendoConsejos=false;E.consejos=[];E.errorConsejos='x'}"],
@@ -64,10 +68,11 @@ const VISTAS = [
   ["compromisos-editor-error", "E=>{E.compEdit.error='Falta el monto.';E.compEdit.c.frecuencia='semanal';E.compEdit.c.dia=3}"],
   ["compromisos-editor-anual", "E=>{E.compEdit.error='';E.compEdit.c.frecuencia='anual';E.compEdit.c.fecha='2026-03-31';E.compEdit.c.tipo='suscripcion'}"],
   ["compromisos-editar-existente", "E=>{const c=E.compromisos.compromisos[1];E.compEdit={c:{...c,buscarTexto:c.buscar.join(', ')},origen:'manual',error:''}}"],
-  ["compromisos-ia-pidiendo", "E=>{E.compEdit=null;E.compTexto='el arriendo vence el 5, son 450.000';E.compIA={pidiendo:true,error:''}}"],
+  ["agregar", "E=>{E.compEdit=null;E.agregar='menu'}"],
+  ["compromisos-ia-pidiendo", "E=>{E.agregar='contar';E.compTexto='el arriendo vence el 5, son 450.000';E.compIA={pidiendo:true,error:''}}"],
   ["compromisos-ia-error", "E=>{E.compIA={pidiendo:false,error:'x'}}"],
   ["compromisos-sin-ia", "E=>{E.compIA={pidiendo:false,error:''};E.config.ia=''}"],
-  ["compromisos-mes-pasado", "E=>{E.config.ia='claude';E.mes='2026-09';E.sugTodas=false}"],
+  ["compromisos-mes-pasado", "E=>{E.agregar=null;E.config.ia='claude';E.mes='2026-09';E.sugTodas=false}"],
   ["compromisos-con-pausado-y-cuotas", "E=>{E.mes='2026-10';E.compromisos.compromisos.push({id:'c-pausa00001',nombre:'Gimnasio',tipo:'otro',signo:'gasto',monto:25000,moneda:'CLP',frecuencia:'semanal',dia:2,categoria:'ocio',buscar:[],tolerancia:5,activo:false,desde:'2026-10-01',origen:'manual',pagos:{}},{id:'c-deuda00001',nombre:'Crédito de consumo',tipo:'deuda',signo:'gasto',monto:64500,moneda:'CLP',frecuencia:'mensual',dia:9,categoria:'',buscar:['CREDITO CONSUMO'],tolerancia:5,activo:true,desde:'2026-10-01',origen:'detectado',pagos:{},saldo:1200000})}"],
   ["compromisos-aprox-y-uf", "E=>{E.compEdit=null;E.vista='compromisos';E.mes='2026-10'}"],
   ["compromisos-editor-aprox", `E=>{E.compEdit={c:{...${EDITOR},tipo:'cuenta',nombre:'Luz',monto:32000,aproxActivo:true,aproxModo:'variacion',aproxVariacion:7},origen:'manual',error:''}}`],
@@ -326,6 +331,11 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     if (!(await texto(".al-dia")).includes(t.pronto2)) falla(`después de pagarlo, arriba sale lo siguiente que vence ${donde}`);
     // Agregar con tus palabras (la simulación hace de IA) y confirmar la tarjeta.
     await p.click('.nav [data-vista="compromisos"]');
+    // Agregar un pago va en «+»: la acción única para agregar, con su hoja (cartola, pago que se repite o conectar).
+    await p.click(".nav-agregar");
+    if ((await p.$$(".dialogo .opcion-agregar")).length !== 3) falla(`«+» ofrece cartola, pago que se repite y conectar ${donde}`);
+    await ancho("agregar");
+    await p.click('.dialogo .opcion-agregar[data-accion="agregar-contar"]');
     await p.fill("#comp-texto", "el arriendo de la bodega vence el 5 de cada mes, son 85.000");
     await p.click('[data-accion="comp-entender"]');
     await p.waitForSelector("#editor-comp #ce-nombre");
@@ -339,11 +349,13 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     if (!(await texto(".contenido")).includes("Bodega")) falla(`el compromiso nuevo debe aparecer en la lista ${donde}`);
     await ancho("compromisos");
     // Gasto máximo en Presupuesto.
-    await p.click('.nav [data-vista="presupuesto"]');
+    await p.click('.nav [data-vista="mas"]');
+    await p.click('.lista-mas [data-vista="presupuesto"]');
     if (!(await texto(".maximo")).includes(t.maximo)) falla(`Presupuesto debe decir cuánto se puede gastar en lo variable ${donde}`);
     await ancho("gasto máximo");
     // Importar: lo detectado y las preguntas que siguen (la cuota sale de la cartola y no se pregunta).
-    await p.click('.lateral [data-accion="importar"]');
+    await p.click(".nav-agregar");
+    await p.click('.dialogo .opcion-agregar[data-accion="importar"]');
     await p.click('[data-accion="elegir-cartola"]');
     await p.click('[data-accion="importar-guardar"]');
     await p.waitForSelector(".detectados [data-det-agregar]", { timeout: 8000 });
@@ -365,8 +377,8 @@ console.log("  ✓ Compromisos: por pagar, ya lo pagué, agregar con tus palabra
 // Resumen simple y categorizar rápido: las tres cifras, poner categoría en dos toques, crear una al vuelo, aprender la regla,
 // corregir el saldo (y que diga la diferencia) y «Por ordenar» con el teclado. En español e inglés, escritorio y celular.
 const TEXTOS_SIMPLE = {
-  español: { tienes: "Lo que tienes", gasto: "Lo que llevas gastado", debes: "Lo que debes", aprendi: "Aprendí esto de tus movimientos", diferencia: "Había una diferencia de", nueva: "Comida atípica", de: "de" },
-  inglés: { tienes: "What you have", gasto: "What you've spent so far", debes: "What you owe", aprendi: "I learned this from your transactions", diferencia: "There was a difference of", nueva: "Comida atípica", de: "of" },
+  español: { tienes: "Lo que tienes", gasto: "Lo que gastaste", debes: "Lo que debes", queda: "Te quedan", dias: "días ·", aprendi: "Aprendí esto de tus movimientos", diferencia: "Había una diferencia de", nueva: "Comida atípica", de: "de" },
+  inglés: { tienes: "What you have", gasto: "What you spent", debes: "What you owe", queda: "You have", dias: "days ·", aprendi: "I learned this from your transactions", diferencia: "There was a difference of", nueva: "Comida atípica", de: "of" },
 };
 for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma=en"]]) {
   for (const [modo, opciones] of [["escritorio", { viewport: { width: 1200, height: 820 } }], ["celular", { viewport: { width: 390, height: 844 }, colorScheme: "dark" }]]) {
@@ -381,15 +393,27 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     if (filas.map((f) => f.id).join() !== "tienes,gastaste,debes") falla(`el resumen debe mostrar las tres cifras en orden ${donde}: ${filas.map((f) => f.id)}`);
     if (!filas[0].t.includes(t.tienes) || !filas[1].t.includes(t.gasto) || !filas[2].t.includes(t.debes)) falla(`las tres cifras con palabras simples ${donde}: ${filas.map((f) => f.t.slice(0, 40)).join(" | ")}`);
     if (!filas[0].t.replace(/\D/g, "").includes("1021090")) falla(`«Lo que tienes» suma los saldos (612.000 anotado + movimientos, y 84.300 que informa la billetera) ${donde}: ${filas[0].t}`);
-    // Incluye el seguro de salud en UF (≈ 72.900, estimado con su último pago), por eso va con «≈», y lo que queda del préstamo de
-    // la mamá (6 de 8 cuotas de 150.000). Lo que Matías le debe a Ana (200.000) va aparte y no se resta.
-    if (!filas[2].t.replace(/\D/g, "").includes("5874850") || !filas[2].t.includes("≈")) falla(`«Lo que debes» suma compromisos, tarjeta, cuotas y créditos ${donde}: ${filas[2].t}`);
+    // En la fila, lo de este mes (incluye el seguro de salud en UF, ≈ 72.900, por eso va con «≈»); el total va en el desglose.
+    if (!filas[2].t.replace(/\D/g, "").includes("534870") || !filas[2].t.includes("≈")) falla(`«Lo que debes» muestra lo de este mes ${donde}: ${filas[2].t}`);
+    // La cifra protagonista arriba: cuánto te queda (lo que tienes − lo que falta pagar este mes), los días y cuánto da por día.
+    const heroe = await texto(".heroe");
+    if (!heroe.includes(t.queda) || !heroe.includes(t.dias) || !heroe.replace(/\D/g, "").includes("592100")) falla(`la cifra protagonista dice cuánto te queda (1.021.090 − 428.990) ${donde}: ${heroe}`);
+    if (await p.$(".resumen-simple .codigo-moneda")) falla(`con una sola moneda no se repite «CLP» junto a cada cifra ${donde}`);
+    const primero = await p.evaluate(() => { const h = document.querySelector(".heroe").getBoundingClientRect(), t = document.querySelector(".tres").getBoundingClientRect(); return h.top < t.top && h.left <= t.left + 1; });
+    if (!primero) falla(`la cifra protagonista va arriba a la izquierda, antes de las tres cifras ${donde}`);
+    await p.click('[data-cifra="queda"]');
+    const calculo = (await texto("#desglose")).replace(/[.,]/g, "");
+    if (!calculo.includes("1021090") || !calculo.includes("428990")) falla(`al tocar la cifra se explica el cálculo ${donde}: ${calculo.slice(0, 300)}`);
+    await p.click('[data-cifra="queda"]');
+    if (await p.$("#desglose")) falla(`tocar otra vez la cifra cierra la explicación ${donde}`);
     if (!(await texto(".aprendi")).includes(t.aprendi)) falla(`el resumen muestra lo que aprendió de los movimientos ${donde}`);
     await ancho("tres cifras");
     // «Lo que debes»: cuotas que quedan de la lavadora (3 de 61.000) y lo de la tarjeta desde el último pago.
     await p.click('[data-cifra="debes"]');
     const debes = (await texto("#desglose")).replace(/[.,]/g, "");
-    if (!debes.includes("TIENDA ELECTRO *LAVADORA") || !debes.includes("183000") || !debes.includes("106980")) falla(`el desglose de lo que debes trae cuotas y tarjeta ${donde}: ${debes.slice(0, 300)}`);
+    if (!debes.includes("Tienda Electro · Lavadora") || !debes.includes("183000") || !debes.includes("106980")) falla(`el desglose de lo que debes trae cuotas y tarjeta ${donde}: ${debes.slice(0, 300)}`);
+    // Lo que queda del préstamo de la mamá (6 de 8 cuotas de 150.000) y el resto: el total de deudas va en el desglose.
+    if (!debes.includes("5874850")) falla(`el desglose trae el total de lo que debes ${donde}: ${debes.slice(0, 300)}`);
     // Corregir el saldo: si no cuadra, lo dice.
     await p.click('[data-cifra="tienes"]');
     await p.click('[data-saldo-editar="banco-ejemplo"]');
@@ -400,6 +424,12 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     await ancho("saldo");
     // Dos toques: el chip y la categoría.
     await p.click('.nav [data-vista="movimientos"]');
+    // Nombres legibles: sin asteriscos ni mayúsculas gritadas; el original aparece al tocar.
+    const nombres = await p.$$eval(".mov .t", (l) => l.map((x) => x.textContent));
+    if (nombres.some((n) => n.includes("*")) || !nombres.includes("Delivery Rapidito")) falla(`los comercios se muestran legibles ${donde}: ${nombres.slice(0, 5)}`);
+    await p.click(".mov .mov-txt");
+    if (!(await p.$(".mov-detalle"))) falla(`tocar un movimiento muestra su descripción original ${donde}`);
+    await p.click(".mov .mov-txt");
     const id1 = await p.$eval(".mov .chip-cat.falta", (el) => el.dataset.elegir);
     await p.click(`#chip-${id1}`);
     await p.waitForSelector(".picker [data-pick]");
@@ -422,8 +452,14 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     if (!nueva.c || nueva.c.emoji !== "🍽️" || nueva.m !== nueva.c.id) falla(`crear «Comida atípica» al vuelo (con 🍽️) y ponérsela ${donde}: ${JSON.stringify(nueva)}`);
     if (!(await texto(`#chip-${id2}`)).includes("Comida atípica")) falla(`el chip muestra la categoría nueva sin traducirla ${donde}`);
     await p.keyboard.press("Escape");
+    // «Por ordenar» es un filtro de Movimientos (con contador) y un pendiente del Inicio.
+    await p.click('[data-accion="filtro-ordenar"]');
+    const soloSin = await p.$$eval(".mov", (l) => l.every((x) => x.querySelector(".chip-cat.falta")));
+    if (!soloSin) falla(`el filtro «Por ordenar» deja solo los sin categoría ${donde}`);
+    await p.click('[data-accion="filtro-ordenar"]');
     // «Por ordenar» con el teclado: 1 elige, → salta.
-    await p.click('.nav [data-vista="ordenar"]');
+    await p.click('.nav [data-vista="resumen"]');
+    await p.click('.pendientes [data-vista="ordenar"]');
     await p.waitForSelector(".mov-grande");
     const antes = await p.evaluate(() => new Promise((r) => window.Alcancia._probar((E) => r(E.movimientos.filter((m) => !m.categoria).length))));
     await p.keyboard.press("1");
@@ -454,7 +490,8 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     if (!seguro.includes("1,85 UF ≈") || !seguro.includes("≈ $72.900")) falla(`el compromiso en UF muestra la UF y el rango en pesos ${donde}: ${seguro}`);
     await ancho("compromisos con UF");
     // A mano: «El monto varía (aprox.)» con un porcentaje.
-    await p.click('[data-accion="comp-nuevo"]');
+    await p.click('.pie-vista [data-accion="agregar-contar"]');
+    await p.click('.dialogo [data-accion="comp-nuevo"]');
     if (!(await p.$$eval("#ce-moneda option", (l) => l.map((o) => o.value))).includes("UF")) falla(`la moneda ofrece «UF» ${donde}`);
     await p.fill("#ce-nombre", "Luz");
     await p.fill("#ce-monto", "32500");  // 32.000 justo es una entrada de concierto de la demo: sin palabras calzaría por monto exacto
@@ -468,6 +505,8 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     const luz = await p.$$eval(".comp-fila", (l) => l.map((x) => x.textContent.replace(/\s+/g, " ")).find((t) => t.includes("Luz")) || "");
     if (!luz.includes("≈ $32.500") || !luz.replace(/\D/g, "").includes("2920035800")) falla(`la luz aproximada se muestra con su rango (29.200 a 35.800) ${donde}: ${luz}`);
     // Cuéntale con UF (la simulación hace de IA).
+    await p.click(".nav-agregar");
+    await p.click('.dialogo [data-accion="agregar-contar"]');
     await p.fill("#comp-texto", "el dividendo son 12,75 UF los 25");
     await p.click('[data-accion="comp-entender"]');
     await p.waitForSelector("#editor-comp #ce-monto");
@@ -477,7 +516,8 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     await ancho("editor UF");
     await p.click('[data-accion="comp-cancelar"]');
     // «Valor de la UF hoy» en Ajustes.
-    await p.click('.lateral [data-accion="ajustes"]');
+    await p.click('.nav [data-vista="mas"]');
+    await p.click('.lista-mas [data-accion="ajustes"]');
     await p.fill("#uf-valor", "39.500");
     await p.press("#uf-valor", "Tab");
     const uf = await p.evaluate(() => { let u; window.Alcancia._probar((E) => { u = E.config.uf; }); return u; });
@@ -503,11 +543,13 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     await p.goto(BASE + "?" + consulta);
     await p.waitForSelector(".app");
     // Resumen: lo que te deben va aparte.
-    if (!(await texto('[data-cifra="debes"]')).includes(t.te)) falla(`«Lo que debes» dice aparte lo que te deben ${donde}`);
     await p.click('[data-cifra="debes"]');
+    if (!(await texto("#desglose")).toLowerCase().includes(t.te)) falla(`«Lo que debes» dice aparte lo que te deben ${donde}`);
     if (!(await texto("#desglose")).replace(/\D/g, "").includes("200000")) falla(`el desglose trae lo que te deben (200.000) ${donde}`);
     // Cuéntale: un préstamo con el monto en palabras; la tarjeta muestra el cálculo en vivo.
     await p.click('.nav [data-vista="compromisos"]');
+    await p.click(".nav-agregar");
+    await p.click('.dialogo [data-accion="agregar-contar"]');
     await p.fill("#comp-texto", "mi tia me prestó 1,8 millones en 12 meses");
     await p.click('[data-accion="comp-entender"]');
     await p.waitForSelector("#editor-comp #ce-con");
@@ -521,6 +563,7 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     if (!(await p.$$eval("h3.grupo.con-total", (l) => l.map((x) => x.textContent))).some((x) => x.includes(t.grupo))) falla(`compromisos agrupados con subtotal ${donde}`);
     await ancho("préstamo guardado");
     // Nunca sin salida: sin monto, igual se abre la tarjeta con lo que se entendió y el error en simple.
+    await p.click('.pie-vista [data-accion="agregar-contar"]');
     await p.fill("#comp-texto", "el gimnasio los 3");
     await p.click('[data-accion="comp-entender"]');
     await p.waitForSelector("#editor-comp .error-txt");
@@ -544,9 +587,9 @@ console.log("  ✓ Préstamos: Cuéntale con montos en palabras, cálculo en viv
 // El sueldo: detectado solo si nunca elegiste, el próximo sueldo en día hábil, «¿Aún no te pagan?» y la invitación si no hay sueldo claro.
 const TEXTOS_SU = {
   español: { mes: "Tu mes va desde que llegó tu sueldo (5 oct", prox: "Próximo sueldo: jueves 5 de noviembre (aprox.)", detecte: "Lo detecté de tus movimientos",
-    invita: "¿Cuándo te pagan?", pregunta: "¿Aún no te pagan? Lo esperaba el jueves 5 de noviembre", cartola: "Agrega tu cartola", es: "¿Es este? DEPOSITO EMPRESA EJEMPLO" },
+    invita: "¿Cuándo te pagan?", pregunta: "¿Aún no te pagan? Lo esperaba el jueves 5 de noviembre", cartola: "Agrega tu cartola", es: "¿Es este? Deposito Empresa Ejemplo", hasta: "hasta tu sueldo" },
   inglés: { mes: "Your month runs from when your salary arrived (Oct 5", prox: "Next payday: Thursday, November 5 (approx.)", detecte: "I detected it from your transactions",
-    invita: "When do you get paid?", pregunta: "Haven't been paid yet? I expected it on Thursday, November 5", cartola: "Add your statement", es: "Is it this one? DEPOSITO EMPRESA EJEMPLO" },
+    invita: "When do you get paid?", pregunta: "Haven't been paid yet? I expected it on Thursday, November 5", cartola: "Add your statement", es: "Is it this one? Deposito Empresa Ejemplo", hasta: "until payday" },
 };
 for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma=en"]]) {
   for (const [modo, opciones] of [["escritorio", { viewport: { width: 1200, height: 820 } }], ["celular", { viewport: { width: 390, height: 844 }, colorScheme: "dark" }]]) {
@@ -563,6 +606,9 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     await estado((d) => { delete d.config.inicio_mes; });
     const cfg = await p.evaluate(() => { let c; window.Alcancia._probar((E) => { c = E.config.inicio_mes; }); return c; });
     if (JSON.stringify(cfg) !== JSON.stringify({ modo: "sueldo", dia: 5, auto: true })) falla(`se usa el sueldo detectado ${donde}: ${JSON.stringify(cfg)}`);
+    // Lo que detecté de tu mes va en la explicación de la cifra protagonista (al tocarla).
+    if (!(await texto(".heroe")).includes(t.hasta)) falla(`con el sueldo, la cifra dice «hasta tu sueldo» ${donde}: ${await texto(".heroe")}`);
+    await p.click('[data-cifra="queda"]');
     if (!(await texto(".linea-mes")).includes(t.mes)) falla(`la línea «Tu mes va desde…» ${donde}: ${await texto(".linea-mes")}`);
     if (!(await texto(".pista-sueldo")).includes(t.prox)) falla(`el próximo sueldo con fecha ${donde}: ${await texto(".pista-sueldo")}`);
     await ancho("tu mes va desde tu sueldo");
@@ -633,19 +679,55 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
 }
 console.log("  ✓ Mora: el pago atrasado dice los días y el interés, y el resumen lo pagado este año");
 
-// Contraste del botón principal en modo claro y oscuro (WCAG AA: 4.5).
+// Contraste (WCAG AA: 4.5) en modo claro y oscuro: la acción principal («+ Agregar», el único color de acción), el texto suave sobre
+// el fondo y el rojo de lo atrasado sobre el panel.
 for (const esquema of ["light", "dark"]) {
   const p = await navegador.newPage({ colorScheme: esquema });
-  await p.goto(BASE); await p.waitForSelector(".boton.principal");
+  await p.goto(BASE); await p.waitForSelector(".nav-agregar");
   const c = await p.evaluate(() => {
     const lum = (s) => { const [r, g, b] = s.match(/[\d.]+/g).slice(0, 3).map((x) => { x = x / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
-    const cs = getComputedStyle(document.querySelector(".boton.principal")); const a = lum(cs.color), b = lum(cs.backgroundColor);
-    return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    const ratio = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+    const v = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+    const color = (x) => { const d = document.createElement("i"); d.style.color = x; document.body.append(d); const c = getComputedStyle(d).color; d.remove(); return c; };
+    const cs = getComputedStyle(document.querySelector(".nav-agregar"));
+    return { "botón principal": ratio(cs.color, cs.backgroundColor), "texto suave": ratio(color(v("--suave")), color(v("--fondo"))),
+      "texto suave en tarjeta": ratio(color(v("--suave")), color(v("--panel"))), "rojo": ratio(color(v("--rojo")), color(v("--panel"))), "verde": ratio(color(v("--verde")), color(v("--panel"))) };
   });
-  if (c < 4.5) falla(`contraste del botón principal en modo ${esquema}: ${c.toFixed(2)} (mínimo 4.5)`);
-  else console.log(`  ✓ Contraste en modo ${esquema === "light" ? "claro" : "oscuro"}: ${c.toFixed(2)}`);
+  for (const [k, r] of Object.entries(c)) if (r < 4.5) falla(`contraste de ${k} en modo ${esquema}: ${r.toFixed(2)} (mínimo 4.5)`);
+  console.log(`  ✓ Contraste en modo ${esquema === "light" ? "claro" : "oscuro"}: ${Object.entries(c).map(([k, r]) => `${k} ${r.toFixed(2)}`).join(", ")}`);
   await p.close();
 }
+
+// Navegación: cuatro secciones y una sola acción «+». En celular, barra inferior fija en la zona del pulgar con objetivos de 44 px
+// o más; en escritorio, barra lateral con «+ Agregar» arriba. Escape cierra la hoja de agregar.
+for (const [modo, opciones] of [["escritorio", { viewport: { width: 1280, height: 820 } }], ["celular", { viewport: { width: 390, height: 844 }, colorScheme: "dark" }]]) {
+  const p = await navegador.newPage(opciones);
+  p.on("pageerror", (e) => falla(`error de JavaScript en la navegación (${modo}): ${e.message}`));
+  await p.goto(BASE + "?idioma=es"); await p.waitForSelector(".nav");
+  const nav = await p.evaluate(() => ({
+    secciones: [...document.querySelectorAll(".nav [data-vista]")].map((b) => b.dataset.vista),
+    alturas: [...document.querySelectorAll(".nav button")].map((b) => Math.round(b.getBoundingClientRect().height)),
+    anchos: [...document.querySelectorAll(".nav button")].map((b) => Math.round(b.getBoundingClientRect().width)),
+    abajo: Math.round(document.querySelector(".lateral").getBoundingClientRect().bottom), alto: innerHeight,
+    agregarArriba: document.querySelector(".nav-agregar").getBoundingClientRect().top < document.querySelector('.nav [data-vista="resumen"]').getBoundingClientRect().top,
+  }));
+  if (nav.secciones.join() !== "resumen,movimientos,compromisos,mas") falla(`la navegación tiene 4 secciones (${modo}): ${nav.secciones}`);
+  if (nav.alturas.some((h) => h < 44) || nav.anchos.some((w) => w < 44)) falla(`los botones de la navegación miden 44 px o más (${modo}): ${nav.alturas} / ${nav.anchos}`);
+  if (modo === "celular" && nav.abajo !== nav.alto) falla(`en celular la barra va fija abajo (${nav.abajo} de ${nav.alto})`);
+  if (modo === "escritorio" && !nav.agregarArriba) falla("en escritorio «+ Agregar» va arriba de las secciones");
+  for (const v of ["movimientos", "compromisos", "mas", "resumen"]) {
+    await p.click(`.nav [data-vista="${v}"]`);
+    if ((await p.$eval(".nav [aria-current]", (b) => b.dataset.vista)) !== v) falla(`la sección elegida queda marcada (${v}, ${modo})`);
+  }
+  await p.click('.nav [data-vista="mas"]'); await p.click('.lista-mas [data-vista="conexiones"]');
+  if ((await p.$eval(".nav [aria-current]", (b) => b.dataset.vista)) !== "mas") falla(`Conexiones vive en «Más» (${modo})`);
+  await p.click(".nav-agregar");
+  if (!(await p.$(".dialogo #t-agregar"))) falla(`«+» abre la hoja de agregar (${modo})`);
+  await p.keyboard.press("Escape");
+  if (await p.$(".dialogo")) falla(`Escape cierra la hoja de agregar (${modo})`);
+  await p.close();
+}
+console.log("  ✓ Navegación: 4 secciones, «+» único, barra inferior en celular y lateral en escritorio");
 
 await navegador.close();
 servidor.close();

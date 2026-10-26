@@ -48,21 +48,29 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
 - **Resumen:** la misma lógica en `bin/resumen.py` y en `ui/app.js` (`resumen`, `historia`, `presupuestoSugerido`, `reglaPara`), probada con
   `pruebas/casos.json`. Si cambias una regla, cambia los dos lados y el caso. La proyección sigue el ritmo solo de lo variable
   (3+ gastos en el mes, categoría no `fijo`); lo fijo y lo esporádico queda como está. `historia` (Python) / `historia` (JS) da los
-  6 meses que terminan en el mes elegido (total o una categoría, con su tope y el promedio de los meses anteriores con datos): la
-  tarjeta «Comparado con los últimos meses» (plegada, más abajo) y la historia de una categoría (en Movimientos, al filtrar por ella).
+  6 meses que terminan en el mes elegido (total o una categoría, con su tope y el promedio de los meses anteriores con datos): el
+  desglose de «Lo que gastaste» en el Inicio y la historia de una categoría (en Movimientos, al filtrar por ella).
   `consejos.py` le pasa a la IA solo esos totales.
-- **Resumen simple (tres cifras):** arriba, si falta pagar algo (`lineaAlDia`, con los compromisos) o «Estás al día»; después
-  **Lo que tienes** (`resumen.lo_que_tienes` / `loQueTienes`), **Lo que gastaste** (`resumen` con `cargos`: compras con crédito en
-  cuotas cuentan por la cuota del mes; las devoluciones descuentan) y **Lo que debes** (`compromisos.lo_que_debes` / `loQueDebes`:
-  compromisos pendientes y atrasados, créditos con lo que queda, tarjeta desde el último pago —`PAGO_TARJETA`, igual en los dos
-  lados— y cuotas futuras). Al tocar una cifra se abre su desglose. Probado con `pruebas/casos.json` (sección `tres_cifras`). Ritmo,
-  alertas, tendencia y consejos quedan abajo y compactos. «Aprendí esto de tus movimientos» muestra reglas sugeridas (`reglasSugeridas`:
-  un comercio que siempre tuvo la misma categoría y tiene movimientos sin ella) y sugerencias de compromisos. MCP `resumen_del_mes`
-  trae `tres_cifras` y `consejos.py` una línea con ellas: solo totales.
+- **Inicio (resumen):** arriba a la izquierda, una sola cifra protagonista (`heroe`/`cuantoQueda`): «Te quedan $X hasta tu sueldo»
+  (o «hasta fin de mes»), con «N días · ~$Y por día», la escala de días del periodo y el ritmo en una línea (`lineaRitmo`). Es
+  **Lo que tienes** − lo que falta pagar este periodo (`estado_mes.pendiente_max`); sin saldo conocido, lo que entró − lo gastado − lo
+  que falta pagar. Solo presentación: usa `loQueTienes`, `resumen`, `estadoCompromisos` y `proximoSueldo`. Al tocarla se explica el
+  cálculo (`desgloseQueda`, con lo que detecté de tu sueldo). Debajo, `lineaAlDia` (lo que falta pagar, una línea; rojo solo si está
+  atrasado) y la fila compacta de **Lo que tienes** (`resumen.lo_que_tienes` / `loQueTienes`), **Lo que gastaste** (`resumen` con
+  `cargos`: compras con crédito en cuotas cuentan por la cuota del mes; las devoluciones descuentan) y **Lo que debes** este mes
+  (`compromisos.lo_que_debes` / `loQueDebes`: compromisos pendientes y atrasados, créditos con lo que queda, tarjeta desde el último
+  pago —`PAGO_TARJETA`, igual en los dos lados— y cuotas futuras; el total y «Te deben» van en el desglose). Tocar una cifra abre (y
+  cierra) su desglose; «Lo que gastaste» abre la comparación con los últimos 6 meses. Probado con `pruebas/casos.json` (sección
+  `tres_cifras`). Después, «En qué se fue» (5 categorías con su tope sutil; todas con «Ver las N») y **una** tarjeta «Pendientes»
+  (`pendientesHTML`) con lo que pide algo: el sueldo que no llega o «¿Cuándo te pagan?», los sin categoría (a «Por ordenar»), «Aprendí
+  esto de tus movimientos» (reglas sugeridas con `reglasSugeridas`: un comercio que siempre tuvo la misma categoría y tiene movimientos
+  sin ella, y sugerencias de compromisos), la invitación a anotar pagos y lo pagado en intereses por atraso. Los consejos, una fila al
+  final. MCP `resumen_del_mes` trae `tres_cifras` y `consejos.py` una línea con ellas: solo totales.
 - **Categorizar:** cada movimiento tiene un chip; el panel (`pickerHTML`/`elegidor`) pone primero la categoría que ese comercio suele
   tener (`categoriaSugerida`), luego las del tipo correcto y las más usadas, con búsqueda y «Crear «X»» (emoji sugerido; acción
   `categoriaNueva`, que crea y asigna en una sola llamada). Al elegir, aviso discreto «¿Siempre … para «X»?» (acción `regla`).
-  «Por ordenar» (`vistaOrdenar`) muestra los sin categoría uno a uno: 1–9 elige, → salta, ← vuelve, / busca.
+  «Por ordenar» (`vistaOrdenar`) muestra los sin categoría uno a uno: 1–9 elige, → salta, ← vuelve, / busca. Se llega desde el chip
+  «Por ordenar N» de Movimientos (filtra los sin categoría) y desde «Pendientes» en el Inicio.
 - **Compromisos:** `~/Alcancia/compromisos.json` (formato en el README). La misma lógica en `bin/compromisos.py` y `ui/app.js`
   (`vencimientos`, `coincide`, `asignar`, `estado_mes`/`estadoCompromisos`, `gasto_maximo`/`gastoMaximo`, `llegadas_sueldo`), probada
   con `pruebas/casos.json` (sección `compromisos`). Un pago se reconoce con signo, moneda, monto ±tolerancia y una palabra de `buscar`
@@ -143,6 +151,28 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
   saludo. Nada pregunta ni avisa antes de esa pantalla (ver «App de Mac»).
 - **Consejos:** `consejos.py <hoy>` arma un prompt con totales y exige las tres secciones (`### Lo que va bien`, `### Ojo con`,
   `### Para esta semana`). Si no vienen, no se guarda nada.
+
+## Interfaz: navegación, jerarquía y color
+Diseño mobile first (la misma interfaz va a ir en una app de celular): pensar primero en 390 px y en el pulgar.
+- **Cuatro secciones** (`SECCIONES`): **Inicio** (`resumen`), **Movimientos** (con «Por ordenar» como chip con contador; la vista
+  `ordenar` cuelga de aquí), **Pagos** (la vista sigue llamándose `compromisos`: la app de Mac abre `E.vista = 'compromisos'` desde un
+  aviso) y **Más** (`mas`: Conexiones, Presupuesto, Consejos, Ajustes y «Acerca de»). `SECCION_DE` dice qué sección queda marcada en
+  las pantallas de segundo nivel, que llevan «‹ Más» o «‹ Movimientos» (`volver`).
+- **Una sola acción para agregar** (`.nav-agregar`, `E.agregar`): en celular es el botón central de la **barra inferior fija** (zona
+  del pulgar, 64 px de alto, respeta `env(safe-area-inset-bottom)`, objetivos de 44 px o más); en escritorio la barra pasa a ser
+  lateral con «+ Agregar» arriba. Abre una hoja con: una cartola (`importar`), un pago que se repite («Cuéntale a Alcancía», `E.agregar =
+  "contar"`) y conectar una cuenta. El editor de compromisos es un diálogo (`#editor-comp`). En celular los diálogos salen desde abajo.
+- **Jerarquía:** una cifra protagonista por pantalla cuando la hay, tres niveles de texto como máximo (cifra · título · texto/detalle),
+  cifras con `tabular-nums` y alineadas a la derecha, espacios en múltiplos de 4/8, líneas de ~70 caracteres como máximo, sin sombras
+  ni bordes que no digan algo. Los textos que explican van al tocar (desgloses), no en la pantalla.
+- **Regla de color:** base neutra (fondo, texto y un gris). Un solo color de acción, el naranjo de la marca (`--acento`): la acción
+  principal y lo seleccionado (sección actual, cifra abierta, opción elegida, interruptor encendido). **Rojo** (`--rojo`) solo para lo
+  atrasado o excedido; **verde** (`--verde`) solo para «al día» y lo que entra. Sin fondos rosados o ámbar. Las barras van en gris; la
+  que se pasa del tope, en rojo. `pruebas/interfaz.mjs` revisa el contraste AA (4,5) del botón principal, el gris, el rojo y el verde
+  en claro y oscuro.
+- **Ruido fuera:** la moneda (`CLP`) solo aparece si hay movimientos en más de una moneda (`variasMonedas`). Los comercios se muestran
+  legibles con `nombreComercio` (solo presentación: «DELIVERY RAPIDITO *PEDIDO» → «Delivery Rapidito»; lo guardado no cambia y la
+  descripción original se ve al tocar la fila). Un movimiento sin categoría muestra un «+» gris discreto.
 
 ## Puente interfaz ↔ app
 La UI llama `host.enviar(accion, datos)` y la app responde con `window.Alcancia.<funcion>(json)`. En el navegador, `simular()` responde
