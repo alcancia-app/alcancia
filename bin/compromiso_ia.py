@@ -26,6 +26,11 @@ def limpiar_texto(texto):
     seguidos (un RUT o una cuenta sin separadores) y sin números de 10 o más dígitos con espacios o guiones (cuentas, tarjetas).
     Los montos con separador de miles («500.000», «1.250.000») y los de hasta 6 dígitos («500000») se mantienen."""
     t = re.sub(r"[\x00-\x1f\x7f]", " ", str(texto or ""))
+    # Un monto grande escrito sin puntos pero con «$» o la moneda al lado («$1500000», «1500000 clp») es plata, no una cuenta:
+    # se escribe con separador de miles para que pase.
+    miles = lambda n: f"{int(n):,}".replace(",", ".")
+    t = re.sub(r"(\$\s?)(\d{7,9})(?!\d)", lambda m: m.group(1) + miles(m.group(2)), t)
+    t = re.sub(r"(?<![\d.])(\d{7,9})(\s?(?:clp|pesos|usd|ars|mxn|cop|pen|brl|uyu)\b)", lambda m: miles(m.group(1)) + m.group(2), t, flags=re.I)
     t = re.sub(r"(?<![\d.])\d{1,2}\.?\d{3}\.?\d{3}-[\dkK](?![\dA-Za-z])", " ", t)
     t = re.sub(r"(?<!\d)\d{7,8}[kK](?![A-Za-z\d])", " ", t)
     t = re.sub(r"(?<!\d)\d{7,}(?!\d)", " ", t)

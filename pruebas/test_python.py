@@ -431,6 +431,8 @@ class Compromisos(unittest.TestCase):
             self.assertNotIn(fuera, limpio, texto)
             self.assertIn("450.000", limpio, "los montos con separador de miles se mantienen")
         self.assertEqual(compromiso_ia.limpiar_texto("son 500.000 o 500000 o 1.250.000, el 15"), "son 500.000 o 500000 o 1.250.000, el 15")
+        self.assertEqual(compromiso_ia.limpiar_texto("dividendo $1500000 o 1500000 clp"), "dividendo $1.500.000 o 1.500.000 clp",
+                         "un monto grande con $ o moneda es plata y pasa con puntos")
 
     def entender(self, texto, hoy):
         """Como lo llama la app: el texto en un archivo de entrada, nunca como argumento."""
