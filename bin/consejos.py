@@ -57,11 +57,12 @@ def linea_tres_cifras(hoy, movimientos, presupuesto, compromisos=None, per=None)
     d = K.lo_que_debes(compromisos or [], movimientos, hoy, moneda, per, K.uf_config())
     atrasado = sum(p["monto"] for p in d["partes"] if p.get("estado") == "atrasado")
     tiene = f"tiene {t['total']} en sus cuentas" if t["total"] is not None else "no ha anotado cuánto tiene en sus cuentas"
+    deben = f" Le deben {d['te_deben_total']} (préstamos que hizo; no se resta de lo que debe)." if d["te_deben_total"] else ""
     if d["aprox"]:
         return (f"Hoy {tiene}; debe cerca de {d['total']} en total (hasta {d['total_max']}, hay montos aproximados), de eso cerca de "
-                f"{d['este_mes']} (hasta {d['este_mes_max']}) toca pagarlo este mes" + (f" ({atrasado} ya atrasado)" if atrasado else "") + ".")
+                f"{d['este_mes']} (hasta {d['este_mes_max']}) toca pagarlo este mes" + (f" ({atrasado} ya atrasado)" if atrasado else "") + "." + deben)
     return (f"Hoy {tiene}; debe {d['total']} en total, de eso {d['este_mes']} toca pagarlo este mes"
-            + (f" ({atrasado} ya atrasado)" if atrasado else "") + ".")
+            + (f" ({atrasado} ya atrasado)" if atrasado else "") + "." + deben)
 
 
 def prompt(hoy, movimientos, presupuesto, categorias, compromisos=None, per=None):

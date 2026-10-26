@@ -535,3 +535,22 @@ span.barra { display: block; }
 .invita-uf h2 { font-size: 17px; font-family: var(--redondeada); margin-bottom: 6px; }
 .invita-uf > .texto-suave { margin: 0 0 12px; }
 @media (max-width: 780px) { .aprox-campos { margin-left: 0; } }
+
+/* Préstamos, grupos con subtotal y movimientos agrupados por comercio */
+.grupo.con-total { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.grupo.con-total .sub { text-transform: none; letter-spacing: 0; font-weight: 600; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.calculo-vivo { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--acento-suave); line-height: 1.5; }
+.te-deben-txt { color: var(--verde); }
+.grupo-mov { width: 100%; display: grid; grid-template-columns: 30px minmax(0, 1fr) auto 16px; gap: 4px 12px; align-items: center; text-align: left;
+  border: 0; border-bottom: 1px solid var(--linea); background: transparent; padding: 11px 4px; color: inherit; }
+.grupo-mov:hover { background: var(--acento-suave); }
+.grupo-mov .emoji { font-size: 19px; text-align: center; }
+.grupo-mov .txt { min-width: 0; }
+.grupo-mov .txt b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grupo-mov .txt small { color: var(--suave); font-size: 12.5px; }
+.grupo-mov .valor { font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.grupo-mov .cf-flecha { color: var(--suave); transition: transform .15s; }
+.grupo-mov[aria-expanded="true"] .cf-flecha { transform: rotate(90deg); }
+.grupo-mov-lista { padding-left: 14px; border-left: 2px solid var(--linea); margin: 4px 0 8px 14px; }
+.boton.activo { background: var(--acento-suave); border-color: var(--acento); }
+@media (prefers-reduced-motion: reduce) { .grupo-mov .cf-flecha { transition: none; } }

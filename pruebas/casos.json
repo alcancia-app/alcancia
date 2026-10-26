@@ -1486,7 +1486,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-credito1",
@@ -1507,7 +1508,8 @@
        },
        "saldo": null,
        "por_pagar": 4536000,
-       "termina": "2028-09-20"
+       "termina": "2028-09-20",
+       "con": null
       },
       {
        "id": "c-celular1",
@@ -1524,7 +1526,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-sueldo01",
@@ -1541,7 +1544,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-stream01",
@@ -1558,7 +1562,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-clases01",
@@ -1575,7 +1580,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-permiso1",
@@ -1592,7 +1598,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-seguro01",
@@ -1609,7 +1616,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-cuotaa01",
@@ -1626,7 +1634,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-cuotab01",
@@ -1643,7 +1652,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-patente1",
@@ -1660,7 +1670,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       }
      ]
     }
@@ -1842,7 +1853,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-credito1",
@@ -1863,7 +1875,8 @@
        },
        "saldo": null,
        "por_pagar": 4536000,
-       "termina": "2028-09-20"
+       "termina": "2028-09-20",
+       "con": null
       },
       {
        "id": "c-celular1",
@@ -1880,7 +1893,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-sueldo01",
@@ -1897,7 +1911,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-stream01",
@@ -1914,7 +1929,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-clases01",
@@ -1931,7 +1947,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-permiso1",
@@ -1948,7 +1965,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-seguro01",
@@ -1965,7 +1983,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-cuotaa01",
@@ -1982,7 +2001,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-cuotab01",
@@ -1999,7 +2019,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-patente1",
@@ -2016,7 +2037,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       }
      ]
     }
@@ -2343,7 +2365,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-credito1",
@@ -2364,7 +2387,8 @@
        },
        "saldo": null,
        "por_pagar": 4536000,
-       "termina": "2028-09-20"
+       "termina": "2028-09-20",
+       "con": null
       },
       {
        "id": "c-celular1",
@@ -2381,7 +2405,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-sueldo01",
@@ -2398,7 +2423,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-stream01",
@@ -2415,7 +2441,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-clases01",
@@ -2432,7 +2459,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-permiso1",
@@ -2449,7 +2477,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-seguro01",
@@ -2466,7 +2495,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-cuotaa01",
@@ -2483,7 +2513,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-cuotab01",
@@ -2500,7 +2531,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-patente1",
@@ -2517,7 +2549,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       }
      ]
     }
@@ -3492,6 +3525,8 @@
       "mes": "2026-10",
       "moneda": "CLP",
       "total": 1337990,
+      "te_deben": [],
+      "te_deben_total": 0,
       "este_mes": 612990,
       "total_max": 1337990,
       "este_mes_max": 612990,
@@ -3541,6 +3576,7 @@
         "este_mes": 100000,
         "max": 600000,
         "original": null,
+        "con": null,
         "cuotas": {
          "pagadas": 4,
          "total": 10,
@@ -3644,6 +3680,8 @@
       "mes": "2026-11",
       "moneda": "CLP",
       "total": 1353980,
+      "te_deben": [],
+      "te_deben_total": 0,
       "este_mes": 813980,
       "total_max": 1353980,
       "este_mes_max": 813980,
@@ -3706,6 +3744,7 @@
         "este_mes": 200000,
         "max": 600000,
         "original": null,
+        "con": null,
         "cuotas": {
          "pagadas": 4,
          "total": 10,
@@ -4209,7 +4248,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-comunes001",
@@ -4229,7 +4269,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-dividuf001",
@@ -4260,7 +4301,8 @@
        },
        "saldo": null,
        "por_pagar": 93126000,
-       "termina": "2042-04-15"
+       "termina": "2042-04-15",
+       "con": null
       },
       {
        "id": "c-segurouf01",
@@ -4287,7 +4329,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-arriuf0001",
@@ -4314,7 +4357,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-sueldoap01",
@@ -4334,7 +4378,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       }
      ]
     }
@@ -4569,7 +4614,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-comunes001",
@@ -4589,7 +4635,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-dividuf001",
@@ -4620,7 +4667,8 @@
        },
        "saldo": null,
        "por_pagar": 93126000,
-       "termina": "2042-04-15"
+       "termina": "2042-04-15",
+       "con": null
       },
       {
        "id": "c-segurouf01",
@@ -4647,7 +4695,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-arriuf0001",
@@ -4674,7 +4723,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       },
       {
        "id": "c-sueldoap01",
@@ -4694,7 +4744,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       }
      ]
     }
@@ -4765,7 +4816,8 @@
        "cuotas": null,
        "saldo": null,
        "por_pagar": null,
-       "termina": null
+       "termina": null,
+       "con": null
       }
      ]
     },
@@ -4848,6 +4900,8 @@
      "mes": "2026-10",
      "moneda": "CLP",
      "total": 93863900,
+     "te_deben": [],
+     "te_deben_total": 0,
      "este_mes": 1235900,
      "total_max": 95402400,
      "este_mes_max": 1286400,
@@ -4947,6 +5001,7 @@
         "fecha_uf": "2026-09-15",
         "fuente": "pago"
        },
+       "con": null,
        "cuotas": {
         "pagadas": 53,
         "total": 240,
@@ -4980,6 +5035,8 @@
      "mes": "2026-10",
      "moneda": "CLP",
      "total": 93395400,
+     "te_deben": [],
+     "te_deben_total": 0,
      "este_mes": 767400,
      "total_max": 94365700,
      "este_mes_max": 807700,
@@ -5059,6 +5116,7 @@
         "fecha_uf": "2026-09-15",
         "fuente": "pago"
        },
+       "con": null,
        "cuotas": {
         "pagadas": 53,
         "total": 240,
@@ -5080,5 +5138,456 @@
     }
    }
   ]
+ },
+ "prestamos": {
+  "_nota": "Préstamos entre personas (compromisos.calcular_prestamo ↔ calcularPrestamo; estado y lo que debes con «te deben»).",
+  "calcular": [
+   [
+    1800000,
+    12,
+    0,
+    "CLP",
+    {
+     "total": 1800000,
+     "interes": 0,
+     "pagar": 1800000,
+     "cuota": 150000,
+     "ultima": 150000
+    }
+   ],
+   [
+    1000000,
+    3,
+    0,
+    "CLP",
+    {
+     "total": 1000000,
+     "interes": 0,
+     "pagar": 1000000,
+     "cuota": 333333,
+     "ultima": 333334
+    }
+   ],
+   [
+    500000,
+    5,
+    10,
+    "CLP",
+    {
+     "total": 500000,
+     "interes": 10,
+     "pagar": 550000,
+     "cuota": 110000,
+     "ultima": 110000
+    }
+   ],
+   [
+    850000,
+    7,
+    0,
+    "CLP",
+    {
+     "total": 850000,
+     "interes": 0,
+     "pagar": 850000,
+     "cuota": 121428,
+     "ultima": 121432
+    }
+   ],
+   [
+    30,
+    7,
+    0,
+    "UF",
+    {
+     "total": 30,
+     "interes": 0,
+     "pagar": 30.0,
+     "cuota": 4.2857,
+     "ultima": 4.2858
+    }
+   ]
+  ],
+  "compromisos": [
+   {
+    "id": "c-tiaana0001",
+    "nombre": "Préstamo de Tía Ana",
+    "con": "Tía Ana",
+    "tipo": "prestamo",
+    "signo": "gasto",
+    "moneda": "CLP",
+    "monto": 150000,
+    "frecuencia": "mensual",
+    "dia": 25,
+    "categoria": "",
+    "buscar": [
+     "TIA ANA"
+    ],
+    "tolerancia": 5,
+    "cuotas_total": 12,
+    "cuotas_pagadas": 0,
+    "prestamo": {
+     "total": 1800000,
+     "interes": 0,
+     "cuota": 150000,
+     "ultima": 150000
+    },
+    "activo": true,
+    "desde": "2026-08-01",
+    "origen": "manual",
+    "pagos": {},
+    "fecha_fin": "2027-07-25"
+   },
+   {
+    "id": "c-amigo00001",
+    "nombre": "Préstamo de Amigo",
+    "con": "Amigo",
+    "tipo": "prestamo",
+    "signo": "gasto",
+    "moneda": "CLP",
+    "monto": 333333,
+    "frecuencia": "mensual",
+    "dia": 10,
+    "categoria": "",
+    "buscar": [],
+    "tolerancia": 5,
+    "cuotas_total": 3,
+    "cuotas_pagadas": 0,
+    "prestamo": {
+     "total": 1000000,
+     "interes": 0,
+     "cuota": 333333,
+     "ultima": 333334
+    },
+    "activo": true,
+    "desde": "2026-08-01",
+    "origen": "manual",
+    "pagos": {
+     "2026-08": {
+      "como": "manual",
+      "fecha": "2026-08-10"
+     }
+    },
+    "fecha_fin": "2026-10-10"
+   },
+   {
+    "id": "c-matias0001",
+    "nombre": "Préstamo a Matías",
+    "con": "Matías",
+    "tipo": "prestamo",
+    "signo": "ingreso",
+    "moneda": "CLP",
+    "monto": 100000,
+    "frecuencia": "mensual",
+    "dia": 5,
+    "categoria": "",
+    "buscar": [
+     "MATIAS SOTO"
+    ],
+    "tolerancia": 5,
+    "cuotas_total": 5,
+    "cuotas_pagadas": 0,
+    "prestamo": {
+     "total": 500000,
+     "interes": 0,
+     "cuota": 100000,
+     "ultima": 100000
+    },
+    "activo": true,
+    "desde": "2026-08-01",
+    "origen": "manual",
+    "pagos": {},
+    "fecha_fin": "2026-12-05"
+   }
+  ],
+  "movimientos": [
+   {
+    "id": "p1",
+    "fecha": "2026-08-25",
+    "descripcion": "TRANSFERENCIA A TIA ANA",
+    "monto": -150000,
+    "moneda": "CLP",
+    "categoria": ""
+   },
+   {
+    "id": "p2",
+    "fecha": "2026-09-25",
+    "descripcion": "TRANSFERENCIA A TIA ANA",
+    "monto": -150000,
+    "moneda": "CLP",
+    "categoria": ""
+   },
+   {
+    "id": "p3",
+    "fecha": "2026-09-10",
+    "descripcion": "TRANSFERENCIA",
+    "monto": -333333,
+    "moneda": "CLP",
+    "categoria": ""
+   },
+   {
+    "id": "p4",
+    "fecha": "2026-08-05",
+    "descripcion": "TRANSFERENCIA DE MATIAS SOTO",
+    "monto": 100000,
+    "moneda": "CLP",
+    "categoria": ""
+   }
+  ],
+  "estado": {
+   "mes": "2026-10",
+   "hoy": "2026-10-12",
+   "esperado": {
+    "mes": "2026-10",
+    "moneda": "CLP",
+    "items": [
+     {
+      "id": "c-matias0001",
+      "nombre": "Préstamo a Matías",
+      "tipo": "prestamo",
+      "signo": "ingreso",
+      "monto": 100000,
+      "moneda": "CLP",
+      "rango": null,
+      "original": null,
+      "categoria": "",
+      "periodo": "2026-09",
+      "vence": "2026-09-05",
+      "estado": "atrasado",
+      "dias": 37,
+      "pago": null,
+      "cuota": {
+       "numero": 2,
+       "total": 5
+      },
+      "anterior": true
+     },
+     {
+      "id": "c-matias0001",
+      "nombre": "Préstamo a Matías",
+      "tipo": "prestamo",
+      "signo": "ingreso",
+      "monto": 100000,
+      "moneda": "CLP",
+      "rango": null,
+      "original": null,
+      "categoria": "",
+      "periodo": "2026-10",
+      "vence": "2026-10-05",
+      "estado": "atrasado",
+      "dias": 7,
+      "pago": null,
+      "cuota": {
+       "numero": 3,
+       "total": 5
+      },
+      "anterior": false
+     },
+     {
+      "id": "c-amigo00001",
+      "nombre": "Préstamo de Amigo",
+      "tipo": "prestamo",
+      "signo": "gasto",
+      "monto": 333334,
+      "moneda": "CLP",
+      "rango": null,
+      "original": null,
+      "categoria": "",
+      "periodo": "2026-10",
+      "vence": "2026-10-10",
+      "estado": "atrasado",
+      "dias": 2,
+      "pago": null,
+      "cuota": {
+       "numero": 3,
+       "total": 3
+      },
+      "anterior": false
+     },
+     {
+      "id": "c-tiaana0001",
+      "nombre": "Préstamo de Tía Ana",
+      "tipo": "prestamo",
+      "signo": "gasto",
+      "monto": 150000,
+      "moneda": "CLP",
+      "rango": null,
+      "original": null,
+      "categoria": "",
+      "periodo": "2026-10",
+      "vence": "2026-10-25",
+      "estado": "pendiente",
+      "dias": 13,
+      "pago": null,
+      "cuota": {
+       "numero": 3,
+       "total": 12
+      },
+      "anterior": false
+     }
+    ],
+    "total": 483334,
+    "pagado": 0,
+    "pendiente": 483334,
+    "atrasado": 333334,
+    "arrastre": 0,
+    "ingresos_esperados": 100000,
+    "ingresos_recibidos": 0,
+    "total_max": 483334,
+    "pendiente_max": 483334,
+    "arrastre_max": 0,
+    "ingresos_esperados_min": 100000,
+    "aprox": false,
+    "sin_valor": 0,
+    "compromisos": [
+     {
+      "id": "c-tiaana0001",
+      "nombre": "Préstamo de Tía Ana",
+      "tipo": "prestamo",
+      "signo": "gasto",
+      "monto": 150000,
+      "moneda": "CLP",
+      "rango": null,
+      "original": null,
+      "frecuencia": "mensual",
+      "categoria": "",
+      "mensual": 150000,
+      "cuotas": {
+       "pagadas": 2,
+       "total": 12,
+       "quedan": 10
+      },
+      "saldo": null,
+      "por_pagar": 1500000,
+      "termina": "2027-07-25",
+      "con": "Tía Ana"
+     },
+     {
+      "id": "c-amigo00001",
+      "nombre": "Préstamo de Amigo",
+      "tipo": "prestamo",
+      "signo": "gasto",
+      "monto": 333333,
+      "moneda": "CLP",
+      "rango": null,
+      "original": null,
+      "frecuencia": "mensual",
+      "categoria": "",
+      "mensual": 333333,
+      "cuotas": {
+       "pagadas": 2,
+       "total": 3,
+       "quedan": 1
+      },
+      "saldo": null,
+      "por_pagar": 333334,
+      "termina": "2026-10-10",
+      "con": "Amigo"
+     },
+     {
+      "id": "c-matias0001",
+      "nombre": "Préstamo a Matías",
+      "tipo": "prestamo",
+      "signo": "ingreso",
+      "monto": 100000,
+      "moneda": "CLP",
+      "rango": null,
+      "original": null,
+      "frecuencia": "mensual",
+      "categoria": "",
+      "mensual": 100000,
+      "cuotas": {
+       "pagadas": 1,
+       "total": 5,
+       "quedan": 4
+      },
+      "saldo": null,
+      "por_pagar": 400000,
+      "termina": "2026-12-05",
+      "con": "Matías"
+     }
+    ]
+   }
+  },
+  "debes": {
+   "hoy": "2026-10-12",
+   "esperado": {
+    "mes": "2026-10",
+    "moneda": "CLP",
+    "total": 1833334,
+    "te_deben": [
+     {
+      "nombre": "Préstamo a Matías",
+      "con": "Matías",
+      "monto": 400000,
+      "este_mes": 200000,
+      "cuotas": {
+       "pagadas": 1,
+       "total": 5,
+       "quedan": 4
+      },
+      "termina": "2026-12-05"
+     }
+    ],
+    "te_deben_total": 400000,
+    "este_mes": 483334,
+    "total_max": 1833334,
+    "este_mes_max": 483334,
+    "aprox": false,
+    "ultimo_pago_tarjeta": null,
+    "partes": [
+     {
+      "tipo": "deuda",
+      "nombre": "Préstamo de Amigo",
+      "monto": 333334,
+      "este_mes": 333334,
+      "max": 333334,
+      "original": null,
+      "con": "Amigo",
+      "cuotas": {
+       "pagadas": 2,
+       "total": 3,
+       "quedan": 1
+      },
+      "categoria": "",
+      "termina": "2026-10-10",
+      "pendientes": [
+       {
+        "estado": "atrasado",
+        "vence": "2026-10-10",
+        "dias": 2,
+        "monto": 333334,
+        "clave": "c-amigo00001|2026-10"
+       }
+      ]
+     },
+     {
+      "tipo": "deuda",
+      "nombre": "Préstamo de Tía Ana",
+      "monto": 1500000,
+      "este_mes": 150000,
+      "max": 1500000,
+      "original": null,
+      "con": "Tía Ana",
+      "cuotas": {
+       "pagadas": 2,
+       "total": 12,
+       "quedan": 10
+      },
+      "categoria": "",
+      "termina": "2027-07-25",
+      "pendientes": [
+       {
+        "estado": "pendiente",
+        "vence": "2026-10-25",
+        "dias": 13,
+        "monto": 150000,
+        "clave": "c-tiaana0001|2026-10"
+       }
+      ]
+     }
+    ]
+   }
+  }
  }
 }

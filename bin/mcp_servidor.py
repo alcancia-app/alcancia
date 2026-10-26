@@ -94,7 +94,8 @@ def resumen_del_mes(args):
     r["nota"] = ("proyeccion = cómo terminaría el mes si sigue el ritmo de los gastos variables; null si el mes no está en curso. "
                  "desde/hasta = días que abarca el mes (puede ir de sueldo a sueldo). gastado = lo que gastaste: las compras en cuotas "
                  "con crédito cuentan por la cuota del mes y las devoluciones descuentan. tres_cifras = hoy: lo_que_tienes (suma de "
-                 "los saldos conocidos; null si la persona aún no anotó ninguno), lo_que_debes (total y lo que toca este mes).")
+                 "los saldos conocidos; null si la persona aún no anotó ninguno), lo_que_debes (total y lo que toca este mes), te_deben "
+                 "(préstamos que la persona hizo; no se resta de lo_que_debes).")
     return r
 
 
@@ -109,6 +110,7 @@ def tres_cifras(per=None):
     return {"moneda": moneda, "lo_que_tienes": t["total"], "cuentas_con_saldo": t["con_saldo"], "cuentas_sin_saldo": t["sin_saldo"],
             "lo_que_gastaste_este_mes": g["gastado"], "lo_que_debes": d["total"], "debes_este_mes": d["este_mes"],
             "lo_que_debes_hasta": d["total_max"], "debes_este_mes_hasta": d["este_mes_max"], "hay_montos_aproximados": d["aprox"],
+            "te_deben": d.get("te_deben_total", 0),
             "atrasado": sum(p["monto"] for p in d["partes"] if p.get("estado") == "atrasado")}
 
 

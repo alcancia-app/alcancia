@@ -34,6 +34,11 @@ Gratis, de código abierto y con tus datos en tu computador.</p>
   compromiso (se repite cada mes o la descripción lo delata: dividendo, cuota 53/240, PAC, seguro…) y te pregunta; nunca lo agrega solo.
 - **Montos que varían y en UF:** marca un compromiso como aproximado («≈ $480.000, entre $465.000 y $495.000») o anótalo en UF
   (un dividendo): Alcancía estima cuánto es en pesos con lo que pagaste antes, sin conectarse a ningún lado.
+- **Préstamos entre personas:** «mi tía me prestó 1.800.000 en 12 cuotas» o «le presté 850 lucas a Matías en 5»: Alcancía calcula
+  la cuota (la última ajusta el redondeo), cuándo terminas y lo que te queda. Lo que te deben se muestra aparte («Te deben») y no se
+  resta de lo que debes. Si tu IA no entiende algo, se abre el editor con lo que sí entendió para que lo completes.
+- **Todo más ordenado:** compromisos y sugerencias agrupados por tipo con su subtotal mensual, y en Movimientos puedes agrupar por
+  comercio (total y cuántas veces, con el detalle al abrirlo).
 - **Gasto máximo sugerido:** lo que entra − tus compromisos − tus otros gastos fijos = lo que puedes gastar en lo variable,
   repartido por categoría según lo que gastas normalmente.
 - **Tu mes empieza cuando te pagan** (si quieres): el mes puede ir de sueldo a sueldo; si te pagan antes, parte ese día.
@@ -100,7 +105,8 @@ devolución y con la categoría de la compra (si ya la tenía); su id sale de «
 |---|---|
 | `id` | `c-` + letras y números. |
 | `nombre` | Hasta 60 caracteres. Nunca un número de cuenta: las secuencias de 6 o más dígitos se quitan al guardar. |
-| `tipo` | `deuda`, `cuenta`, `suscripcion`, `transferencia`, `ingreso` u `otro`. |
+| `tipo` | `deuda`, `cuenta`, `suscripcion`, `transferencia`, `prestamo`, `ingreso` u `otro`. |
+| `con`, `prestamo` | Solo en `prestamo`: con quién (un nombre, sin números) y `{"total", "interes", "cuota", "ultima"}`: lo prestado, el interés simple en % sobre el total (0 si no hay), la cuota y la última cuota (ajusta el redondeo). `monto` = `cuota`; `cuotas_total` es obligatorio y `fecha_fin` se calcula. `signo: "gasto"` = te prestaron; `"ingreso"` = tú prestaste (te deben). |
 | `signo` | `gasto` o `ingreso`. |
 | `monto`, `moneda` | Monto positivo y código de 3 letras, o `"UF"` con el monto en UF (hasta 4 decimales, p. ej. `12.75`). |
 | `aproximado` | Opcional, para montos que varían: `{"variacion": 3}` (± ese porcentaje) o `{"min": 465000, "max": 495000}` (en la moneda del compromiso; el monto va entre los dos). Se muestra «≈ $480.000 (entre $465.000 y $495.000)» y el pago se reconoce en todo el rango. |
@@ -120,6 +126,13 @@ correcto, en la moneda del compromiso, con el monto dentro de la tolerancia y al
 después del vencimiento. Un movimiento cuenta para un solo compromiso: primero lo marcado a mano y después las parejas que calzan
 mejor (más cerca de la fecha, luego del monto). La lista de palabras que delatan un compromiso (dividendo, crédito, cuota, PAC,
 seguro, arriendo, colegio, plan celular…) es solo datos: [`bin/compromisos_conocidos.json`](bin/compromisos_conocidos.json), por país.
+
+Un movimiento con categoría `transferencia` (entre tus cuentas) solo puede pagar un compromiso de tipo `transferencia`.
+
+### Préstamos
+Con `total` y `cuotas_total`, la cuota es `total × (1 + interes/100) ÷ cuotas` redondeada hacia abajo y la última se lleva la
+diferencia, así la suma da justo. Si no dices el día, el primer pago cae el día de tu sueldo (`inicio_mes` en modo sueldo) o el 25.
+Lo que queda se calcula con las cuotas pagadas. Los préstamos que hiciste suman en «Te deben», aparte de «Lo que debes».
 
 ### Montos aproximados y en UF
 Un compromiso con `aproximado` muestra un rango y su pago se reconoce si cae dentro de él (o dentro de la tolerancia de siempre) y trae alguna de sus palabras; sin palabras, solo el monto exacto.

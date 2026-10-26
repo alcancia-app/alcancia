@@ -22,6 +22,13 @@ elif "Conviértelo en UN objeto JSON" in pedido:
         print('{"nombre": "Algo", "monto": 1000, "dia": 5, "comando": "rm -rf"}')
     elif "NADA" in texto:
         print("No entendí.")
+    elif "me prestó" in texto or "me presto" in texto:  # un préstamo de una persona (montos dichos como sea: la IA los entiende)
+        print(json.dumps({"tipo": "prestamo", "con": "Tía", "signo": "gasto", "prestamo": {"total": 1800000}, "cuotas_total": 12,
+                          "frecuencia": "mensual", "categoria": "otros"}))
+    elif "le presté" in texto:
+        print(json.dumps({"tipo": "prestamo", "con": "Matías", "signo": "ingreso", "prestamo": {"total": 850000}, "cuotas_total": 5}))
+    elif "SINMONTO" in texto:  # la IA entendió casi todo, pero no el monto: igual se abre la tarjeta con lo demás
+        print(json.dumps({"nombre": "Gimnasio", "tipo": "suscripcion", "monto": 0, "frecuencia": "mensual", "dia": 3, "buscar": ["GIMNASIO"]}))
     elif "MALAPROX" in texto:  # un rango al revés: no pasa la validación
         print(json.dumps({"nombre": "Luz", "tipo": "cuenta", "monto": 30000, "dia": 8, "aproximado": {"min": 40000, "max": 20000}}))
     elif " UF" in texto:

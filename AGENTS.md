@@ -71,7 +71,11 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
   anota los reconocidos (`fijar_automaticos`) y manda las sugerencias; `importar.py` y `sincronizar.py` devuelven `detectados` (solo
   lo nuevo). Sugerir (solo Python): 3 de los últimos 4 meses con monto ±10 % y día ±4, o una palabra de `compromisos_conocidos.json`;
   la cuota «N/M» sale de la descripción. Nunca se agregan solos. `compromiso_ia.py entender <entrada.json>` (el texto llega en un archivo, nunca como argumento) le pasa a la IA solo el texto
-  (sin RUT con o sin puntos, sin corridas de 7+ dígitos ni números largos), la fecha y las categorías, y valida estricto (`validar(..., estricto=True)`); no guarda nada.
+  (`limpiar_texto` quita RUT con guion o K, 8–9 dígitos con dígito verificador válido que no terminan en «000», lo que va después
+  de rut/cuenta/cta/tarjeta/n°/nro/número/cuentarut/vista y 10+ dígitos; los montos como «2000000» pasan), la fecha y las
+  categorías, y valida estricto (`validar(..., estricto=True)`); no guarda nada. Si la IA falla o su respuesta no pasa, devuelve
+  `{"ok": false, "error", "parcial"}` (`parcial`: solo los campos válidos) y la interfaz abre el editor con eso: nunca sin salida.
+  Un movimiento con categoría `transferencia` solo paga compromisos de tipo `transferencia`.
   Avisos (Mac): `compromisos.py avisos <hoy>` decide (3 días antes, el día, atrasado; uno por compromiso al día, registro en
   `.alcancia/avisos.json`) y `Avisos.swift` muestra, sin montos y con título genérico (con la pantalla bloqueada solo «Tienes un pago por vencer»). El permiso se pide al agregar el primer compromiso o al activar los avisos.
 - **Aproximados y UF:** `aproximado` ({variacion} o {min, max}) y `moneda: "UF"`. `en_moneda`/`enMoneda` da a cada ítem `monto` y
@@ -82,6 +86,11 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
   aproximado calza en su rango solo si trae una palabra de `buscar` (sin palabras, monto exacto); uno en UF calza por sus palabras y,
   con un valor en Ajustes, por el monto ±15 %. Totales `_max` (gasto máximo y «Lo que debes» usan el máximo; los ingresos, el mínimo).
   Casos en `pruebas/casos.json` (sección `aproximados`).
+- **Préstamos:** tipo `prestamo` con `con` y `prestamo` {total, interes, cuota, ultima}. `calcular_prestamo`/`calcularPrestamo`
+  (cuota hacia abajo, la última ajusta; interés simple % sobre el total), `completar_prestamo` (día del sueldo o 25). `estado_mes`
+  usa `ultima` en la última cuota; `lo_que_debes`/`loQueDebes` suman lo que debes y aparte `te_deben` (signo `ingreso`), que nunca se
+  resta. Consejos y MCP reciben solo esos totales. Casos en `pruebas/casos.json` (sección `prestamos`). Compromisos y sugerencias se
+  agrupan por tipo (`GRUPOS_COMP`); Movimientos puede agrupar por comercio (`reglaPara`, `E.agruparMov`).
 - **Tu mes (periodos):** `config.inicio_mes` = `{"modo": "dia" | "sueldo", "dia"}`. `resumen.rango(mes, per)` da los días de un
   periodo «AAAA-MM» (se llama por el mes donde cae la mayor parte); `per` lleva las `llegadas` del sueldo (compromisos.periodo).
   `resumen`, `historia`, `presupuesto_sugerido`, `estado_mes` y `gasto_maximo` reciben `per` (sin él, mes calendario, igual que

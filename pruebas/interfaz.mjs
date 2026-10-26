@@ -79,6 +79,13 @@ const VISTAS = [
   ["ajustes-uf", "E=>{E.ajustes=true}"],
   ["ajustes-uf-con-valor", "E=>{E.config.uf={valor:39500,fecha:'2026-10-18',variacion_mensual:1.5}}"],
   ["compromisos-uf-con-valor", "E=>{E.ajustes=false;E.vista='compromisos'}"],
+  ["compromisos-prestamo-editor", `E=>{E.config.uf={valor:39500,fecha:'2026-10-18'};E.vista='compromisos';E.compEdit={c:{...${EDITOR},tipo:'prestamo',con:'Mamá',signo:'gasto',prestamoTotal:1000000,cuotas_total:3,prestamoInteres:0,cuotas_pagadas:0,dia:25,moneda:'CLP'},origen:'manual',error:''}}`],
+  ["compromisos-prestamo-editor-ingreso", "E=>{E.compEdit.c.signo='ingreso';E.compEdit.c.prestamoInteres=10}"],
+  ["compromisos-prestamo-editor-vacio", "E=>{E.compEdit.c.prestamoTotal=0;E.compEdit.error='Falta cuánto es el préstamo en total.'}"],
+  ["compromisos-nunca-sin-salida", "E=>{E.compEdit={c:{nombre:'Gimnasio',tipo:'suscripcion',monto:0,moneda:'CLP',frecuencia:'mensual',dia:3,categoria:'',buscar:['GIMNASIO'],buscarTexto:'GIMNASIO',desde:'2026-10-18',activo:true,origen:'ia'},origen:'ia',error:'No entendí todo: El monto tiene que ser un número mayor que cero. Corrígelo aquí y guárdalo.'}}"],
+  ["movimientos-agrupados", "E=>{E.compEdit=null;E.vista='movimientos';E.agruparMov=true}"],
+  ["movimientos-agrupados-abierto", "E=>{E.grupoMov='SUPERMERCADO DEL BARRIO'}"],
+  ["resumen-te-deben", "E=>{E.agruparMov=false;E.grupoMov=null;E.vista='resumen';E.cifra='debes'}"],
   ["presupuesto-maximo", "E=>{E.vista='presupuesto';E.presEdit=null}"],
   ["presupuesto-no-alcanza", "E=>{E.compromisos.compromisos.push({id:'c-grande0001',nombre:'Grande',tipo:'deuda',signo:'gasto',monto:3000000,moneda:'CLP',frecuencia:'mensual',dia:25,categoria:'',buscar:[],tolerancia:5,activo:true,desde:'2026-10-01',origen:'manual',pagos:{}})}"],
   ["presupuesto-sin-ingresos", "E=>{E.compromisos.compromisos=E.compromisos.compromisos.filter(c=>c.tipo!=='ingreso'&&c.id!=='c-grande0001');E.movimientos=E.movimientos.filter(m=>m.monto<0)}"],
@@ -171,6 +178,11 @@ const navegador = await chromium.launch();
       const d = P.loQueDebes(tc.compromisos, tc.movimientos, k.hoy, "CLP");
       if (canon(d) !== canon(k.esperado.debes)) malos.push(`tres cifras «${k.nombre}»: lo que debes = ${canon(d)}`);
     }
+    // Préstamos entre personas.
+    const pr = c.prestamos;
+    for (const [t, n, i, m, esp] of pr.calcular) if (canon(P.calcularPrestamo(t, n, i, m)) !== canon(esp)) malos.push(`calcularPrestamo(${t}, ${n}, ${i}, ${m}) = ${canon(P.calcularPrestamo(t, n, i, m))}`);
+    if (canon(P.estadoCompromisos(pr.compromisos, pr.movimientos, pr.estado.mes, pr.estado.hoy, "CLP")) !== canon(pr.estado.esperado)) malos.push("préstamos: estado distinto");
+    if (canon(P.loQueDebes(pr.compromisos, pr.movimientos, pr.debes.hoy, "CLP")) !== canon(pr.debes.esperado)) malos.push(`préstamos: lo que debes = ${canon(P.loQueDebes(pr.compromisos, pr.movimientos, pr.debes.hoy, "CLP")).slice(0, 500)}`);
     // Montos aproximados y en UF.
     const ap = c.aproximados;
     for (const k of ap.estado) {
@@ -358,8 +370,9 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     if (filas.map((f) => f.id).join() !== "tienes,gastaste,debes") falla(`el resumen debe mostrar las tres cifras en orden ${donde}: ${filas.map((f) => f.id)}`);
     if (!filas[0].t.includes(t.tienes) || !filas[1].t.includes(t.gasto) || !filas[2].t.includes(t.debes)) falla(`las tres cifras con palabras simples ${donde}: ${filas.map((f) => f.t.slice(0, 40)).join(" | ")}`);
     if (!filas[0].t.replace(/\D/g, "").includes("1021090")) falla(`«Lo que tienes» suma los saldos (612.000 anotado + movimientos, y 84.300 que informa la billetera) ${donde}: ${filas[0].t}`);
-    // Incluye el seguro de salud en UF (≈ 72.900, estimado con su último pago), por eso va con «≈».
-    if (!filas[2].t.replace(/\D/g, "").includes("4974850") || !filas[2].t.includes("≈")) falla(`«Lo que debes» suma compromisos, tarjeta, cuotas y créditos ${donde}: ${filas[2].t}`);
+    // Incluye el seguro de salud en UF (≈ 72.900, estimado con su último pago), por eso va con «≈», y lo que queda del préstamo de
+    // la mamá (6 de 8 cuotas de 150.000). Lo que Matías le debe a Ana (200.000) va aparte y no se resta.
+    if (!filas[2].t.replace(/\D/g, "").includes("5874850") || !filas[2].t.includes("≈")) falla(`«Lo que debes» suma compromisos, tarjeta, cuotas y créditos ${donde}: ${filas[2].t}`);
     if (!(await texto(".aprendi")).includes(t.aprendi)) falla(`el resumen muestra lo que aprendió de los movimientos ${donde}`);
     await ancho("tres cifras");
     // «Lo que debes»: cuotas que quedan de la lavadora (3 de 61.000) y lo de la tarjeta desde el último pago.
@@ -463,6 +476,59 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
   }
 }
 console.log("  ✓ Aproximados y UF: rango en pesos, «aprox.» en el editor, Cuéntale con UF y el valor de la UF en Ajustes");
+
+// Préstamos entre personas, Cuéntale que nunca deja sin salida, «Te deben» aparte y agrupar (compromisos y movimientos por comercio).
+const TEXTOS_PR = {
+  español: { debes: "Le debes $1.800.000 a Tia", cuotas: "Son 12 cuotas de $150.000", grupo: "Créditos y préstamos", te: "te deben", agrupar: "movimiento" },
+  inglés: { debes: "You owe $1.800.000 to Tia", cuotas: "12 installments of $150.000", grupo: "Loans and credit", te: "owed to you", agrupar: "transaction" },
+};
+for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma=en"]]) {
+  for (const [modo, opciones] of [["escritorio", { viewport: { width: 1200, height: 820 } }], ["celular", { viewport: { width: 390, height: 844 }, colorScheme: "dark" }]]) {
+    const t = TEXTOS_PR[idioma], donde = `(${idioma}, ${modo})`;
+    const p = await navegador.newPage(opciones);
+    p.on("pageerror", (e) => falla(`error de JavaScript en préstamos ${donde}: ${e.message}`));
+    const ancho = async (paso) => { if (modo === "celular" && (await p.evaluate(() => document.documentElement.scrollWidth)) > 392) falla(`se sale de la pantalla en «${paso}» ${donde}`); };
+    const texto = (sel) => p.$eval(sel, (el) => el.textContent.replace(/\s+/g, " "));
+    await p.goto(BASE + "?" + consulta);
+    await p.waitForSelector(".app");
+    // Resumen: lo que te deben va aparte.
+    if (!(await texto('[data-cifra="debes"]')).includes(t.te)) falla(`«Lo que debes» dice aparte lo que te deben ${donde}`);
+    await p.click('[data-cifra="debes"]');
+    if (!(await texto("#desglose")).replace(/\D/g, "").includes("200000")) falla(`el desglose trae lo que te deben (200.000) ${donde}`);
+    // Cuéntale: un préstamo con el monto en palabras; la tarjeta muestra el cálculo en vivo.
+    await p.click('.nav [data-vista="compromisos"]');
+    await p.fill("#comp-texto", "mi tia me prestó 1,8 millones en 12 meses");
+    await p.click('[data-accion="comp-entender"]');
+    await p.waitForSelector("#editor-comp #ce-con");
+    const ed = await p.evaluate(() => ({ tipo: document.querySelector("#ce-tipo").value, con: document.querySelector("#ce-con").value }));
+    if (ed.tipo !== "prestamo" || ed.con !== "Tia") falla(`Cuéntale entiende el préstamo ${donde}: ${JSON.stringify(ed)}`);
+    if (!(await texto(".calculo-vivo")).includes(t.cuotas)) falla(`el cálculo en vivo del préstamo ${donde}: ${await texto(".calculo-vivo")}`);
+    await ancho("editor de préstamo");
+    await p.click('[data-accion="comp-guardar"]');
+    await p.waitForFunction(() => !document.querySelector("#editor-comp"));
+    if (!(await texto(".contenido")).includes(t.debes)) falla(`«Lo que estás pagando» dice cuánto le debes y a quién ${donde}`);
+    if (!(await p.$$eval("h3.grupo.con-total", (l) => l.map((x) => x.textContent))).some((x) => x.includes(t.grupo))) falla(`compromisos agrupados con subtotal ${donde}`);
+    await ancho("préstamo guardado");
+    // Nunca sin salida: sin monto, igual se abre la tarjeta con lo que se entendió y el error en simple.
+    await p.fill("#comp-texto", "el gimnasio los 3");
+    await p.click('[data-accion="comp-entender"]');
+    await p.waitForSelector("#editor-comp .error-txt");
+    if (!(await p.$eval("#ce-nombre", (el) => el.value)).toLowerCase().includes("gimnasio")) falla(`la tarjeta trae lo que sí se entendió ${donde}`);
+    await p.click('[data-accion="comp-cancelar"]');
+    // Movimientos agrupados por comercio, con total y cantidad, que se despliegan.
+    await p.click('.nav [data-vista="movimientos"]');
+    const filas = await p.$$eval(".mov", (l) => l.length);
+    await p.click('[data-accion="agrupar-mov"]');
+    const grupos = await p.$$eval(".grupo-mov", (l) => l.length);
+    if (!grupos || grupos >= filas) falla(`agrupar por comercio junta movimientos (${filas} → ${grupos}) ${donde}`);
+    if (!(await texto(".grupo-mov")).includes(t.agrupar)) falla(`cada grupo dice cuántos movimientos tiene ${donde}`);
+    await p.click(".grupo-mov");
+    if (!(await p.$(".grupo-mov-lista .mov"))) falla(`un grupo se despliega ${donde}`);
+    await ancho("movimientos agrupados");
+    await p.close();
+  }
+}
+console.log("  ✓ Préstamos: Cuéntale con montos en palabras, cálculo en vivo, «Te deben» aparte, nunca sin salida y agrupar");
 
 // Contraste del botón principal en modo claro y oscuro (WCAG AA: 4.5).
 for (const esquema of ["light", "dark"]) {

@@ -335,6 +335,7 @@
   function coincide(m, c, moneda, uf = null) {
     const monto = m.monto;
     if (monto === 0 || (monto < 0) !== (c.signo === "gasto")) return false;
+    if (m.categoria === "transferencia" && c.tipo !== "transferencia") return false; // entre tus propias cuentas: nunca es el pago de un compromiso
     const palabras = (c.buscar || []).map(normalizar).filter(Boolean), a = Math.abs(monto);
     if (c.moneda === UF) {
       if ((m.moneda || moneda) !== moneda || (!palabras.length && !uf)) return false;
@@ -409,6 +410,12 @@
     return { monto: redondear3(c.monto * ref.valor), moneda, rango: { min: redondear3(lo, -1), max: redondear3(hi, 1) },
       original: { monto: c.monto, moneda: UF, sin_valor: false, valor_uf: Math.round(ref.valor * 100) / 100, fecha_uf: ref.fecha, fuente: ref.fuente } };
   }
+  /** Un préstamo entre personas (igual que compromisos.calcular_prestamo): total con interés simple, cuota y la última que ajusta. */
+  function calcularPrestamo(total, cuotas, interes = 0, moneda = "CLP") {
+    const escala = moneda === UF ? 10000 : 1, pagar = Math.floor(total * (1 + interes / 100) * escala + 0.5);
+    const cuota = Math.floor(pagar / cuotas), ultima = pagar - cuota * (cuotas - 1), a = (x) => x / escala;
+    return { total, interes, pagar: a(pagar), cuota: a(cuota), ultima: a(ultima) };
+  }
   const maximoDe = (x) => (x.rango ? x.rango.max : x.monto), minimoDe = (x) => (x.rango ? x.rango.min : x.monto);
   /** Estado de cada compromiso en el mes (igual que compromisos.estado_mes en Python). */
   function estadoCompromisos(compromisos, movimientos, mes, hoy, moneda, per = null, uf = null) {
@@ -427,7 +434,9 @@
       const estado = p ? "pagado" : d > 0 ? "pendiente" : d === 0 ? "hoy" : "atrasado";
       if (!enMes && estado !== "atrasado") continue;
       const cuota = c.cuotas_total && o.n ? { numero: (c.cuotas_pagadas || 0) + o.n, total: c.cuotas_total } : null;
-      items.push({ id: c.id, nombre: c.nombre, tipo: c.tipo, signo: c.signo, ...enMoneda(c, o.vence, valores, moneda, ufMes), categoria: c.categoria,
+      const en = enMoneda(c, o.vence, valores, moneda, ufMes);
+      if (c.prestamo && cuota && cuota.numero === c.cuotas_total && c.moneda !== UF) en.monto = c.prestamo.ultima; // la última cuota ajusta el redondeo
+      items.push({ id: c.id, nombre: c.nombre, tipo: c.tipo, signo: c.signo, ...en, categoria: c.categoria,
         periodo: o.periodo, vence: o.vence, estado, dias: p ? 0 : Math.abs(d), pago: p || null, cuota, anterior: !enMes });
     }
     items.sort((a, b) => (a.vence !== b.vence ? (a.vence < b.vence ? -1 : 1) : a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
@@ -439,7 +448,7 @@
       const factor = c.moneda === UF && !en.original.sin_valor ? en.monto / c.monto : 1;
       const r = { id: c.id, nombre: c.nombre, tipo: c.tipo, signo: c.signo, ...en, frecuencia: c.frecuencia,
         categoria: c.categoria, mensual: mensualDe(c, en.monto), cuotas: null, saldo,
-        por_pagar: saldo != null ? (factor !== 1 ? Math.round(saldo * factor) : saldo) : null, termina: c.fecha_fin ?? null };
+        por_pagar: saldo != null ? (factor !== 1 ? Math.round(saldo * factor) : saldo) : null, termina: c.fecha_fin ?? null, con: c.con ?? null };
       if (c.cuotas_total) {
         const pagadas = (c.cuotas_pagadas || 0) + ocs.filter(([cc, o]) => cc === c && o.n && pagos[`${c.id}|${o.periodo}`]).length;
         const quedan = Math.max(0, c.cuotas_total - pagadas);
@@ -447,7 +456,10 @@
         const ultima = [...todas].reverse().find((o) => o.n)?.vence ?? null;
         r.cuotas = { pagadas: Math.min(pagadas, c.cuotas_total), total: c.cuotas_total, quedan };
         r.termina = ultima && c.fecha_fin ? (ultima < c.fecha_fin ? ultima : c.fecha_fin) : ultima || c.fecha_fin || null;
-        if (r.por_pagar == null) r.por_pagar = en.moneda !== UF ? Math.round(quedan * en.monto) : Math.round(quedan * en.monto * 10000) / 10000;
+        if (r.por_pagar == null) {
+          r.por_pagar = en.moneda !== UF ? Math.round(quedan * en.monto) : Math.round(quedan * en.monto * 10000) / 10000;
+          if (c.prestamo && quedan && en.moneda !== UF) r.por_pagar += c.prestamo.ultima - c.monto;
+        }
       }
       return r;
     });
@@ -542,7 +554,7 @@
   function loQueDebes(compromisos, movimientos, hoy, moneda, per = null, uf = null) {
     const mes = periodoDe(hoy, per), [, fin] = rango(mes, per);
     const e = estadoCompromisos(compromisos, movimientos, mes, hoy, moneda, per, uf);
-    const conSaldo = new Map(e.compromisos.filter((c) => c.signo === "gasto" && c.tipo === "deuda" && c.moneda === moneda && c.por_pagar).map((c) => [c.id, c]));
+    const conSaldo = new Map(e.compromisos.filter((c) => c.signo === "gasto" && (c.tipo === "deuda" || c.tipo === "prestamo") && c.moneda === moneda && c.por_pagar).map((c) => [c.id, c]));
     const pendientes = e.items.filter((i) => i.signo === "gasto" && i.moneda === moneda && i.estado !== "pagado")
       .sort((a, b) => ORDEN_ESTADO[a.estado] - ORDEN_ESTADO[b.estado] || cmp(a.vence, b.vence) || cmp(a.id, b.id));
     const partes = [];
@@ -564,13 +576,18 @@
       const mias = pendientes.filter((i) => i.id === c.id);
       const extra = mias.reduce((a, i) => a + maximoDe(i) - i.monto, 0);
       partes.push({ tipo: "deuda", nombre: c.nombre, monto: Math.round(c.por_pagar), este_mes: Math.round(mias.reduce((a, i) => a + i.monto, 0)),
-        max: c.rango ? Math.round(c.por_pagar * c.rango.max / c.monto) : Math.round(c.por_pagar + extra), original: c.original, cuotas: c.cuotas, categoria: c.categoria, termina: c.termina,
+        max: c.rango ? Math.round(c.por_pagar * c.rango.max / c.monto) : Math.round(c.por_pagar + extra), original: c.original, con: c.con, cuotas: c.cuotas, categoria: c.categoria, termina: c.termina,
         pendientes: mias.map((i) => ({ estado: i.estado, vence: i.vence, dias: i.dias, monto: Math.round(i.monto), clave: `${i.id}|${i.periodo}` })) });
     }
     partes.push(...cuotas.sort((a, b) => b.monto - a.monto || cmp(a.nombre, b.nombre)));
     const esteMesMax = partes.filter((p) => p.tipo !== "deuda").reduce((a, p) => a + (p.tipo === "compromiso" ? p.max : p.este_mes), 0)
       + pendientes.filter((i) => conSaldo.has(i.id)).reduce((a, i) => a + maximoDe(i), 0);
-    return { mes, moneda, total: Math.round(partes.reduce((a, p) => a + p.monto, 0)), este_mes: Math.round(partes.reduce((a, p) => a + p.este_mes, 0)),
+    // Te deben: préstamos que hiciste tú. Van aparte y nunca se restan de lo que debes.
+    const teDeben = e.compromisos.filter((c) => c.tipo === "prestamo" && c.signo === "ingreso" && c.moneda === moneda && c.por_pagar).sort((a, b) => cmp(a.id, b.id))
+      .map((c) => ({ nombre: c.nombre, con: c.con, monto: Math.round(c.por_pagar), este_mes: Math.round(e.items.filter((i) => i.id === c.id && i.estado !== "pagado").reduce((a, i) => a + i.monto, 0)),
+        cuotas: c.cuotas, termina: c.termina }));
+    return { mes, moneda, total: Math.round(partes.reduce((a, p) => a + p.monto, 0)), te_deben: teDeben, te_deben_total: Math.round(teDeben.reduce((a, t) => a + t.monto, 0)),
+      este_mes: Math.round(partes.reduce((a, p) => a + p.este_mes, 0)),
       total_max: Math.round(partes.reduce((a, p) => a + p.max, 0)), este_mes_max: Math.round(esteMesMax), aprox: partes.some((p) => p.max !== p.monto),
       ultimo_pago_tarjeta: ultimo, partes };
   }
@@ -848,8 +865,9 @@
     const subGasto = r.presupuesto ? frase("de {x} de presupuesto", { x: esc(dinero(r.presupuesto)) })
       : enCurso ? frase("En {m}, hasta hoy", { m: esc(nombreMes(E.mes)) }) : frase("En {m}", { m: esc(nombreMes(E.mes)) });
     const atrasados = d.partes.filter((p) => p.estado === "atrasado").length;
+    const teDeben = d.te_deben_total ? ` <span class="te-deben-txt">${frase("· te deben {x}", { x: esc(dinero(d.te_deben_total)) })}</span>` : "";
     const subDebes = !d.total ? frase("Nada pendiente", {})
-      : frase("Este mes: {x}", { x: (d.aprox ? "≈ " : "") + esc(dinero(d.este_mes)) }) + (atrasados ? ` <span class="rojo-txt">${frase(atrasados === 1 ? "· 1 atrasado" : "· {n} atrasados", { n: atrasados })}</span>` : "");
+      : frase("Este mes: {x}", { x: (d.aprox ? "≈ " : "") + esc(dinero(d.este_mes)) }) + teDeben + (atrasados ? ` <span class="rojo-txt">${frase(atrasados === 1 ? "· 1 atrasado" : "· {n} atrasados", { n: atrasados })}</span>` : "");
     const tres = `<section class="tres" aria-label="Tus tres números">
       ${filaCifra("tienes", "Lo que tienes", numTienes, subTienes)}
       ${filaCifra("gastaste", enCurso ? "Lo que llevas gastado" : "Lo que gastaste", cifraGrande(r.gastado, moneda), subGasto)}
@@ -907,7 +925,18 @@
       ${r.otras_monedas ? `<p class="nota-mcp">${frase("{n} movimientos en otra moneda no entran en estas cuentas.", { n: r.otras_monedas })}</p>` : ""}`;
   }
 
+  /** «Te deben»: préstamos que hiciste tú. Línea aparte: nunca se resta de lo que debes. */
+  function teDebenHTML(d) {
+    if (!d.te_deben || !d.te_deben.length) return "";
+    return `<h3 class="grupo">Te deben</h3>${d.te_deben.map((t) => `<div class="debe-fila"><span class="emoji" aria-hidden="true">🤝</span>
+      <div class="txt"><b data-sin-traducir>${esc(t.nombre)}</b><small data-sin-traducir>${[t.cuotas ? T(t.cuotas.quedan === 1 ? "le queda 1 cuota" : "le quedan {q} de {t} cuotas", { q: t.cuotas.quedan, t: t.cuotas.total }) : "",
+        t.este_mes ? T("este mes {x}", { x: esc(dinero(t.este_mes)) }) : ""].filter(Boolean).join(" · ")}</small></div>
+      <span class="valor ingreso" data-sin-traducir>${esc(dinero(t.monto))}</span></div>`).join("")}
+      <div class="total-pres sub"><span>Te deben en total</span><span class="ingreso" data-sin-traducir>${esc(dinero(d.te_deben_total))}</span></div>
+      <p class="nota-mcp">Lo que te deben va aparte: no se resta de lo que debes.</p>`;
+  }
   function desgloseDebes(d) {
+    if (!d.partes.length && d.te_deben && d.te_deben.length) return `<h2 class="desglose-titulo">Lo que debes</h2><p class="nada-debes">🎉 <span>No debes nada por ahora.</span></p>${teDebenHTML(d)}`;
     if (!d.partes.length) {
       return `<h2 class="desglose-titulo">Lo que debes</h2><p class="nada-debes">🎉 <span>No debes nada por ahora.</span></p>
         <p class="texto-suave">${listaCompromisos().length ? tr("Cuando algo de tus compromisos esté por vencer, aparece aquí.") : tr("Anota tus créditos, cuentas y suscripciones en Compromisos y aquí ves lo que te falta pagar.")}</p>`;
@@ -935,6 +964,7 @@
       <div class="total-pres"><span>Este mes</span><span data-sin-traducir>${d.aprox ? "≈ " : ""}${esc(dinero(d.este_mes))}</span></div>
       <div class="total-pres sub"><span>En total</span><span data-sin-traducir>${d.aprox ? "≈ " : ""}${esc(dinero(d.total))}</span></div>
       ${d.aprox ? `<p class="nota-mcp">${frase("Hay montos aproximados o en UF: podría llegar a {x} este mes.", { x: esc(dinero(d.este_mes_max)) })}</p>` : ""}
+      ${teDebenHTML(d)}
       <p class="nota-mcp"><button class="enlace" data-vista="compromisos">Ver y editar tus compromisos</button></p>`;
   }
 
@@ -1172,7 +1202,24 @@
       .sort((a, b) => b.fecha.localeCompare(a.fecha) || a.descripcion.localeCompare(b.descripcion));
     const cuentas = Object.fromEntries(E.cuentas.map((c) => [c.id, c.nombre]));
     let html = "", dia = "";
-    for (const m of lista) {
+    if (E.agruparMov) {
+      // Agrupado por comercio (lo estable de la descripción, igual que categorizar.regla_para): total y cantidad; se despliega.
+      const grupos = new Map();
+      for (const m of lista) {
+        const k = reglaPara(m.descripcion) || normalizar(m.descripcion).slice(0, 30) || "—";
+        if (!grupos.has(k)) grupos.set(k, []);
+        grupos.get(k).push(m);
+      }
+      const total = (l) => l.reduce((a, m) => a + (m.moneda && m.moneda !== monedaPrincipal() ? 0 : m.monto), 0);
+      html = [...grupos.entries()].sort((a, b) => Math.abs(total(b[1])) - Math.abs(total(a[1])) || cmp(a[0], b[0])).map(([k, l]) => {
+        const abierto = E.grupoMov === k, t = total(l), nombre = k.charAt(0) + k.slice(1).toLowerCase();
+        return `<button type="button" class="grupo-mov" data-grupo-mov="${esc(k)}" aria-expanded="${abierto}"><span class="emoji" aria-hidden="true">${cat(l[0].categoria).emoji}</span>
+          <span class="txt"><b data-sin-traducir>${esc(nombre)}</b><small data-sin-traducir>${T(l.length === 1 ? "1 movimiento" : "{n} movimientos", { n: l.length })}</small></span>
+          <span class="valor ${t > 0 ? "ingreso" : ""}" data-sin-traducir>${esc(dinero(t, monedaPrincipal(), true))}</span><span class="cf-flecha" aria-hidden="true">›</span></button>
+          ${abierto ? `<div class="grupo-mov-lista">${l.map((m) => filaMov(m, cuentas)).join("")}</div>` : ""}`;
+      }).join("");
+    }
+    for (const m of E.agruparMov ? [] : lista) {
       if (m.fecha !== dia) {
         dia = m.fecha;
         const total = lista.filter((x) => x.fecha === dia && x.monto < 0 && cat(x.categoria).tipo !== "neutro").reduce((a, x) => a + x.monto, 0);
@@ -1184,10 +1231,11 @@
     const hist = c && c.id ? `<section class="tarjeta"><div class="tarjeta-cabeza">${frase("Últimos 6 meses de {c}", { c: esc(nombreCat(c)) }, "h2")}</div>
       ${bloqueHistoria(historia(E.movimientos, E.mes, E.hoy, E.presupuesto, E.categorias, c.id, 6, per()), T("Gasto en {c} de los últimos 6 meses", { c: esc(nombreCat(c)) }), true)}</section>` : "";
     return `<div class="contenido"><div class="encabezado"><h1>Movimientos</h1>${selectorMes()}</div>
-      <div class="filtros"><input id="buscar" class="texto" type="search" placeholder="Buscar" value="${esc(f.texto)}" data-filtro="texto" aria-label="Buscar" data-sin-traducir>
+      <div class="filtros"><input id="buscar" class="texto" type="search" placeholder="${esc(tr("Buscar"))}" value="${esc(f.texto)}" data-filtro="texto" aria-label="${esc(tr("Buscar"))}" data-sin-traducir>
         <select data-filtro="categoria" aria-label="${esc(tr("Filtrar por categoría"))}" data-sin-traducir><option value="">${esc(tr("Todas las categorías"))}</option>
           <option value="__sin" ${f.categoria === "__sin" ? "selected" : ""}>🏷️ ${esc(tr("Sin categoría"))}</option>
           ${E.categorias.map((c) => `<option value="${esc(c.id)}" ${f.categoria === c.id ? "selected" : ""} data-sin-traducir>${c.emoji} ${esc(c.nombre)}</option>`).join("")}</select>
+        <button class="boton ${E.agruparMov ? "activo" : ""}" data-accion="agrupar-mov" aria-pressed="${!!E.agruparMov}">Agrupar por comercio</button>
         ${f.categoria === "__sin" && lista.length ? `<button class="boton" data-vista="ordenar">Ordenar uno a uno</button>` : ""}</div>
       ${hist}
       ${html || `<div class="vacio" style="padding:40px 20px"><p>${f.texto || f.categoria ? "Nada calza con ese filtro." : "No hay movimientos este mes."}</p>
@@ -1260,14 +1308,19 @@
   }
 
   // ───────────── Compromisos: lo que se paga o se recibe seguido ─────────────
-  const TIPOS_COMP = [["deuda", "Deuda o crédito", "🏦"], ["cuenta", "Cuenta o servicio", "🧾"], ["suscripcion", "Suscripción", "📺"],
+  const TIPOS_COMP = [["deuda", "Deuda o crédito", "🏦"], ["prestamo", "Préstamo personal", "🤝"], ["cuenta", "Cuenta o servicio", "🧾"], ["suscripcion", "Suscripción", "📺"],
     ["transferencia", "Transferencia frecuente", "🔁"], ["ingreso", "Ingreso", "💼"], ["otro", "Otro", "📌"]];
+  /** Los grupos de «Lo que estás pagando» y de las sugerencias: por tipo, con los préstamos que te deben junto a los ingresos. */
+  const GRUPOS_COMP = [["creditos", "Créditos y préstamos"], ["cuentas", "Cuentas y servicios"], ["suscripciones", "Suscripciones"],
+    ["transferencias", "Transferencias frecuentes"], ["otros", "Otros"], ["ingresos", "Ingresos y lo que te deben"]];
+  const grupoDe = (c) => (c.signo === "ingreso" || c.tipo === "ingreso" ? "ingresos" : c.tipo === "deuda" || c.tipo === "prestamo" ? "creditos"
+    : c.tipo === "cuenta" ? "cuentas" : c.tipo === "suscripcion" ? "suscripciones" : c.tipo === "transferencia" ? "transferencias" : "otros");
   const FRECUENCIAS = [["mensual", "Cada mes"], ["semanal", "Cada semana"], ["anual", "Cada año"], ["una_vez", "Una sola vez"]];
   const DIAS_SEMANA = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
   const monedaPrincipal = () => E.presupuesto.moneda || E.config.moneda || "CLP";
   const listaCompromisos = () => (E.compromisos && E.compromisos.compromisos) || [];
   const estadoDelMes = (mes = E.mes) => estadoCompromisos(listaCompromisos(), E.movimientos, mes, E.hoy, monedaPrincipal(), per(), ufCfg());
-  const iconoComp = (c) => (c.categoria && cat(c.categoria).id ? cat(c.categoria).emoji : (TIPOS_COMP.find((t) => t[0] === c.tipo) || TIPOS_COMP[5])[2]);
+  const iconoComp = (c) => (c.categoria && cat(c.categoria).id ? cat(c.categoria).emoji : (TIPOS_COMP.find((t) => t[0] === c.tipo) || TIPOS_COMP[TIPOS_COMP.length - 1])[2]);
   function fechaCorta(f) {
     const [a, m, d] = f.split("-").map(Number);
     return new Date(a, m - 1, d).toLocaleDateString(locFechas(), { day: "numeric", month: "short" });
@@ -1355,8 +1408,6 @@
   /** «Lo que estás pagando»: todo junto, con el avance de las deudas y el total mensual comprometido. */
   function seccionLoQuePagas(e) {
     const porId = Object.fromEntries(listaCompromisos().map((c) => [c.id, c]));
-    const grupos = [["deuda", "Deudas y créditos"], ["cuenta", "Cuentas y servicios"], ["suscripcion", "Suscripciones"],
-      ["transferencia", "Transferencias frecuentes"], ["otro", "Otros"], ["ingreso", "Ingresos"]];
     const moneda = monedaPrincipal();
     const total = e.compromisos.filter((c) => c.signo === "gasto" && c.moneda === moneda).reduce((a, c) => a + c.mensual, 0);
     const totalAprox = e.compromisos.some((c) => c.signo === "gasto" && c.moneda === moneda && c.rango);
@@ -1364,7 +1415,14 @@
     const fila = (r) => {
       const c = porId[r.id] || r;
       let extra = "";
-      if (r.cuotas) {
+      if (r.cuotas && r.tipo === "prestamo") {
+        const pct = r.cuotas.total ? Math.round(r.cuotas.pagadas / r.cuotas.total * 100) : 0, debe = r.signo !== "ingreso";
+        const x = esc(dinero(r.por_pagar || 0, r.moneda)), p = esc(r.con || ""), cu = esc(dinero(r.monto, r.moneda));
+        const linea = r.cuotas.quedan === 0 ? T(debe ? "¡Le pagaste todo a {p}!" : "¡{p} te pagó todo!", { p })
+          : [T(debe ? "Le debes {x} a {p}" : "{p} te debe {x}", { x, p }), T(debe ? "te quedan {q} de {t} cuotas de {c}" : "le quedan {q} de {t} cuotas de {c}", { q: r.cuotas.quedan, t: r.cuotas.total, c: cu }),
+            r.termina ? T(debe ? "terminas en {m}" : "termina en {m}", { m: esc(mesLargo(r.termina)) }) : ""].filter(Boolean).join(" · ");
+        extra = `<div class="avance-deuda"><div class="barra" role="img" data-sin-traducir aria-label="${T("{p}% pagado", { p: pct })}"><i style="width:${pct}%"></i></div><small data-sin-traducir>${linea}</small></div>`;
+      } else if (r.cuotas) {
         const pct = r.cuotas.total ? Math.round(r.cuotas.pagadas / r.cuotas.total * 100) : 0;
         const linea = r.cuotas.quedan === 0 ? T("¡Pagaste las {t} cuotas!", { t: r.cuotas.total })
           : T("Te quedan {q} de {t} cuotas", { q: r.cuotas.quedan, t: r.cuotas.total }) + (r.termina ? " · " + T("termina en {m}", { m: esc(mesLargo(r.termina)) }) : "");
@@ -1378,9 +1436,11 @@
         <button class="icono" data-comp-editar="${esc(r.id)}" data-sin-traducir title="${esc(tr("Editar"))}" aria-label="${T("Editar {c}", { c: esc(r.nombre) })}">✎</button></div>`;
     };
     const pausados = listaCompromisos().filter((c) => c.activo === false);
-    const bloques = grupos.map(([tipo, titulo]) => {
-      const l = e.compromisos.filter((c) => c.tipo === tipo);
-      return l.length ? `<h3 class="grupo">${titulo}</h3>${l.map(fila).join("")}` : "";
+    const bloques = GRUPOS_COMP.map(([g, titulo]) => {
+      const l = e.compromisos.filter((c) => grupoDe(c) === g);
+      if (!l.length) return "";
+      const mios = l.filter((c) => c.moneda === moneda), sub = mios.reduce((a, c) => a + c.mensual, 0);
+      return `<h3 class="grupo con-total"><span>${titulo}</span>${sub ? `<span class="sub" data-sin-traducir>${T("{x} al mes", { x: (mios.some((c) => c.rango) ? "≈ " : "") + esc(dinero(sub)) })}</span>` : ""}</h3>${l.map(fila).join("")}`;
     }).join("");
     return `<h2 class="subtitulo">Lo que estás pagando</h2><section class="tarjeta">${bloques}
       ${pausados.length ? `<h3 class="grupo">En pausa</h3>${pausados.map((c) => fila({ ...c, mensual: 0, cuotas: null })).join("")}` : ""}
@@ -1398,9 +1458,9 @@
     if (!lista.length) return "";
     const ver = E.sugTodas ? lista : lista.slice(0, 3);
     return `<h2 class="subtitulo">Parece que pagas esto seguido</h2><section class="tarjeta">
-      ${ver.map((s) => `<div class="sugerencia"><span class="emoji" aria-hidden="true">${iconoComp(s)}</span><div class="txt">${textoSugerencia(s)}
+      ${GRUPOS_COMP.map(([g, titulo]) => [titulo, ver.filter((s) => grupoDe(s) === g)]).filter(([, l]) => l.length).map(([titulo, l]) => `<h3 class="grupo">${titulo}</h3>` + l.map((s) => `<div class="sugerencia"><span class="emoji" aria-hidden="true">${iconoComp(s)}</span><div class="txt">${textoSugerencia(s)}
         ${s.cuotas_total ? `<small data-sin-traducir>${T("Según tu cartola vas en la cuota {n} de {t}.", { n: s.cuotas_pagadas, t: s.cuotas_total })}</small>` : ""}</div>
-        <div class="acciones"><button class="boton sutil" data-sug-no="${esc(s.clave)}">No es</button><button class="boton principal" data-sug-agregar="${esc(s.clave)}">¿Lo agrego?</button></div></div>`).join("")}
+        <div class="acciones"><button class="boton sutil" data-sug-no="${esc(s.clave)}">No es</button><button class="boton principal" data-sug-agregar="${esc(s.clave)}">¿Lo agrego?</button></div></div>`).join("")).join("")}
       ${lista.length > 3 ? `<button class="enlace" data-accion="sug-todas">${E.sugTodas ? "Ver menos" : frase("Ver {n} más", { n: lista.length - 3 })}</button>` : ""}</section>`;
   }
   /** El cuadro «Cuéntale a Alcancía»: con tu IA lo escribes con tus palabras; sin IA, el formulario a mano. */
@@ -1427,7 +1487,8 @@
     return { nombre: "", tipo: "cuenta", monto: 0, moneda: monedaPrincipal(), frecuencia: "mensual", dia: Number(E.hoy.slice(8, 10)) || 1,
       fecha: E.hoy, categoria: "", buscar: [], tolerancia: 5, activo: true, desde: E.hoy, origen: "manual", ...c,
       buscarTexto: (c.buscar || []).join(", "), aproxActivo: !!c.aproximado, aproxModo: c.aproximado && c.aproximado.min != null ? "rango" : "variacion",
-      aproxVariacion: (c.aproximado && c.aproximado.variacion) || 3, aproxMin: c.aproximado ? c.aproximado.min || 0 : 0, aproxMax: c.aproximado ? c.aproximado.max || 0 : 0 };
+      aproxVariacion: (c.aproximado && c.aproximado.variacion) || 3, aproxMin: c.aproximado ? c.aproximado.min || 0 : 0, aproxMax: c.aproximado ? c.aproximado.max || 0 : 0,
+      con: c.con || "", prestamoTotal: c.prestamo ? c.prestamo.total : 0, prestamoInteres: c.prestamo ? c.prestamo.interes || 0 : 0 };
   }
   const DECIMALES_UF = ["monto", "saldo", "aproxMin", "aproxMax"];
   /** En UF, el monto, el saldo y el rango llevan decimales («12,75»); el resto, números enteros. */
@@ -1451,8 +1512,8 @@
       <div class="campos-comp">
         <label class="campo ancho"><span>Nombre</span><input class="texto" id="ce-nombre" maxlength="60" data-ce="nombre" value="${esc(c.nombre)}" data-sin-traducir></label>
         <div class="dos"><label class="campo"><span>Tipo</span><select id="ce-tipo" data-ce="tipo" data-sin-traducir>${opc(TIPOS_COMP, c.tipo)}</select></label>
-          <div class="monto-moneda">${campoNum("monto", c.monto, c.moneda === UF ? tr("Monto en UF") : tr("Monto"))}<label class="campo"><span>Moneda</span><select id="ce-moneda" data-ce="moneda" data-sin-traducir>${[MONEDAS[0], UF, ...MONEDAS.slice(1)].concat(MONEDAS.includes(c.moneda) || c.moneda === UF ? [] : [c.moneda]).filter(Boolean).map((m) => `<option ${m === c.moneda ? "selected" : ""}>${esc(m)}</option>`).join("")}</select></label></div></div>
-        ${preguntaUF(k)}${estimacionUF(c)}${camposAprox(c)}
+          ${c.tipo === "prestamo" ? selMoneda(c) : `<div class="monto-moneda">${campoNum("monto", c.monto, c.moneda === UF ? tr("Monto en UF") : tr("Monto"))}${selMoneda(c)}</div>`}</div>
+        ${c.tipo === "prestamo" ? camposPrestamo(c) : `${preguntaUF(k)}${estimacionUF(c)}${camposAprox(c)}`}
         <div class="dos"><label class="campo"><span>Se repite</span><select id="ce-frecuencia" data-ce="frecuencia" data-sin-traducir>${opc(FRECUENCIAS, c.frecuencia)}</select></label>${cuando}</div>
         <div class="dos"><label class="campo"><span>Categoría</span><select id="ce-categoria" data-ce="categoria" data-sin-traducir>${opcionesCategoria(c.categoria)}</select></label>
           <label class="campo"><span>Palabras para reconocerlo</span><input class="texto" id="ce-buscar" data-ce="buscarTexto" value="${esc(c.buscarTexto)}" placeholder="${esc(tr("p. ej. DIVIDENDO"))}" data-sin-traducir></label></div>
@@ -1466,12 +1527,39 @@
         ${c.tipo === "deuda" && !existe ? `<button class="boton" data-accion="comp-despues">Lo completo después</button>` : ""}
         <button class="boton principal" data-accion="comp-guardar">Guardar</button></div>`;
   }
+  const selMoneda = (c) => `<label class="campo"><span>Moneda</span><select id="ce-moneda" data-ce="moneda" data-sin-traducir>${[MONEDAS[0], UF, ...MONEDAS.slice(1)].concat(MONEDAS.includes(c.moneda) || c.moneda === UF ? [] : [c.moneda]).filter(Boolean).map((m) => `<option ${m === c.moneda ? "selected" : ""}>${esc(m)}</option>`).join("")}</select></label>`;
+  /** Lo que se calcula de un préstamo mientras se escribe: la cuota, la primera fecha y cuándo termina. */
+  function calculoPrestamo(c) {
+    const total = Number(c.prestamoTotal) || 0, n = Number(c.cuotas_total) || 0, interes = Number(c.prestamoInteres) || 0;
+    if (!(total > 0 && n >= 1 && n <= 1200 && interes >= 0 && interes <= 100)) return null;
+    const calc = calcularPrestamo(total, n, interes, c.moneda);
+    const borr = { ...c, monto: calc.cuota, desde: c.desde || E.hoy, fecha_fin: null, cuotas_total: n, cuotas_pagadas: Math.min(Number(c.cuotas_pagadas) || 0, n), dia: Number(c.dia) || 25 };
+    const vs = c.frecuencia === "una_vez" ? [] : vencimientos(borr, "2299-12-31").filter((o) => o.n);
+    return { ...calc, cuotas: n, primera: vs[0] ? vs[0].vence : null, ultimaFecha: vs.length ? vs[vs.length - 1].vence : null };
+  }
+  /** Préstamo entre personas: con quién, quién le prestó a quién, el total y en cuántas cuotas; el cálculo se ve en vivo. */
+  function camposPrestamo(c) {
+    const k = calculoPrestamo(c), m = c.moneda, d = (x) => esc(m === UF ? textoUF(x) : dinero(x, m));
+    let vivo = "";
+    if (k) {
+      vivo = T(k.ultima !== k.cuota ? "Son {n} cuotas de {c} (la última de {u})." : "Son {n} cuotas de {c}.", { n: k.cuotas, c: d(k.cuota), u: d(k.ultima) });
+      if (k.interes) vivo += " " + T("En total se paga {t}.", { t: d(k.pagar) });
+      if (k.primera) vivo += " " + T(c.signo === "ingreso" ? "La primera el {f} y termina en {m}." : "La primera el {f} y terminas en {m}.", { f: esc(fechaCorta(k.primera)), m: esc(mesLargo(k.ultimaFecha)) });
+    }
+    return `<div class="dos"><label class="campo"><span>¿Con quién?</span><input class="texto" id="ce-con" maxlength="30" data-ce="con" value="${esc(c.con)}" placeholder="${esc(tr("p. ej. Mamá"))}" data-sin-traducir></label>
+        <label class="campo"><span>¿Quién le prestó a quién?</span><select id="ce-signo" data-ce="signo" data-sin-traducir>
+          <option value="gasto" ${c.signo !== "ingreso" ? "selected" : ""}>${esc(tr("Me prestó a mí (le debo)"))}</option><option value="ingreso" ${c.signo === "ingreso" ? "selected" : ""}>${esc(tr("Yo le presté (me debe)"))}</option></select></label></div>
+      <div class="dos">${campoNum("prestamoTotal", c.prestamoTotal, tr("Total del préstamo"))}${campoNum("cuotas_total", c.cuotas_total, tr("¿En cuántas cuotas?"))}</div>
+      <div class="dos"><label class="campo"><span>Interés (opcional, % sobre el total)</span><input class="texto" id="ce-prestamoInteres" inputmode="decimal" data-ce="prestamoInteres" value="${esc(formatoDecimal(c.prestamoInteres))}" placeholder="0" data-sin-traducir></label>
+        ${campoNum("cuotas_pagadas", c.cuotas_pagadas, tr("Cuotas ya pagadas"))}</div>
+      ${vivo ? `<p class="calculo-vivo" role="status" data-sin-traducir>${vivo}</p>` : `<p class="pista-campo">Escribe el total y en cuántas cuotas: yo calculo la cuota y cuándo terminas.</p>`}`;
+  }
   /** «El monto varía (aprox.)»: más o menos un porcentaje, o entre un mínimo y un máximo. */
   function camposAprox(c) {
     const enUF = c.moneda === UF;
     return `<label class="marcar"><input type="checkbox" data-ce-aprox ${c.aproxActivo ? "checked" : ""}><span>El monto varía (aprox.)<small>${enUF
       ? "En UF ya te muestro un rango en pesos; márcalo si además el monto en UF cambia." : "Para cuentas que cambian un poco cada mes: te muestro un rango y lo reconozco aunque no sea exacto."}</small></span></label>
-      ${c.aproxActivo && !String(c.buscarTexto || "").trim() && c.moneda !== UF ? `<p class="pista-campo">${esc(tr("Pon palabras para reconocerlo: con un monto que varía, sin palabras no lo puedo reconocer en tu cartola."))}</p>` : ""}
+      ${c.aproxActivo && !String(c.buscarTexto || "").trim() && c.moneda !== UF ? `<p class="pista-campo">Pon palabras para reconocerlo: con un monto que varía, sin palabras no lo puedo reconocer en tu cartola.</p>` : ""}
       ${c.aproxActivo ? `<div class="aprox-campos"><label class="campo"><span>Cómo varía</span><select id="ce-aproxModo" data-ce="aproxModo" data-sin-traducir>
           <option value="variacion" ${c.aproxModo !== "rango" ? "selected" : ""}>${esc(tr("Más o menos un porcentaje"))}</option><option value="rango" ${c.aproxModo === "rango" ? "selected" : ""}>${esc(tr("Entre un mínimo y un máximo"))}</option></select></label>
         ${c.aproxModo === "rango" ? `<div class="dos">${campoNum("aproxMin", c.aproxMin, tr("Mínimo"))}${campoNum("aproxMax", c.aproxMax, tr("Máximo"))}</div>`
@@ -1499,10 +1587,24 @@
   function compromisoDelEditor(sinOpcionales) {
     const k = E.compEdit, c = k.c;
     const limpio = { id: c.id || nuevoIdComp(), nombre: String(c.nombre || "").replace(/\d(?:[\s.\-/]?\d){5,}/g, " ").replace(/\s+/g, " ").trim().slice(0, 60).trim(),
-      tipo: c.tipo, signo: c.tipo === "ingreso" ? "ingreso" : c.signo === "ingreso" && c.tipo === "transferencia" ? "ingreso" : "gasto",
+      tipo: c.tipo, signo: c.tipo === "ingreso" ? "ingreso" : c.signo === "ingreso" && (c.tipo === "transferencia" || c.tipo === "prestamo") ? "ingreso" : "gasto",
       monto: c.moneda === UF ? Math.round((Number(c.monto) || 0) * 10000) / 10000 : Number(c.monto) || 0, moneda: c.moneda || monedaPrincipal(), frecuencia: c.frecuencia, categoria: c.categoria || "",
       buscar: [...new Set(String(c.buscarTexto || "").split(",").map((p) => normalizar(p.replace(/\d(?:[\s.\-/]?\d){5,}/g, " "))).filter((p) => p.length >= 2 && p.length <= 40))].slice(0, 6),
       tolerancia: c.tolerancia ?? 5, activo: c.activo !== false, desde: c.desde || E.hoy, origen: c.origen || "manual", pagos: c.pagos || {} };
+    if (limpio.tipo === "prestamo") {
+      // Préstamo entre personas: la cuota, la última y cuándo termina se calculan (igual que compromisos.validar en Python).
+      limpio.con = String(c.con || "").replace(/\d/g, " ").replace(/\s+/g, " ").trim().slice(0, 30).trim();
+      if (!limpio.con) return (k.error = tr("Falta con quién es el préstamo."), null);
+      if (!(Number(c.prestamoTotal) > 0)) return (k.error = tr("Falta cuánto es el préstamo en total."), null);
+      const n = Number(c.cuotas_total) || 0;
+      if (!(Number.isInteger(n) && n >= 1 && n <= 1200)) return (k.error = tr("Falta en cuántas cuotas se paga."), null);
+      const interes = Number(c.prestamoInteres) || 0;
+      if (interes < 0 || interes > 100) return (k.error = tr("El interés tiene que ser un porcentaje entre 0 y 100."), null);
+      const calc = calcularPrestamo(Number(c.prestamoTotal), n, interes, limpio.moneda);
+      Object.assign(limpio, { monto: calc.cuota, cuotas_total: n, cuotas_pagadas: Math.min(Number(c.cuotas_pagadas) || 0, n),
+        prestamo: { total: calc.total, interes, cuota: calc.cuota, ultima: calc.ultima } });
+      if (!limpio.nombre) limpio.nombre = (limpio.signo === "ingreso" ? tr("Préstamo a {p}") : tr("Préstamo de {p}")).replace("{p}", limpio.con).slice(0, 60);
+    }
     if (!limpio.nombre) return (k.error = tr("Ponle un nombre."), null);
     if (!(limpio.monto > 0)) return (k.error = tr(limpio.moneda === UF ? "Falta el monto en UF." : "Falta el monto."), null);
     if (c.aproxActivo) {
@@ -1531,6 +1633,10 @@
       if (/^\d{4}-\d{2}-\d{2}$/.test(c.fecha_fin || "")) limpio.fecha_fin = c.fecha_fin;
       if (Number(c.saldo) > 0) limpio.saldo = Number(c.saldo);
     } else if (limpio.tipo === "deuda" && k.extraido) { limpio.cuotas_total = c.cuotas_total; limpio.cuotas_pagadas = c.cuotas_pagadas; }
+    if (limpio.tipo === "prestamo" && limpio.frecuencia !== "una_vez") {
+      const vs = vencimientos({ ...limpio, fecha_fin: null }, "2299-12-31").filter((o) => o.n);
+      if (vs.length) limpio.fecha_fin = vs[vs.length - 1].vence;
+    }
     k.error = "";
     return limpio;
   }
@@ -1763,9 +1869,10 @@
   // ───────────── Eventos ─────────────
   const ocupadoImportando = () => ["leyendo", "aprendiendo", "guardando"].includes(E.importar?.paso);
   document.addEventListener("click", (ev) => {
-    const el = ev.target.closest("[data-accion],[data-vista],[data-mes],[data-probar],[data-bv],[data-idioma-bv],[data-enlace],[data-respaldo],[data-consejo],[data-conectar],[data-sincronizar],[data-desconectar],[data-mcp],[data-mcp-quitar],[data-historia],[data-comp-pagado],[data-comp-noes],[data-comp-desmarcar],[data-comp-editar],[data-sug-agregar],[data-sug-no],[data-det-agregar],[data-det-no],[data-cifra],[data-cifra-abrir],[data-ir-cat],[data-elegir],[data-pick],[data-nueva-cat],[data-nueva-emoji],[data-nueva-cancelar],[data-nueva-guardar],[data-cerrar-picker],[data-saldo-editar],[data-saldo-cancelar],[data-regla-si],[data-regla-no]");
+    const el = ev.target.closest("[data-accion],[data-vista],[data-mes],[data-probar],[data-bv],[data-idioma-bv],[data-enlace],[data-respaldo],[data-consejo],[data-conectar],[data-sincronizar],[data-desconectar],[data-mcp],[data-mcp-quitar],[data-historia],[data-comp-pagado],[data-comp-noes],[data-comp-desmarcar],[data-comp-editar],[data-sug-agregar],[data-sug-no],[data-det-agregar],[data-det-no],[data-cifra],[data-cifra-abrir],[data-ir-cat],[data-elegir],[data-pick],[data-nueva-cat],[data-nueva-emoji],[data-nueva-cancelar],[data-nueva-guardar],[data-cerrar-picker],[data-saldo-editar],[data-saldo-cancelar],[data-regla-si],[data-regla-no],[data-grupo-mov]");
     if (!el) return;
     const d = el.dataset;
+    if (d.grupoMov != null) { E.grupoMov = E.grupoMov === d.grupoMov ? null : d.grupoMov; render(); return $(`[data-grupo-mov="${CSS.escape(d.grupoMov)}"]`)?.focus(); }
     if (d.enlace) { ev.preventDefault(); return host.enviar("abrirEnlace", { url: d.enlace }); }
     if (d.cerrarPicker != null) { const id = E.picker?.id; E.picker = null; render(); return document.getElementById("chip-" + id)?.focus(); }
     if (d.vista) { E.vista = d.vista; E.presEdit = null; E.picker = null; if (d.vista === "ordenar") E.ordenar = { i: 0, buscar: "", nueva: null }; render(); if (d.vista === "ordenar") $(".vista-ordenar")?.focus(); return; }
@@ -1886,6 +1993,7 @@
         host.enviar("compromiso", { accion: "borrar", id }); E.compEdit = null; toast("Compromiso borrado"); return render();
       }
       case "sug-todas": E.sugTodas = !E.sugTodas; return render();
+      case "agrupar-mov": E.agruparMov = !E.agruparMov; E.grupoMov = null; render(); return $('[data-accion="agrupar-mov"]')?.focus();
       case "ver-todas-cat": E.verTodasCat = !E.verTodasCat; return render();
       case "usar-maximos": {
         const g = gastoMaximo(E.movimientos, listaCompromisos(), E.mes, E.hoy, E.categorias, mesesCompletos(), monedaPrincipal(), per(), ufCfg());
@@ -1903,8 +2011,8 @@
     if (ds.saldoInput) { E.saldoEdit = { cuenta: ds.saldoInput, texto: ev.target.value.replace(/[^\d\-]/g, "").replace(/(?!^)-/g, "") }; ev.target.value = E.saldoEdit.texto ? (E.saldoEdit.texto.startsWith("-") ? "-" : "") + numeroPlano(Math.abs(Number(E.saldoEdit.texto)) || 0) : ""; return; }
     if (ds.compTexto != null) { E.compTexto = ev.target.value; return; }
     if (ds.ce && E.compEdit && ev.target.tagName === "INPUT") {
-      const numerico = ["monto", "cuotas_total", "cuotas_pagadas", "saldo", "aproxMin", "aproxMax"].includes(ds.ce);
-      E.compEdit.c[ds.ce] = conDecimales(ds.ce) || ds.ce === "aproxVariacion" ? numeroDecimal(ev.target.value)
+      const numerico = ["monto", "cuotas_total", "cuotas_pagadas", "saldo", "aproxMin", "aproxMax", "prestamoTotal"].includes(ds.ce);
+      E.compEdit.c[ds.ce] = conDecimales(ds.ce) || ds.ce === "aproxVariacion" || ds.ce === "prestamoInteres" ? numeroDecimal(ev.target.value)
         : numerico ? Number(ev.target.value.replace(/\D/g, "")) || 0 : ds.ce === "dia" ? Number(ev.target.value) || 0 : ev.target.value;
       return;
     }
@@ -1923,14 +2031,23 @@
     if (ds.pres) { ev.target.value = numeroPlano(E.presEdit[ds.pres]); return; }
     if (ds.ce && E.compEdit) {
       const c = E.compEdit.c;
-      if (conDecimales(ds.ce) || ds.ce === "aproxVariacion") { ev.target.value = formatoDecimal(c[ds.ce]); if (c.moneda === UF) { render(); } return; }
-      if (["monto", "cuotas_total", "cuotas_pagadas", "saldo", "aproxMin", "aproxMax"].includes(ds.ce)) { ev.target.value = numeroPlano(c[ds.ce]); return; }
+      // En un préstamo, el cálculo en vivo se vuelve a pintar al salir de cada campo.
+      const repintar = () => { if (c.moneda === UF || c.tipo === "prestamo") { const id = document.activeElement?.id; render(); if (id) document.getElementById(id)?.focus(); } };
+      if (conDecimales(ds.ce) || ds.ce === "aproxVariacion" || ds.ce === "prestamoInteres") { ev.target.value = formatoDecimal(c[ds.ce]); return repintar(); }
+      if (["monto", "cuotas_total", "cuotas_pagadas", "saldo", "aproxMin", "aproxMax", "prestamoTotal"].includes(ds.ce)) { ev.target.value = numeroPlano(c[ds.ce]); return repintar(); }
+      if (ds.ce === "con") return repintar();
       if (ev.target.tagName !== "SELECT") return;
       c[ds.ce] = ds.ce === "dia" ? Number(ev.target.value) : ev.target.value;
       if (ds.ce === "frecuencia") c.dia = ev.target.value === "semanal" ? Math.min(7, c.dia || 1) : c.dia || 1;
       if (ds.ce === "tipo" && ev.target.value === "ingreso" && !c.categoria) c.categoria = "sueldo";
       if (ds.ce === "moneda" && c.moneda === UF && c.monto >= 1000) { c.montoPesos = c.montoPesos || c.monto; c.monto = 0; }
-      if (["tipo", "frecuencia", "moneda", "aproxModo"].includes(ds.ce)) { render(); $(`#ce-${ds.ce}`)?.focus(); }
+      if (ds.ce === "tipo" && ev.target.value === "prestamo") {
+        // La primera cuota de un préstamo nuevo: el día del sueldo (si «Tu mes» parte con el sueldo) o el 25.
+        const im = E.config.inicio_mes;
+        if (!listaCompromisos().some((x) => x.id === c.id)) c.dia = im && im.modo === "sueldo" && im.dia ? im.dia : 25;
+        c.frecuencia = "mensual";
+      }
+      if (["tipo", "frecuencia", "moneda", "aproxModo", "signo"].includes(ds.ce)) { render(); $(`#ce-${ds.ce}`)?.focus(); }
       return;
     }
     if (ds.ceActivo != null && E.compEdit) { E.compEdit.c.activo = ev.target.checked; return; }
@@ -2090,11 +2207,14 @@
       if (e.aviso) toast(e.aviso);
       render();
     },
+    /** Lo que entendió tu IA. Si algo falló, igual se abre la tarjeta con lo que sí entendió y el error en simple, para corregirlo. */
     compromisoEntendido(r) {
-      E.compIA = { pidiendo: false, error: r.ok ? "" : r.error || tr("No pude entenderlo. Agrégalo a mano.") };
-      if (r.ok && r.compromiso) { E.compEdit = { c: borradorDe(r.compromiso), origen: "ia", error: "" }; E.compTexto = ""; }
+      E.compIA = { pidiendo: false, error: "" };
+      const c = r.ok && r.compromiso ? r.compromiso : { ...(r.parcial || {}), origen: "ia" };
+      E.compEdit = { c: borradorDe(c), origen: "ia", error: r.ok ? "" : r.error || tr("No pude entenderlo del todo: complétalo aquí y guárdalo.") };
+      if (r.ok) E.compTexto = "";
       render();
-      if (r.ok) enfocarEditor();
+      enfocarEditor();
     },
     iaProbada(r) { delete E.probando[r.id]; E.resultadoIA[r.id] = r; if (r.ok) { E.config.ia = r.id; toast("Lista para usar"); } render(); },
     cartolaElegida(r) {
@@ -2157,7 +2277,7 @@
       if ((r.sin_receta || []).length) toast(T("Descargaste «{x}», pero todavía no sé leerla. Agrégala a mano y tu IA aprende.", { x: r.sin_receta[0] }));
     },
     _probar(f) { f(E); render(); },
-    _pruebas: { resumen, historia, redondearArriba, presupuestoSugerido, reglaPara, estadoCompromisos, gastoMaximo, rango, periodoDe, periodoConfig, loQueTienes, loQueDebes, cargos },
+    _pruebas: { calcularPrestamo, resumen, historia, redondearArriba, presupuestoSugerido, reglaPara, estadoCompromisos, gastoMaximo, rango, periodoDe, periodoConfig, loQueTienes, loQueDebes, cargos },
   };
 
   // ───────────── Vista previa en el navegador (datos ficticios de demo.json) ─────────────
@@ -2226,8 +2346,24 @@
   function entenderSimulado(texto) {
     const t = String(texto || ""), n = normalizar(t);
     const uf = (t.match(/(\d+(?:[.,]\d+)?)\s*UF\b/i) || [])[1];
-    const montos = uf ? [Number(uf.replace(",", "."))] : (t.match(/\d[\d.]*/g) || []).map((x) => Number(x.replace(/\./g, ""))).filter((x) => x >= 1000);
-    if (!montos.length) return { ok: false, error: "No encontré el monto. Prueba con algo como «el arriendo vence el 5 de cada mes, son 450.000»." };
+    // Montos dichos con palabras: «2M», «2 millones», «2 palos», «850 lucas», «850 mil».
+    const conPalabras = [...n.matchAll(/(\d+(?:[.,]\d+)?)\s*(M|MILLONES?|PALOS?|LUCAS?|MIL)\b/g)].map((x) => Number(x[1].replace(",", ".")) * (/^(M|MILLON|PALO)/.test(x[2]) ? 1e6 : 1e3));
+    const montos = uf ? [Number(uf.replace(",", "."))] : conPalabras.length ? conPalabras : (t.match(/\d[\d.]*/g) || []).map((x) => Number(x.replace(/\./g, ""))).filter((x) => x >= 1000);
+    const prestamo = /ME PREST|LE PREST|PRESTE A|PRESTAMO DE/.test(n);
+    if (prestamo && montos.length) {
+      const ingreso = /LE PREST|PRESTE A/.test(n), cuotas = Number((n.match(/EN\s+(\d{1,3})\s+(?:MESES|CUOTAS)/) || [])[1]) || 0;
+      const con = ingreso ? (n.match(/\bA\s+([A-Z]+)\b(?!.*\bA\s+[A-Z]+\b)/) || [])[1] : (n.match(/(?:MI|EL|LA)\s+([A-Z]+)\s+ME PREST/) || [])[1];
+      const im = E.config.inicio_mes, diaDicho = Number((n.match(/(?:LOS|EL|DIA)\s+(\d{1,2})\b/) || [])[1]) || 0;
+      const c = { tipo: "prestamo", signo: ingreso ? "ingreso" : "gasto", con: con ? primeraMayuscula(con.toLowerCase()) : "", prestamo: { total: Math.max(...montos), interes: 0 },
+        cuotas_total: cuotas || 0, cuotas_pagadas: 0, monto: 0, moneda: "CLP", frecuencia: "mensual", dia: diaDicho || (im && im.modo === "sueldo" && im.dia) || 25,
+        categoria: "", buscar: [], tolerancia: 5, activo: true, desde: E.hoy, origen: "ia", pagos: {} };
+      if (!c.con || !c.cuotas_total) return { ok: false, error: tr("No entendí todo: falta con quién o en cuántas cuotas. Corrígelo aquí y guárdalo."), parcial: c };
+      const k = calcularPrestamo(c.prestamo.total, c.cuotas_total);
+      Object.assign(c, { monto: k.cuota, nombre: (ingreso ? "Préstamo a " : "Préstamo de ") + c.con, prestamo: { total: k.total, interes: 0, cuota: k.cuota, ultima: k.ultima } });
+      return { ok: true, compromiso: c };
+    }
+    if (!montos.length) return { ok: false, parcial: { nombre: primeraMayuscula((t.split(/[,.]/)[0] || "").trim().slice(0, 40)) },
+      error: "No encontré el monto: escríbelo aquí y guárdalo." };
     const dia = Number((n.match(/(?:DIA|DIAS|LOS|EL)\s+(\d{1,2})\b/) || [])[1]) || 1;
     const cuotas = Number((n.match(/(\d{1,4})\s+CUOTAS/) || [])[1]) || 0;
     const tipo = /CREDITO|DEUDA|CUOTA|DIVIDENDO|PRESTAMO/.test(n) ? "deuda" : /SUELDO|ME PAGAN/.test(n) ? "ingreso" : /NETFLIX|SPOTIFY|SUSCRIP/.test(n) ? "suscripcion" : "cuenta";

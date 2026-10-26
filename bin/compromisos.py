@@ -29,7 +29,7 @@ RUTA = os.path.join(datos.BASE, "compromisos.json")
 RUTA_AVISOS = os.path.join(datos.INTERNO, "avisos.json")
 CONOCIDOS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "compromisos_conocidos.json")
 
-TIPOS = ("deuda", "cuenta", "suscripcion", "transferencia", "ingreso", "otro")
+TIPOS = ("deuda", "prestamo", "cuenta", "suscripcion", "transferencia", "ingreso", "otro")
 FRECUENCIAS = ("mensual", "semanal", "anual", "una_vez")
 ORIGENES = ("manual", "detectado", "ia")
 #: Un pago se reconoce entre 10 días antes y 7 después del vencimiento, con el monto dentro de ±5 % (configurable).
@@ -40,7 +40,7 @@ VARIACION, UF, UF_MENSUAL = 3, "UF", 1.5
 MARGEN_UF = 15
 #: Lo que puede venir de la IA (cualquier otro campo hace que la respuesta no sirva).
 CAMPOS_IA = {"nombre", "tipo", "signo", "monto", "moneda", "frecuencia", "dia", "fecha", "categoria", "buscar", "cuotas_total",
-             "cuotas_pagadas", "cuotas_restantes", "fecha_fin", "saldo", "aproximado"}
+             "cuotas_pagadas", "cuotas_restantes", "fecha_fin", "saldo", "aproximado", "con", "prestamo"}
 CAMPOS = CAMPOS_IA | {"id", "tolerancia", "activo", "desde", "origen", "pagos"}
 ID_MOV = re.compile(r"[A-Za-z0-9_\-]{1,64}")
 PERIODO = re.compile(r"\d{4}(-\d{2}(-\d{2})?)?")
@@ -140,6 +140,34 @@ def _aproximado(a, monto, decimales):
     return {"min": lo, "max": hi}, ""
 
 
+def limpiar_con(t):
+    """Con quién es un préstamo («Papá», «Matías»): corto y sin números."""
+    return re.sub(r"\s+", " ", re.sub(r"\d", " ", limpiar_nombre(t))).strip()[:30].strip()
+
+
+def calcular_prestamo(total, cuotas, interes=0, moneda="CLP"):
+    """Un préstamo entre personas: lo que se paga en total (con interés simple opcional, % sobre el total), la cuota de cada mes
+    y la última, que ajusta el redondeo. Igual que calcularPrestamo en ui/app.js. 1.000.000 en 3 → 333.333, 333.333 y 333.334."""
+    escala = 10000 if moneda == UF else 1
+    pagar = redondear(total * (1 + interes / 100) * escala)
+    cuota = pagar // cuotas
+    ultima = pagar - cuota * (cuotas - 1)
+    a = (lambda x: x / escala) if escala > 1 else (lambda x: int(x))
+    return {"total": total, "interes": interes, "pagar": a(pagar), "cuota": a(cuota), "ultima": a(ultima)}
+
+
+def completar_prestamo(c, cfg=None):
+    """Un préstamo sin día ni frecuencia: se paga cada mes el día del sueldo (si «Tu mes» parte con el sueldo) o el 25."""
+    if not isinstance(c, dict) or c.get("tipo") != "prestamo":
+        return c
+    c = dict(c)
+    c.setdefault("frecuencia", "mensual")
+    if c.get("dia") is None and c["frecuencia"] == "mensual":
+        im = (cfg if cfg is not None else datos.config()).get("inicio_mes") or {}
+        c["dia"] = im.get("dia") if isinstance(im, dict) and im.get("modo") == "sueldo" and _entero(im.get("dia"), 1, 31) else 25
+    return c
+
+
 def nuevo_id():
     return "c-" + uuid.uuid4().hex[:10]
 
@@ -179,6 +207,13 @@ def validar(c, ids_categorias, hoy, moneda="CLP", estricto=False):
         errores.append("Campos desconocidos: " + ", ".join(raros[:5]) + ".")
     r = {"id": c["id"] if not estricto and re.fullmatch(r"c-[a-z0-9]{6,24}", str(c.get("id") or "")) else nuevo_id()}
     r["nombre"] = limpiar_nombre(c.get("nombre"))
+    prestamo = c.get("tipo") == "prestamo"
+    if prestamo:
+        r["con"] = limpiar_con(c.get("con"))
+        if not r["con"]:
+            errores.append("Falta con quién es el préstamo.")
+        elif not r["nombre"]:
+            r["nombre"] = limpiar_nombre(("Préstamo a " if c.get("signo") == "ingreso" else "Préstamo de ") + r["con"])
     if not r["nombre"]:
         errores.append("Falta el nombre.")
     r["tipo"] = c.get("tipo") or "otro"
@@ -192,7 +227,7 @@ def validar(c, ids_categorias, hoy, moneda="CLP", estricto=False):
         errores.append("La moneda no es válida.")
     decimales = 4 if r["moneda"] == UF else 2  # 12,3456 UF
     r["monto"] = _numero(c.get("monto"), 0, 1e12, decimales)
-    if r["monto"] is None:
+    if r["monto"] is None and not prestamo:
         errores.append("El monto tiene que ser un número mayor que cero.")
     aprox, error = _aproximado(c.get("aproximado"), r["monto"], decimales)
     if error:
@@ -230,7 +265,23 @@ def validar(c, ids_categorias, hoy, moneda="CLP", estricto=False):
     if total:
         r["cuotas_total"] = total
         r["cuotas_pagadas"] = min(pagadas or 0, total)
-    if c.get("fecha_fin") is not None:
+    if prestamo:
+        pr = c.get("prestamo") if isinstance(c.get("prestamo"), dict) else {}
+        total = _numero(pr.get("total"), 0, 1e12, decimales)
+        interes = _numero(pr.get("interes", 0) or 0, -0.01, 100.01)
+        if set(pr) - {"total", "interes", "cuota", "ultima", "pagar"}:
+            errores.append("El préstamo no es válido.")
+        if total is None:
+            errores.append("Falta cuánto es el préstamo en total.")
+        if not r.get("cuotas_total"):
+            errores.append("Falta en cuántas cuotas se paga.")
+        if interes is None:
+            errores.append("El interés tiene que ser un porcentaje entre 0 y 100.")
+        if total is not None and r.get("cuotas_total") and interes is not None:
+            calc = calcular_prestamo(total, r["cuotas_total"], interes, r["moneda"])
+            r["prestamo"] = {k: calc[k] for k in ("total", "interes", "cuota", "ultima")}
+            r["monto"] = calc["cuota"]
+    if c.get("fecha_fin") is not None and not prestamo:
         if _fecha_valida(c.get("fecha_fin")):
             r["fecha_fin"] = c["fecha_fin"]
         else:
@@ -246,7 +297,56 @@ def validar(c, ids_categorias, hoy, moneda="CLP", estricto=False):
         r["desde"] = r["fecha"]
     r["origen"] = c.get("origen") if c.get("origen") in ORIGENES else "manual"
     r["pagos"] = {} if estricto else _pagos(c.get("pagos"))
+    if prestamo and not errores and r["frecuencia"] != "una_vez":
+        # Termina con la última cuota (desde `desde`): se calcula, no se escribe.
+        ultima = next((o["vence"] for o in reversed(vencimientos({**r, "fecha_fin": None}, "2299-12-31")) if o["n"]), None)
+        if ultima:
+            r["fecha_fin"] = ultima
     return (None, errores) if errores else (r, [])
+
+
+def parcial(p, ids_categorias, moneda="CLP", cfg=None):
+    """Lo que sí se entendió de una propuesta que no pasó la validación (campo por campo), para abrir la tarjeta con eso y que la
+    persona complete el resto. Nunca trae ids ni pagos."""
+    if not isinstance(p, dict):
+        return {}
+    p = completar_prestamo(p, cfg)
+    r = {}
+    if limpiar_nombre(p.get("nombre")):
+        r["nombre"] = limpiar_nombre(p.get("nombre"))
+    for k, ok in (("tipo", TIPOS), ("signo", ("gasto", "ingreso")), ("frecuencia", FRECUENCIAS)):
+        if p.get(k) in ok:
+            r[k] = p[k]
+    if p.get("moneda") == UF or re.fullmatch(r"[A-Z]{3}", str(p.get("moneda") or "")):
+        r["moneda"] = p["moneda"]
+    dec = 4 if r.get("moneda") == UF else 2
+    if _numero(p.get("monto"), 0, 1e12, dec) is not None:
+        r["monto"] = _numero(p.get("monto"), 0, 1e12, dec)
+    if _entero(p.get("dia"), 1, 31) is not None:
+        r["dia"] = _entero(p.get("dia"), 1, 31)
+    for k in ("fecha", "fecha_fin"):
+        if _fecha_valida(p.get(k)):
+            r[k] = p[k]
+    if p.get("categoria") in (ids_categorias or ()):
+        r["categoria"] = p["categoria"]
+    if limpiar_buscar(p.get("buscar")):
+        r["buscar"] = limpiar_buscar(p.get("buscar"))
+    for k in ("cuotas_total", "cuotas_pagadas"):
+        if _entero(p.get(k), 1 if k == "cuotas_total" else 0, 1200) is not None:
+            r[k] = _entero(p.get(k), 0, 1200)
+    if _entero(p.get("cuotas_restantes"), 1, 1200) is not None and "cuotas_total" not in r:
+        r["cuotas_total"], r["cuotas_pagadas"] = _entero(p.get("cuotas_restantes"), 1, 1200), 0
+    if _numero(p.get("saldo"), 0, 1e13, dec) is not None:
+        r["saldo"] = _numero(p.get("saldo"), 0, 1e13, dec)
+    aprox, error = _aproximado(p.get("aproximado"), r.get("monto"), dec)
+    if aprox and not error:
+        r["aproximado"] = aprox
+    if limpiar_con(p.get("con")):
+        r["con"] = limpiar_con(p.get("con"))
+    pr = p.get("prestamo") if isinstance(p.get("prestamo"), dict) else {}
+    if _numero(pr.get("total"), 0, 1e12, dec) is not None:
+        r["prestamo"] = {"total": _numero(pr.get("total"), 0, 1e12, dec), "interes": _numero(pr.get("interes", 0) or 0, -0.01, 100.01) or 0}
+    return r
 
 
 # ───────────── Archivo ─────────────
@@ -349,6 +449,8 @@ def coincide(m, c, moneda, uf=None):
     monto = m["monto"]
     if monto == 0 or (monto < 0) != (c["signo"] == "gasto"):
         return False
+    if m.get("categoria") == "transferencia" and c["tipo"] != "transferencia":
+        return False  # entre tus propias cuentas: nunca es el pago de un compromiso
     palabras = [datos.normalizar(p) for p in c.get("buscar") or [] if datos.normalizar(p)]
     a = abs(monto)
     if c["moneda"] == UF:
@@ -511,8 +613,11 @@ def estado_mes(compromisos, movimientos, mes, hoy, moneda, per=None, uf=None):
         if not en_mes and estado != "atrasado":
             continue
         cuota = {"numero": c.get("cuotas_pagadas", 0) + o["n"], "total": c["cuotas_total"]} if c.get("cuotas_total") and o["n"] else None
+        en = en_moneda(c, o["vence"], valores, moneda, uf_mes)
+        if c.get("prestamo") and cuota and cuota["numero"] == c["cuotas_total"] and c["moneda"] != UF:
+            en["monto"] = c["prestamo"]["ultima"]  # la última cuota de un préstamo ajusta el redondeo
         items.append({"id": c["id"], "nombre": c["nombre"], "tipo": c["tipo"], "signo": c["signo"],
-                      **en_moneda(c, o["vence"], valores, moneda, uf_mes), "categoria": c["categoria"], "periodo": o["periodo"],
+                      **en, "categoria": c["categoria"], "periodo": o["periodo"],
                       "vence": o["vence"], "estado": estado, "dias": 0 if p else abs(d), "pago": p, "cuota": cuota, "anterior": not en_mes})
     items.sort(key=lambda i: (i["vence"], i["id"]))
     g = [i for i in items if i["signo"] == "gasto" and i["moneda"] == moneda]
@@ -526,7 +631,8 @@ def estado_mes(compromisos, movimientos, mes, hoy, moneda, per=None, uf=None):
         saldo = c.get("saldo")
         r = {"id": c["id"], "nombre": c["nombre"], "tipo": c["tipo"], "signo": c["signo"], **en, "frecuencia": c["frecuencia"],
              "categoria": c["categoria"], "mensual": _mensual(c, en["monto"]), "cuotas": None, "saldo": saldo,
-             "por_pagar": (redondear(saldo * factor) if factor != 1 else saldo) if saldo is not None else None, "termina": c.get("fecha_fin")}
+             "por_pagar": (redondear(saldo * factor) if factor != 1 else saldo) if saldo is not None else None, "termina": c.get("fecha_fin"),
+             "con": c.get("con")}
         if c.get("cuotas_total"):
             pagadas = c.get("cuotas_pagadas", 0) + sum(1 for o in mios if o["n"] and f"{c['id']}|{o['periodo']}" in pagos)
             quedan = max(0, c["cuotas_total"] - pagadas)
@@ -536,6 +642,8 @@ def estado_mes(compromisos, movimientos, mes, hoy, moneda, per=None, uf=None):
             r["termina"] = min(ultima, c["fecha_fin"]) if ultima and c.get("fecha_fin") else ultima or c.get("fecha_fin")
             if r["por_pagar"] is None:
                 r["por_pagar"] = redondear(quedan * en["monto"]) if en["moneda"] != UF else redondear(quedan * en["monto"] * 10000) / 10000
+                if c.get("prestamo") and quedan and en["moneda"] != UF:
+                    r["por_pagar"] += c["prestamo"]["ultima"] - c["monto"]
         resumen_.append(r)
     sin_pagar = [i for i in g if i["estado"] != "pagado"]
     return {"mes": mes, "moneda": moneda, "items": items,
@@ -631,7 +739,7 @@ def lo_que_debes(compromisos, movimientos, hoy, moneda, per=None, uf=None):
     mes = periodo_de(hoy, per)
     inicio, fin = rango(mes, per)
     e = estado_mes(compromisos, movimientos, mes, hoy, moneda, per, uf)
-    con_saldo = {c["id"]: c for c in e["compromisos"] if c["signo"] == "gasto" and c["tipo"] == "deuda" and c["moneda"] == moneda
+    con_saldo = {c["id"]: c for c in e["compromisos"] if c["signo"] == "gasto" and c["tipo"] in ("deuda", "prestamo") and c["moneda"] == moneda
                  and c.get("por_pagar")}
     pendientes = [i for i in e["items"] if i["signo"] == "gasto" and i["moneda"] == moneda and i["estado"] != "pagado"]
     pendientes.sort(key=lambda i: (_ORDEN_ESTADO[i["estado"]], i["vence"], i["id"]))
@@ -667,13 +775,21 @@ def lo_que_debes(compromisos, movimientos, hoy, moneda, per=None, uf=None):
         extra = sum(_maximo(i) - i["monto"] for i in mias)
         partes.append({"tipo": "deuda", "nombre": c["nombre"], "monto": redondear(c["por_pagar"]), "este_mes": redondear(sum(i["monto"] for i in mias)),
                        "max": redondear(c["por_pagar"] * c["rango"]["max"] / c["monto"]) if c["rango"] else redondear(c["por_pagar"] + extra),
-                       "original": c["original"], "cuotas": c["cuotas"], "categoria": c["categoria"], "termina": c["termina"],
+                       "original": c["original"], "con": c["con"], "cuotas": c["cuotas"], "categoria": c["categoria"], "termina": c["termina"],
                        "pendientes": [{"estado": i["estado"], "vence": i["vence"], "dias": i["dias"], "monto": redondear(i["monto"]),
                                        "clave": f"{i['id']}|{i['periodo']}"} for i in mias]})
     partes += sorted(cuotas, key=lambda x: (-x["monto"], x["nombre"]))
     este_mes_max = sum(p["max"] if p["tipo"] == "compromiso" else p["este_mes"] for p in partes if p["tipo"] != "deuda") + \
         sum(_maximo(i) for i in pendientes if i["id"] in con_saldo)
+    # Te deben: préstamos que hiciste tú. Van aparte y nunca se restan de lo que debes.
+    te_deben = []
+    for c in sorted((c for c in e["compromisos"] if c["tipo"] == "prestamo" and c["signo"] == "ingreso" and c["moneda"] == moneda
+                     and c.get("por_pagar")), key=lambda c: c["id"]):
+        mias = [i for i in e["items"] if i["id"] == c["id"] and i["estado"] != "pagado"]
+        te_deben.append({"nombre": c["nombre"], "con": c["con"], "monto": redondear(c["por_pagar"]), "este_mes": redondear(sum(i["monto"] for i in mias)),
+                         "cuotas": c["cuotas"], "termina": c["termina"]})
     return {"mes": mes, "moneda": moneda, "total": redondear(sum(p["monto"] for p in partes)),
+            "te_deben": te_deben, "te_deben_total": redondear(sum(t["monto"] for t in te_deben)),
             "este_mes": redondear(sum(p["este_mes"] for p in partes)), "total_max": redondear(sum(p["max"] for p in partes)),
             "este_mes_max": redondear(este_mes_max), "aprox": any(p["max"] != p["monto"] for p in partes),
             "ultimo_pago_tarjeta": ultimo, "partes": partes}

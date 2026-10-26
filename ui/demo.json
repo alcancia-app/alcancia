@@ -2573,6 +2573,17 @@
    "nota": ""
   },
   {
+   "id": "251fd41fab2f",
+   "fecha": "2026-08-25",
+   "descripcion": "TRANSFERENCIA A MAMA",
+   "monto": -150000,
+   "moneda": "CLP",
+   "categoria": "otros",
+   "cuenta": "billetera-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
    "id": "57b80ac62361",
    "fecha": "2026-08-25",
    "descripcion": "VIAJES APP *TRIP",
@@ -2800,6 +2811,17 @@
    "moneda": "CLP",
    "categoria": "supermercado",
    "cuenta": "banco-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
+   "id": "e0fea79223de",
+   "fecha": "2026-09-05",
+   "descripcion": "TRANSFERENCIA DE MATIAS SOTO",
+   "monto": 100000,
+   "moneda": "CLP",
+   "categoria": "otros_ingresos",
+   "cuenta": "billetera-ejemplo",
    "origen": "demo",
    "nota": ""
   },
@@ -3184,6 +3206,17 @@
    "monto": -17440,
    "moneda": "CLP",
    "categoria": "comida",
+   "cuenta": "billetera-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
+   "id": "f7901c37ba86",
+   "fecha": "2026-09-25",
+   "descripcion": "TRANSFERENCIA A MAMA",
+   "monto": -150000,
+   "moneda": "CLP",
+   "categoria": "otros",
    "cuenta": "billetera-ejemplo",
    "origen": "demo",
    "nota": ""
@@ -4128,6 +4161,64 @@
     "desde": "2026-07-01",
     "origen": "manual",
     "pagos": {}
+   },
+   {
+    "id": "c-mama000001",
+    "nombre": "Préstamo de Mamá",
+    "con": "Mamá",
+    "tipo": "prestamo",
+    "signo": "gasto",
+    "moneda": "CLP",
+    "monto": 150000,
+    "frecuencia": "mensual",
+    "dia": 25,
+    "categoria": "",
+    "buscar": [
+     "TRANSFERENCIA A MAMA"
+    ],
+    "tolerancia": 5,
+    "cuotas_total": 8,
+    "cuotas_pagadas": 0,
+    "prestamo": {
+     "total": 1200000,
+     "interes": 0,
+     "cuota": 150000,
+     "ultima": 150000
+    },
+    "activo": true,
+    "desde": "2026-08-01",
+    "origen": "manual",
+    "pagos": {},
+    "fecha_fin": "2027-03-25"
+   },
+   {
+    "id": "c-matias0001",
+    "nombre": "Préstamo a Matías",
+    "con": "Matías",
+    "tipo": "prestamo",
+    "signo": "ingreso",
+    "moneda": "CLP",
+    "monto": 100000,
+    "frecuencia": "mensual",
+    "dia": 5,
+    "categoria": "",
+    "buscar": [
+     "MATIAS SOTO"
+    ],
+    "tolerancia": 5,
+    "cuotas_total": 3,
+    "cuotas_pagadas": 0,
+    "prestamo": {
+     "total": 300000,
+     "interes": 0,
+     "cuota": 100000,
+     "ultima": 100000
+    },
+    "activo": true,
+    "desde": "2026-09-01",
+    "origen": "manual",
+    "pagos": {},
+    "fecha_fin": "2026-11-05"
    }
   ],
   "descartados": [],

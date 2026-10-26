@@ -426,7 +426,7 @@ class Compromisos(unittest.TestCase):
         for texto, fuera in [(f"mi rut {rut} y pago 450.000 el 15", "111"), (f"mi cuentarut {sin_puntos} y pago 450.000 el 15", sin_puntos),
                              (f"rut {sin_puntos}1 y pago 450.000 el 15", sin_puntos), (f"rut {sin_puntos}k y pago 450.000 el 15", sin_puntos),
                              (f"rut{sin_puntos} y pago 450.000 el 15", sin_puntos), ("cuenta 0012-3456-7890 y pago 450.000 el 15", "3456"),
-                             ("cuenta 001234567890 y pago 450.000 el 15", "1234567890"), ("pago 1234567 y 450.000 el 15", "1234567")]:
+                             ("cuenta 001234567890 y pago 450.000 el 15", "1234567890")]:
             limpio = compromiso_ia.limpiar_texto(texto)
             self.assertNotIn(fuera, limpio, texto)
             self.assertIn("450.000", limpio, "los montos con separador de miles se mantienen")
@@ -542,6 +542,93 @@ class Compromisos(unittest.TestCase):
         self.assertIn("disponible para gastos variables", texto)
         self.assertNotIn("Plan de celular", texto, "a la IA solo le llegan totales")
         self.assertIn("no ha anotado compromisos", consejos.prompt("2026-10-18", movs, {"moneda": "CLP", "mensual": {}}, cats))
+
+
+class CuentaleYPrestamos(unittest.TestCase):
+    """Cuéntale a Alcancía con montos grandes y préstamos entre personas (casos de pruebas/casos.json, «prestamos»)."""
+
+    def setUp(self):
+        limpiar()
+
+    def entender(self, texto):
+        ruta = os.path.join(TMP, "entrada-ia.json")
+        with open(ruta, "w", encoding="utf-8") as f:
+            json.dump({"texto": texto, "hoy": "2026-10-26"}, f)
+        return correr("compromiso_ia.py", "entender", ruta)
+
+    def test_montos_grandes_pasan_y_los_rut_no(self):
+        # El caso real (con nombres y montos cambiados): un monto de 7 dígitos sin puntos llegaba borrado a la IA.
+        for texto in ("mi tia me presto 1800000 en 12 meses, le pago los 25", "son 1500000 o 15000000 o 123456789", "son 2000000 en 10 cuotas"):
+            self.assertEqual(compromiso_ia.limpiar_texto(texto), texto, "los montos de 7 a 9 dígitos pasan")
+        # RUT ficticios, armados por partes (ningún RUT entero queda escrito en el repo).
+        cuerpo = "1111111" + "1"
+        dv = compromiso_ia.digito_verificador(cuerpo)
+        for texto in (f"mi rut es {cuerpo}-{dv} ok", f"mi rut es {cuerpo}{dv} ok", f"es {cuerpo}{dv} ok", f"es {cuerpo}k ok",
+                      f"es {cuerpo[:2]}.{cuerpo[2:5]}.{cuerpo[5:]}-{dv} ok"):
+            self.assertNotIn(cuerpo, compromiso_ia.limpiar_texto(texto).replace(".", ""), texto)
+        for texto, fuera in (("mi cuentarut 12345678 y le pago 2000000", "12345678"), ("cuenta corriente 00123456 y 2000000", "00123456"),
+                             ("tarjeta 4111 1111 1111 1111 y 2000000", "4111"), ("nro. 123456 y 2000000", "123456"),
+                             ("cta 98765432 y 2000000", "98765432"), ("número 1234567890 y 2000000", "1234567890")):
+            limpio = compromiso_ia.limpiar_texto(texto)
+            self.assertNotIn(fuera, limpio, texto)
+            self.assertIn("2000000", limpio, "el monto se mantiene")
+        self.assertEqual(dv, "1", "módulo 11 del cuerpo ficticio")
+
+    def test_casos_compartidos(self):
+        pr = CASOS["prestamos"]
+        for t, n, i, m, esperado in pr["calcular"]:
+            self.assertEqual(compromisos.calcular_prestamo(t, n, i, m), esperado, (t, n, i, m))
+        self.assertEqual(compromisos.estado_mes(pr["compromisos"], pr["movimientos"], pr["estado"]["mes"], pr["estado"]["hoy"], "CLP"), pr["estado"]["esperado"])
+        d = compromisos.lo_que_debes(pr["compromisos"], pr["movimientos"], pr["debes"]["hoy"], "CLP")
+        self.assertEqual(d, pr["debes"]["esperado"])
+        # En palabras: la última cuota ajusta el redondeo, lo que te deben va aparte y no se resta.
+        items = {(i["nombre"], i["vence"]): i for i in pr["estado"]["esperado"]["items"]}
+        self.assertEqual(items[("Préstamo de Amigo", "2026-10-10")]["monto"], 333334)
+        self.assertEqual((d["te_deben_total"], d["total"]), (400000, 333334 + 1500000))
+        tia = next(c for c in pr["estado"]["esperado"]["compromisos"] if c["con"] == "Tía Ana")
+        self.assertEqual((tia["cuotas"]["quedan"], tia["por_pagar"], tia["termina"]), (10, 1500000, "2027-07-25"))
+
+    def test_validar_prestamo(self):
+        hoy = "2026-10-26"
+        c, e = compromisos.validar({"tipo": "prestamo", "con": "Tía 12345", "prestamo": {"total": 1800000}, "cuotas_total": 12, "dia": 25}, None, hoy)
+        self.assertEqual(e, [])
+        self.assertEqual((c["nombre"], c["con"], c["monto"], c["cuotas_pagadas"], c["fecha_fin"]), ("Préstamo de Tía", "Tía", 150000, 0, "2027-10-25"),
+                         "sin números en «con»; cuota y término calculados (la primera, el próximo 25)")
+        for malo, texto in (({"con": ""}, "con quién"), ({"prestamo": {}}, "total"), ({"cuotas_total": None}, "cuotas"),
+                            ({"prestamo": {"total": 1, "otro": 2}}, "préstamo")):
+            base = {"tipo": "prestamo", "con": "Tía", "prestamo": {"total": 1800000}, "cuotas_total": 12, "dia": 25}
+            c, e = compromisos.validar({**base, **malo}, None, hoy)
+            self.assertIsNone(c, malo)
+            self.assertIn(texto, " ".join(e).lower(), malo)
+        self.assertEqual(compromisos.completar_prestamo({"tipo": "prestamo"}, {"inicio_mes": {"modo": "sueldo", "dia": 28}})["dia"], 28,
+                         "la primera cuota, el día del sueldo")
+        self.assertEqual(compromisos.completar_prestamo({"tipo": "prestamo"}, {})["dia"], 25)
+
+    def test_cuentale_prestamos_y_nunca_sin_salida(self):
+        r = self.entender("mi tía me prestó 1,8 millones en 12 meses")
+        self.assertTrue(r["ok"], r)
+        c = r["compromiso"]
+        self.assertEqual((c["tipo"], c["con"], c["monto"], c["dia"], c["signo"]), ("prestamo", "Tía", 150000, 25, "gasto"))
+        r = self.entender("le presté 850 lucas a Matías en 5 meses")
+        self.assertEqual((r["compromiso"]["signo"], r["compromiso"]["nombre"], r["compromiso"]["monto"]), ("ingreso", "Préstamo a Matías", 170000))
+        # La IA falla o algo no cumple: igual se abre la tarjeta con lo que sí se entendió.
+        r = self.entender("SINMONTO el gimnasio los 3")
+        self.assertFalse(r["ok"])
+        self.assertEqual(r["parcial"], {"nombre": "Gimnasio", "tipo": "suscripcion", "frecuencia": "mensual", "dia": 3, "buscar": ["GIMNASIO"]})
+        self.assertIn("Corrígelo aquí", r["error"])
+        r = self.entender("NADA que ver")
+        self.assertEqual((r["ok"], r["parcial"]), (False, {}))
+        self.assertIn("Complétalo aquí", r["error"])
+        r = self.entender("ROMPER todo")
+        self.assertEqual(r["parcial"], {"nombre": "Algo", "monto": 1000, "dia": 5}, "lo que vino bien se aprovecha; el campo raro no")
+
+    def test_consejos_incluyen_prestamos(self):
+        pr = CASOS["prestamos"]
+        datos.escribir_json(os.path.join(datos.BASE, "cuentas.json"), [])
+        linea = consejos.linea_tres_cifras("2026-10-12", pr["movimientos"], {"moneda": "CLP", "mensual": {}}, pr["compromisos"])
+        self.assertIn("1833334", linea, "los préstamos están en lo que debe")
+        self.assertIn("Le deben 400000", linea)
+        self.assertNotIn("Tía", linea, "solo totales")
 
 
 class Aproximados(unittest.TestCase):

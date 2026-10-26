@@ -75,6 +75,11 @@ for mes, monto in COMUNES.items():
     movs.append((f"{mes}-05", "GASTOS COMUNES EDIFICIO", "casa", -monto, "banco-ejemplo"))
 for mes, uf in UF_MES.items():
     movs.append((f"{mes}-22", "SEGURO SALUD COMPLEMENTARIO", "salud", -round(1.85 * uf), "banco-ejemplo"))
+# Préstamos entre personas (ficticios): Ana le debe a su mamá (8 cuotas de 150.000, el 25) y Matías le devuelve a Ana (3 de 100.000,
+# el 5). Van por la billetera y antes de su saldo informado (18 oct), así «Lo que tienes» no cambia.
+for mes in ("2026-08", "2026-09"):
+    movs.append((f"{mes}-25", "TRANSFERENCIA A MAMA", "otros", -150000, "billetera-ejemplo"))
+movs.append(("2026-09-05", "TRANSFERENCIA DE MATIAS SOTO", "otros_ingresos", 100000, "billetera-ejemplo"))
 for i, mes in enumerate(("2026-05", "2026-06", "2026-07", "2026-08", "2026-09")):
     movs.append((f"{mes}-20", f"CREDITO AUTOMOTRIZ CUOTA {8 + i}/36", "auto", -189000, "banco-ejemplo"))
     movs.append((f"{mes}-10", "PLAN MOVIL EJEMPLO", "cuentas", -15990, "banco-ejemplo"))
@@ -111,6 +116,7 @@ for f, desc, cat, monto, cuenta in sorted(movs):
                    "moneda": "CLP", "categoria": cat, "cuenta": cuenta, "origen": "demo", "nota": "", **COMO.get((f, desc), {})})
 
 def compromiso(**k):
+    k.setdefault("nombre", "")
     c, errores = compromisos.validar({**k, "origen": "manual"}, None, HOY)
     assert not errores, errores
     return c
@@ -130,6 +136,12 @@ COMPROMISOS += [
                aproximado={"variacion": 10}, desde="2026-07-01"),
     compromiso(id="c-seguro0001", nombre="Seguro de salud", tipo="cuenta", monto=1.85, moneda="UF", dia=22, categoria="salud",
                buscar=["SEGURO SALUD"], desde="2026-07-01"),
+]
+COMPROMISOS += [
+    compromiso(id="c-mama000001", tipo="prestamo", con="Mamá", prestamo={"total": 1200000}, cuotas_total=8, dia=25, buscar=["TRANSFERENCIA A MAMA"],
+               desde="2026-08-01"),
+    compromiso(id="c-matias0001", tipo="prestamo", signo="ingreso", con="Matías", prestamo={"total": 300000}, cuotas_total=3, dia=5,
+               buscar=["MATIAS SOTO"], desde="2026-09-01"),
 ]
 SUGERENCIAS = compromisos.sugerir(salida, COMPROMISOS, HOY, datos.CATEGORIAS_BASE, "CLP")
 
