@@ -3505,10 +3505,11 @@
    ],
    "enlace": "https://www.mercadopago.cl/developers/panel/app",
    "pasos": [
-    "Entra a **Mercado Pago Developers** con tu cuenta y abre **Tus integraciones**.",
-    "Toca **Crear aplicación** y ponle de nombre «Alcancía».",
-    "En la aplicación, ve a **Credenciales de producción** y actívalas. Te pide industria y sitio web: elige «Otros» y, si no tienes sitio, pon https://alcancia-app.github.io/alcancia/.",
-    "Copia el **Access Token** (empieza con `APP_USR-`) y pégalo aquí."
+    "Entra a **Mercado Pago Developers** con tu cuenta, abre **Tus integraciones** y toca **Crear aplicación**.",
+    "En «Elige una solución para integrar» deja **Checkout Pro** (da lo mismo cuál: Alcancía solo lee tus pagos y no cobra nada).",
+    "En **Otros datos**, cambia el nombre por **Alcancia**, marca la casilla de autorización y toca **Crear aplicación**.",
+    "Dentro de la aplicación, abre **Credenciales de producción** (en el menú de la izquierda). Si te pide activarlas, elige la industria «Otros» y como sitio web https://alcancia-app.github.io/alcancia/.",
+    "Copia el **Access Token** (empieza con `APP_USR-`; no la Public Key) y pégalo aquí."
    ],
    "estado": "beta",
    "nota": "Ojo: la llave de Mercado Pago da acceso completo a tu cuenta (Mercado Pago no ofrece una de solo lectura). Alcancía solo la usa para leer tus pagos, la guarda cifrada en tu computador y nunca sale de ahí salvo hacia Mercado Pago."

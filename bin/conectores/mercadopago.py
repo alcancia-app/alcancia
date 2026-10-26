@@ -18,10 +18,11 @@ INFO = {
     "campos": [{"id": "token", "etiqueta": "Access Token de producción", "secreto": True}],
     "enlace": "https://www.mercadopago.cl/developers/panel/app",
     "pasos": [
-        "Entra a **Mercado Pago Developers** con tu cuenta y abre **Tus integraciones**.",
-        "Toca **Crear aplicación** y ponle de nombre «Alcancía».",
-        "En la aplicación, ve a **Credenciales de producción** y actívalas. Te pide industria y sitio web: elige «Otros» y, si no tienes sitio, pon https://alcancia-app.github.io/alcancia/.",
-        "Copia el **Access Token** (empieza con `APP_USR-`) y pégalo aquí.",
+        "Entra a **Mercado Pago Developers** con tu cuenta, abre **Tus integraciones** y toca **Crear aplicación**.",
+        "En «Elige una solución para integrar» deja **Checkout Pro** (da lo mismo cuál: Alcancía solo lee tus pagos y no cobra nada).",
+        "En **Otros datos**, cambia el nombre por **Alcancia**, marca la casilla de autorización y toca **Crear aplicación**.",
+        "Dentro de la aplicación, abre **Credenciales de producción** (en el menú de la izquierda). Si te pide activarlas, elige la industria «Otros» y como sitio web https://alcancia-app.github.io/alcancia/.",
+        "Copia el **Access Token** (empieza con `APP_USR-`; no la Public Key) y pégalo aquí.",
     ],
     "nota": "Ojo: la llave de Mercado Pago da acceso completo a tu cuenta (Mercado Pago no ofrece una de solo lectura). Alcancía solo la usa para leer tus pagos, la guarda cifrada en tu computador y nunca sale de ahí salvo hacia Mercado Pago.",
     "dias_inicio": 180, "estado": "beta",
@@ -68,19 +69,50 @@ def _buscar(cred, red, filtro, yo, desde, hasta):
 def movimientos(cred, desde, hasta, memoria, red):
     desde = max(desde, hasta - timedelta(days=364))  # la búsqueda acepta rangos de menos de un año
     yo = _yo(cred, red)["id"]
-    movs = []
+    vistos = {}  # id del pago → (pago, signos en que apareció)
     for filtro, signo in (("payer.id", -1), ("collector.id", 1)):
         for p in _buscar(cred, red, filtro, yo, desde, hasta):
-            if p.get("status") != "approved":
+            if p.get("status") != "approved" or p.get("id") is None:
                 continue
-            monto = numero(p.get("transaction_amount"))
-            f = fecha_local(p.get("date_approved") or p.get("date_created"))
-            if monto is None or not f:
-                continue
-            tipo = TIPOS.get(p.get("operation_type"), "")
-            desc = p.get("description") or tipo or "Mercado Pago"
-            if tipo and tipo.lower() not in desc.lower():
-                desc = f"{tipo}: {desc}"
-            movs.append({"cuenta": "", "id_externo": f"{p.get('id')}|{'pagado' if signo < 0 else 'recibido'}", "fecha": f,
-                         "descripcion": desc, "monto": signo * abs(monto), "moneda": p.get("currency_id") or ""})
+            vistos.setdefault(p["id"], [p, set()])[1].add(signo)
+    movs = []
+    for pid, (p, signos) in vistos.items():
+        monto = numero(p.get("transaction_amount"))
+        f = fecha_local(p.get("date_approved") or p.get("date_created"))
+        if monto is None or not f:
+            continue
+        tipo = TIPOS.get(p.get("operation_type"), "")
+        desc = p.get("description") or tipo or "Mercado Pago"
+        if tipo and tipo.lower() not in desc.lower():
+            desc = f"{tipo}: {desc}"
+        # Un pago tuyo a ti mismo (cargar saldo, mover a una reserva, comprar el fondo que rinde) aparece en las dos búsquedas:
+        # no es gasto ni ingreso, es plata que se mueve entre tus cuentas. Queda una sola vez y como «Entre mis cuentas».
+        propio = len(signos) == 2 or (p.get("collector_id") == yo and (p.get("payer") or {}).get("id") == yo)
+        signo = 1 if propio else next(iter(signos))
+        m = {"cuenta": "", "id_externo": f"{pid}|{'pagado' if signo < 0 else 'recibido'}", "fecha": f,
+             "descripcion": desc, "monto": signo * abs(monto), "moneda": p.get("currency_id") or ""}
+        if propio:
+            m["categoria"] = "transferencia"
+        movs.append(m)
     return movs, {}, None
+
+
+def reparar(lista):
+    """Arregla lo guardado por la versión anterior, que anotaba cada pago a ti mismo dos veces (un gasto y un ingreso iguales).
+    Quita el gasto espejo y deja el ingreso como «Entre mis cuentas» (si no le habías puesto otra categoría). Devuelve cuántos quitó."""
+    clave = lambda m: (m["fecha"][:10], abs(float(m["monto"] or 0)), m["descripcion"], m["cuenta"])
+    positivos = {}
+    for m in lista:
+        if m.get("origen") == "conector:mercadopago" and float(m["monto"] or 0) > 0:
+            positivos.setdefault(clave(m), []).append(m)
+    quitar = set()
+    for m in lista:
+        if m.get("origen") == "conector:mercadopago" and float(m["monto"] or 0) < 0:
+            pares = positivos.get(clave(m))
+            if pares:
+                par = pares.pop()
+                quitar.add(m["id"])
+                if not par.get("categoria"):
+                    par["categoria"] = "transferencia"
+    lista[:] = [m for m in lista if m["id"] not in quitar]
+    return len(quitar)

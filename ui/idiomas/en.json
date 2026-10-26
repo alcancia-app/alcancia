@@ -280,10 +280,6 @@
     "API Secret": "API Secret",
     "SimpleFIN (bancos de EE. UU. y Canadá)": "SimpleFIN (US and Canada banks)",
     "Akahu (bancos de Nueva Zelanda)": "Akahu (New Zealand banks)",
-    "Entra a **Mercado Pago Developers** con tu cuenta y abre **Tus integraciones**.": "Sign in to **Mercado Pago Developers** and open **Your integrations**.",
-    "Toca **Crear aplicación** y ponle de nombre «Alcancía».": "Click **Create application** and name it “Alcancía”.",
-    "En la aplicación, ve a **Credenciales de producción** y actívalas. Te pide industria y sitio web: elige «Otros» y, si no tienes sitio, pon https://alcancia-app.github.io/alcancia/.": "In the application, go to **Production credentials** and activate them. It asks for an industry and website: choose “Other” and, if you don't have a website, use https://alcancia-app.github.io/alcancia/.",
-    "Copia el **Access Token** (empieza con `APP_USR-`) y pégalo aquí.": "Copy the **Access Token** (it starts with `APP_USR-`) and paste it here.",
     "Ojo: la llave de Mercado Pago da acceso completo a tu cuenta (Mercado Pago no ofrece una de solo lectura). Alcancía solo la usa para leer tus pagos, la guarda cifrada en tu computador y nunca sale de ahí salvo hacia Mercado Pago.": "Heads up: the Mercado Pago key gives full access to your account (Mercado Pago doesn't offer a read-only one). Alcancía only uses it to read your payments, keeps it encrypted on your computer, and it never leaves it except to Mercado Pago.",
     "Necesitas una cuenta **PayPal Business** (las cuentas personales no tienen acceso a esta API).": "You need a **PayPal Business** account (personal accounts don't have access to this API).",
     "Entra a **developer.paypal.com → Apps & Credentials**, elige **Live** y toca **Create App** («Alcancía»).": "Go to **developer.paypal.com → Apps & Credentials**, choose **Live** and click **Create App** (“Alcancía”).",
@@ -328,6 +324,11 @@
     "Descarga la cartola de tu banco o billetera (CSV, Excel o PDF) y agrégala. Si tu banco aún no está, tu IA aprende a leerlo.": "Download your bank or wallet statement (CSV, Excel or PDF) and add it. If your bank isn't supported yet, your AI learns to read it.",
     "CSV, Excel (.xlsx), PDF con texto, OFX, QIF o CAMT.053. Si la subes dos veces, no se duplica nada.": "CSV, Excel (.xlsx), text-based PDF, OFX, QIF or CAMT.053. If you add it twice, nothing gets duplicated.",
     "Casi ningún banco deja que una persona use su propia API todavía. Mientras, descarga la cartola (CSV, Excel, PDF u OFX) y activa «Cartolas que descargues»: es casi igual de automático. Cuando tu país tenga finanzas abiertas oficiales, Alcancía las va a sumar.": "Almost no bank lets individuals use their own API yet. Meanwhile, download your statement (CSV, Excel, PDF or OFX) and turn on “Statements you download”: it's almost as automatic. When your country has official open finance, Alcancía will add it.",
-    "Elige la cartola que descargaste de tu banco o billetera (CSV, Excel, PDF, OFX, QIF o CAMT.053)": "Choose the statement you downloaded from your bank or wallet (CSV, Excel, PDF, OFX, QIF or CAMT.053)"
+    "Elige la cartola que descargaste de tu banco o billetera (CSV, Excel, PDF, OFX, QIF o CAMT.053)": "Choose the statement you downloaded from your bank or wallet (CSV, Excel, PDF, OFX, QIF or CAMT.053)",
+    "Entra a **Mercado Pago Developers** con tu cuenta, abre **Tus integraciones** y toca **Crear aplicación**.": "Sign in to **Mercado Pago Developers**, open **Your integrations** and tap **Create application**.",
+    "En «Elige una solución para integrar» deja **Checkout Pro** (da lo mismo cuál: Alcancía solo lee tus pagos y no cobra nada).": "Under “Choose a solution to integrate” leave **Checkout Pro** (it doesn't matter which: Alcancía only reads your payments and never charges anything).",
+    "En **Otros datos**, cambia el nombre por **Alcancia**, marca la casilla de autorización y toca **Crear aplicación**.": "Under **Other details**, change the name to **Alcancia**, tick the authorization box and tap **Create application**.",
+    "Dentro de la aplicación, abre **Credenciales de producción** (en el menú de la izquierda). Si te pide activarlas, elige la industria «Otros» y como sitio web https://alcancia-app.github.io/alcancia/.": "Inside the application, open **Production credentials** (in the left menu). If it asks you to activate them, choose the industry “Others” and https://alcancia-app.github.io/alcancia/ as the website.",
+    "Copia el **Access Token** (empieza con `APP_USR-`; no la Public Key) y pégalo aquí.": "Copy the **Access Token** (starts with `APP_USR-`; not the Public Key) and paste it here."
   }
 }
