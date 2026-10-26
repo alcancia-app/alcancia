@@ -40,3 +40,5 @@ capturas/
 *.xml
 !/pruebas/datos/*.xml
 !/docs/*.xml
+*.pdf
+!/pruebas/datos/*.pdf
