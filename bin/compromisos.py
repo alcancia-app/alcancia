@@ -907,8 +907,12 @@ def detectar_sueldo(movimientos, hoy, categorias, moneda):
     mes = hoy[:7]
     meses4 = [sumar_mes(mes, -i) for i in (3, 2, 1, 0)]
     neutras = {c["id"] for c in categorias if c.get("tipo") == "neutro"} | {"transferencia"}
+    # Lo que la persona ya marcó como Sueldo alguna vez manda: un movimiento con la misma descripción cuenta aunque haya quedado
+    # «Entre mis cuentas» (en Mercado Pago el sueldo llega como «Carga de saldo»).
+    sueldo_claves = {categorizar.regla_para(m["descripcion"]) for m in movimientos if m.get("categoria") == "sueldo" and m["monto"] > 0}
     ingresos = [m for m in movimientos if m["monto"] > 0 and m["fecha"] <= hoy and m["fecha"][:7] in meses4
-                and m.get("categoria") not in neutras and (m.get("moneda") or moneda) == moneda]
+                and (m.get("categoria") not in neutras or categorizar.regla_para(m["descripcion"]) in sueldo_claves)
+                and (m.get("moneda") or moneda) == moneda]
     total_mes = {}
     for m in ingresos:
         total_mes[m["fecha"][:7]] = total_mes.get(m["fecha"][:7], 0) + m["monto"]

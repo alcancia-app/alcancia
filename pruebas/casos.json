@@ -6041,6 +6041,60 @@
      }
     ],
     "esperado": null
+   },
+   {
+    "nombre": "lo que la persona ya marcó como Sueldo manda aunque otros meses quedaron «entre mis cuentas»",
+    "hoy": "2026-10-26",
+    "movimientos": [
+     {
+      "id": "u1",
+      "fecha": "2026-08-21",
+      "descripcion": "Carga de saldo: Empresa Ejemplo SpA",
+      "monto": 2500000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": "transferencia"
+     },
+     {
+      "id": "u2",
+      "fecha": "2026-09-15",
+      "descripcion": "Carga de saldo: Empresa Ejemplo SpA",
+      "monto": 2450000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": "transferencia"
+     },
+     {
+      "id": "u3",
+      "fecha": "2026-10-22",
+      "descripcion": "Carga de saldo: Empresa Ejemplo SpA",
+      "monto": 2480000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": "sueldo"
+     },
+     {
+      "id": "u4",
+      "fecha": "2026-10-05",
+      "descripcion": "Carga de saldo: desde mi banco",
+      "monto": 60000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": "transferencia"
+     }
+    ],
+    "esperado": {
+     "dia": 21,
+     "monto": 2480000,
+     "variacion": 2,
+     "llegadas": [
+      "2026-08-21",
+      "2026-09-15",
+      "2026-10-22"
+     ],
+     "clave": "CARGA DE SALDO",
+     "meses": 3
+    }
    }
   ],
   "proximo": [

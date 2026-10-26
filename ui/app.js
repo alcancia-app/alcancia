@@ -534,8 +534,10 @@
   function detectarSueldo(movimientos, hoy, categorias, moneda) {
     const mes = hoy.slice(0, 7), meses4 = [3, 2, 1, 0].map((i) => sumarMes(mes, -i));
     const neutras = new Set([...categorias.filter((c) => c.tipo === "neutro").map((c) => c.id), "transferencia"]);
+    // Lo que la persona ya marcó como Sueldo manda (igual que en Python): esa descripción cuenta aunque haya quedado entre tus cuentas.
+    const sueldoClaves = new Set(movimientos.filter((m) => m.categoria === "sueldo" && m.monto > 0).map((m) => reglaPara(m.descripcion)));
     const ingresos = movimientos.filter((m) => m.monto > 0 && m.fecha <= hoy && meses4.includes(m.fecha.slice(0, 7))
-      && !neutras.has(m.categoria) && (m.moneda || moneda) === moneda);
+      && (!neutras.has(m.categoria) || sueldoClaves.has(reglaPara(m.descripcion))) && (m.moneda || moneda) === moneda);
     const totalMes = {};
     for (const m of ingresos) totalMes[m.fecha.slice(0, 7)] = (totalMes[m.fecha.slice(0, 7)] || 0) + m.monto;
     const orden = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
