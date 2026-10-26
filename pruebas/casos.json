@@ -3110,7 +3110,8 @@
     "llegadas": [
      "2026-09-25",
      "2026-10-15"
-    ]
+    ],
+    "hoy": "2026-10-26"
    },
    "esperado_periodo": "2026-11",
    "esperado_resumen": {
@@ -5589,5 +5590,746 @@
     ]
    }
   }
+ },
+ "sueldo": {
+  "_nota": "Detectar el sueldo, días hábiles y el próximo sueldo (compromisos.detectar_sueldo / regla_habil / proximo_sueldo ↔ detectarSueldo / reglaHabil / proximoSueldo; resumen.rango con `hoy` = esperando el sueldo). Feriados de bin/feriados.json.",
+  "categorias": [
+   {
+    "id": "supermercado",
+    "tipo": "gasto"
+   },
+   {
+    "id": "comida",
+    "tipo": "gasto"
+   },
+   {
+    "id": "transporte",
+    "tipo": "gasto"
+   },
+   {
+    "id": "auto",
+    "tipo": "gasto"
+   },
+   {
+    "id": "casa",
+    "tipo": "gasto"
+   },
+   {
+    "id": "cuentas",
+    "tipo": "gasto"
+   },
+   {
+    "id": "salud",
+    "tipo": "gasto"
+   },
+   {
+    "id": "educacion",
+    "tipo": "gasto"
+   },
+   {
+    "id": "suscripciones",
+    "tipo": "gasto"
+   },
+   {
+    "id": "compras",
+    "tipo": "gasto"
+   },
+   {
+    "id": "ocio",
+    "tipo": "gasto"
+   },
+   {
+    "id": "mascotas",
+    "tipo": "gasto"
+   },
+   {
+    "id": "otros",
+    "tipo": "gasto"
+   },
+   {
+    "id": "sueldo",
+    "tipo": "ingreso"
+   },
+   {
+    "id": "otros_ingresos",
+    "tipo": "ingreso"
+   },
+   {
+    "id": "transferencia",
+    "tipo": "neutro"
+   }
+  ],
+  "feriados_cl": [
+   "2025-01-01",
+   "2025-04-18",
+   "2025-04-19",
+   "2025-05-01",
+   "2025-05-21",
+   "2025-06-20",
+   "2025-06-29",
+   "2025-07-16",
+   "2025-08-15",
+   "2025-09-18",
+   "2025-09-19",
+   "2025-10-12",
+   "2025-10-31",
+   "2025-11-01",
+   "2025-11-16",
+   "2025-12-08",
+   "2025-12-14",
+   "2025-12-25",
+   "2026-01-01",
+   "2026-04-03",
+   "2026-04-04",
+   "2026-05-01",
+   "2026-05-21",
+   "2026-06-21",
+   "2026-06-29",
+   "2026-07-16",
+   "2026-08-15",
+   "2026-09-18",
+   "2026-09-19",
+   "2026-10-12",
+   "2026-10-31",
+   "2026-11-01",
+   "2026-12-08",
+   "2026-12-25",
+   "2027-01-01",
+   "2027-03-26",
+   "2027-03-27",
+   "2027-05-01",
+   "2027-05-21",
+   "2027-06-21",
+   "2027-06-28",
+   "2027-07-16",
+   "2027-08-15",
+   "2027-09-18",
+   "2027-09-19",
+   "2027-10-11",
+   "2027-10-31",
+   "2027-11-01",
+   "2027-12-08",
+   "2027-12-25",
+   "2028-01-01",
+   "2028-04-14",
+   "2028-04-15",
+   "2028-05-01",
+   "2028-05-21",
+   "2028-06-20",
+   "2028-06-26",
+   "2028-07-16",
+   "2028-08-15",
+   "2028-09-18",
+   "2028-09-19",
+   "2028-10-09",
+   "2028-10-27",
+   "2028-11-01",
+   "2028-12-08",
+   "2028-12-25"
+  ],
+  "detectar": [
+   {
+    "nombre": "llega como «Carga de saldo» en días que varían (15 y 22): cuenta igual",
+    "hoy": "2026-10-26",
+    "movimientos": [
+     {
+      "id": "s0001",
+      "fecha": "2026-09-03",
+      "descripcion": "Carga de saldo: desde mi banco",
+      "monto": 50000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": ""
+     },
+     {
+      "id": "s0002",
+      "fecha": "2026-09-15",
+      "descripcion": "Carga de saldo: Empresa Ejemplo SpA",
+      "monto": 2400000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": ""
+     },
+     {
+      "id": "s0003",
+      "fecha": "2026-10-05",
+      "descripcion": "Carga de saldo: desde mi banco",
+      "monto": 60000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": ""
+     },
+     {
+      "id": "s0004",
+      "fecha": "2026-10-10",
+      "descripcion": "Venta Ejemplo",
+      "monto": 120000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": ""
+     },
+     {
+      "id": "s0005",
+      "fecha": "2026-10-22",
+      "descripcion": "Carga de saldo: Empresa Ejemplo SpA",
+      "monto": 2380000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": ""
+     },
+     {
+      "id": "s0006",
+      "fecha": "2026-10-23",
+      "descripcion": "Supermercado Ejemplo",
+      "monto": -45000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": ""
+     }
+    ],
+    "esperado": {
+     "dia": 19,
+     "monto": 2380000,
+     "variacion": 1,
+     "llegadas": [
+      "2026-09-15",
+      "2026-10-22"
+     ],
+     "clave": "CARGA DE SALDO",
+     "meses": 2
+    }
+   },
+   {
+    "nombre": "dice REMUNERACION: vale aunque ese mes entró algo más grande",
+    "hoy": "2026-10-26",
+    "movimientos": [
+     {
+      "id": "s0007",
+      "fecha": "2026-08-05",
+      "descripcion": "REMUNERACION EMPRESA FICTICIA",
+      "monto": 900000,
+      "moneda": "CLP",
+      "cuenta": "banco-ejemplo",
+      "categoria": ""
+     },
+     {
+      "id": "s0008",
+      "fecha": "2026-09-05",
+      "descripcion": "REMUNERACION EMPRESA FICTICIA",
+      "monto": 900000,
+      "moneda": "CLP",
+      "cuenta": "banco-ejemplo",
+      "categoria": ""
+     },
+     {
+      "id": "s0009",
+      "fecha": "2026-09-20",
+      "descripcion": "VENTA AUTO ANA PEREZ",
+      "monto": 3500000,
+      "moneda": "CLP",
+      "cuenta": "banco-ejemplo",
+      "categoria": ""
+     },
+     {
+      "id": "s0010",
+      "fecha": "2026-10-05",
+      "descripcion": "REMUNERACION EMPRESA FICTICIA",
+      "monto": 910000,
+      "moneda": "CLP",
+      "cuenta": "banco-ejemplo",
+      "categoria": ""
+     }
+    ],
+    "esperado": {
+     "dia": 5,
+     "monto": 900000,
+     "variacion": 2,
+     "llegadas": [
+      "2026-08-05",
+      "2026-09-05",
+      "2026-10-05"
+     ],
+     "clave": "REMUNERACION EMPRESA FICTICIA",
+     "meses": 3
+    }
+   },
+   {
+    "nombre": "sin palabra y no es lo principal del mes: no se inventa",
+    "hoy": "2026-10-26",
+    "movimientos": [
+     {
+      "id": "s0011",
+      "fecha": "2026-09-10",
+      "descripcion": "ABONO CLIENTE UNO",
+      "monto": 400000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": ""
+     },
+     {
+      "id": "s0012",
+      "fecha": "2026-09-12",
+      "descripcion": "ABONO CLIENTE DOS",
+      "monto": 500000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": ""
+     },
+     {
+      "id": "s0013",
+      "fecha": "2026-09-25",
+      "descripcion": "ABONO CLIENTE TRES",
+      "monto": 450000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": ""
+     },
+     {
+      "id": "s0014",
+      "fecha": "2026-10-10",
+      "descripcion": "ABONO CLIENTE UNO",
+      "monto": 410000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": ""
+     },
+     {
+      "id": "s0015",
+      "fecha": "2026-10-14",
+      "descripcion": "ABONO CLIENTE DOS",
+      "monto": 480000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": ""
+     },
+     {
+      "id": "s0016",
+      "fecha": "2026-10-20",
+      "descripcion": "ABONO CLIENTE TRES",
+      "monto": 455000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": ""
+     }
+    ],
+    "esperado": null
+   },
+   {
+    "nombre": "entre mis cuentas no es sueldo",
+    "hoy": "2026-10-26",
+    "movimientos": [
+     {
+      "id": "s0017",
+      "fecha": "2026-08-01",
+      "descripcion": "TRASPASO DESDE BANCO",
+      "monto": 1500000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": "transferencia"
+     },
+     {
+      "id": "s0018",
+      "fecha": "2026-09-01",
+      "descripcion": "TRASPASO DESDE BANCO",
+      "monto": 1500000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": "transferencia"
+     },
+     {
+      "id": "s0019",
+      "fecha": "2026-10-01",
+      "descripcion": "TRASPASO DESDE BANCO",
+      "monto": 1500000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": "transferencia"
+     },
+     {
+      "id": "s0020",
+      "fecha": "2026-10-02",
+      "descripcion": "DEVOLUCION TIENDA",
+      "monto": 20000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": ""
+     }
+    ],
+    "esperado": null
+   },
+   {
+    "nombre": "solo una vez en los últimos 3 meses: aún no",
+    "hoy": "2026-10-26",
+    "movimientos": [
+     {
+      "id": "s0021",
+      "fecha": "2026-07-28",
+      "descripcion": "SUELDO EMPRESA EJEMPLO",
+      "monto": 1200000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": ""
+     },
+     {
+      "id": "s0022",
+      "fecha": "2026-09-28",
+      "descripcion": "SUELDO EMPRESA EJEMPLO",
+      "monto": 1200000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": ""
+     }
+    ],
+    "esperado": null
+   },
+   {
+    "nombre": "este mes aún no llega: con agosto y septiembre basta",
+    "hoy": "2026-10-10",
+    "movimientos": [
+     {
+      "id": "s0023",
+      "fecha": "2026-08-28",
+      "descripcion": "PAGO NOMINA EMPRESA EJEMPLO",
+      "monto": 1300000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": ""
+     },
+     {
+      "id": "s0024",
+      "fecha": "2026-09-29",
+      "descripcion": "PAGO NOMINA EMPRESA EJEMPLO",
+      "monto": 1350000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": ""
+     }
+    ],
+    "esperado": {
+     "dia": 29,
+     "monto": 1300000,
+     "variacion": 4,
+     "llegadas": [
+      "2026-08-28",
+      "2026-09-29"
+     ],
+     "clave": "PAGO NOMINA EMPRESA",
+     "meses": 2
+    }
+   },
+   {
+    "nombre": "monto que cambia más de 25 %: no es el mismo",
+    "hoy": "2026-10-26",
+    "movimientos": [
+     {
+      "id": "s0025",
+      "fecha": "2026-09-10",
+      "descripcion": "DEPOSITO EJEMPLO",
+      "monto": 1000000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": ""
+     },
+     {
+      "id": "s0026",
+      "fecha": "2026-10-10",
+      "descripcion": "DEPOSITO EJEMPLO",
+      "monto": 1400000,
+      "moneda": "CLP",
+      "cuenta": "billetera-ejemplo",
+      "categoria": ""
+     }
+    ],
+    "esperado": null
+   }
+  ],
+  "proximo": [
+   {
+    "nombre": "el 25 cae domingo: se paga el viernes antes",
+    "per": {
+     "modo": "sueldo",
+     "dia": 25,
+     "llegadas": []
+    },
+    "hoy": "2026-10-10",
+    "pais": "CL",
+    "esperado": {
+     "fecha": "2026-10-23",
+     "nominal": "2026-10-25",
+     "regla": "anterior",
+     "periodo": "2026-11",
+     "atrasado": false
+    }
+   },
+   {
+    "nombre": "el 18 es feriado (Fiestas Patrias): el jueves 17",
+    "per": {
+     "modo": "sueldo",
+     "dia": 18,
+     "llegadas": []
+    },
+    "hoy": "2026-09-01",
+    "pais": "CL",
+    "esperado": {
+     "fecha": "2026-09-17",
+     "nominal": "2026-09-18",
+     "regla": "anterior",
+     "periodo": "2026-10",
+     "atrasado": false
+    }
+   },
+   {
+    "nombre": "aprendió que le pagan el hábil siguiente",
+    "per": {
+     "modo": "sueldo",
+     "dia": 25,
+     "llegadas": [
+      "2026-04-27",
+      "2026-07-27"
+     ]
+    },
+    "hoy": "2026-10-01",
+    "pais": "CL",
+    "esperado": {
+     "fecha": "2026-10-26",
+     "nominal": "2026-10-25",
+     "regla": "siguiente",
+     "periodo": "2026-11",
+     "atrasado": false
+    }
+   },
+   {
+    "nombre": "llegó antes (el 15 en vez del 25): el próximo es en noviembre",
+    "per": {
+     "modo": "sueldo",
+     "dia": 25,
+     "llegadas": [
+      "2026-10-15"
+     ]
+    },
+    "hoy": "2026-10-20",
+    "pais": "CL",
+    "esperado": {
+     "fecha": "2026-11-25",
+     "nominal": "2026-11-25",
+     "regla": "anterior",
+     "periodo": "2026-12",
+     "atrasado": false
+    }
+   },
+   {
+    "nombre": "pasó la fecha y un día hábil sin llegada: atrasado",
+    "per": {
+     "modo": "sueldo",
+     "dia": 25,
+     "llegadas": [
+      "2026-08-25",
+      "2026-09-25"
+     ],
+     "hoy": "2026-10-28"
+    },
+    "hoy": "2026-10-28",
+    "pais": "CL",
+    "esperado": {
+     "fecha": "2026-10-23",
+     "nominal": "2026-10-25",
+     "regla": "anterior",
+     "periodo": "2026-11",
+     "atrasado": true
+    }
+   },
+   {
+    "nombre": "aún dentro del día hábil de gracia: no está atrasado",
+    "per": {
+     "modo": "sueldo",
+     "dia": 25,
+     "llegadas": [
+      "2026-08-25",
+      "2026-09-25"
+     ],
+     "hoy": "2026-10-26"
+    },
+    "hoy": "2026-10-26",
+    "pais": "CL",
+    "esperado": {
+     "fecha": "2026-10-23",
+     "nominal": "2026-10-25",
+     "regla": "anterior",
+     "periodo": "2026-11",
+     "atrasado": false
+    }
+   },
+   {
+    "nombre": "otro país: solo fines de semana",
+    "per": {
+     "modo": "sueldo",
+     "dia": 18,
+     "llegadas": []
+    },
+    "hoy": "2026-09-01",
+    "pais": "US",
+    "esperado": {
+     "fecha": "2026-09-18",
+     "nominal": "2026-09-18",
+     "regla": "anterior",
+     "periodo": "2026-10",
+     "atrasado": false
+    }
+   },
+   {
+    "nombre": "mes calendario: no hay próximo sueldo",
+    "per": null,
+    "hoy": "2026-10-10",
+    "pais": "CL",
+    "esperado": null
+   }
+  ],
+  "rango": [
+   {
+    "nombre": "esperando el sueldo: el mes anterior sigue",
+    "mes": "2026-10",
+    "per": {
+     "modo": "sueldo",
+     "dia": 25,
+     "llegadas": [
+      "2026-08-25",
+      "2026-09-25"
+     ],
+     "hoy": "2026-10-28"
+    },
+    "esperado": [
+     "2026-09-25",
+     "2026-11-01"
+    ]
+   },
+   {
+    "nombre": "esperando el sueldo: el siguiente parte 8 días después del día de siempre",
+    "mes": "2026-11",
+    "per": {
+     "modo": "sueldo",
+     "dia": 25,
+     "llegadas": [
+      "2026-08-25",
+      "2026-09-25"
+     ],
+     "hoy": "2026-10-28"
+    },
+    "esperado": [
+     "2026-11-02",
+     "2026-11-24"
+    ]
+   },
+   {
+    "nombre": "pasaron más de 7 días sin llegada: parte el día de siempre",
+    "mes": "2026-11",
+    "per": {
+     "modo": "sueldo",
+     "dia": 25,
+     "llegadas": [
+      "2026-08-25",
+      "2026-09-25"
+     ],
+     "hoy": "2026-11-03"
+    },
+    "esperado": [
+     "2026-10-25",
+     "2026-11-24"
+    ]
+   },
+   {
+    "nombre": "llegó atrasado: parte ese día",
+    "mes": "2026-11",
+    "per": {
+     "modo": "sueldo",
+     "dia": 25,
+     "llegadas": [
+      "2026-09-25",
+      "2026-10-29"
+     ],
+     "hoy": "2026-10-30"
+    },
+    "esperado": [
+     "2026-10-29",
+     "2026-11-24"
+    ]
+   },
+   {
+    "nombre": "detectado (día 19, llegó el 22): el mes va desde el 22",
+    "mes": "2026-11",
+    "per": {
+     "modo": "sueldo",
+     "dia": 19,
+     "llegadas": [
+      "2026-09-15",
+      "2026-10-22"
+     ],
+     "hoy": "2026-10-26"
+    },
+    "esperado": [
+     "2026-10-22",
+     "2026-11-18"
+    ]
+   }
+  ],
+  "periodo_de": [
+   {
+    "fecha": "2026-10-28",
+    "per": {
+     "modo": "sueldo",
+     "dia": 25,
+     "llegadas": [
+      "2026-08-25",
+      "2026-09-25"
+     ],
+     "hoy": "2026-10-28"
+    },
+    "esperado": "2026-10"
+   },
+   {
+    "fecha": "2026-10-26",
+    "per": {
+     "modo": "sueldo",
+     "dia": 19,
+     "llegadas": [
+      "2026-09-15",
+      "2026-10-22"
+     ],
+     "hoy": "2026-10-26"
+    },
+    "esperado": "2026-11"
+   }
+  ],
+  "regla": [
+   {
+    "dia": 25,
+    "llegadas": [],
+    "esperado": "anterior"
+   },
+   {
+    "dia": 25,
+    "llegadas": [
+     "2026-04-24",
+     "2026-07-24"
+    ],
+    "esperado": "anterior"
+   },
+   {
+    "dia": 25,
+    "llegadas": [
+     "2026-04-27",
+     "2026-07-27"
+    ],
+    "esperado": "siguiente"
+   },
+   {
+    "dia": 25,
+    "llegadas": [
+     "2026-04-27",
+     "2026-07-24",
+     "2026-10-23"
+    ],
+    "esperado": "anterior"
+   }
+  ]
  }
 }

@@ -23,7 +23,7 @@ from statistics import median
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import categorizar  # noqa: E402
 import datos  # noqa: E402
-from resumen import cargos, cuotas_de, dias_del_mes, periodo_de, periodos_con_datos, rango, redondear_arriba, sumar_mes, valor_cuota  # noqa: E402
+from resumen import cargos, cuotas_de, dias_del_mes, inicio_nominal, periodo_de, periodos_con_datos, rango, redondear_arriba, sumar_mes, valor_cuota  # noqa: E402
 
 RUTA = os.path.join(datos.BASE, "compromisos.json")
 RUTA_AVISOS = os.path.join(datos.INTERNO, "avisos.json")
@@ -813,6 +813,111 @@ def llegadas_sueldo(compromisos, movimientos, hasta, moneda):
     return sorted(pagos[f"{c['id']}|{o['periodo']}"]["fecha"] for c, o in ocs if f"{c['id']}|{o['periodo']}" in pagos)
 
 
+#: Palabras que dicen «esto es un sueldo» (sin tildes ni mayúsculas).
+PALABRAS_SUELDO = ("REMUNERACION", "SUELDO", "NOMINA", "PAYROLL", "SALARIO", "SALARY")
+#: El sueldo se repite con un monto parecido (± este %) y, si la descripción no lo dice, es al menos esta parte de lo que entró ese mes.
+SUELDO_PARECIDO, SUELDO_PRINCIPAL = 25, 50
+
+
+def detectar_sueldo(movimientos, hoy, categorias, moneda):
+    """El sueldo, si se ve claro en los movimientos (igual que detectarSueldo en ui/app.js): el ingreso más grande que se repite en
+    al menos 2 de los últimos 3 meses (o 3 de 4), una vez por mes y con monto parecido (±25 %), que no es entre tus cuentas. Si la
+    descripción no dice sueldo (REMUNERACION, SUELDO, NOMINA, PAYROLL…), cada llegada tiene que ser al menos la mitad de lo que
+    entró ese mes. Devuelve {"dia" (la mediana del día de llegada), "monto", "variacion", "llegadas", "clave", "meses"} o None."""
+    mes = hoy[:7]
+    meses4 = [sumar_mes(mes, -i) for i in (3, 2, 1, 0)]
+    neutras = {c["id"] for c in categorias if c.get("tipo") == "neutro"} | {"transferencia"}
+    ingresos = [m for m in movimientos if m["monto"] > 0 and m["fecha"] <= hoy and m["fecha"][:7] in meses4
+                and m.get("categoria") not in neutras and (m.get("moneda") or moneda) == moneda]
+    total_mes = {}
+    for m in ingresos:
+        total_mes[m["fecha"][:7]] = total_mes.get(m["fecha"][:7], 0) + m["monto"]
+    for ancla in sorted(ingresos, key=lambda m: (-m["monto"], m["fecha"], m["id"])):
+        miembros = []
+        for x in meses4:
+            cerca = [m for m in ingresos if m["fecha"][:7] == x and abs(m["monto"] - ancla["monto"]) <= ancla["monto"] * SUELDO_PARECIDO / 100 + 1e-9]
+            if cerca:
+                miembros.append(min(cerca, key=lambda m: (abs(m["monto"] - ancla["monto"]), m["fecha"], m["id"])))
+        en3 = sum(1 for m in miembros if m["fecha"][:7] in meses4[1:])
+        if en3 < 2 and len(miembros) < 3:
+            continue
+        dice = any(m.get("categoria") == "sueldo" or any(p in datos.normalizar(m["descripcion"]) for p in PALABRAS_SUELDO) for m in miembros)
+        if not dice and any(m["monto"] < total_mes[m["fecha"][:7]] * SUELDO_PRINCIPAL / 100 - 1e-9 for m in miembros):
+            continue
+        dias = sorted(int(m["fecha"][8:10]) for m in miembros)
+        k = len(dias) // 2
+        dia = dias[k] if len(dias) % 2 else (dias[k - 1] + dias[k] + 1) // 2
+        montos = [m["monto"] for m in miembros]
+        medio = _del_medio(montos)
+        variacion = min(50, max(1, math.ceil(max(abs(x - medio) for x in montos) / medio * 100 - 1e-9)))
+        claves = {re.sub(r"[^A-Z0-9]+$", "", categorizar.regla_para(m["descripcion"])) for m in miembros}
+        clave = claves.pop() if len(claves) == 1 else ""
+        return {"dia": dia, "monto": medio, "variacion": variacion, "llegadas": sorted(m["fecha"] for m in miembros),
+                "clave": clave if len(clave) >= 3 else "", "meses": len(miembros)}
+    return None
+
+
+def compromiso_sueldo(d, hoy, moneda):
+    """El compromiso de sueldo que sale de lo detectado (sin validar)."""
+    return {"nombre": "Sueldo", "tipo": "ingreso", "signo": "ingreso", "monto": d["monto"], "moneda": moneda, "frecuencia": "mensual",
+            "dia": d["dia"], "categoria": "sueldo", "buscar": [d["clave"]] if d["clave"] else [], "aproximado": {"variacion": d["variacion"]},
+            "origen": "detectado", "desde": min(d["llegadas"] + [hoy]), "activo": True}  # desde la primera llegada: así cuenta la historia
+
+
+def aplicar_sueldo(hoy, movimientos=None):
+    """Si la persona nunca eligió cuándo empieza su mes (`inicio_mes` no está en config) y el sueldo se ve claro, Alcancía lo usa
+    sola y lo guarda: config `inicio_mes` = {"modo": "sueldo", "dia", "auto": true}, el compromiso de sueldo (si no hay uno) y que
+    esas llegadas queden como Sueldo (con una regla si su descripción no calza con otros movimientos; si no, solo esas). Con `auto`,
+    si el día típico cambia, lo sigue. Lo que la persona eligió nunca se toca. Devuelve lo detectado si cambió algo; si no, None."""
+    ruta = os.path.join(datos.INTERNO, "config.json")
+    cfg = datos.leer_json(ruta, {})
+    im = cfg.get("inicio_mes")
+    if im is not None and not (isinstance(im, dict) and im.get("auto") is True):
+        return None
+    moneda = datos.presupuesto().get("moneda") or datos.config()["moneda"]
+    movs = datos.leer_todos() if movimientos is None else movimientos
+    cats = datos.categorias()
+    d = detectar_sueldo(movs, hoy, cats, moneda)
+    if not d:
+        return None
+    cambio = im is None or im.get("dia") != d["dia"]
+    if cambio:
+        cfg["inicio_mes"] = {"modo": "sueldo", "dia": d["dia"], "auto": True}
+        datos.escribir_json(ruta, cfg)
+    raw = leer()
+    sueldo = next((c for c in validos(raw, hoy, moneda) if c.get("activo", True) and c["tipo"] == "ingreso"
+                   and c["frecuencia"] == "mensual" and c.get("categoria") == "sueldo"), None)
+    if sueldo is None and any(c["id"] == "sueldo" for c in cats):
+        c, error = validar(compromiso_sueldo(d, hoy, moneda), {c["id"] for c in cats}, hoy, moneda)
+        if not error:
+            raw["compromisos"].append(c)
+            escribir(raw)
+            _marcar_sueldo(d, movs, cats)
+            cambio = True
+    elif sueldo is not None and sueldo.get("origen") == "detectado" and sueldo["dia"] != d["dia"]:
+        for c in raw["compromisos"]:
+            if isinstance(c, dict) and c.get("id") == sueldo["id"]:
+                c["dia"] = d["dia"]
+        escribir(raw)
+    return d if cambio else None
+
+
+def _marcar_sueldo(d, movimientos, categorias):
+    """Las llegadas del sueldo quedan con categoría Sueldo: con una regla si su descripción no calza con ningún otro movimiento
+    (así las que lleguen después también), o solo esas si es algo común («Carga de saldo» también es cuando cargas tú)."""
+    import guardar
+    llegadas = set(d["llegadas"])
+    miembros = [m for m in movimientos if m["fecha"] in llegadas and m["monto"] > 0 and abs(m["monto"] - d["monto"]) <= d["monto"] * 0.5]
+    clave = d["clave"]
+    otros = [m for m in movimientos if clave and clave in datos.normalizar(m["descripcion"]) and m not in miembros]
+    if clave and not otros and not any(datos.normalizar(r.get("contiene", "")) == clave for r in datos.reglas()):
+        guardar.regla({"contiene": clave, "categoria": "sueldo"})
+        return
+    for m in miembros:
+        if m.get("categoria") != "sueldo":
+            datos.cambiar(m["fecha"][:7], m["id"], {"categoria": "sueldo"})
+
+
 def periodo(inicio_mes, compromisos, movimientos, hoy, moneda):
     """`per` para resumen.rango a partir del ajuste `inicio_mes` ({"modo": "dia" | "sueldo", "dia": 25}). None = mes calendario."""
     if not isinstance(inicio_mes, dict) or inicio_mes.get("modo") != "sueldo":
@@ -821,7 +926,66 @@ def periodo(inicio_mes, compromisos, movimientos, hoy, moneda):
     if isinstance(d, bool) or not isinstance(d, int) or not 1 <= d <= 31:
         return None
     hasta = _fecha(_num(hoy) + 62)
-    return {"modo": "sueldo", "dia": d, "llegadas": llegadas_sueldo(compromisos, movimientos, hasta, moneda)}
+    llegadas = llegadas_sueldo(compromisos, movimientos, hasta, moneda)
+    per = {"modo": "sueldo", "dia": d, "llegadas": llegadas}
+    if llegadas:
+        per["hoy"] = hoy  # con historia de llegadas, si el sueldo se atrasa el mes anterior sigue (resumen.inicio_periodo)
+    return per
+
+
+# ───────────── Días hábiles y el próximo sueldo (igual que ui/app.js) ─────────────
+FERIADOS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "feriados.json")
+
+
+def feriados(pais):
+    """Los feriados nacionales del país («AAAA-MM-DD», de bin/feriados.json). Un país que no está ahí: ninguno (solo fines de semana)."""
+    por_anio = datos.leer_json(FERIADOS, {}).get(str(pais or "").upper(), {})
+    return sorted(f["fecha"] for lista in por_anio.values() if isinstance(lista, list) for f in lista
+                  if isinstance(f, dict) and _fecha_valida(f.get("fecha")))
+
+
+def es_habil(f, feriados_):
+    return date.fromisoformat(f).weekday() < 5 and f not in feriados_
+
+
+def correr_habil(f, regla, feriados_):
+    """El día hábil más cercano: el mismo si es hábil; si no, el anterior (o el siguiente, si `regla` es «siguiente»)."""
+    paso = 1 if regla == "siguiente" else -1
+    n = 0
+    while not es_habil(f, feriados_) and n < 15:
+        f, n = _fecha(_num(f) + paso), n + 1
+    return f
+
+
+def _nominal_cerca(dia, llegada):
+    """El día de siempre (en el mes de la llegada, el anterior o el siguiente) más cercano a una llegada."""
+    m = llegada[:7]
+    opciones = [f"{x}-{min(dia, dias_del_mes(x)):02d}" for x in (sumar_mes(m, -1), m, sumar_mes(m, 1))]
+    return min(opciones, key=lambda f: (abs(_num(f) - _num(llegada)), f))
+
+
+def regla_habil(dia, llegadas, feriados_):
+    """Si el día de pago cae en fin de semana o feriado, ¿te pagan el hábil anterior o el siguiente? Lo que se vio en las llegadas
+    (cuando el día de siempre no fue hábil); sin señales, «anterior» (lo común en Chile)."""
+    antes = despues = 0
+    for f in llegadas:
+        n = _nominal_cerca(dia, f)
+        if not es_habil(n, feriados_):
+            antes, despues = antes + (f < n), despues + (f > n)
+    return "siguiente" if despues > antes else "anterior"
+
+
+def proximo_sueldo(per, hoy, feriados_):
+    """Cuándo debería llegar el próximo sueldo: el día de siempre del periodo siguiente, corrido a un día hábil según la regla
+    aprendida. `atrasado`: ya pasó un día hábil después de esa fecha y no llegó. None si el mes no va de sueldo a sueldo."""
+    if not per or per.get("modo") != "sueldo" or not isinstance(per.get("dia"), int):
+        return None
+    siguiente = sumar_mes(periodo_de(hoy, per), 1)
+    nominal = inicio_nominal(siguiente, per)
+    regla = regla_habil(per["dia"], per.get("llegadas") or [], feriados_)
+    fecha = correr_habil(nominal, regla, feriados_)
+    plazo = correr_habil(_fecha(_num(fecha) + 1), "siguiente", feriados_)
+    return {"fecha": fecha, "nominal": nominal, "regla": regla, "periodo": siguiente, "atrasado": hoy > plazo}
 
 
 def periodo_actual(hoy=None, movimientos=None, lista=None):
@@ -830,7 +994,13 @@ def periodo_actual(hoy=None, movimientos=None, lista=None):
     cfg = datos.config()
     moneda = datos.presupuesto().get("moneda") or cfg["moneda"]
     movs = datos.leer_todos() if movimientos is None else movimientos
-    per = periodo(cfg.get("inicio_mes"), validos(None, hoy, moneda) if lista is None else lista, movs, hoy, moneda)
+    im = cfg.get("inicio_mes")
+    if im is None:  # nunca eligió: lo mismo que haría la app al abrirse (aplicar_sueldo), sin escribir nada
+        d = detectar_sueldo(movs, hoy, datos.categorias(), moneda)
+        im = {"modo": "sueldo", "dia": d["dia"]} if d else None
+    per = periodo(im, validos(None, hoy, moneda) if lista is None else lista, movs, hoy, moneda)
+    if per and not per["llegadas"] and cfg.get("inicio_mes") is None:
+        per["llegadas"] = d["llegadas"]
     return per, periodo_de(hoy, per)
 
 

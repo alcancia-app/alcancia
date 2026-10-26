@@ -1,0 +1,277 @@
+{
+ "_nota": "Feriados nacionales por país (solo datos): para saber qué días son hábiles y cuándo llega el sueldo si el día de pago cae en feriado o fin de semana. Se actualiza cada año con el decreto oficial (los feriados que se corren a lunes, el solsticio de Pueblos Indígenas y las elecciones). Un país que no está aquí usa solo sábados y domingos.",
+ "CL": {
+  "2025": [
+   {
+    "fecha": "2025-01-01",
+    "nombre": "Año Nuevo"
+   },
+   {
+    "fecha": "2025-04-18",
+    "nombre": "Viernes Santo"
+   },
+   {
+    "fecha": "2025-04-19",
+    "nombre": "Sábado Santo"
+   },
+   {
+    "fecha": "2025-05-01",
+    "nombre": "Día del Trabajo"
+   },
+   {
+    "fecha": "2025-05-21",
+    "nombre": "Glorias Navales"
+   },
+   {
+    "fecha": "2025-06-20",
+    "nombre": "Pueblos Indígenas"
+   },
+   {
+    "fecha": "2025-06-29",
+    "nombre": "San Pedro y San Pablo"
+   },
+   {
+    "fecha": "2025-07-16",
+    "nombre": "Virgen del Carmen"
+   },
+   {
+    "fecha": "2025-08-15",
+    "nombre": "Asunción de la Virgen"
+   },
+   {
+    "fecha": "2025-09-18",
+    "nombre": "Independencia Nacional"
+   },
+   {
+    "fecha": "2025-09-19",
+    "nombre": "Glorias del Ejército"
+   },
+   {
+    "fecha": "2025-10-12",
+    "nombre": "Encuentro de Dos Mundos"
+   },
+   {
+    "fecha": "2025-10-31",
+    "nombre": "Iglesias Evangélicas y Protestantes"
+   },
+   {
+    "fecha": "2025-11-01",
+    "nombre": "Todos los Santos"
+   },
+   {
+    "fecha": "2025-11-16",
+    "nombre": "Elecciones presidenciales y parlamentarias"
+   },
+   {
+    "fecha": "2025-12-08",
+    "nombre": "Inmaculada Concepción"
+   },
+   {
+    "fecha": "2025-12-14",
+    "nombre": "Segunda vuelta presidencial"
+   },
+   {
+    "fecha": "2025-12-25",
+    "nombre": "Navidad"
+   }
+  ],
+  "2026": [
+   {
+    "fecha": "2026-01-01",
+    "nombre": "Año Nuevo"
+   },
+   {
+    "fecha": "2026-04-03",
+    "nombre": "Viernes Santo"
+   },
+   {
+    "fecha": "2026-04-04",
+    "nombre": "Sábado Santo"
+   },
+   {
+    "fecha": "2026-05-01",
+    "nombre": "Día del Trabajo"
+   },
+   {
+    "fecha": "2026-05-21",
+    "nombre": "Glorias Navales"
+   },
+   {
+    "fecha": "2026-06-21",
+    "nombre": "Pueblos Indígenas"
+   },
+   {
+    "fecha": "2026-06-29",
+    "nombre": "San Pedro y San Pablo"
+   },
+   {
+    "fecha": "2026-07-16",
+    "nombre": "Virgen del Carmen"
+   },
+   {
+    "fecha": "2026-08-15",
+    "nombre": "Asunción de la Virgen"
+   },
+   {
+    "fecha": "2026-09-18",
+    "nombre": "Independencia Nacional"
+   },
+   {
+    "fecha": "2026-09-19",
+    "nombre": "Glorias del Ejército"
+   },
+   {
+    "fecha": "2026-10-12",
+    "nombre": "Encuentro de Dos Mundos"
+   },
+   {
+    "fecha": "2026-10-31",
+    "nombre": "Iglesias Evangélicas y Protestantes"
+   },
+   {
+    "fecha": "2026-11-01",
+    "nombre": "Todos los Santos"
+   },
+   {
+    "fecha": "2026-12-08",
+    "nombre": "Inmaculada Concepción"
+   },
+   {
+    "fecha": "2026-12-25",
+    "nombre": "Navidad"
+   }
+  ],
+  "2027": [
+   {
+    "fecha": "2027-01-01",
+    "nombre": "Año Nuevo"
+   },
+   {
+    "fecha": "2027-03-26",
+    "nombre": "Viernes Santo"
+   },
+   {
+    "fecha": "2027-03-27",
+    "nombre": "Sábado Santo"
+   },
+   {
+    "fecha": "2027-05-01",
+    "nombre": "Día del Trabajo"
+   },
+   {
+    "fecha": "2027-05-21",
+    "nombre": "Glorias Navales"
+   },
+   {
+    "fecha": "2027-06-21",
+    "nombre": "Pueblos Indígenas"
+   },
+   {
+    "fecha": "2027-06-28",
+    "nombre": "San Pedro y San Pablo"
+   },
+   {
+    "fecha": "2027-07-16",
+    "nombre": "Virgen del Carmen"
+   },
+   {
+    "fecha": "2027-08-15",
+    "nombre": "Asunción de la Virgen"
+   },
+   {
+    "fecha": "2027-09-18",
+    "nombre": "Independencia Nacional"
+   },
+   {
+    "fecha": "2027-09-19",
+    "nombre": "Glorias del Ejército"
+   },
+   {
+    "fecha": "2027-10-11",
+    "nombre": "Encuentro de Dos Mundos"
+   },
+   {
+    "fecha": "2027-10-31",
+    "nombre": "Iglesias Evangélicas y Protestantes"
+   },
+   {
+    "fecha": "2027-11-01",
+    "nombre": "Todos los Santos"
+   },
+   {
+    "fecha": "2027-12-08",
+    "nombre": "Inmaculada Concepción"
+   },
+   {
+    "fecha": "2027-12-25",
+    "nombre": "Navidad"
+   }
+  ],
+  "2028": [
+   {
+    "fecha": "2028-01-01",
+    "nombre": "Año Nuevo"
+   },
+   {
+    "fecha": "2028-04-14",
+    "nombre": "Viernes Santo"
+   },
+   {
+    "fecha": "2028-04-15",
+    "nombre": "Sábado Santo"
+   },
+   {
+    "fecha": "2028-05-01",
+    "nombre": "Día del Trabajo"
+   },
+   {
+    "fecha": "2028-05-21",
+    "nombre": "Glorias Navales"
+   },
+   {
+    "fecha": "2028-06-20",
+    "nombre": "Pueblos Indígenas"
+   },
+   {
+    "fecha": "2028-06-26",
+    "nombre": "San Pedro y San Pablo"
+   },
+   {
+    "fecha": "2028-07-16",
+    "nombre": "Virgen del Carmen"
+   },
+   {
+    "fecha": "2028-08-15",
+    "nombre": "Asunción de la Virgen"
+   },
+   {
+    "fecha": "2028-09-18",
+    "nombre": "Independencia Nacional"
+   },
+   {
+    "fecha": "2028-09-19",
+    "nombre": "Glorias del Ejército"
+   },
+   {
+    "fecha": "2028-10-09",
+    "nombre": "Encuentro de Dos Mundos"
+   },
+   {
+    "fecha": "2028-10-27",
+    "nombre": "Iglesias Evangélicas y Protestantes"
+   },
+   {
+    "fecha": "2028-11-01",
+    "nombre": "Todos los Santos"
+   },
+   {
+    "fecha": "2028-12-08",
+    "nombre": "Inmaculada Concepción"
+   },
+   {
+    "fecha": "2028-12-25",
+    "nombre": "Navidad"
+   }
+  ]
+ }
+}

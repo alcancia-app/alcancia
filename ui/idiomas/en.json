@@ -702,6 +702,24 @@
     "El interés tiene que ser un porcentaje entre 0 y 100.": "The interest has to be a percentage between 0 and 100.",
     "No pude entenderlo del todo: complétalo aquí y guárdalo.": "I couldn't understand all of it: complete it here and save it.",
     "No entendí todo: falta con quién o en cuántas cuotas. Corrígelo aquí y guárdalo.": "I didn't understand everything: who it's with or how many installments is missing. Fix it here and save it.",
-    "No encontré el monto: escríbelo aquí y guárdalo.": "I couldn't find the amount: type it here and save it."
+    "No encontré el monto: escríbelo aquí y guárdalo.": "I couldn't find the amount: type it here and save it.",
+    "Tu sueldo debería llegar hoy ({f}).": "Your salary should arrive today ({f}).",
+    "Próximo sueldo: {f} (aprox.), mañana.": "Next payday: {f} (approx.), tomorrow.",
+    "Próximo sueldo: {f} (aprox.), en {n} días.": "Next payday: {f} (approx.), in {n} days.",
+    "Elegir": "Choose",
+    "Cambiar": "Change",
+    "Tu mes va desde que llegó tu sueldo ({f}).": "Your month runs from when your salary arrived ({f}).",
+    "Tu mes va desde el {f}, el día que suele llegar tu sueldo.": "Your month runs from {f}, the day your salary usually arrives.",
+    "¿Aún no te pagan? Lo esperaba el {f}.": "Haven't been paid yet? I expected it on {f}.",
+    "Todavía no": "Not yet",
+    "Ya me pagaron": "I've been paid",
+    "¿Es este? {d} · {x} · {f}": "Is it this one? {d} · {x} · {f}",
+    "Sí, es mi sueldo": "Yes, it's my salary",
+    "Agrega tu cartola o revisa tus cuentas conectadas para verlo.": "Add your statement or check your connected accounts to see it.",
+    "Revisar {s}": "Check {s}",
+    "Márcalo como recibido hoy": "Mark it as received today",
+    "Listo: tu mes parte el {f}": "Done: your month starts on {f}",
+    "Entendido: vuelvo a mirar mañana": "Got it: I'll check again tomorrow",
+    "Lo detecté de tus movimientos: tu sueldo suele llegar el día {d}. Si lo cambias, uso lo que elijas.": "I detected it from your transactions: your salary usually arrives on day {d}. If you change it, I'll use what you choose."
   }
 }

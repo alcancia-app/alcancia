@@ -391,6 +391,11 @@ span.barra { display: block; }
 .al-dia.atrasado { background: var(--rojo-suave); } .al-dia.atrasado .ico { background: var(--rojo); color: #fff; }
 .al-dia.pendiente { background: var(--ambar-suave); } .al-dia.pendiente .ico { background: var(--ambar); color: var(--panel); }
 .al-dia.neutro { border: 1px dashed var(--linea); color: var(--suave); } .al-dia.neutro .ico { background: var(--acento-suave); }
+.linea-mes { display: flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; margin: -6px 2px 12px; color: var(--suave); font-size: 13px; line-height: 1.45; }
+.linea-mes p { margin: 0; flex: 1 1 220px; min-width: 0; }
+.linea-mes .acciones { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.linea-mes .boton { padding: 4px 10px; font-size: 13px; }
+.linea-mes.pregunta { padding: 8px 12px; border: 1px solid var(--linea); border-radius: 12px; color: var(--texto); }
 
 .tres { background: var(--panel); border: 1px solid var(--linea); border-radius: 18px; overflow: hidden; margin-bottom: 10px; }
 .cifra-fila { position: relative; width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto 18px; align-items: center; gap: 4px 18px;

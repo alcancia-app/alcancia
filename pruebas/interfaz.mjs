@@ -178,6 +178,13 @@ const navegador = await chromium.launch();
       const d = P.loQueDebes(tc.compromisos, tc.movimientos, k.hoy, "CLP");
       if (canon(d) !== canon(k.esperado.debes)) malos.push(`tres cifras «${k.nombre}»: lo que debes = ${canon(d)}`);
     }
+    // El sueldo: detectarlo, días hábiles y el próximo sueldo.
+    const su = c.sueldo;
+    for (const k of su.detectar) { const r = P.detectarSueldo(k.movimientos, k.hoy, su.categorias, "CLP"); if (canon(r) !== canon(k.esperado)) malos.push(`detectarSueldo «${k.nombre}» = ${canon(r)}`); }
+    for (const k of su.proximo) { const r = P.proximoSueldo(k.per, k.hoy, k.pais === "CL" ? su.feriados_cl : []); if (canon(r) !== canon(k.esperado)) malos.push(`proximoSueldo «${k.nombre}» = ${canon(r)}`); }
+    for (const k of su.rango) if (canon(P.rango(k.mes, k.per)) !== canon(k.esperado)) malos.push(`sueldo: rango «${k.nombre}» = ${P.rango(k.mes, k.per)}`);
+    for (const k of su.periodo_de) if (P.periodoDe(k.fecha, k.per) !== k.esperado) malos.push(`sueldo: periodoDe(${k.fecha}) = ${P.periodoDe(k.fecha, k.per)}`);
+    for (const k of su.regla) if (P.reglaHabil(k.dia, k.llegadas, su.feriados_cl) !== k.esperado) malos.push(`reglaHabil(${k.llegadas}) = ${P.reglaHabil(k.dia, k.llegadas, su.feriados_cl)}`);
     // Préstamos entre personas.
     const pr = c.prestamos;
     for (const [t, n, i, m, esp] of pr.calcular) if (canon(P.calcularPrestamo(t, n, i, m)) !== canon(esp)) malos.push(`calcularPrestamo(${t}, ${n}, ${i}, ${m}) = ${canon(P.calcularPrestamo(t, n, i, m))}`);
@@ -529,6 +536,71 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
   }
 }
 console.log("  ✓ Préstamos: Cuéntale con montos en palabras, cálculo en vivo, «Te deben» aparte, nunca sin salida y agrupar");
+
+// El sueldo: detectado solo si nunca elegiste, el próximo sueldo en día hábil, «¿Aún no te pagan?» y la invitación si no hay sueldo claro.
+const TEXTOS_SU = {
+  español: { mes: "Tu mes va desde que llegó tu sueldo (5 oct", prox: "Próximo sueldo: jueves 5 de noviembre (aprox.)", detecte: "Lo detecté de tus movimientos",
+    invita: "¿Cuándo te pagan?", pregunta: "¿Aún no te pagan? Lo esperaba el jueves 5 de noviembre", cartola: "Agrega tu cartola", es: "¿Es este? DEPOSITO EMPRESA EJEMPLO" },
+  inglés: { mes: "Your month runs from when your salary arrived (Oct 5", prox: "Next payday: Thursday, November 5 (approx.)", detecte: "I detected it from your transactions",
+    invita: "When do you get paid?", pregunta: "Haven't been paid yet? I expected it on Thursday, November 5", cartola: "Add your statement", es: "Is it this one? DEPOSITO EMPRESA EJEMPLO" },
+};
+for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma=en"]]) {
+  for (const [modo, opciones] of [["escritorio", { viewport: { width: 1200, height: 820 } }], ["celular", { viewport: { width: 390, height: 844 }, colorScheme: "dark" }]]) {
+    const t = TEXTOS_SU[idioma], donde = `(${idioma}, ${modo})`;
+    const p = await navegador.newPage(opciones);
+    p.on("pageerror", (e) => falla(`error de JavaScript en sueldo ${donde}: ${e.message}`));
+    const ancho = async (paso) => { if (modo === "celular" && (await p.evaluate(() => document.documentElement.scrollWidth)) > 392) falla(`se sale de la pantalla en «${paso}» ${donde}`); };
+    const texto = (sel) => p.$eval(sel, (el) => el.textContent.replace(/\s+/g, " ")).catch(() => "");
+    /** Manda a la página el estado de la demo cambiado por `f` (como lo mandaría la app). */
+    const estado = (f) => { const d = JSON.parse(fs.readFileSync(path.join(RAIZ, "ui", "demo.json"), "utf8")); d.config.bienvenida = true; f(d); return p.evaluate((x) => window.Alcancia.estado(x), d); };
+    await p.goto(BASE + "?" + consulta);
+    await p.waitForSelector(".app");
+    // Nunca eligió: Alcancía usa su sueldo (llega el 5) y lo dice en una línea discreta.
+    await estado((d) => { delete d.config.inicio_mes; });
+    const cfg = await p.evaluate(() => { let c; window.Alcancia._probar((E) => { c = E.config.inicio_mes; }); return c; });
+    if (JSON.stringify(cfg) !== JSON.stringify({ modo: "sueldo", dia: 5, auto: true })) falla(`se usa el sueldo detectado ${donde}: ${JSON.stringify(cfg)}`);
+    if (!(await texto(".linea-mes")).includes(t.mes)) falla(`la línea «Tu mes va desde…» ${donde}: ${await texto(".linea-mes")}`);
+    if (!(await texto(".pista-sueldo")).includes(t.prox)) falla(`el próximo sueldo con fecha ${donde}: ${await texto(".pista-sueldo")}`);
+    await ancho("tu mes va desde tu sueldo");
+    await p.click('.linea-mes [data-accion="ajustes-mes"]');
+    if ((await p.evaluate(() => document.activeElement?.id)) !== "inicio-modo") falla(`«Cambiar» lleva a «Tu mes empieza» en Ajustes ${donde}`);
+    if (!(await texto(".dialogo")).includes(t.detecte)) falla(`Ajustes dice que lo detectó ${donde}`);
+    await p.click('[data-accion="cerrar"]');
+    // Lo que la persona eligió no se toca.
+    await estado((d) => { d.config.inicio_mes = { modo: 'dia', dia: 1 }; });
+    if (await p.$(".linea-mes")) falla(`con el mes elegido no hay línea de sueldo ${donde}`);
+    // Sin un sueldo claro: no se inventa; se invita a decir cuándo te pagan.
+    await estado((d) => { delete d.config.inicio_mes; d.movimientos = d.movimientos.filter((m) => m.monto < 0); d.compromisos.compromisos = d.compromisos.compromisos.filter((c) => c.tipo !== 'ingreso'); });
+    if (!(await texto(".linea-mes")).includes(t.invita)) falla(`sin sueldo claro, la invitación ${donde}`);
+    // Se atrasó (esperado el jueves 5 de noviembre, hoy lunes 9): la pregunta suave.
+    await estado((d) => { d.hoy = '2026-11-09'; d.config.inicio_mes = { modo: 'sueldo', dia: 5 }; });
+    if (!(await texto(".linea-mes.pregunta")).includes(t.pregunta)) falla(`«¿Aún no te pagan?» ${donde}: ${await texto(".linea-mes")}`);
+    await ancho("¿aún no te pagan?");
+    await p.click('[data-sueldo="no"]');
+    if (await p.$(".linea-mes.pregunta")) falla(`«Todavía no» no insiste hoy ${donde}`);
+    await estado((d) => { d.hoy = '2026-11-09'; d.config.inicio_mes = { modo: 'sueldo', dia: 5 }; });
+    if (await p.$(".linea-mes.pregunta")) falla(`«Todavía no» sigue valiendo hoy ${donde}`);
+    await p.evaluate(() => localStorage.clear());
+    // «Ya me pagaron» sin movimiento: invita a agregar la cartola o a marcarlo.
+    await estado((d) => { d.hoy = '2026-11-09'; d.config.inicio_mes = { modo: 'sueldo', dia: 5 }; });
+    await p.click('[data-sueldo="pagaron"]');
+    if (!(await texto(".linea-mes.pregunta")).includes(t.cartola)) falla(`«Ya me pagaron» sin movimiento ${donde}: ${await texto(".linea-mes")}`);
+    await ancho("ya me pagaron");
+    await p.click('[data-sueldo="hoy"]');
+    if (await p.$(".linea-mes.pregunta")) falla(`marcado como recibido hoy, ya no pregunta ${donde}`);
+    // «Ya me pagaron» con un ingreso que no se reconoció: «¿Es este?» y el periodo parte ese día.
+    await estado((d) => { d.hoy = '2026-11-09'; d.config.inicio_mes = { modo: 'sueldo', dia: 5 }; d.movimientos.push({ id: 'nov-sueldo', fecha: '2026-11-06', descripcion: 'DEPOSITO EMPRESA EJEMPLO', monto: 1450000, moneda: 'CLP', cuenta: 'banco-ejemplo', categoria: '' }); });
+    await p.click('[data-sueldo="pagaron"]');
+    if (!(await texto(".linea-mes.pregunta")).includes(t.es)) falla(`«¿Es este?» con el ingreso más probable ${donde}: ${await texto(".linea-mes")}`);
+    await p.click('[data-sueldo="es"]');
+    const desde = await p.evaluate(() => { let r; window.Alcancia._probar((E) => { r = E.mes; }); return r; });
+    if (desde !== "2026-11") falla(`el periodo pasa al del sueldo ${donde}: ${desde}`);
+    if (!(await texto(".selector-mes, .encabezado")).match(/6 (nov|Nov)|Nov 6/)) falla(`el periodo parte el 6 de noviembre ${donde}: ${await texto(".encabezado")}`);
+    await ancho("sueldo marcado");
+    await p.close();
+  }
+}
+console.log("  ✓ Sueldo: detectado solo, próximo sueldo en día hábil, «¿Aún no te pagan?» y la invitación si no hay sueldo claro");
 
 // Contraste del botón principal en modo claro y oscuro (WCAG AA: 4.5).
 for (const esquema of ["light", "dark"]) {

@@ -156,7 +156,10 @@
       const d = diasEntre(nominal, f);
       if (d >= -12 && d <= 7 && (!mejor || Math.abs(d) < mejor[0] || (Math.abs(d) === mejor[0] && f < mejor[1]))) mejor = [Math.abs(d), f];
     }
-    return mejor ? mejor[1] : nominal;
+    if (mejor) return mejor[1];
+    // Esperando el sueldo (igual que Python): pasó el día de siempre y aún no llega; el mes anterior sigue hasta 7 días.
+    if (typeof per.hoy === "string") { const d = diasEntre(nominal, per.hoy); if (d >= 0 && d <= 7) return sumarDias(nominal, 8); }
+    return nominal;
   }
   function rango(mes, per = null) {
     if (!diaSueldo(per)) return [`${mes}-01`, `${mes}-${String(diasDelMes(mes)).padStart(2, "0")}`];
@@ -479,9 +482,66 @@
     for (const [c, o] of ocs) { const p = pagos[`${c.id}|${o.periodo}`]; if (p) r.push(p.fecha); }
     return r.sort();
   }
+  const PALABRAS_SUELDO = ["REMUNERACION", "SUELDO", "NOMINA", "PAYROLL", "SALARIO", "SALARY"], SUELDO_PARECIDO = 25, SUELDO_PRINCIPAL = 50;
+  /** El sueldo, si se ve claro (igual que compromisos.detectar_sueldo en Python): el ingreso más grande que se repite en 2 de los
+   *  últimos 3 meses (o 3 de 4) con monto parecido (±25 %), que no es entre tus cuentas; si la descripción no dice sueldo, cada
+   *  llegada es al menos la mitad de lo que entró ese mes. {dia (mediana), monto, variacion, llegadas, clave, meses} o null. */
+  function detectarSueldo(movimientos, hoy, categorias, moneda) {
+    const mes = hoy.slice(0, 7), meses4 = [3, 2, 1, 0].map((i) => sumarMes(mes, -i));
+    const neutras = new Set([...categorias.filter((c) => c.tipo === "neutro").map((c) => c.id), "transferencia"]);
+    const ingresos = movimientos.filter((m) => m.monto > 0 && m.fecha <= hoy && meses4.includes(m.fecha.slice(0, 7))
+      && !neutras.has(m.categoria) && (m.moneda || moneda) === moneda);
+    const totalMes = {};
+    for (const m of ingresos) totalMes[m.fecha.slice(0, 7)] = (totalMes[m.fecha.slice(0, 7)] || 0) + m.monto;
+    const orden = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+    const anclas = [...ingresos].sort((a, b) => b.monto - a.monto || orden(a.fecha, b.fecha) || orden(a.id, b.id));
+    for (const ancla of anclas) {
+      const miembros = [];
+      for (const x of meses4) {
+        const cerca = ingresos.filter((m) => m.fecha.slice(0, 7) === x && Math.abs(m.monto - ancla.monto) <= ancla.monto * SUELDO_PARECIDO / 100 + 1e-9);
+        if (cerca.length) miembros.push(cerca.sort((a, b) => Math.abs(a.monto - ancla.monto) - Math.abs(b.monto - ancla.monto) || orden(a.fecha, b.fecha) || orden(a.id, b.id))[0]);
+      }
+      const en3 = miembros.filter((m) => meses4.slice(1).includes(m.fecha.slice(0, 7))).length;
+      if (en3 < 2 && miembros.length < 3) continue;
+      const dice = miembros.some((m) => m.categoria === "sueldo" || PALABRAS_SUELDO.some((p) => normalizar(m.descripcion).includes(p)));
+      if (!dice && miembros.some((m) => m.monto < totalMes[m.fecha.slice(0, 7)] * SUELDO_PRINCIPAL / 100 - 1e-9)) continue;
+      const dias = miembros.map((m) => +m.fecha.slice(8, 10)).sort((a, b) => a - b), k = Math.floor(dias.length / 2);
+      const dia = dias.length % 2 ? dias[k] : Math.floor((dias[k - 1] + dias[k] + 1) / 2);
+      const montos = miembros.map((m) => m.monto), medio = [...montos].sort((a, b) => a - b)[Math.floor((montos.length - 1) / 2)];
+      const variacion = Math.min(50, Math.max(1, Math.ceil(Math.max(...montos.map((x) => Math.abs(x - medio))) / medio * 100 - 1e-9)));
+      const claves = new Set(miembros.map((m) => reglaPara(m.descripcion).replace(/[^A-Z0-9]+$/, ""))), clave = claves.size === 1 ? [...claves][0] : "";
+      return { dia, monto: medio, variacion, llegadas: miembros.map((m) => m.fecha).sort(), clave: clave.length >= 3 ? clave : "", meses: miembros.length };
+    }
+    return null;
+  }
   function periodoConfig(inicioMes, compromisos, movimientos, hoy, moneda) {
     if (!inicioMes || inicioMes.modo !== "sueldo" || !Number.isInteger(inicioMes.dia) || inicioMes.dia < 1 || inicioMes.dia > 31) return null;
-    return { modo: "sueldo", dia: inicioMes.dia, llegadas: llegadasSueldo(compromisos, movimientos, dfecha(dnum(hoy) + 62), moneda) };
+    const llegadas = llegadasSueldo(compromisos, movimientos, dfecha(dnum(hoy) + 62), moneda);
+    return llegadas.length ? { modo: "sueldo", dia: inicioMes.dia, llegadas, hoy } : { modo: "sueldo", dia: inicioMes.dia, llegadas };
+  }
+  // Días hábiles y el próximo sueldo (igual que compromisos.py; los feriados llegan en el estado, de bin/feriados.json).
+  const esHabil = (f, fer) => { const d = new Date(f + "T00:00:00Z").getUTCDay(); return d !== 0 && d !== 6 && !fer.includes(f); };
+  function correrHabil(f, regla, fer) {
+    const paso = regla === "siguiente" ? 1 : -1;
+    for (let n = 0; !esHabil(f, fer) && n < 15; n++) f = sumarDias(f, paso);
+    return f;
+  }
+  function nominalCerca(dia, llegada) {
+    const m = llegada.slice(0, 7);
+    const ops = [sumarMes(m, -1), m, sumarMes(m, 1)].map((x) => `${x}-${pad2(Math.min(dia, diasDelMes(x)))}`);
+    return ops.sort((a, b) => Math.abs(diasEntre(llegada, a)) - Math.abs(diasEntre(llegada, b)) || (a < b ? -1 : 1))[0];
+  }
+  function reglaHabil(dia, llegadas, fer) {
+    let antes = 0, despues = 0;
+    for (const f of llegadas) { const n = nominalCerca(dia, f); if (!esHabil(n, fer)) { if (f < n) antes++; if (f > n) despues++; } }
+    return despues > antes ? "siguiente" : "anterior";
+  }
+  function proximoSueldo(per, hoy, fer) {
+    if (!per || per.modo !== "sueldo" || !Number.isInteger(per.dia)) return null;
+    const siguiente = sumarMes(periodoDe(hoy, per), 1), nominal = inicioNominal(siguiente, per);
+    const regla = reglaHabil(per.dia, per.llegadas || [], fer), fecha = correrHabil(nominal, regla, fer);
+    const plazo = correrHabil(sumarDias(fecha, 1), "siguiente", fer);
+    return { fecha, nominal, regla, periodo: siguiente, atrasado: hoy > plazo };
   }
   const mediana = (valores) => { const v = [...valores].sort((a, b) => a - b), k = Math.floor(v.length / 2); return v.length % 2 ? v[k] : (v[k - 1] + v[k]) / 2; };
   /** Cuánto se puede gastar en lo variable este mes (igual que compromisos.gasto_maximo en Python). */
@@ -842,6 +902,60 @@
       <div class="acciones"><button class="boton" data-comp-pagado="${esc(`${p.id}|${p.periodo}`)}">Ya lo pagué</button>${pend.length > 1 ? `<button class="boton sutil" data-cifra-abrir="debes">Ver todo</button>` : ""}</div></div>`;
   }
 
+  /** Cuándo empieza tu mes, en una línea discreta: lo que detecté de tu sueldo, «¿Aún no te pagan?» si se atrasó, o la invitación
+   *  a decir cuándo te pagan si no hay un sueldo claro en tus movimientos. */
+  function lineaMes() {
+    const im = E.config.inicio_mes, p = per();
+    if (!im) return `<div class="linea-mes"><p>${frase("¿Cuándo te pagan? Así tu mes empieza ese día.", {})}</p><button class="boton sutil" data-accion="ajustes-mes">Elegir</button></div>`;
+    if (!p) return "";
+    const sueldoC = listaCompromisos().find((c) => c.activo !== false && c.tipo === "ingreso" && c.frecuencia === "mensual" && c.categoria === "sueldo");
+    const prox = proximoSueldo(p, E.hoy, E.feriados || []);
+    if (sueldoC && prox && prox.atrasado && leerLocal("alcancia.sueldoNoHoy") !== E.hoy) return preguntaSueldo(sueldoC, prox);
+    if (!im.auto) return "";
+    const inicio = rango(periodoHoy(), p)[0], f = esc(fechaCorta(inicio));
+    const texto = (p.llegadas || []).includes(inicio) ? frase("Tu mes va desde que llegó tu sueldo ({f}).", { f }) : frase("Tu mes va desde el {f}, el día que suele llegar tu sueldo.", { f });
+    return `<div class="linea-mes"><p>${texto}</p><button class="boton sutil" data-accion="ajustes-mes">Cambiar</button></div>`;
+  }
+  /** «¿Aún no te pagan?»: suave, sin aviso del sistema. «Todavía no» no insiste hoy; «Ya me pagaron» busca el movimiento. */
+  function preguntaSueldo(c, prox) {
+    const f = esc(fechaLarga(prox.fecha));
+    if (E.sueldoPregunta !== "pagaron") {
+      return `<div class="linea-mes pregunta" role="status"><p>${frase("¿Aún no te pagan? Lo esperaba el {f}.", { f })}</p>
+        <div class="acciones"><button class="boton sutil" data-sueldo="no">Todavía no</button><button class="boton" data-sueldo="pagaron">Ya me pagaron</button>
+        <button class="icono" data-sueldo="cerrar" aria-label="${esc(tr("Cerrar"))}" title="${esc(tr("Cerrar"))}" data-sin-traducir>×</button></div></div>`;
+    }
+    const cand = candidatoSueldo(prox);
+    if (cand && E.sueldoCandidatoNo !== cand.id) {
+      return `<div class="linea-mes pregunta" role="status"><p>${frase("¿Es este? {d} · {x} · {f}", { d: esc(cand.descripcion), x: esc(dinero(cand.monto, cand.moneda || monedaPrincipal())), f: esc(fechaCorta(cand.fecha)) })}</p>
+        <div class="acciones"><button class="boton principal" data-sueldo="es" data-sueldo-mov="${esc(cand.id)}">Sí, es mi sueldo</button><button class="boton sutil" data-sueldo="noes" data-sueldo-mov="${esc(cand.id)}">No es este</button></div></div>`;
+    }
+    const conectados = E.conectores.filter((k) => E.conexiones[k.id]?.conectado);
+    return `<div class="linea-mes pregunta" role="status"><p>${frase("Agrega tu cartola o revisa tus cuentas conectadas para verlo.", {})}</p>
+      <div class="acciones"><button class="boton" data-accion="importar">Agregar movimientos</button>
+      ${conectados.map((k) => `<button class="boton sutil" data-sincronizar="${esc(k.id)}">${frase("Revisar {s}", { s: esc(tr(k.nombre)) })}</button>`).join("")}
+      <button class="boton sutil" data-sueldo="hoy">Márcalo como recibido hoy</button></div></div>`;
+  }
+  /** El ingreso más probable de ser el sueldo que no se reconoció: el más grande desde 10 días antes de la fecha esperada. */
+  function candidatoSueldo(prox) {
+    const neutras = new Set(E.categorias.filter((c) => c.tipo === "neutro").map((c) => c.id)), desde = sumarDias(prox.fecha, -10);
+    const usados = new Set(listaCompromisos().flatMap((c) => Object.values(c.pagos || {}).map((p) => p.movimiento).filter(Boolean)));
+    return E.movimientos.filter((m) => m.monto > 0 && m.fecha >= desde && m.fecha <= E.hoy && !neutras.has(m.categoria) && m.categoria !== "transferencia" && !usados.has(m.id))
+      .sort((a, b) => b.monto - a.monto || cmp(a.fecha, b.fecha))[0] || null;
+  }
+  function leerLocal(k) { try { return localStorage.getItem(k); } catch { return null; } }
+  function guardarLocal(k, v) { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento: solo por esta vez */ } }
+  /** Marca el sueldo como recibido ese día (el periodo parte ahí). */
+  function sueldoRecibido(fecha) {
+    const c = listaCompromisos().find((x) => x.activo !== false && x.tipo === "ingreso" && x.frecuencia === "mensual" && x.categoria === "sueldo");
+    if (!c) return;
+    const o = vencimientos(c, sumarDias(E.hoy, 7)).filter((v) => !(c.pagos || {})[v.periodo]?.como).pop();
+    if (!o) return;
+    c.pagos = { ...(c.pagos || {}), [o.periodo]: { como: "manual", fecha } };
+    host.enviar("compromiso", { accion: "pagado", id: c.id, periodo: o.periodo, hoy: fecha });
+    E.sueldoPregunta = null; E._per = undefined; E.mes = periodoHoy();
+    toast(T("Listo: tu mes parte el {f}", { f: fechaCorta(fecha) })); render();
+  }
+
   function filaCifra(id, etiqueta, num, sub) {
     const abierta = E.cifra === id;
     return `<button type="button" class="cifra-fila ${id} ${abierta ? "abierta" : ""}" data-cifra="${id}" aria-expanded="${abierta}" aria-controls="desglose">
@@ -874,7 +988,7 @@
       ${filaCifra("debes", "Lo que debes", (d.aprox ? `<span class="aprox-signo" data-sin-traducir title="${esc(tr("Aproximado"))}">≈</span>` : "") + cifraGrande(d.total, moneda), subDebes)}</section>`;
     const desglose = E.cifra === "tienes" ? desgloseTienes(t) : E.cifra === "debes" ? desgloseDebes(d) : desgloseGasto(r);
     return `<div class="contenido resumen-simple"><div class="encabezado"><h1>Resumen</h1>${selectorMes()}</div>
-      ${lineaAlDia()}${tres}
+      ${lineaAlDia()}${E.mes === periodoHoy() ? lineaMes() : ""}${tres}
       <section class="tarjeta desglose ${esc(E.cifra)}" id="desglose">${desglose}</section>
       ${aprendiHTML()}${sinCategoriaHTML(r)}${secundario(r, enCurso)}</div>`;
   }
@@ -1033,7 +1147,8 @@
         : `<div class="alerta ritmo"><span class="emoji" aria-hidden="true">${c.emoji}</span><div>${frase("{c}: vas muy rápido", { c: n }, "b")}
             ${frase("Llevas {g}. A este ritmo llegas a {p} y tu tope es {t}.", { g: esc(dinero(a.gastado)), p: esc(dinero(a.proyeccion)), t: esc(dinero(a.tope)) })}</div></div>`;
     }).join("");
-    const sueldo = per() && enCurso ? `<p class="pista-sueldo">${frase(r.dias_mes - r.dia + 1 === 1 ? "Mañana empieza tu próximo mes (llega tu sueldo)." : "Quedan {n} días para tu próximo sueldo.", { n: r.dias_mes - r.dia + 1 })}</p>` : "";
+    const prox = enCurso ? proximoSueldo(per(), E.hoy, E.feriados || []) : null, n = prox ? diasEntre(E.hoy, prox.fecha) : 0;
+    const sueldo = prox && n >= 0 ? `<p class="pista-sueldo">${frase(n === 0 ? "Tu sueldo debería llegar hoy ({f})." : n === 1 ? "Próximo sueldo: {f} (aprox.), mañana." : "Próximo sueldo: {f} (aprox.), en {n} días.", { f: esc(fechaLarga(prox.fecha)), n })}</p>` : "";
     const h = historia(E.movimientos, E.mes, E.hoy, E.presupuesto, E.categorias, null, 6, per());
     return `<h2 class="subtitulo">Cómo vas</h2>
       ${ritmo || alertas || sueldo ? `<section class="tarjeta como-vas">${ritmo}${alertas}${sueldo}</section>` : ""}
@@ -1321,6 +1436,11 @@
   const listaCompromisos = () => (E.compromisos && E.compromisos.compromisos) || [];
   const estadoDelMes = (mes = E.mes) => estadoCompromisos(listaCompromisos(), E.movimientos, mes, E.hoy, monedaPrincipal(), per(), ufCfg());
   const iconoComp = (c) => (c.categoria && cat(c.categoria).id ? cat(c.categoria).emoji : (TIPOS_COMP.find((t) => t[0] === c.tipo) || TIPOS_COMP[TIPOS_COMP.length - 1])[2]);
+  /** «viernes 24 de noviembre» / «Friday, November 24». */
+  function fechaLarga(f) {
+    const [a, m, d] = f.split("-").map(Number), t = new Date(a, m - 1, d).toLocaleDateString(locFechas(), { weekday: "long", day: "numeric", month: "long" });
+    return E.idioma === "es" ? t.replace(",", "") : t;
+  }
   function fechaCorta(f) {
     const [a, m, d] = f.split("-").map(Number);
     return new Date(a, m - 1, d).toLocaleDateString(locFechas(), { day: "numeric", month: "short" });
@@ -1869,7 +1989,7 @@
   // ───────────── Eventos ─────────────
   const ocupadoImportando = () => ["leyendo", "aprendiendo", "guardando"].includes(E.importar?.paso);
   document.addEventListener("click", (ev) => {
-    const el = ev.target.closest("[data-accion],[data-vista],[data-mes],[data-probar],[data-bv],[data-idioma-bv],[data-enlace],[data-respaldo],[data-consejo],[data-conectar],[data-sincronizar],[data-desconectar],[data-mcp],[data-mcp-quitar],[data-historia],[data-comp-pagado],[data-comp-noes],[data-comp-desmarcar],[data-comp-editar],[data-sug-agregar],[data-sug-no],[data-det-agregar],[data-det-no],[data-cifra],[data-cifra-abrir],[data-ir-cat],[data-elegir],[data-pick],[data-nueva-cat],[data-nueva-emoji],[data-nueva-cancelar],[data-nueva-guardar],[data-cerrar-picker],[data-saldo-editar],[data-saldo-cancelar],[data-regla-si],[data-regla-no],[data-grupo-mov]");
+    const el = ev.target.closest("[data-accion],[data-vista],[data-mes],[data-probar],[data-bv],[data-idioma-bv],[data-enlace],[data-respaldo],[data-consejo],[data-conectar],[data-sincronizar],[data-desconectar],[data-mcp],[data-mcp-quitar],[data-historia],[data-comp-pagado],[data-comp-noes],[data-comp-desmarcar],[data-comp-editar],[data-sug-agregar],[data-sug-no],[data-det-agregar],[data-det-no],[data-cifra],[data-cifra-abrir],[data-ir-cat],[data-elegir],[data-pick],[data-nueva-cat],[data-nueva-emoji],[data-nueva-cancelar],[data-nueva-guardar],[data-cerrar-picker],[data-saldo-editar],[data-saldo-cancelar],[data-regla-si],[data-regla-no],[data-grupo-mov],[data-sueldo]");
     if (!el) return;
     const d = el.dataset;
     if (d.grupoMov != null) { E.grupoMov = E.grupoMov === d.grupoMov ? null : d.grupoMov; render(); return $(`[data-grupo-mov="${CSS.escape(d.grupoMov)}"]`)?.focus(); }
@@ -1908,6 +2028,13 @@
     if (d.consejo) { E.consejoSel = d.consejo; return render(); }
     if (d.conectar) { E.conectar = { id: d.conectar, campos: {}, error: "", enviando: false }; render(); const p = $(".campos-conectar input"); if (p) p.focus(); return; }
     if (d.mcp || d.mcpQuitar) { const id = d.mcp || d.mcpQuitar; E.mcpOcupado[id] = true; delete E.mcpError[id]; host.enviar("mcpConectar", { cliente: id, quitar: !!d.mcpQuitar }); return render(); }
+    if (d.sueldo) {
+      if (d.sueldo === "no" || d.sueldo === "cerrar") { guardarLocal("alcancia.sueldoNoHoy", E.hoy); E.sueldoPregunta = null; if (d.sueldo === "no") toast("Entendido: vuelvo a mirar mañana"); return render(); }
+      if (d.sueldo === "pagaron") { E.sueldoPregunta = "pagaron"; render(); return $(".linea-mes.pregunta button")?.focus(); }
+      if (d.sueldo === "noes") { E.sueldoCandidatoNo = d.sueldoMov; return render(); }
+      if (d.sueldo === "es") { const m = E.movimientos.find((x) => x.id === d.sueldoMov); return m && sueldoRecibido(m.fecha); }
+      if (d.sueldo === "hoy") return sueldoRecibido(E.hoy);
+    }
     if (d.sincronizar) { E.sincronizando[d.sincronizar] = true; host.enviar("sincronizar", { conector: d.sincronizar }); return render(); }
     if (d.desconectar) { host.enviar("desconectar", { conector: d.desconectar }); E.conexiones[d.desconectar] = { conectado: false }; toast("Desconectado. Tus movimientos siguen aquí."); return render(); }
     if (d.compPagado || d.compDesmarcar || d.compNoes) return marcarCompromiso(d);
@@ -1931,6 +2058,7 @@
     const im = E.importar;
     switch (d.accion) {
       case "ajustes": E.ajustes = true; return render();
+      case "ajustes-mes": E.ajustes = true; render(); return $("#inicio-modo")?.focus();
       case "cerrar": E.ajustes = false; return render();
       case "importar": E.importar = { paso: "elegir", ia: !!E.config.ia, compartir: false }; return render();
       case "bv-importar": E.bv = null; E.bvCerrada = true; host.enviar("config", { bienvenida: true }); E.importar = { paso: "elegir", ia: !!E.config.ia, compartir: false }; return render();
@@ -2076,7 +2204,7 @@
       const nuevo = ds.inicio === "modo" ? { modo: ev.target.value, dia: ev.target.value === "sueldo" ? (actual.dia > 1 ? actual.dia : sueldo?.dia || 25) : 1 }
         : { modo: "sueldo", dia: Math.max(1, Math.min(31, Math.round(Number(ev.target.value)) || 25)) };
       E.config.inicio_mes = nuevo; host.enviar("config", { inicio_mes: nuevo });
-      E._per = undefined; E.mes = periodoHoy(); E.presEdit = null; return render();
+      E._per = undefined; E.mes = E._mesHoy = periodoHoy(); E.presEdit = null; return render();
     }
     if (ds.filtro === "categoria") { E.filtro.categoria = ev.target.value; return render(); }
     if (ds.importarIa != null) { E.importar.ia = ev.target.checked; return; }
@@ -2177,6 +2305,7 @@
       <div class="dos"><label class="campo"><span>Tu mes empieza</span><select data-inicio="modo" id="inicio-modo">
         <option value="dia" ${sueldo ? "" : "selected"}>El día 1</option><option value="sueldo" ${sueldo ? "selected" : ""}>Cuando llega tu sueldo</option></select></label>
         ${sueldo ? `<label class="campo"><span>¿Qué día te pagan, más o menos?</span><input class="texto" id="inicio-dia" type="number" min="1" max="31" data-inicio="dia" value="${esc(im.dia)}"></label>` : ""}</div>
+      ${sueldo && im.auto ? `<p class="nota-mcp">${frase("Lo detecté de tus movimientos: tu sueldo suele llegar el día {d}. Si lo cambias, uso lo que elijas.", { d: im.dia })}</p>` : ""}
       ${sueldo ? `<p class="nota-mcp">Si anotas tu sueldo en Compromisos, tu mes parte el día que de verdad llega: si te pagan antes, parte ese día. Los bonos cuentan como ingresos del mes en que caen.</p>` : ""}`;
   }
   function aplicarRegla(r) {
@@ -2190,6 +2319,22 @@
     host.enviar("abrirEnlace", { url });
   }
 
+  /** Si la persona nunca eligió cuándo empieza su mes y el sueldo se ve claro, el mes va de sueldo a sueldo. La app ya lo guardó
+   *  (compromisos.aplicar_sueldo, al armar el estado); aquí es lo mismo en memoria para el navegador y por si llega sin aplicar. */
+  function sueldoSolo() {
+    if (E.config.inicio_mes !== undefined || !E.movimientos.length) return;
+    const moneda = E.presupuesto.moneda || E.config.moneda || "CLP", d = detectarSueldo(E.movimientos, E.hoy, E.categorias, moneda);
+    if (!d) return;
+    E.config.inicio_mes = { modo: "sueldo", dia: d.dia, auto: true };
+    const lista = E.compromisos.compromisos || (E.compromisos.compromisos = []);
+    if (!lista.some((c) => c.activo !== false && c.tipo === "ingreso" && c.frecuencia === "mensual" && c.categoria === "sueldo") && E.categorias.some((c) => c.id === "sueldo"))
+      lista.push({ id: "c-sueldodetectado", nombre: "Sueldo", tipo: "ingreso", signo: "ingreso", monto: d.monto, moneda, frecuencia: "mensual", dia: d.dia,
+        categoria: "sueldo", buscar: d.clave ? [d.clave] : [], aproximado: { variacion: d.variacion }, tolerancia: TOLERANCIA, origen: "detectado",
+        desde: d.llegadas[0] < E.hoy ? d.llegadas[0] : E.hoy, activo: true, pagos: {} });
+    const llegadas = new Set(d.llegadas);
+    for (const m of E.movimientos) if (llegadas.has(m.fecha) && m.monto > 0 && Math.abs(m.monto - d.monto) <= d.monto * 0.5 && !m.categoria) m.categoria = "sueldo";
+  }
+
   // ───────────── Lo que manda la app ─────────────
   window.Alcancia = {
     async estado(e) {
@@ -2197,10 +2342,14 @@
         presupuesto: e.presupuesto || { mensual: {} }, reglas: e.reglas || [], consejos: (e.consejos || []).slice().sort((a, b) => b.fecha.localeCompare(a.fecha)),
         cuentas: e.cuentas || [], version: e.version || "", carpeta: e.carpeta || "", actualizacion: e.actualizacion || { hay: false },
         conectores: e.conectores || [], conexiones: e.conexiones || {}, vigilar: e.vigilar || { activo: false, recientes: [] }, iaExterna: e.ia_externa || [],
-        compromisos: e.compromisos || { compromisos: [], descartados: [] }, sugerencias: e.sugerencias || [] });
+        compromisos: e.compromisos || { compromisos: [], descartados: [] }, sugerencias: e.sugerencias || [], feriados: e.feriados || [] });
       if (!E.presupuesto.moneda) E.presupuesto.moneda = E.config.moneda || "CLP";
+      sueldoSolo();
       E._per = undefined;
-      if (!E.mes || E.mes > periodoHoy()) E.mes = periodoHoy();
+      // Si estaba mirando el mes en curso, sigue en el mes en curso (aunque haya cambiado el día o el periodo).
+      const antes = E._mesHoy;
+      E._mesHoy = periodoHoy();
+      if (!E.mes || E.mes > E._mesHoy || E.mes === antes) E.mes = E._mesHoy;
       // Primer uso: la bienvenida parte por el idioma (si ya lo eligió y cerró la app a medio camino, sigue desde el saludo).
       if (!E.config.bienvenida && E.bv === null && !E.bvCerrada) E.bv = E.config.idioma_ui ? 1 : 0;
       await cargarIdioma();
@@ -2277,7 +2426,7 @@
       if ((r.sin_receta || []).length) toast(T("Descargaste «{x}», pero todavía no sé leerla. Agrégala a mano y tu IA aprende.", { x: r.sin_receta[0] }));
     },
     _probar(f) { f(E); render(); },
-    _pruebas: { calcularPrestamo, resumen, historia, redondearArriba, presupuestoSugerido, reglaPara, estadoCompromisos, gastoMaximo, rango, periodoDe, periodoConfig, loQueTienes, loQueDebes, cargos },
+    _pruebas: { calcularPrestamo, resumen, historia, redondearArriba, presupuestoSugerido, reglaPara, estadoCompromisos, gastoMaximo, rango, periodoDe, periodoConfig, detectarSueldo, reglaHabil, proximoSueldo, correrHabil, loQueTienes, loQueDebes, cargos },
   };
 
   // ───────────── Vista previa en el navegador (datos ficticios de demo.json) ─────────────

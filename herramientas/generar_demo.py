@@ -149,7 +149,9 @@ demo = {
     "hoy": HOY,
     "version": "0.1.0",
     "carpeta": "~/Alcancia",
-    "config": {"ia": "claude", "pais": "CL", "moneda": "CLP", "idioma_ui": "", "respaldo": "local"},
+    # Ana eligió el mes calendario (así la demo muestra meses completos); sin `inicio_mes`, la app detectaría su sueldo.
+    "config": {"ia": "claude", "pais": "CL", "moneda": "CLP", "idioma_ui": "", "respaldo": "local", "inicio_mes": {"modo": "dia", "dia": 1}},
+    "feriados": compromisos.feriados("CL"),
     "ias": [{"id": "claude", "nombre": "Claude", "instalada": True}, {"id": "codex", "nombre": "ChatGPT (Codex)", "instalada": True},
             {"id": "gemini", "nombre": "Gemini", "instalada": False}],
     # Ana anotó cuánto tenía en el banco el 30 de septiembre; la billetera informa su saldo (como Mercado Pago).

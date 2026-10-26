@@ -58,7 +58,14 @@ def inicio_periodo(mes, per):
         d = _dias(nominal, f)
         if -LLEGADA_ANTES <= d <= LLEGADA_DESPUES and (mejor is None or (abs(d), f) < mejor):
             mejor = (abs(d), f)
-    return mejor[1] if mejor else nominal
+    if mejor:
+        return mejor[1]
+    # Esperando el sueldo: ya pasó el día de siempre y aún no llega (hasta 7 días). El mes anterior sigue mientras tanto; si llega,
+    # el periodo parte ese día, y si pasan 7 días sin llegada, parte en el día de siempre.
+    esperando = per.get("hoy")
+    if isinstance(esperando, str) and 0 <= _dias(nominal, esperando) <= LLEGADA_DESPUES:
+        return (date.fromisoformat(nominal) + timedelta(days=LLEGADA_DESPUES + 1)).isoformat()
+    return nominal
 
 
 def rango(mes, per=None):

@@ -96,6 +96,15 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
   `resumen`, `historia`, `presupuesto_sugerido`, `estado_mes` y `gasto_maximo` reciben `per` (sin él, mes calendario, igual que
   antes). En la interfaz, `per()` se calcula una vez por pintada; selector, resumen, movimientos, presupuesto, compromisos y
   consejos/MCP usan el periodo. Los CSV de movimientos siguen por mes calendario.
+- **Sueldo detectado:** `detectar_sueldo`/`detectarSueldo` (casos «sueldo»). Si `inicio_mes` no existe en config,
+  `compromisos.aplicar_sueldo` (desde `estado.py`) guarda `{"modo": "sueldo", "dia", "auto": true}`, crea el compromiso de sueldo
+  (`origen: "detectado"`, `desde` = primera llegada) y categoriza las llegadas (regla solo si su clave no calza con otros
+  movimientos). Con `auto`, sigue el día típico; lo que la persona elige en Ajustes (sin `auto`) nunca se toca. `periodo_actual`
+  hace lo mismo en memoria (MCP, consejos); `sueldoSolo()` en la interfaz, para el navegador. Con llegadas, `per.hoy` activa la
+  espera: pasado el día de siempre sin llegada, el mes anterior sigue hasta 7 días (`inicio_periodo`/`inicioPeriodo`).
+  Días hábiles: `bin/feriados.json` (datos, se actualiza cada año; llega a la interfaz en el estado, `feriados`), `regla_habil`
+  (anterior por defecto; «siguiente» si las llegadas lo muestran) y `proximo_sueldo`/`proximoSueldo` (`atrasado` = pasó un día
+  hábil sin llegar → «¿Aún no te pagan?» en el Resumen, que se cierra por ese día).
 - **Conectores:** la app guarda la llave en el Llavero y se la pasa a `sincronizar.py` por la **entrada estándar** (nunca en un
   archivo, un argumento ni el entorno); una llave nueva vuelve por la salida estándar (`CREDENCIAL {json}`). `red.py` no sigue
   redirecciones (se llevarían la llave a otro dominio) y la IA corre sin variables `ALCANCIA_*`. Al revisar cambios, mirar justo eso. `probar` revisa la llave y registra las cuentas en `cuentas.json` (campo `conector`);

@@ -91,11 +91,15 @@ def resumen_del_mes(args):
     for a in r["alertas"]:
         a["categoria"] = _nombre_cat(a["categoria"], cats)
     r["tres_cifras"] = tres_cifras(per)
+    prox = K.proximo_sueldo(per, date.today().isoformat(), K.feriados(datos.config().get("pais")))
+    if prox:
+        r["proximo_sueldo"] = {"fecha": prox["fecha"], "atrasado": prox["atrasado"]}
     r["nota"] = ("proyeccion = cómo terminaría el mes si sigue el ritmo de los gastos variables; null si el mes no está en curso. "
                  "desde/hasta = días que abarca el mes (puede ir de sueldo a sueldo). gastado = lo que gastaste: las compras en cuotas "
                  "con crédito cuentan por la cuota del mes y las devoluciones descuentan. tres_cifras = hoy: lo_que_tienes (suma de "
                  "los saldos conocidos; null si la persona aún no anotó ninguno), lo_que_debes (total y lo que toca este mes), te_deben "
-                 "(préstamos que la persona hizo; no se resta de lo_que_debes).")
+                 "(préstamos que la persona hizo; no se resta de lo_que_debes). proximo_sueldo = cuándo debería llegar (día hábil; "
+                 "atrasado si ya pasó un día hábil sin llegar).")
     return r
 
 

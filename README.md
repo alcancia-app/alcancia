@@ -41,7 +41,9 @@ Gratis, de código abierto y con tus datos en tu computador.</p>
   comercio (total y cuántas veces, con el detalle al abrirlo).
 - **Gasto máximo sugerido:** lo que entra − tus compromisos − tus otros gastos fijos = lo que puedes gastar en lo variable,
   repartido por categoría según lo que gastas normalmente.
-- **Tu mes empieza cuando te pagan** (si quieres): el mes puede ir de sueldo a sueldo; si te pagan antes, parte ese día.
+- **Tu mes empieza cuando te pagan:** si nunca elegiste otra cosa, Alcancía detecta tu sueldo en tus movimientos y tu mes va de
+  sueldo a sueldo (si te pagan antes, parte ese día). Te dice cuándo debería llegar el próximo (en día hábil, con los feriados de
+  Chile) y, si se atrasa, te pregunta suave «¿Aún no te pagan?».
 
 ## Tus datos son tuyos
 - Todo queda en tu computador, en una carpeta con archivos abiertos (CSV y JSON) que puedes abrir con Excel o llevarte adonde quieras.
@@ -76,7 +78,7 @@ Todo vive en `~/Alcancia/` (en Windows, `C:\Users\<tú>\Alcancia`). Es un format
 | `consejos/AAAA-MM-DD.md` | Los consejos de tu IA. |
 | `compromisos.json` | Lo que pagas o recibes seguido. Ver [Compromisos](#compromisos-formato). |
 | `cuentas.json` (cont.) | Las cuentas que vienen de una conexión llevan `"conector"` en vez de `"receta"`. |
-| `.alcancia/config.json` | Ajustes. Entre ellos `inicio_mes`: `{"modo": "dia" \| "sueldo", "dia": 25}` (tu mes parte el día 1 o cuando llega tu sueldo), `avisos` (`true` si quieres avisos de tus compromisos) y `uf`: `{"valor": 39500, "fecha": "AAAA-MM-DD", "variacion_mensual": 1.5}` (el valor de la UF que escribiste y cuánto puede variar al mes). |
+| `.alcancia/config.json` | Ajustes. Entre ellos `inicio_mes`: `{"modo": "dia" \| "sueldo", "dia": 25}` (tu mes parte el día 1 o cuando llega tu sueldo; con `"auto": true` lo puso Alcancía al detectar tu sueldo y lo sigue ajustando, hasta que elijas otra cosa), `avisos` (`true` si quieres avisos de tus compromisos) y `uf`: `{"valor": 39500, "fecha": "AAAA-MM-DD", "variacion_mensual": 1.5}` (el valor de la UF que escribiste y cuánto puede variar al mes). |
 | `.alcancia/` | Ajustes de la app, `avisos.json` (qué avisos ya se mostraron), recetas descargadas o creadas por ti, `conexiones.json` (estado de cada conexión, sin llaves) y `vigilar.json` (cartolas ya revisadas en Descargas). Las llaves de las conexiones viven en el Llavero de tu sistema, nunca en esta carpeta. |
 
 ### Las tres cifras del Resumen
@@ -152,6 +154,19 @@ donde cae la mayor parte (si te pagan del 16 en adelante, el mes en que termina:
 al 15, el mes en que parte). Si anotaste tu sueldo como compromiso (tipo `ingreso`, categoría `sueldo`), el mes parte el día que
 de verdad llegó, si llegó entre 12 días antes y 7 después del día de siempre. Los bonos e ingresos extra cuentan en el mes en que
 caen. Los archivos `movimientos/AAAA-MM.csv` no cambian: siguen por mes calendario.
+
+**Sueldo detectado.** Si `inicio_mes` no está en tu config, Alcancía busca tu sueldo: el ingreso más grande que se repite en al
+menos 2 de los últimos 3 meses (o 3 de 4) con monto parecido (±25 %), que no es entre tus cuentas, y que dice sueldo (REMUNERACION,
+SUELDO, NOMINA, PAYROLL…) o es al menos la mitad de lo que entró ese mes. Si lo encuentra, guarda `inicio_mes` con el día típico
+(la mediana del día de llegada) y `"auto": true`, crea el compromiso «Sueldo» (aproximado, `origen: "detectado"`) y deja esas
+llegadas como Sueldo (con una regla si su descripción no calza con otros movimientos). Si no hay un sueldo claro, no inventa: el
+mes queda calendario y te invita a decir cuándo te pagan.
+
+**Próximo sueldo y días hábiles.** El próximo sueldo es el día típico del periodo siguiente; si cae sábado, domingo o feriado, se
+corre al día hábil anterior (lo común en Chile) o al siguiente si eso es lo que muestran tus llegadas. Si ya pasó un día hábil
+después de esa fecha sin llegada, el mes anterior sigue (hasta 7 días) y el Resumen pregunta «¿Aún no te pagan?». Los feriados
+nacionales de Chile están en [`bin/feriados.json`](bin/feriados.json) (solo datos, 2025–2028, incluidos los que se corren a lunes
+y los irrenunciables) y **se actualizan cada año** con el decreto oficial; para otros países se usan solo los fines de semana.
 
 ## Cartolas en PDF
 Algunos bancos solo entregan la cartola en PDF. Alcancía lee los PDF **con texto** (los que genera el banco, no los escaneados) sin

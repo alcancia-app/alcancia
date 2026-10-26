@@ -3,8 +3,9 @@
   estado.py <salida.json>
 
 Devuelve config, movimientos, categorías, presupuesto, reglas, cuentas, consejos, conectores, conexiones, carpeta vigilada y
-compromisos (los válidos, las sugerencias detectadas en la cartola y las descartadas). Antes anota en compromisos.json los pagos
-que se reconocieron solos (compromisos.fijar_automaticos), para que no cambien después. La app agrega lo suyo (IA instaladas, versión,
+compromisos (los válidos, las sugerencias detectadas en la cartola y las descartadas). Antes, si la persona nunca eligió cuándo
+empieza su mes, detecta el sueldo y lo aplica (compromisos.aplicar_sueldo), y anota en compromisos.json los pagos que se reconocieron
+solos (compromisos.fijar_automaticos), para que no cambien después. La app agrega lo suyo (IA instaladas, versión,
 carpeta, actualizaciones). Si ~/Alcancia aún no existe, devuelve todo vacío: la interfaz muestra la bienvenida.
 """
 import json
@@ -79,14 +80,26 @@ def compromisos(cfg, movimientos):
         return {"formato": 1, "compromisos": [], "descartados": [], "invalidos": 0}, []
 
 
+def sueldo(movimientos):
+    """Si la persona nunca eligió cuándo empieza su mes y el sueldo se ve claro, el mes pasa a ir de sueldo a sueldo (se guarda).
+    Si algo falla aquí, la app igual se abre."""
+    from datetime import date
+    try:
+        return K.aplicar_sueldo(date.today().isoformat(), movimientos)
+    except Exception:
+        return None
+
+
 def estado():
-    cfg = datos.config()
     movimientos = datos.leer_todos()
+    if sueldo(movimientos):
+        movimientos = datos.leer_todos()  # las llegadas del sueldo quedaron como Sueldo
+    cfg = datos.config()
     comp, sugerencias = compromisos(cfg, movimientos)
     return {"config": cfg, "movimientos": movimientos, "categorias": datos.categorias(), "presupuesto": datos.presupuesto(),
             "reglas": datos.reglas(), "cuentas": datos.leer_json(os.path.join(datos.BASE, "cuentas.json"), []), "consejos": consejos(),
             "conectores": conectores.info_publica(), "conexiones": conexiones(), "vigilar": vigilar(cfg), "ia_externa": ia_externa(),
-            "compromisos": comp, "sugerencias": sugerencias}
+            "compromisos": comp, "sugerencias": sugerencias, "feriados": K.feriados(cfg.get("pais"))}
 
 
 if __name__ == "__main__":

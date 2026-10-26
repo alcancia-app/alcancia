@@ -1535,6 +1535,96 @@ class TresCifras(unittest.TestCase):
         self.assertNotIn("banco-ejemplo", json.dumps(t), "solo totales")
 
 
+class Sueldo(unittest.TestCase):
+    """Detectar el sueldo, aplicarlo solo si la persona nunca eligió, días hábiles y el próximo sueldo (casos «sueldo»)."""
+
+    def setUp(self):
+        limpiar()
+
+    def test_casos_compartidos(self):
+        sec = CASOS["sueldo"]
+        self.assertEqual(sec["feriados_cl"], compromisos.feriados("CL"))
+        for c in sec["detectar"]:
+            self.assertEqual(compromisos.detectar_sueldo(c["movimientos"], c["hoy"], sec["categorias"], "CLP"), c["esperado"], c["nombre"])
+        for c in sec["proximo"]:
+            fer = sec["feriados_cl"] if c["pais"] == "CL" else []
+            self.assertEqual(compromisos.proximo_sueldo(c["per"], c["hoy"], fer), c["esperado"], c["nombre"])
+        for c in sec["rango"]:
+            self.assertEqual(list(resumen.rango(c["mes"], c["per"])), c["esperado"], c["nombre"])
+        for c in sec["periodo_de"]:
+            self.assertEqual(resumen.periodo_de(c["fecha"], c["per"]), c["esperado"])
+        for c in sec["regla"]:
+            self.assertEqual(compromisos.regla_habil(c["dia"], c["llegadas"], sec["feriados_cl"]), c["esperado"])
+
+    def test_feriados_de_chile(self):
+        fer = compromisos.feriados("CL")
+        for anio in ("2025", "2026", "2027", "2028"):
+            self.assertIn(f"{anio}-09-18", fer)
+            self.assertIn(f"{anio}-12-25", fer)
+        self.assertIn("2026-04-03", fer)  # Viernes Santo
+        self.assertIn("2028-06-26", fer)  # San Pedro y San Pablo (jueves 29) se corre al lunes de esa semana
+        self.assertIn("2028-10-27", fer)  # Iglesias Evangélicas (martes 31) se corre al viernes anterior
+        self.assertEqual(compromisos.feriados("US"), [])
+        self.assertTrue(compromisos.es_habil("2026-09-17", fer))
+        self.assertFalse(compromisos.es_habil("2026-09-18", fer))
+        self.assertEqual(compromisos.correr_habil("2026-09-19", "anterior", fer), "2026-09-17")
+        self.assertEqual(compromisos.correr_habil("2026-09-19", "siguiente", fer), "2026-09-21")
+
+    def guardar(self, nombre):
+        movs = next(c for c in CASOS["sueldo"]["detectar"] if c["nombre"].startswith(nombre))["movimientos"]
+        datos.agregar([dict(m) for m in movs])
+        return movs
+
+    def test_se_aplica_solo_y_se_guarda(self):
+        self.guardar("llega como «Carga de saldo»")
+        hoy = "2026-10-26"
+        per, mes = compromisos.periodo_actual(hoy)  # antes de guardarlo, MCP y consejos ya usan el sueldo detectado
+        self.assertEqual((per["dia"], mes, resumen.rango(mes, per)[0]), (19, "2026-11", "2026-10-22"))
+        d = compromisos.aplicar_sueldo(hoy)
+        self.assertEqual(d["dia"], 19)
+        self.assertEqual(datos.config()["inicio_mes"], {"modo": "sueldo", "dia": 19, "auto": True})
+        lista = compromisos.validos(None, hoy, "CLP")
+        self.assertEqual(len(lista), 1)
+        c = lista[0]
+        self.assertEqual((c["tipo"], c["categoria"], c["origen"], c["buscar"], c["aproximado"]),
+                         ("ingreso", "sueldo", "detectado", ["CARGA DE SALDO"], {"variacion": 1}))
+        # «Carga de saldo» también es cuando carga ella: sin regla, solo las dos llegadas quedan como Sueldo.
+        self.assertEqual(datos.reglas(), [])
+        cats = {m["descripcion"] + m["fecha"]: m["categoria"] for m in datos.leer_todos()}
+        self.assertEqual(cats["Carga de saldo: Empresa Ejemplo SpA2026-10-22"], "sueldo")
+        self.assertEqual(cats["Carga de saldo: desde mi banco2026-10-05"], "")
+        per, mes = compromisos.periodo_actual(hoy)
+        self.assertEqual(per["llegadas"], ["2026-09-15", "2026-10-22"])
+        r = resumen.resumen(datos.leer_todos(), mes, hoy, {"mensual": {}}, datos.categorias(), per)
+        self.assertEqual(r["gastado"], 45000)  # lo que llevas gastado: desde que llegó el sueldo (22 oct)
+        self.assertIsNone(compromisos.aplicar_sueldo(hoy))  # nada nuevo: no reescribe
+        self.assertEqual(len(compromisos.validos(None, hoy, "CLP")), 1)
+
+    def test_con_palabra_crea_la_regla(self):
+        self.guardar("dice REMUNERACION")
+        compromisos.aplicar_sueldo("2026-10-26")
+        self.assertEqual(datos.reglas(), [{"contiene": "REMUNERACION EMPRESA FICTICIA", "categoria": "sueldo"}])
+        self.assertEqual(datos.config()["inicio_mes"]["dia"], 5)
+
+    def test_lo_que_eligio_la_persona_no_se_toca(self):
+        self.guardar("llega como «Carga de saldo»")
+        datos.escribir_json(os.path.join(datos.INTERNO, "config.json"), {"inicio_mes": {"modo": "dia", "dia": 1}})
+        self.assertIsNone(compromisos.aplicar_sueldo("2026-10-26"))
+        self.assertEqual(datos.config()["inicio_mes"], {"modo": "dia", "dia": 1})
+        self.assertEqual(compromisos.validos(None, "2026-10-26", "CLP"), [])
+        self.assertIsNone(compromisos.periodo_actual("2026-10-26")[0])
+
+    def test_sin_sueldo_claro_no_se_inventa(self):
+        self.guardar("sin palabra y no es lo principal")
+        self.assertIsNone(compromisos.aplicar_sueldo("2026-10-26"))
+        self.assertNotIn("inicio_mes", datos.config())
+        self.assertEqual(compromisos.periodo_actual("2026-10-26"), (None, "2026-10"))
+
+    def test_estado_manda_los_feriados(self):
+        e = correr("estado.py")
+        self.assertIn("2026-09-18", e["feriados"])
+
+
 if __name__ == "__main__":
     try:
         unittest.main(verbosity=1)
