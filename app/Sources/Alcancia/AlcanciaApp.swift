@@ -13,9 +13,20 @@ final class AlcanciaApp: NSObject, NSApplicationDelegate {
         app.run()
     }
 
+    private static var tareasIniciadas = false
+
     func applicationDidFinishLaunching(_ aviso: Notification) {
         Menu.instalar()
         Ventana.shared.mostrar()
+        // En el primer uso lo primero es elegir el idioma: lo que puede mostrar algo o pedir un permiso del sistema
+        // (Llavero, carpeta de Descargas, archivos de otras apps) espera a que esté elegido. Ventana lo llama al guardarse idioma_ui.
+        if Idioma.elegido { AlcanciaApp.iniciarTareas() }
+    }
+
+    /// Lo que corre solo: actualizaciones, conexiones, carpeta vigilada y reparar las IA conectadas por MCP. Una sola vez.
+    static func iniciarTareas() {
+        guard !tareasIniciadas else { return }
+        tareasIniciadas = true
         Actualizaciones.revisarCadaRato()
         Conexiones.revisarCadaRato()
         Vigilante.empezar()

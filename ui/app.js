@@ -70,9 +70,11 @@
       for (const a of ["title", "aria-label", "placeholder"]) { const v = el.getAttribute(a); if (v) el.setAttribute(a, tr(v)); }
     }
   }
+  /** Idioma del equipo («es» o «en»): el que se sugiere en el primer paso. */
+  const idiomaDelSistema = () => ((navigator.language || "es").toLowerCase().startsWith("es") ? "es" : "en");
   async function cargarIdioma() {
     const pedido = new URLSearchParams(location.search).get("idioma");
-    const codigo = pedido || E.config.idioma_ui || ((navigator.language || "es").startsWith("es") ? "es" : "en");
+    const codigo = pedido || E.config.idioma_ui || idiomaDelSistema();
     if (codigo === E.idioma && (codigo === "es" || Object.keys(E.textos).length)) return;
     E.idioma = codigo;
     E.textos = {};
@@ -254,6 +256,8 @@
     traducirDOM(raiz);
     const area = $(".principal-area"); if (area) area.scrollTop = scroll;
     if (idActivo) { const el = document.getElementById(idActivo); if (el) { el.focus(); if (cursor != null && el.setSelectionRange) try { el.setSelectionRange(cursor, cursor); } catch {} } }
+    // En la pantalla de idioma el foco parte en el sugerido: Enter ya elige.
+    if (E.bv === 0 && !E.importar && !E.conectar && !document.activeElement?.closest(".dialogo")) $(`#bv-idioma-${idiomaDelSistema()}`)?.focus();
   }
 
   const ICONOS = {
@@ -676,10 +680,26 @@
       <div class="pie-dialogo"><button class="boton principal" data-accion="cerrar">Listo</button></div>`;
   }
 
+  /** Paso 0 de la bienvenida: lo primero es el idioma, antes de cualquier otra pregunta. Cada opción va escrita en su propio idioma
+   *  (nada pasa por el traductor) y la del equipo viene marcada como sugerida y con el foco. */
+  function pasoIdioma(marcas) {
+    const sugerido = idiomaDelSistema();
+    const opcion = (codigo, nombre, nota) => {
+      const es = codigo === sugerido;
+      return `<button type="button" id="bv-idioma-${codigo}" class="boton opcion-idioma ${es ? "principal" : ""}" data-idioma-bv="${codigo}" lang="${codigo}" data-sin-traducir>
+        <b>${nombre}</b>${es ? `<small>${nota}</small>` : ""}</button>`;
+    };
+    return `${marcas}<div class="paso-idioma">${LOGO}<h2 id="t-bv" tabindex="-1" data-sin-traducir><span lang="es">Elige tu idioma</span> <span aria-hidden="true">·</span> <span lang="en">Choose your language</span></h2>
+      <div class="opciones-idioma">${opcion("es", "Español", "Idioma de tu equipo")}${opcion("en", "English", "Your device’s language")}</div>
+      <p class="nota-idioma" data-sin-traducir><span lang="es">Puedes cambiarlo cuando quieras en Ajustes.</span> <span lang="en">You can change it anytime in Settings.</span></p></div>`;
+  }
+
   function bienvenida() {
-    const paso = E.bv, total = 5;
-    const marcas = `<div class="pasos-bv">${Array.from({ length: total }, (_, i) => `<i class="${i <= paso ? "hecho" : ""}"></i>`).join("")}</div>`;
+    const paso = E.bv, total = 6;
+    const marcas = `<div class="pasos-bv" aria-hidden="true">${Array.from({ length: total }, (_, i) => `<i class="${i <= paso ? "hecho" : ""}"></i>`).join("")}</div>`;
+    if (paso === 0) return pasoIdioma(marcas);
     const pasos = [
+      null,
       ["Hola, esto es Alcancía", `<p>Para quienes nos cuesta medirnos en los gastos. Juntas tus cartolas, Alcancía las ordena y tu IA te avisa a tiempo cuando algo se está pasando.</p>
         <div class="pasos-vacio" style="margin:0"><div><b>📄</b><span>Lee las cartolas de cualquier banco o billetera del mundo.</span></div>
         <div><b>✦</b><span>Tu propia IA pone las categorías y te da consejos concretos.</span></div>
@@ -691,7 +711,7 @@
         <button class="boton principal grande" data-accion="bv-importar">＋ <span>Agregar mi primera cartola</span></button>`, true],
     ];
     const [titulo, cuerpo, puede] = pasos[paso];
-    return `${marcas}<h2 id="t-bv">${titulo}</h2>${cuerpo}
+    return `${marcas}<h2 id="t-bv" tabindex="-1">${titulo}</h2>${cuerpo}
       <div class="pie-dialogo" style="margin-top:18px">${paso > 0 ? `<button class="boton izq" data-bv="${paso - 1}">Atrás</button>` : ""}
         ${paso < total - 1 ? `<button class="boton" data-accion="bv-despues">Lo hago después</button><button class="boton principal" data-bv="${paso + 1}" ${puede ? "" : "disabled"}>Siguiente</button>`
           : `<button class="boton" data-accion="bv-fin">Empezar sin cartola</button>`}</div>`;
@@ -709,7 +729,7 @@
   // ───────────── Eventos ─────────────
   const ocupadoImportando = () => ["leyendo", "aprendiendo", "guardando"].includes(E.importar?.paso);
   document.addEventListener("click", (ev) => {
-    const el = ev.target.closest("[data-accion],[data-vista],[data-mes],[data-probar],[data-bv],[data-enlace],[data-respaldo],[data-consejo],[data-conectar],[data-sincronizar],[data-desconectar],[data-mcp],[data-mcp-quitar],[data-historia]");
+    const el = ev.target.closest("[data-accion],[data-vista],[data-mes],[data-probar],[data-bv],[data-idioma-bv],[data-enlace],[data-respaldo],[data-consejo],[data-conectar],[data-sincronizar],[data-desconectar],[data-mcp],[data-mcp-quitar],[data-historia]");
     if (!el) return;
     const d = el.dataset;
     if (d.enlace) { ev.preventDefault(); return host.enviar("abrirEnlace", { url: d.enlace }); }
@@ -718,6 +738,7 @@
     if (d.historia != null) { E.histCat = E.histCat === d.historia ? null : d.historia; render(); $(`[data-historia="${CSS.escape(d.historia)}"]`)?.focus(); return; }
     if (d.probar) { E.probando[d.probar] = true; delete E.resultadoIA[d.probar]; host.enviar("probarIA", { id: d.probar }); return render(); }
     if (d.bv) { E.bv = Number(d.bv); return render(); }
+    if (d.idiomaBv) return elegirIdioma(d.idiomaBv);
     if (d.respaldo) { if (d.respaldo !== "local") return toast("Muy pronto: el respaldo con candado llega en la próxima versión"); E.config.respaldo = d.respaldo; host.enviar("config", { respaldo: d.respaldo }); return render(); }
     if (d.consejo) { E.consejoSel = d.consejo; return render(); }
     if (d.conectar) { E.conectar = { id: d.conectar, campos: {}, error: "", enviando: false }; render(); const p = $(".campos-conectar input"); if (p) p.focus(); return; }
@@ -820,6 +841,16 @@
     if (E.ajustes) { E.ajustes = false; return render(); }
     if (E.aprender) { E.aprender = null; return render(); }
   });
+  /** Guarda el idioma por el mismo camino que Ajustes y sigue con la bienvenida, ya en ese idioma. */
+  async function elegirIdioma(codigo) {
+    if (codigo !== "es" && codigo !== "en") return;
+    E.config.idioma_ui = codigo;
+    host.enviar("config", { idioma_ui: codigo });
+    await cargarIdioma();
+    E.bv = 1;
+    render();
+    $("#t-bv")?.focus();
+  }
   function aplicarRegla(r) {
     for (const m of E.movimientos) if (normalizar(m.descripcion).includes(r.contiene)) m.categoria = r.categoria;
   }
@@ -840,7 +871,8 @@
         conectores: e.conectores || [], conexiones: e.conexiones || {}, vigilar: e.vigilar || { activo: false, recientes: [] }, iaExterna: e.ia_externa || [] });
       if (!E.presupuesto.moneda) E.presupuesto.moneda = E.config.moneda || "CLP";
       if (!E.mes || E.mes > mesDe(E.hoy)) E.mes = mesDe(E.hoy);
-      if (!E.config.bienvenida && E.bv === null && !E.bvCerrada) E.bv = 0;
+      // Primer uso: la bienvenida parte por el idioma (si ya lo eligió y cerró la app a medio camino, sigue desde el saludo).
+      if (!E.config.bienvenida && E.bv === null && !E.bvCerrada) E.bv = E.config.idioma_ui ? 1 : 0;
       await cargarIdioma();
       if (e.aviso) toast(e.aviso);
       render();

@@ -182,6 +182,21 @@ button.chip[aria-pressed="true"] { background: var(--acento); color: var(--sobre
 .pasos-bv { display: flex; gap: 6px; margin-bottom: 20px; }
 .pasos-bv i { height: 4px; flex: 1; border-radius: 99px; background: var(--linea); }
 .pasos-bv i.hecho { background: var(--acento); }
+/* Paso 0 de la bienvenida: elegir el idioma (dos botones grandes, cada uno en su idioma) */
+.paso-idioma { text-align: center; padding: 6px 0 2px; }
+.paso-idioma .logo { width: 56px; height: 56px; margin: 0 auto 14px; display: block; }
+.paso-idioma h2 { margin-bottom: 20px; outline: none; }
+.opciones-idioma { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.boton.opcion-idioma { display: grid; gap: 4px; justify-items: center; align-content: center; min-height: 84px; padding: 16px 12px; border-radius: 14px; font-size: 18px; border-width: 1.5px; }
+.boton.opcion-idioma b { font-family: var(--redondeada); font-size: 19px; }
+.boton.opcion-idioma small { font-size: 12.5px; font-weight: 500; }
+.boton.opcion-idioma:not(.principal):hover { border-color: var(--acento); }
+.boton.opcion-idioma:focus-visible { outline: 3px solid var(--texto); outline-offset: 3px; }
+.nota-idioma { color: var(--suave); font-size: 13px; margin: 16px 0 0; line-height: 1.5; }
+@media (max-width: 420px) {
+  .opciones-idioma { grid-template-columns: minmax(0, 1fr); } .boton.opcion-idioma { min-height: 64px; }
+  .paso-idioma h2 span[lang] { display: block; } .paso-idioma h2 span[aria-hidden] { display: none; }
+}
 .zona-archivo { border: 2px dashed var(--linea); border-radius: 16px; padding: 30px 20px; text-align: center; display: grid; gap: 10px; justify-items: center; margin-bottom: 14px; }
 .zona-archivo .grande-ico { font-size: 34px; }
 .zona-archivo small { color: var(--suave); }

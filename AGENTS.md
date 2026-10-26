@@ -74,6 +74,10 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
   `HERRAMIENTAS` con su esquema y `readOnlyHint`, prueba en `test_python.py` (clase `Mcp`). La app corre `mcp_conectar.py reparar` al
   abrirse para que las IA conectadas sigan apuntando a la ruta actual de la app.
 - **docs/conectar.html** se genera con `herramientas/generar_conectar.py` desde `bin/conectores` (las pruebas revisan que esté al día).
+- **Primer uso:** lo primero es el idioma. El paso 0 de `bienvenida()` (`pasoIdioma`) ofrece «Español» y «English», cada uno en su
+  idioma, con el del equipo sugerido y enfocado; elegir guarda `idioma_ui` por el mismo `config` que Ajustes y sigue la bienvenida ya
+  traducida. Quien hizo la bienvenida antes (`bienvenida: true`) no la repite; quien eligió idioma y la dejó a medias sigue desde el
+  saludo. Nada pregunta ni avisa antes de esa pantalla (ver «App de Mac»).
 - **Consejos:** `consejos.py <hoy>` arma un prompt con totales y exige las tres secciones (`### Lo que va bien`, `### Ojo con`,
   `### Para esta semana`). Si no vienen, no se guarda nada.
 
@@ -89,6 +93,10 @@ y simulada en `simular()`.
 ## App de Mac
 - Datos en `~/Alcancia`; el código va dentro de la app (`Contents/Resources/alcancia`) y los scripts corren con el Python portátil incluido
   (`ALCANCIA_RECURSOS` apunta ahí). La app nunca usa `ui/demo.json` (se quita al empaquetar).
+- Arranque: menús y ventana de inmediato (en el idioma del sistema hasta que la persona elija). Lo que corre solo y puede mostrar algo
+  o pedir un permiso del sistema (actualizaciones, conexiones con el Llavero, carpeta vigilada en Descargas, `mcp_conectar.py reparar`)
+  parte en `AlcanciaApp.iniciarTareas()` solo cuando `Idioma.elegido`; en el primer uso, al guardarse `idioma_ui`. Cambiar el idioma
+  rearma los menús y vuelve a mandar el estado.
 - Lo que manda la interfaz no arma comandos: rutas de archivo se revisan, ids se filtran y los datos van en un JSON de entrada.
 - Desarrollo en el Mac: `~/Developer/alcancia` es el checkout; `bash build.sh` (se niega si hay una importación en curso) e instala en
   `~/Applications/Alcancia.app`. Compilar solo: `cd app && swift build -c release`. Swift solo compila en un Mac (o en el job `mac` de GitHub).

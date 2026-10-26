@@ -118,7 +118,13 @@ final class Ventana: NSObject, NSWindowDelegate, WKScriptMessageHandler {
             enviarEstado()
         case "config":
             Config.guardar(d)
-            if d["idioma_ui"] != nil { Menu.instalar() }
+            if d["idioma_ui"] != nil {
+                // Los menús se rearman en el idioma nuevo y el estado se vuelve a mandar (las categorías base salen en ese idioma).
+                Menu.instalar()
+                enviarEstado()
+            }
+            // Primer uso: recién elegido el idioma, parte lo que esperaba (conexiones, carpeta vigilada, actualizaciones, MCP).
+            if Idioma.elegido { AlcanciaApp.iniciarTareas() }
         case "probarIA":
             let id = d["id"] as? String ?? ""
             IA.probar(id) { ok, texto in

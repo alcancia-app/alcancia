@@ -51,6 +51,9 @@ enum Idioma {
         return Locale.preferredLanguages.first?.hasPrefix("es") == true ? "es" : "en"
     }
 
+    /// Ya hay idioma: lo eligió (bienvenida o Ajustes) o hizo la bienvenida antes de que existiera ese paso (no se le vuelve a preguntar).
+    static var elegido: Bool { !Config.texto("idioma_ui").isEmpty || Config.leer()["bienvenida"] as? Bool == true }
+
     static func t(_ texto: String) -> String {
         let c = codigo
         guard c != "es" else { return texto }

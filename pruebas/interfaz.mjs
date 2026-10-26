@@ -100,7 +100,7 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
       await p.addInitScript(() => { window._faltantes = new Set(); });
       await p.goto(BASE + "?" + [consulta, bv ? "bienvenida" : ""].filter(Boolean).join("&"));
       await p.waitForFunction(() => window.Alcancia && document.querySelector(".app"));
-      const pasos = bv ? [0, 1, 2, 3, 4].map((n) => [`bienvenida-${n}`, `E=>{E.bv=${n}}`]) : VISTAS;
+      const pasos = bv ? [0, 1, 2, 3, 4, 5].map((n) => [`bienvenida-${n}`, `E=>{E.bv=${n}}`]) : VISTAS;
       for (const [nombre, f] of pasos) {
         await p.evaluate(`window.Alcancia._probar(${f})`);
         await p.waitForTimeout(60);
@@ -119,6 +119,56 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
   }
   console.log(`  ✓ Vistas en ${idioma}`);
 }
+
+// Primer uso: lo primero es elegir el idioma, antes de cualquier otra pregunta. Se prueba con un puente falso que anota lo que
+// la interfaz le manda a la app (como haría la app de escritorio) para revisar que se guarde idioma_ui y que nada se pida antes.
+for (const [locale, sugerido] of [["es-CL", "es"], ["en-US", "en"]]) {
+  const p = await navegador.newPage({ locale, viewport: { width: 1200, height: 820 } });
+  p.on("pageerror", (e) => falla(`error de JavaScript (idioma, ${locale}): ${e.message}`));
+  await p.addInitScript(() => {
+    window._enviados = [];
+    window.alcanciaEscritorio = { enviar(m) {
+      window._enviados.push(m);
+      if (m.accion === "listo") fetch("demo.json").then((r) => r.json()).then((d) => { d.config.bienvenida = false; d.config.idioma_ui = ""; window.Alcancia.estado(d); });
+    } };
+  });
+  await p.goto(BASE + "?bienvenida");
+  await p.waitForSelector(".dialogo #t-bv");
+  const primera = await p.evaluate(() => ({
+    titulo: document.querySelector("#t-bv").textContent.replace(/\s+/g, " ").trim(),
+    opciones: [...document.querySelectorAll("[data-idioma-bv]")].map((b) => b.dataset.idiomaBv),
+    foco: document.activeElement?.id || "",
+  }));
+  if (primera.titulo !== "Elige tu idioma · Choose your language") falla(`la primera pantalla de la bienvenida no es la de idioma («${primera.titulo}»)`);
+  if (primera.opciones.join() !== "es,en") falla(`la pantalla de idioma debe ofrecer Español y English (hay: ${primera.opciones.join()})`);
+  if (primera.foco !== `bv-idioma-${sugerido}`) falla(`con el equipo en ${locale} el foco debe partir en «${sugerido}» (está en «${primera.foco}»)`);
+  // Con teclado: ir a English (Tab si el sugerido es Español) y elegir con Enter.
+  if (sugerido === "es") await p.keyboard.press("Tab");
+  await p.keyboard.press("Enter");
+  await p.waitForFunction(() => document.documentElement.lang === "en" && !document.querySelector("[data-idioma-bv]"));
+  const despues = await p.evaluate(() => ({
+    titulo: document.querySelector("#t-bv")?.textContent.trim(),
+    boton: document.querySelector(".dialogo .boton.principal")?.textContent.trim(),
+    enviados: window._enviados.map((m) => m.accion),
+    config: window._enviados.find((m) => m.accion === "config")?.datos,
+  }));
+  if (despues.titulo !== "Hi, this is Alcancía") falla(`después de elegir English el siguiente paso debe salir en inglés («${despues.titulo}»)`);
+  if (despues.boton !== "Next") falla(`los botones de la bienvenida deben salir en inglés («${despues.boton}»)`);
+  if (despues.config?.idioma_ui !== "en") falla(`elegir English debe guardar idioma_ui = "en" (se mandó ${JSON.stringify(despues.config)})`);
+  if (despues.enviados.slice(0, 2).join() !== "listo,config") falla(`antes de elegir el idioma la interfaz no debe pedir nada más (mandó: ${despues.enviados.join(", ")})`);
+  // «Back» vuelve a la pantalla de idioma.
+  await p.click(".dialogo [data-bv='0']");
+  if (!(await p.$("[data-idioma-bv='es']"))) falla("«Atrás» desde el saludo debe volver a la pantalla de idioma");
+  await p.close();
+}
+{
+  // Quien ya hizo la bienvenida no la repite.
+  const p = await navegador.newPage();
+  await p.goto(BASE); await p.waitForSelector(".app");
+  if (await p.$("[data-idioma-bv], .dialogo")) falla("la bienvenida (ni la pantalla de idioma) no debe aparecer si ya se hizo");
+  await p.close();
+}
+console.log("  ✓ Primer uso: lo primero es el idioma, se guarda y la bienvenida sigue en ese idioma");
 
 // Contraste del botón principal en modo claro y oscuro (WCAG AA: 4.5).
 for (const esquema of ["light", "dark"]) {
