@@ -16,6 +16,7 @@ from datetime import date, datetime, timedelta
 from xml.etree import ElementTree
 
 import datos
+import pdf
 
 FORMATO = 1
 CLAVES = {"formato", "id", "nombre", "institucion", "pais", "moneda", "tipo", "archivo", "reconocer", "columnas", "fecha",
@@ -86,7 +87,7 @@ def disponibles():
     return todas
 
 
-# ───────────── Leer la tabla (CSV o Excel .xlsx) ─────────────
+# ───────────── Leer la tabla (CSV, Excel .xlsx o PDF con texto) ─────────────
 def _celdas_xlsx(ruta, hoja=None):
     """Lee un .xlsx con zipfile + XML (sin librerías). Devuelve filas de textos; las fechas de Excel quedan como número."""
     ns = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
@@ -119,10 +120,13 @@ def _celdas_xlsx(ruta, hoja=None):
         return filas
 
 
-def leer_tabla(ruta, archivo=None):
+def leer_tabla(ruta, archivo=None, encabezados=None):
+    """Filas de textos. En un PDF, `encabezados` (los de la receta) ayuda a alinear las celdas con sus columnas."""
     archivo = archivo or {}
     if ruta.lower().endswith(".xlsx"):
         return _celdas_xlsx(ruta, archivo.get("hoja"))
+    if ruta.lower().endswith(".pdf"):
+        return pdf.tabla(ruta, encabezados)
     with open(ruta, "rb") as f:
         crudo = f.read()
     for cod in [archivo.get("codificacion"), "utf-8-sig", "cp1252", "latin-1"]:
@@ -161,13 +165,15 @@ def detectar(ruta, recetas=None):
         return estandar
     recetas = disponibles() if recetas is None else recetas
     ext = ruta.lower().rsplit(".", 1)[-1]
+    if ext == "pdf":
+        pdf.trozos(ruta)  # si está cifrado o escaneado, el error claro sale aquí (y no un «no sé leerlo»)
     candidatas = []
     for r in recetas.values():
         exts = r.get("archivo", {}).get("extension")
         if exts and ext not in exts:
             continue
         try:
-            filas = leer_tabla(ruta, r.get("archivo"))
+            filas = leer_tabla(ruta, r.get("archivo"), r["reconocer"]["encabezados"])
         except (OSError, zipfile.BadZipFile, KeyError, ElementTree.ParseError):
             continue
         if fila_encabezados(filas, r["reconocer"]["encabezados"]) >= 0:
@@ -422,7 +428,7 @@ def aplicar(ruta, receta, cuenta):
     """Lee la cartola con la receta. Devuelve (movimientos, avisos)."""
     if receta.get("id") in VIRTUALES:
         return VIRTUALES[receta["id"]][1](ruta, cuenta)
-    filas = leer_tabla(ruta, receta.get("archivo"))
+    filas = leer_tabla(ruta, receta.get("archivo"), receta["reconocer"]["encabezados"])
     i = fila_encabezados(filas, receta["reconocer"]["encabezados"])
     if i < 0:
         return [], ["Este archivo no tiene las columnas que espera la receta."]

@@ -3,9 +3,10 @@
   vigilar.py activar <salida.json>        empieza a vigilar desde ahora (lo que ya estaba no se toca)
   vigilar.py <carpeta> <salida.json>       importa lo nuevo
 
-Revisa los .csv, .xlsx, .ofx, .qfx, .qif y .xml (CAMT.053) de la carpeta (sin entrar a subcarpetas) que aparecieron después de activar la función y que no
+Revisa los .csv, .xlsx, .pdf, .ofx, .qfx, .qif y .xml (CAMT.053) de la carpeta (sin entrar a subcarpetas) que aparecieron después de activar la función y que no
 se han revisado antes. Si una receta los reconoce, los importa (sin duplicar, con categorías); si no, los anota para que la app
-ofrezca enseñarle a la IA a leerlos. Nunca borra ni mueve archivos. La app la llama cuando cambia algo en la carpeta.
+ofrezca enseñarle a la IA a leerlos (salvo los PDF: en Descargas hay de todo, así que un PDF que ninguna receta reconoce se
+anota en silencio, sin avisar). Nunca borra ni mueve archivos. La app la llama cuando cambia algo en la carpeta.
 
 Lo revisado queda en ~/Alcancia/.alcancia/vigilar.json ({"desde": marca de tiempo, "vistos": {huella: resultado}}).
 """
@@ -21,7 +22,7 @@ import datos  # noqa: E402
 import recetas  # noqa: E402
 
 RUTA = os.path.join(datos.INTERNO, "vigilar.json")
-EXTENSIONES = (".csv", ".xlsx", ".ofx", ".qfx", ".xml", ".qif")
+EXTENSIONES = (".csv", ".xlsx", ".pdf", ".ofx", ".qfx", ".xml", ".qif")
 MAXIMO = 20 * 1024 * 1024  # una cartola no pesa más que esto; lo más grande no es una cartola
 QUIETO = 3  # segundos sin cambios: así no leemos un archivo que todavía se está descargando
 
@@ -71,6 +72,9 @@ def revisar(carpeta, ahora=None):
         except (OSError, ValueError):
             receta = None
         if not receta:
+            if nombre.lower().endswith(".pdf"):  # boletas, pasajes, contratos…: no es tarea de Alcancía avisar por cada uno
+                m["vistos"][h] = {"archivo": nombre, "resultado": "ignorado", "cuando": int(ahora)}
+                continue
             m["vistos"][h] = {"archivo": nombre, "resultado": "sin_receta", "cuando": int(ahora)}
             sin_receta.append(nombre)
             continue

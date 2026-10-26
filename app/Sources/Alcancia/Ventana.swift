@@ -129,8 +129,8 @@ final class Ventana: NSObject, NSWindowDelegate, WKScriptMessageHandler {
             let panel = NSOpenPanel()
             panel.allowsMultipleSelection = false
             panel.canChooseDirectories = false
-            panel.allowedContentTypes = [.commaSeparatedText, .tabSeparatedText, .plainText] + ["xlsx", "csv", "ofx", "qfx", "qif", "xml"].compactMap { UTType(filenameExtension: $0) }
-            panel.message = Idioma.t("Elige la cartola que descargaste de tu banco o billetera (CSV, Excel, OFX, QIF o CAMT.053)")
+            panel.allowedContentTypes = [.commaSeparatedText, .tabSeparatedText, .plainText] + ["xlsx", "csv", "pdf", "ofx", "qfx", "qif", "xml"].compactMap { UTType(filenameExtension: $0) }
+            panel.message = Idioma.t("Elige la cartola que descargaste de tu banco o billetera (CSV, Excel, PDF, OFX, QIF o CAMT.053)")
             guard let v = ventana else { return }
             panel.beginSheetModal(for: v) { r in
                 guard r == .OK, let u = panel.url else { return }

@@ -1,0 +1,110 @@
+%PDF-1.5
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 2230 >>
+stream
+BT /F2 14 Tf 16 TL 50 790 Td (Banco Ejemplo) Tj /F1 10 Tf T* (Cartola de cuenta corriente) Tj (Titular: Ana PÈrez) ' ET
+BT /F2 9 Tf
+1 0 0 1 50.00 720 Tm (Fecha) Tj
+1 0 0 1 115.00 720 Tm (DescripciÛn) Tj
+1 0 0 1 370.99 720 Tm (Cargos) Tj
+1 0 0 1 449.48 720 Tm (Abonos) Tj
+1 0 0 1 536.99 720 Tm (Saldo) Tj
+ET
+BT /F1 9 Tf
+1 0 0 1 50.00 706 Tm (01/10/2026) Tj
+1 0 0 1 115 706 Tm [(SALDO) -278 (INICIAL)] TJ
+1 0 0 1 527.47 706 Tm (850.000) Tj
+ET
+BT /F1 9 Tf
+1 0 0 1 50.00 692 Tm (02/10/2026) Tj
+1 0 0 1 115 692 Tm [(COMPRA) -278 (LIDER) -278 (EXPRESS) -278 (2231)] TJ
+1 0 0 1 372.48 692 Tm (23.450) Tj
+1 0 0 1 527.47 692 Tm (826.550) Tj
+ET
+BT /F1 9 Tf
+1 0 0 1 50.00 678 Tm (03/10/2026) Tj
+1 0 0 1 115 678 Tm [(UBER) -278 (EATS) -278 (*PEDIDO) -278 (8F2K)] TJ
+1 0 0 1 372.48 678 Tm (12.990) Tj
+1 0 0 1 527.47 678 Tm (813.560) Tj
+ET
+BT /F1 9 Tf
+1 0 0 1 50.00 664 Tm (03/10/2026) Tj
+1 0 0 1 115 664 Tm [(CAFE) -278 (LA) -278 (ESQUINA)] TJ
+1 0 0 1 377.48 664 Tm (3.200) Tj
+1 0 0 1 527.47 664 Tm (810.360) Tj
+ET
+BT /F1 9 Tf
+1 0 0 1 50.00 650 Tm (03/10/2026) Tj
+1 0 0 1 115 650 Tm [(CAFE) -278 (LA) -278 (ESQUINA)] TJ
+1 0 0 1 377.48 650 Tm (3.200) Tj
+1 0 0 1 527.47 650 Tm (807.160) Tj
+ET
+BT /F1 9 Tf
+1 0 0 1 50.00 636 Tm (05/10/2026) Tj
+1 0 0 1 115 636 Tm [(REMUNERACION) -278 (EMPRESA) -278 (FICTICIA) -278 (SPA)] TJ
+1 0 0 1 439.97 636 Tm (1.250.000) Tj
+1 0 0 1 519.97 636 Tm (2.057.160) Tj
+ET
+BT /F1 9 Tf
+1 0 0 1 50.00 622 Tm (06/10/2026) Tj
+1 0 0 1 115.00 622 Tm (NETFLIX.COM) Tj
+1 0 0 1 377.48 622 Tm (9.990) Tj
+1 0 0 1 519.97 622 Tm (2.047.170) Tj
+ET
+BT /F1 9 Tf
+1 0 0 1 50.00 608 Tm (08/10/2026) Tj
+1 0 0 1 115 608 Tm [(COPEC) -278 (AV) -278 (SIEMPREVIVA)] TJ
+1 0 0 1 372.48 608 Tm (35.000) Tj
+1 0 0 1 519.97 608 Tm (2.012.170) Tj
+ET
+BT /F1 9 Tf
+1 0 0 1 50.00 594 Tm (09/10/2026) Tj
+1 0 0 1 115 594 Tm [(TRANSFERENCIA) -278 (A) -278 (MATIAS) -278 (SOTO)] TJ
+1 0 0 1 372.48 594 Tm (50.000) Tj
+1 0 0 1 519.97 594 Tm (1.962.170) Tj
+ET
+BT /F1 9 Tf
+1 0 0 1 50.00 580 Tm (10/10/2026) Tj
+1 0 0 1 115 580 Tm [(FARMACIA) -278 (CRUZ) -278 (VERDE)] TJ
+1 0 0 1 364.97 580 Tm (8.750,50) Tj
+1 0 0 1 507.46 580 Tm (1.953.419,50) Tj
+ET
+BT /F2 9 Tf 1 0 0 1 50 552 Tm (Total cargos) Tj 1 0 0 1 354.96 552 Tm (146.580,50) Tj ET
+0.8 g 50 60 510 0.5 re f
+
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+7 0 obj
+<< /Producer (Alcancia - generar_pdf_prueba.py) /Title (Cartola ficticia) >>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000121 00000 n 
+0000000257 00000 n 
+0000002539 00000 n 
+0000002636 00000 n 
+0000002738 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R >>
+startxref
+2830
+%%EOF

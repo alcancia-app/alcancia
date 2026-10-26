@@ -267,3 +267,35 @@ html[data-host="mac"] .contenido { padding-top: 46px; }
 @media (prefers-reduced-motion: reduce) { .interruptor .visual, .interruptor .visual::after { transition: none; } }
 .intro-tarjeta { margin: 0 0 8px; line-height: 1.6; color: var(--suave); } .intro-tarjeta b { color: var(--texto); font-weight: 600; }
 .nota-mcp { font-size: 12.5px; color: var(--suave); line-height: 1.5; margin: 12px 0 0; }
+
+/* Comparado con los últimos meses: barras en HTML y CSS, con la línea del presupuesto */
+.historia-texto { margin: 0 0 14px; line-height: 1.55; }
+.grafico .plot { position: relative; height: 150px; display: grid; grid-template-columns: repeat(var(--n, 6), minmax(0, 1fr)); gap: 8px; border-bottom: 1px solid var(--linea); }
+.grafico.compacto .plot { height: 112px; }
+.grafico .pila { position: relative; height: 100%; min-width: 0; }
+.grafico .pila i { position: absolute; left: 50%; width: min(72%, 64px); transform: translateX(-50%); bottom: 0; border-radius: 6px 6px 2px 2px; }
+.grafico .real { background: var(--suave); opacity: .45; }
+.grafico .actual .real { background: var(--acento); opacity: 1; }
+.grafico .sobre .real { background: var(--rojo); opacity: .7; }
+.grafico .actual.sobre .real { opacity: 1; }
+.grafico .proy { border: 1.5px dashed var(--acento); border-bottom: 0; background: repeating-linear-gradient(135deg, var(--acento-suave) 0 4px, transparent 4px 8px); }
+.grafico .sin-datos::after { content: ""; position: absolute; left: 50%; width: min(72%, 64px); transform: translateX(-50%); bottom: 0; border-top: 2px dashed var(--linea); }
+.grafico .cifra-col { position: absolute; left: 50%; transform: translateX(-50%); z-index: 1; padding: 0 3px; border-radius: 4px; background: var(--panel); text-align: center; font-size: 10.5px; font-weight: 650; color: var(--suave); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.grafico .actual .cifra-col { color: var(--texto); font-weight: 750; }
+.grafico .tope-linea { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--texto); opacity: .5; pointer-events: none; }
+.grafico .eje { display: grid; grid-template-columns: repeat(var(--n, 6), minmax(0, 1fr)); gap: 8px; margin-top: 6px; }
+.grafico .eje span { text-align: center; font-size: 11.5px; color: var(--suave); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.grafico .eje span::first-letter { text-transform: uppercase; }
+.grafico .eje .actual { color: var(--texto); font-weight: 750; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; text-decoration-color: var(--acento); }
+.leyenda { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px; font-size: 12px; color: var(--suave); }
+.leyenda i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; }
+.leyenda .m-real { background: var(--acento); }
+.leyenda .m-proy { border: 1.5px dashed var(--acento); background: repeating-linear-gradient(135deg, var(--acento-suave) 0 3px, transparent 3px 6px); }
+.leyenda .m-tope { width: 18px; height: 0; border-radius: 0; border-top: 2px dashed var(--texto); opacity: .6; vertical-align: 3px; }
+button.cat { width: 100%; background: none; border: 0; border-bottom: 1px solid var(--linea); border-radius: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+button.cat:hover .nombre, button.cat[aria-expanded="true"] .nombre { color: var(--acento); }
+span.barra { display: block; }
+.pista-cat { margin: -6px 0 4px; font-size: 12.5px; color: var(--suave); }
+.cat-historia { padding: 12px 0 16px; border-bottom: 1px solid var(--linea); }
+.cat-historia h3 { font-size: 13px; margin: 0 0 8px; }
+.cat-historia .historia-texto { font-size: 13px; color: var(--suave); }

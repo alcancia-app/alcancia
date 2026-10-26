@@ -39,6 +39,12 @@ def prompt(hoy, movimientos, presupuesto, categorias):
         if ra["gastado"]:
             top = ", ".join(f"{nombres.get(c, c)} {v}" for c, v in list(ra["por_categoria"].items())[:5])
             historia.append(f"- {anterior}: gastó {ra['gastado']} e ingresó {ra['ingresos']} ({top})")
+    # Tendencia: solo el gasto total de cada mes (nada de movimientos ni comercios).
+    h = resumen.historia(movimientos, mes, hoy, presupuesto, categorias)
+    tendencia = [f"{m['mes']}: {m['gastado']}" + (f" (en curso; proyección {m['proyeccion']})" if m["proyeccion"] is not None else
+                                                     " (en curso)" if m["en_curso"] else "") for m in h["meses"] if m["con_datos"]]
+    if h["promedio"] is not None:
+        tendencia.append(f"promedio de los meses anteriores: {h['promedio']}")
     comercios = {}
     for m in movimientos:
         if m["fecha"].startswith(mes) and m["monto"] < 0:
@@ -56,6 +62,9 @@ Por categoría este mes:
 
 Meses anteriores:
 {chr(10).join(historia) or '- (sin historia aún)'}
+
+Gasto total de los últimos 6 meses (del más antiguo al más reciente):
+{chr(10).join("- " + t for t in tendencia) or '- (sin historia aún)'}
 
 Donde más gastó este mes:
 {top or '- (nada aún)'}

@@ -15,7 +15,7 @@ Gratis, de código abierto y con tus datos en tu computador.</p>
 ---
 
 ## Qué hace
-- **Lee la cartola de cualquier banco o billetera del mundo** (CSV, Excel, OFX/QFX, QIF o CAMT.053). Cada banco tiene una *receta*: un archivo corto que dice
+- **Lee la cartola de cualquier banco o billetera del mundo** (CSV, Excel, PDF con texto, OFX/QFX, QIF o CAMT.053). Cada banco tiene una *receta*: un archivo corto que dice
   cómo leer su cartola. Si tu banco aún no está, **tu IA aprende a leerlo** y puedes compartir la receta con la comunidad.
 - **Movimientos que llegan solos:** conexiones oficiales con una llave que creas tú (Mercado Pago, PayPal, Stripe, Buda.com, bancos
   de EE. UU. y Canadá con SimpleFIN, Up en Australia, Akahu en Nueva Zelanda… y las que sume la comunidad), y la **carpeta vigilada**:
@@ -24,7 +24,8 @@ Gratis, de código abierto y con tus datos en tu computador.</p>
   consultar tus finanzas («¿cuánto gasté en delivery este mes?»). Se conecta con un clic en Conexiones.
 - **No duplica nada:** puedes subir la misma cartola dos veces, o cartolas que se traslapan.
 - **Pone las categorías sola:** primero lo que tú le enseñaste, después comercios conocidos y al final tu IA.
-- **Te dice si vas bien:** cuánto llevas gastado, a qué ritmo vas y qué categoría se te está pasando, antes de que termine el mes.
+- **Te dice si vas bien:** cuánto llevas gastado, a qué ritmo vas y qué categoría se te está pasando, antes de que termine el mes,
+  y cómo vas comparado con tus últimos 6 meses (en total y por categoría).
 - **Te da consejos concretos:** tu IA mira tus números y te deja lo que va bien, a qué ponerle ojo y algo para hacer esta semana.
 
 ## Tus datos son tuyos
@@ -42,8 +43,8 @@ Mac (todavía sin versión publicada: por ahora se compila desde el código, ver
 
 ## Cómo funciona
 ```
-cartola.csv / .xlsx ──► receta del banco ──► movimientos/AAAA-MM.csv ──► reglas + comercios + tu IA ──► resumen y consejos
-                       (o tu IA crea una)        (sin duplicar)              (categorías)
+cartola.csv / .xlsx / .pdf ──► receta del banco ──► movimientos/AAAA-MM.csv ──► reglas + comercios + tu IA ──► resumen y consejos
+                            (o tu IA crea una)        (sin duplicar)              (categorías)
 ```
 
 ## Formato de los datos
@@ -60,6 +61,13 @@ Todo vive en `~/Alcancia/` (en Windows, `C:\Users\<tú>\Alcancia`). Es un format
 | `consejos/AAAA-MM-DD.md` | Los consejos de tu IA. |
 | `cuentas.json` (cont.) | Las cuentas que vienen de una conexión llevan `"conector"` en vez de `"receta"`. |
 | `.alcancia/` | Ajustes de la app, recetas descargadas o creadas por ti, `conexiones.json` (estado de cada conexión, sin llaves) y `vigilar.json` (cartolas ya revisadas en Descargas). Las llaves de las conexiones viven en el Llavero de tu sistema, nunca en esta carpeta. |
+
+## Cartolas en PDF
+Algunos bancos solo entregan la cartola en PDF. Alcancía lee los PDF **con texto** (los que genera el banco, no los escaneados) sin
+librerías: saca el texto con su posición, lo arma como tabla (filas por altura, columnas alineadas con la fila de encabezados) y lo
+pasa por la receta del banco, igual que un CSV. Si tu banco no tiene receta, tu IA ve las primeras filas de esa tabla y aprende a
+leerla. Un PDF escaneado (una foto) o protegido con clave no se puede leer: Alcancía te lo dice y te sugiere descargar la cartola
+en CSV o Excel, o guardar el PDF sin clave.
 
 ## Recetas: cada banco del mundo
 Una receta es un JSON de **solo datos** (nunca código), así que cualquiera puede agregar su banco sin programar. El formato está en
@@ -125,7 +133,7 @@ tienes que publicar tu código con la misma licencia: así nadie puede tomarla y
 
 ## English
 **Alcancía** ("piggy bank") is a free, open-source spending tracker for people who struggle to keep their spending in check. Add
-statements from any bank or wallet in the world (CSV or Excel); Alcancía sorts them without duplicates, your own AI (Claude Code,
+statements from any bank or wallet in the world (CSV, Excel or text-based PDF); Alcancía sorts them without duplicates, your own AI (Claude Code,
 Codex or Gemini, with your account) fills in categories and gives you concrete tips, and you see in time when a category is running
 over budget. Your data stays on your computer in open files: no servers, no accounts, no ads, and it never asks for your bank
 password. Each bank is supported through a data-only *recipe* (plus OFX, QIF and CAMT.053 out of the box); if yours is missing, your AI

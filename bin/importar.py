@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import categorizar  # noqa: E402
 import datos  # noqa: E402
 import ia  # noqa: E402
+import pdf  # noqa: E402
 import recetas  # noqa: E402
 
 
@@ -100,5 +101,7 @@ if __name__ == "__main__":
         else:
             print(__doc__)
             sys.exit(2)
+    except pdf.PdfError as e:  # PDF cifrado, escaneado o dañado: el mensaje ya está escrito para la persona
+        salir(a[-1], {"ok": False, "error": str(e)})
     except (OSError, ValueError) as e:
         salir(a[-1], {"ok": False, "error": f"No pude leer el archivo: {e}"})

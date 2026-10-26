@@ -210,5 +210,511 @@
     "alertas": []
    }
   }
+ ],
+ "historia": [
+  {
+   "nombre": "total de 6 meses: neutras y otra moneda no cuentan, el mes en curso trae proyección",
+   "mes": "2026-10",
+   "hoy": "2026-10-10",
+   "presupuesto": {
+    "moneda": "CLP",
+    "mensual": {
+     "comida": 60000,
+     "casa": 300000
+    }
+   },
+   "movimientos": [
+    {
+     "fecha": "2026-07-03",
+     "monto": -20000,
+     "categoria": "comida",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-07-01",
+     "monto": -300000,
+     "categoria": "casa",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-07-15",
+     "monto": -100000,
+     "categoria": "transferencia",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-07-05",
+     "monto": 900000,
+     "categoria": "sueldo",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-08-04",
+     "monto": -50000,
+     "categoria": "comida",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-08-01",
+     "monto": -300000,
+     "categoria": "casa",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-08-09",
+     "monto": -30,
+     "categoria": "comida",
+     "moneda": "USD"
+    },
+    {
+     "fecha": "2026-06-20",
+     "monto": -45,
+     "categoria": "comida",
+     "moneda": "USD"
+    },
+    {
+     "fecha": "2026-09-12",
+     "monto": -35000,
+     "categoria": "comida",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-09-01",
+     "monto": -300000,
+     "categoria": "casa",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-10-02",
+     "monto": -12000,
+     "categoria": "comida",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-10-05",
+     "monto": -9000,
+     "categoria": "comida",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-10-08",
+     "monto": -11000,
+     "categoria": "comida",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-10-03",
+     "monto": -300000,
+     "categoria": "casa",
+     "moneda": "CLP"
+    }
+   ],
+   "esperado": {
+    "categoria": "",
+    "moneda": "CLP",
+    "tope": 360000,
+    "promedio": 335000,
+    "meses": [
+     {
+      "mes": "2026-05",
+      "gastado": 0,
+      "proyeccion": null,
+      "en_curso": false,
+      "con_datos": false
+     },
+     {
+      "mes": "2026-06",
+      "gastado": 0,
+      "proyeccion": null,
+      "en_curso": false,
+      "con_datos": false
+     },
+     {
+      "mes": "2026-07",
+      "gastado": 320000,
+      "proyeccion": null,
+      "en_curso": false,
+      "con_datos": true
+     },
+     {
+      "mes": "2026-08",
+      "gastado": 350000,
+      "proyeccion": null,
+      "en_curso": false,
+      "con_datos": true
+     },
+     {
+      "mes": "2026-09",
+      "gastado": 335000,
+      "proyeccion": null,
+      "en_curso": false,
+      "con_datos": true
+     },
+     {
+      "mes": "2026-10",
+      "gastado": 332000,
+      "proyeccion": 399200,
+      "en_curso": true,
+      "con_datos": true
+     }
+    ]
+   }
+  },
+  {
+   "nombre": "historia de una categoría con su tope",
+   "mes": "2026-10",
+   "hoy": "2026-10-10",
+   "presupuesto": {
+    "moneda": "CLP",
+    "mensual": {
+     "comida": 60000,
+     "casa": 300000
+    }
+   },
+   "movimientos": [
+    {
+     "fecha": "2026-07-03",
+     "monto": -20000,
+     "categoria": "comida",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-07-01",
+     "monto": -300000,
+     "categoria": "casa",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-07-15",
+     "monto": -100000,
+     "categoria": "transferencia",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-07-05",
+     "monto": 900000,
+     "categoria": "sueldo",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-08-04",
+     "monto": -50000,
+     "categoria": "comida",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-08-01",
+     "monto": -300000,
+     "categoria": "casa",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-08-09",
+     "monto": -30,
+     "categoria": "comida",
+     "moneda": "USD"
+    },
+    {
+     "fecha": "2026-06-20",
+     "monto": -45,
+     "categoria": "comida",
+     "moneda": "USD"
+    },
+    {
+     "fecha": "2026-09-12",
+     "monto": -35000,
+     "categoria": "comida",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-09-01",
+     "monto": -300000,
+     "categoria": "casa",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-10-02",
+     "monto": -12000,
+     "categoria": "comida",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-10-05",
+     "monto": -9000,
+     "categoria": "comida",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-10-08",
+     "monto": -11000,
+     "categoria": "comida",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-10-03",
+     "monto": -300000,
+     "categoria": "casa",
+     "moneda": "CLP"
+    }
+   ],
+   "categoria": "comida",
+   "esperado": {
+    "categoria": "comida",
+    "moneda": "CLP",
+    "tope": 60000,
+    "promedio": 35000,
+    "meses": [
+     {
+      "mes": "2026-05",
+      "gastado": 0,
+      "proyeccion": null,
+      "en_curso": false,
+      "con_datos": false
+     },
+     {
+      "mes": "2026-06",
+      "gastado": 0,
+      "proyeccion": null,
+      "en_curso": false,
+      "con_datos": false
+     },
+     {
+      "mes": "2026-07",
+      "gastado": 20000,
+      "proyeccion": null,
+      "en_curso": false,
+      "con_datos": true
+     },
+     {
+      "mes": "2026-08",
+      "gastado": 50000,
+      "proyeccion": null,
+      "en_curso": false,
+      "con_datos": true
+     },
+     {
+      "mes": "2026-09",
+      "gastado": 35000,
+      "proyeccion": null,
+      "en_curso": false,
+      "con_datos": true
+     },
+     {
+      "mes": "2026-10",
+      "gastado": 32000,
+      "proyeccion": 99200,
+      "en_curso": true,
+      "con_datos": true
+     }
+    ]
+   }
+  },
+  {
+   "nombre": "mes pasado: sin proyección y el promedio sin el mes elegido",
+   "mes": "2026-09",
+   "hoy": "2026-10-10",
+   "presupuesto": {
+    "moneda": "CLP",
+    "mensual": {
+     "comida": 60000,
+     "casa": 300000
+    }
+   },
+   "movimientos": [
+    {
+     "fecha": "2026-07-03",
+     "monto": -20000,
+     "categoria": "comida",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-07-01",
+     "monto": -300000,
+     "categoria": "casa",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-07-15",
+     "monto": -100000,
+     "categoria": "transferencia",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-07-05",
+     "monto": 900000,
+     "categoria": "sueldo",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-08-04",
+     "monto": -50000,
+     "categoria": "comida",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-08-01",
+     "monto": -300000,
+     "categoria": "casa",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-08-09",
+     "monto": -30,
+     "categoria": "comida",
+     "moneda": "USD"
+    },
+    {
+     "fecha": "2026-06-20",
+     "monto": -45,
+     "categoria": "comida",
+     "moneda": "USD"
+    },
+    {
+     "fecha": "2026-09-12",
+     "monto": -35000,
+     "categoria": "comida",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-09-01",
+     "monto": -300000,
+     "categoria": "casa",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-10-02",
+     "monto": -12000,
+     "categoria": "comida",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-10-05",
+     "monto": -9000,
+     "categoria": "comida",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-10-08",
+     "monto": -11000,
+     "categoria": "comida",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-10-03",
+     "monto": -300000,
+     "categoria": "casa",
+     "moneda": "CLP"
+    }
+   ],
+   "esperado": {
+    "categoria": "",
+    "moneda": "CLP",
+    "tope": 360000,
+    "promedio": 335000,
+    "meses": [
+     {
+      "mes": "2026-04",
+      "gastado": 0,
+      "proyeccion": null,
+      "en_curso": false,
+      "con_datos": false
+     },
+     {
+      "mes": "2026-05",
+      "gastado": 0,
+      "proyeccion": null,
+      "en_curso": false,
+      "con_datos": false
+     },
+     {
+      "mes": "2026-06",
+      "gastado": 0,
+      "proyeccion": null,
+      "en_curso": false,
+      "con_datos": false
+     },
+     {
+      "mes": "2026-07",
+      "gastado": 320000,
+      "proyeccion": null,
+      "en_curso": false,
+      "con_datos": true
+     },
+     {
+      "mes": "2026-08",
+      "gastado": 350000,
+      "proyeccion": null,
+      "en_curso": false,
+      "con_datos": true
+     },
+     {
+      "mes": "2026-09",
+      "gastado": 335000,
+      "proyeccion": null,
+      "en_curso": false,
+      "con_datos": true
+     }
+    ]
+   }
+  },
+  {
+   "nombre": "cambio de año y mes recién empezado (aún sin proyección)",
+   "mes": "2026-02",
+   "hoy": "2026-02-01",
+   "n": 3,
+   "presupuesto": {
+    "moneda": "CLP",
+    "mensual": {}
+   },
+   "movimientos": [
+    {
+     "fecha": "2025-12-24",
+     "monto": -80001,
+     "categoria": "comida",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-01-10",
+     "monto": -40000,
+     "categoria": "comida",
+     "moneda": "CLP"
+    },
+    {
+     "fecha": "2026-02-01",
+     "monto": -5000,
+     "categoria": "comida",
+     "moneda": "CLP"
+    }
+   ],
+   "esperado": {
+    "categoria": "",
+    "moneda": "CLP",
+    "tope": 0,
+    "promedio": 60001,
+    "meses": [
+     {
+      "mes": "2025-12",
+      "gastado": 80001,
+      "proyeccion": null,
+      "en_curso": false,
+      "con_datos": true
+     },
+     {
+      "mes": "2026-01",
+      "gastado": 40000,
+      "proyeccion": null,
+      "en_curso": false,
+      "con_datos": true
+     },
+     {
+      "mes": "2026-02",
+      "gastado": 5000,
+      "proyeccion": null,
+      "en_curso": true,
+      "con_datos": true
+     }
+    ]
+   }
+  }
  ]
 }

@@ -29,6 +29,7 @@ sys.path.insert(0, os.path.join(RAIZ, "bin"))
 import categorizar  # noqa: E402
 import consejos  # noqa: E402
 import datos  # noqa: E402
+import pdf  # noqa: E402
 import recetas  # noqa: E402
 import resumen  # noqa: E402
 
@@ -152,6 +153,11 @@ class Resumen(unittest.TestCase):
             for k, v in c["esperado"].items():
                 self.assertEqual(r[k], v, f"{c['nombre']}: {k}")
 
+    def test_historia(self):
+        for c in CASOS["historia"]:
+            r = resumen.historia(c["movimientos"], c["mes"], c["hoy"], c["presupuesto"], CASOS["categorias"], c.get("categoria"), c.get("n", 6))
+            self.assertEqual(r, c["esperado"], c["nombre"])
+
     def test_presupuesto_sugerido(self):
         movs = [{"fecha": f"2026-0{m}-05", "monto": -v, "categoria": "comida", "moneda": "CLP"} for m, v in [(7, 40000), (8, 52000), (9, 61000)]]
         self.assertEqual(resumen.presupuesto_sugerido(movs, ["2026-07", "2026-08", "2026-09"], CASOS["categorias"]), {"comida": 52000})
@@ -201,6 +207,10 @@ class Flujo(unittest.TestCase):
         r = correr("consejos.py", "2026-10-12")
         self.assertTrue(r["ok"], r)
         self.assertTrue(os.path.exists(os.path.join(datos.CONSEJOS, "2026-10-12.md")))
+        texto = consejos.prompt("2026-10-12", datos.leer_todos(), datos.presupuesto(), datos.categorias())
+        self.assertIn("Gasto total de los últimos 6 meses", texto)
+        self.assertIn("2026-10: ", texto)
+        self.assertNotIn("Ana Pérez", texto)
         self.assertIsNone(consejos.validar("### Ojo con\nx\n### Lo que va bien\ny\n### Para esta semana\nz"), "orden distinto = no sirve")
 
     def test_cambiar_categoria(self):
@@ -279,6 +289,129 @@ class Ofx(unittest.TestCase):
         movs, _ = recetas.aplicar(ruta, r, "cuenta-qif")
         self.assertEqual([(m["fecha"], m["monto"]) for m in movs], [("2026-10-25", -15.5), ("2026-10-03", 1200.0)], "25/10 → día/mes")
 
+
+
+PDF_SIMPLE = os.path.join(DATOS_PRUEBA, "cartola_ejemplo.pdf")
+PDF_COMPRIMIDO = os.path.join(DATOS_PRUEBA, "cartola_ejemplo_comprimida.pdf")
+RECETA_PDF = {**RECETA, "id": "cl-banco-ejemplo-pdf", "nombre": "Banco Ejemplo — cartola en PDF", "archivo": {"extension": ["pdf"]}}
+RECETA_BILLETERA = {"formato": 1, "id": "cl-billetera-ejemplo-pdf", "nombre": "Billetera Ejemplo (PDF)", "institucion": "Billetera Ejemplo",
+                    "pais": "CL", "moneda": "CLP", "tipo": "cartola", "archivo": {"extension": ["pdf"]},
+                    "reconocer": {"encabezados": ["Fecha", "Detalle", "Monto", "Saldo"]},
+                    "columnas": {"fecha": "Fecha", "descripcion": "Detalle", "monto": "Monto"}, "fecha": "%Y-%m-%d",
+                    "numeros": {"decimal": ",", "miles": "."}, "signo": "normal", "ignorar_si_contiene": ["SALDO ANTERIOR"]}
+
+
+def pdf_minimo(ruta, objetos, trailer_extra=""):
+    """Un PDF chico armado a mano (para los casos raros: cifrado, escaneado)."""
+    cuerpo = bytearray(b"%PDF-1.4\n")
+    for n, o in enumerate(objetos, 1):
+        cuerpo += f"{n} 0 obj\n".encode() + o + b"\nendobj\n"
+    cuerpo += f"trailer\n<< /Size {len(objetos) + 1} /Root 1 0 R {trailer_extra}>>\n%%EOF\n".encode()
+    with open(ruta, "wb") as f:
+        f.write(cuerpo)
+    return ruta
+
+
+class Pdf(unittest.TestCase):
+    def setUp(self):
+        limpiar()
+
+    def test_tabla_simple(self):
+        filas = pdf.tabla(PDF_SIMPLE)
+        self.assertIn(["Titular: Ana Pérez"], filas, "WinAnsi: la é es un byte")
+        self.assertIn(["Fecha", "Descripción", "Cargos", "Abonos", "Saldo"], filas)
+        self.assertIn(["05/10/2026", "REMUNERACION EMPRESA FICTICIA SPA", "", "1.250.000", "2.057.160"], filas,
+                      "el abono cae en su columna aunque la de cargos venga vacía, y el TJ con ajuste deja los espacios")
+
+    def test_detectar_y_aplicar_igual_que_el_csv(self):
+        r = recetas.detectar(PDF_SIMPLE, {RECETA["id"]: RECETA, RECETA_PDF["id"]: RECETA_PDF})
+        self.assertEqual(r["id"], RECETA_PDF["id"], "la receta de CSV no se prueba con un PDF")
+        movs, avisos = recetas.aplicar(PDF_SIMPLE, RECETA_PDF, "banco-ejemplo")
+        del_csv, _ = recetas.aplicar(CARTOLA, RECETA, "banco-ejemplo")
+        quitar = lambda lista: [{k: v for k, v in m.items() if k != "origen"} for m in lista]
+        self.assertEqual(quitar(movs), quitar(del_csv), "mismo resultado (e ids) que la misma cartola en CSV")
+        self.assertTrue(any("Total cargos" in a for a in avisos))
+
+    def test_comprimido_type0_tounicode(self):
+        filas = pdf.tabla(PDF_COMPRIMIDO, RECETA_BILLETERA["reconocer"]["encabezados"])
+        self.assertIn(["Ana Pérez"], filas, "el título viene de un formulario (Do)")
+        movs, _ = recetas.aplicar(PDF_COMPRIMIDO, RECETA_BILLETERA, "billetera-ejemplo")
+        self.assertEqual([(m["fecha"], m["descripcion"], m["monto"]) for m in movs], [
+            ("2026-10-02", "CAFÉ LA ESQUINA", -3400), ("2026-10-04", "DELIVERY RAPIDITO *PEDIDO", -14990),
+            ("2026-10-06", "PAGO SUSCRIPCIÓN MÚSICA PREMIUM", -5490), ("2026-10-09", "CARGA DESDE BANCO EJEMPLO", 50000),
+            ("2026-10-12", "VIAJES APP *TRIP", -6200), ("2026-10-15", "DEVOLUCIÓN TIENDA ONLINE", 9990),
+            ("2026-10-18", "TRANSFERENCIA DE MATÍAS SOTO", 20000)],
+            "dos páginas (la segunda escalada con cm), encabezado repetido y una descripción en dos líneas")
+
+    def test_xref_rota(self):
+        with open(PDF_SIMPLE, "rb") as f:
+            crudo = f.read()
+        roto = crudo.replace(b"startxref\n", b"startxref\n9").replace(b"0000000", b"0000999")
+        ruta = os.path.join(TMP, "rota.pdf")
+        with open(ruta, "wb") as f:
+            f.write(roto)
+        self.assertEqual(pdf.tabla(ruta), pdf.tabla(PDF_SIMPLE), "se lee igual aunque la tabla xref mienta")
+
+    def test_cmap(self):
+        mapa, largos = pdf.leer_cmap(b"1 begincodespacerange <0000> <FFFF> endcodespacerange 1 beginbfchar <0003> <0020> endbfchar "
+                                     b"2 beginbfrange <0010> <0012> <00E1> <0020> <0021> [<0041> <D83DDE00>] endbfrange")
+        self.assertEqual(largos, [2])
+        self.assertEqual([mapa[bytes.fromhex(h)] for h in ("0003", "0010", "0012", "0020", "0021")], [" ", "á", "ã", "A", "😀"])
+        self.assertEqual([pdf.glifo(g) for g in ("aacute", "Ntilde", "uni00F3", "period", "zzz")], ["á", "Ñ", "ó", ".", ""])
+
+    def test_errores_claros(self):
+        pagina = b"<< /Type /Catalog /Pages 2 0 R >>", b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>"
+        cifrado = pdf_minimo(os.path.join(TMP, "cifrado.pdf"), [*pagina, b"<< /Type /Page /Parent 2 0 R >>", b"<< /Filter /Standard >>"],
+                             "/Encrypt 4 0 R ")
+        imagen = b"q 500 0 0 700 50 50 cm /Im1 Do Q"
+        escaneado = pdf_minimo(os.path.join(TMP, "escaneado.pdf"), [*pagina,
+            b"<< /Type /Page /Parent 2 0 R /Contents 4 0 R /Resources << /XObject << /Im1 5 0 R >> >> >>",
+            f"<< /Length {len(imagen)} >>\nstream\n".encode() + imagen + b"\nendstream",
+            b"<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /Filter /DCTDecode /Length 1 >>\nstream\nx\nendstream"])
+        falso = os.path.join(TMP, "falso.pdf")
+        with open(falso, "w") as f:
+            f.write("Fecha;Monto\n")
+        for ruta, texto in ((cifrado, "protegido con clave"), (escaneado, "imagen escaneada"), (falso, "no parece un PDF")):
+            with self.assertRaises(pdf.PdfError) as e:
+                pdf.tabla(ruta)
+            self.assertIn(texto, str(e.exception))
+            v = correr("importar.py", "vista", ruta)
+            self.assertEqual((v["ok"], texto in v["error"]), (False, True), v)
+            self.assertFalse(v["error"].startswith("No pude leer"), "el mensaje va tal cual, sin prefijos")
+        r = correr("receta_ia.py", escaneado, "CL")
+        self.assertIn("imagen escaneada", r["error"])
+
+    def test_importar_de_punta_a_punta(self):
+        datos.escribir_json(os.path.join(datos.INTERNO, "recetas", RECETA_PDF["id"] + ".json"), RECETA_PDF)
+        datos.escribir_json(os.path.join(datos.INTERNO, "recetas", RECETA["id"] + ".json"), RECETA)
+        v = correr("importar.py", "vista", PDF_SIMPLE)
+        self.assertEqual((v["ok"], v["receta"]["id"], v["total"]), (True, RECETA_PDF["id"], 9), v)
+        self.assertEqual(correr("importar.py", "guardar", PDF_SIMPLE, RECETA_PDF["id"], "1")["nuevos"], 9)
+        otra = correr("importar.py", "guardar", CARTOLA, RECETA["id"], "0")
+        self.assertEqual((otra["nuevos"], otra["repetidos"]), (0, 9), "el mismo banco en CSV no duplica lo que vino en PDF")
+
+    def test_receta_con_ia_desde_pdf(self):
+        r = correr("receta_ia.py", PDF_SIMPLE, "CL")
+        self.assertTrue(r["ok"], r)
+        self.assertEqual(r["total"], 9)
+        self.assertIn("pdf", r["receta"]["archivo"]["extension"], "la receta reconoce el archivo con que se probó")
+        self.assertNotIn("separador", r["receta"]["archivo"])
+        self.assertEqual(recetas.validar(r["receta"]), [])
+
+    def test_carpeta_vigilada(self):
+        import time
+        import vigilar
+        carpeta = os.path.join(TMP, "DescargasPdf")
+        shutil.rmtree(carpeta, ignore_errors=True)
+        os.makedirs(carpeta)
+        datos.escribir_json(os.path.join(datos.INTERNO, "recetas", RECETA_PDF["id"] + ".json"), RECETA_PDF)
+        vigilar.activar()
+        shutil.copy(PDF_SIMPLE, os.path.join(carpeta, "cartola.pdf"))
+        shutil.copy(PDF_COMPRIMIDO, os.path.join(carpeta, "boleta.pdf"))
+        r = vigilar.revisar(carpeta, ahora=time.time() + 10)
+        self.assertEqual([x["archivo"] for x in r["importados"]], ["cartola.pdf"])
+        self.assertEqual(r["sin_receta"], [], "un PDF que no es cartola no genera avisos")
+        self.assertEqual(correr("estado.py")["vigilar"]["recientes"][0]["archivo"], "cartola.pdf", "lo ignorado no se muestra")
 
 class Vigilar(unittest.TestCase):
     def setUp(self):

@@ -47,7 +47,8 @@ def conexiones():
 
 def vigilar(cfg):
     m = datos.leer_json(os.path.join(datos.INTERNO, "vigilar.json"), {})
-    recientes = sorted(m.get("vistos", {}).values(), key=lambda v: -v.get("cuando", 0))[:6]
+    recientes = sorted((v for v in m.get("vistos", {}).values() if v.get("resultado") != "ignorado"),  # PDFs que no son cartolas
+                       key=lambda v: -v.get("cuando", 0))[:6]
     return {"activo": bool(cfg.get("vigilar")), "recientes": recientes}
 
 

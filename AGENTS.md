@@ -3,7 +3,7 @@
 > Para personas y para cualquier IA de programación (Claude Code, Codex, Gemini/Antigravity…). `CLAUDE.md` y `GEMINI.md` solo
 > importan este archivo: la guía es una sola.
 
-Alcancía es una app de control de gastos personal. La persona agrega las cartolas de sus bancos y billeteras (CSV o Excel); Alcancía
+Alcancía es una app de control de gastos personal. La persona agrega las cartolas de sus bancos y billeteras (CSV, Excel o PDF con texto); Alcancía
 las lee con una **receta** por banco, las guarda sin duplicar, las categoriza (reglas aprendidas → comercios conocidos → la IA del
 usuario) y muestra cuánto lleva gastado, a qué ritmo va y qué categoría se pasa del presupuesto. La IA del usuario (Claude Code, Codex
 o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app de escritorio para Mac, Windows y Linux en camino.
@@ -25,14 +25,14 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
 
 | Ruta | Qué es |
 |---|---|
-| `bin/` | Python **solo biblioteca estándar**. `datos.py` (formato en disco, ids, escritura atómica), `recetas.py` (validar, detectar y aplicar recetas; lee CSV y .xlsx sin librerías), `categorizar.py` (reglas, comercios conocidos, IA), `resumen.py` (cuentas del mes, proyección, alertas, presupuesto sugerido), `ia.py` (`preguntar()` con la IA del usuario). Scripts que llama la app: `estado.py` (todo lo que pinta la interfaz), `importar.py`, `receta_ia.py`, `consejos.py` y `guardar.py` (categoría, regla, presupuesto, receta; lo de la interfaz llega en un archivo JSON de entrada). El último argumento siempre es la ruta del JSON de salida. |
+| `bin/` | Python **solo biblioteca estándar**. `datos.py` (formato en disco, ids, escritura atómica), `recetas.py` (validar, detectar y aplicar recetas; lee CSV y .xlsx sin librerías), `pdf.py` (texto de un PDF con posiciones → tabla), `categorizar.py` (reglas, comercios conocidos, IA), `resumen.py` (cuentas del mes, proyección, alertas, presupuesto sugerido, historia de 6 meses), `ia.py` (`preguntar()` con la IA del usuario). Scripts que llama la app: `estado.py` (todo lo que pinta la interfaz), `importar.py`, `receta_ia.py`, `consejos.py` y `guardar.py` (categoría, regla, presupuesto, receta; lo de la interfaz llega en un archivo JSON de entrada). El último argumento siempre es la ruta del JSON de salida. |
 | `bin/conectores/` | Un módulo por servicio con API oficial (`INFO`, `probar`, `movimientos`). `bin/red.py` hace los pedidos HTTPS (solo a los dominios de cada conector). `bin/sincronizar.py probar|traer <conector>` los usa; `bin/vigilar.py` es la carpeta vigilada. |
 | `bin/mcp_servidor.py`, `bin/mcp_conectar.py` | Servidor MCP de solo lectura (stdio, JSON-RPC, sin dependencias) para que la IA de la persona consulte sus finanzas, y el script que lo registra en Claude Desktop, Claude Code, Codex/ChatGPT, Gemini CLI y Antigravity (con su comando oficial o editando su JSON con respaldo). |
 | `recetas/` | Recetas incluidas en la app (solo las probadas con una cartola real) y `README.md` con el formato. |
 | `ui/` | Interfaz web única (`app.js`, `app.css`), `demo.json` (ficticio, se genera con `herramientas/generar_demo.py`) e `idiomas/en.json`. |
 | `docs/` | Página pública (GitHub Pages). `pagina.yml` la publica junto a `ui/` en `/demo/`. |
 | `pruebas/` | `correr.sh` (todo), `test_python.py`, `interfaz.mjs` (Playwright), `casos.json` (casos compartidos Python ↔ JS), `ia_falsa.py`, `datos/` (cartola ficticia). |
-| `herramientas/` | `revisar_privacidad.sh`, `generar_demo.py`. |
+| `herramientas/` | `revisar_privacidad.sh`, `generar_demo.py`, `generar_pdf_prueba.py` (las cartolas PDF ficticias de `pruebas/datos/`). |
 | `ejemplos/` | Scripts para construir encima del formato abierto. |
 | `app/` | App de Mac (SwiftPM, macOS 15, sin proyecto de Xcode). `AlcanciaApp.swift` (arranque y barra de menú), `Ventana.swift` (WKWebView + puente: un `case` por acción), `Servicios.swift` (rutas, config, idioma, IA del usuario, `Procesador.correrJSON`), `Actualizaciones.swift` (GitHub Releases o `git pull` en un checkout de desarrollo). |
 | `build.sh`, `herramientas/empaquetar.sh` | Arman `dist/Alcancia.app` (con Python portátil verificado por SHA-256 y bin/, ui/, recetas/ adentro) + zip + `.sha256`; `build.sh` la instala en `~/Applications`. |
@@ -45,18 +45,28 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
 - **Sin receta:** `receta_ia.py <archivo> <país>` muestra a la IA las primeras 25 filas, valida la receta que propone y la prueba con el
   mismo archivo. No guarda nada: la app la guarda (`.alcancia/recetas/`) cuando la persona confirma que los movimientos se ven bien.
   Compartir es opcional y abre un issue prellenado en el catálogo con **solo la receta**.
-- **Resumen:** la misma lógica en `bin/resumen.py` y en `ui/app.js` (`resumen`, `presupuestoSugerido`, `reglaPara`), probada con
+- **Resumen:** la misma lógica en `bin/resumen.py` y en `ui/app.js` (`resumen`, `historia`, `presupuestoSugerido`, `reglaPara`), probada con
   `pruebas/casos.json`. Si cambias una regla, cambia los dos lados y el caso. La proyección sigue el ritmo solo de lo variable
-  (3+ gastos en el mes, categoría no `fijo`); lo fijo y lo esporádico queda como está.
+  (3+ gastos en el mes, categoría no `fijo`); lo fijo y lo esporádico queda como está. `historia` (Python) / `historia` (JS) da los
+  6 meses que terminan en el mes elegido (total o una categoría, con su tope y el promedio de los meses anteriores con datos): la
+  tarjeta «Comparado con los últimos meses» y la historia al tocar una categoría. `consejos.py` le pasa a la IA solo esos totales.
 - **Conectores:** la app guarda la llave en el Llavero y se la pasa a `sincronizar.py` por la **entrada estándar** (nunca en un
   archivo, un argumento ni el entorno); una llave nueva vuelve por la salida estándar (`CREDENCIAL {json}`). `red.py` no sigue
   redirecciones (se llevarían la llave a otro dominio) y la IA corre sin variables `ALCANCIA_*`. Al revisar cambios, mirar justo eso. `probar` revisa la llave y registra las cuentas en `cuentas.json` (campo `conector`);
   `traer` pide desde la última vez menos 10 días (o `dias_inicio` la primera vez), guarda sin duplicar con
   `id = sha1(conector|cuenta|id del servicio)` y categoriza igual que una cartola. El estado sin secretos queda en
   `.alcancia/conexiones.json`. La app revisa sola al abrir y cada 6 horas.
-- **Carpeta vigilada:** `vigilar.py activar` marca desde cuándo; `vigilar.py <carpeta>` importa los CSV/XLSX/OFX nuevos que reconozca
+- **Carpeta vigilada:** `vigilar.py activar` marca desde cuándo; `vigilar.py <carpeta>` importa los CSV/XLSX/PDF/OFX nuevos que reconozca
   una receta, una sola vez cada uno (por huella), y anota los que no sabe leer. Nunca borra ni mueve nada. En Mac la llama un
   `DispatchSource` sobre `~/Downloads` cuando la carpeta queda quieta 5 segundos.
+- **PDF:** `bin/pdf.py` (solo biblioteca estándar) recorre los objetos del PDF sin confiar en la xref, abre `/ObjStm`, descomprime
+  FlateDecode/ASCIIHex/ASCII85, interpreta los operadores de texto (Tm, Td, TD, T*, Tj, TJ, ', ", cm, q/Q, Do) y decodifica con
+  WinAnsi/MacRoman (+ `/Differences`) o el CMap `/ToUnicode` (Type0/Identity-H). Agrupa el texto en filas por `y` y celdas por la
+  distancia en `x`, y alinea las filas con la fila de encabezados (la de la receta, si se la pasan). `recetas.leer_tabla` lo usa
+  cuando la extensión es `.pdf`, así detectar, aplicar, `receta_ia.py` y la carpeta vigilada funcionan igual que con un CSV. Un PDF
+  cifrado, escaneado o roto da un `pdf.PdfError` con un mensaje listo para mostrar. En la carpeta vigilada, un PDF que ninguna receta
+  reconoce queda como `ignorado` (en Descargas hay boletas y pasajes; no se avisa por cada uno). Pruebas con
+  `pruebas/datos/cartola_ejemplo*.pdf` (ficticias, salen de `herramientas/generar_pdf_prueba.py`).
 - **Formatos estándar:** `recetas.py` lee sin receta OFX/QFX (`xx-ofx`, `FITID` como id), CAMT.053 (`xx-camt053`, `CdtDbtInd` da el
   signo, solo `BOOK`) y QIF (`xx-qif`, el orden día/mes se deduce de las fechas o del país).
 - **MCP:** las herramientas (`resumen_del_mes`, `gastos_por_categoria`, `buscar_movimientos`, `principales_comercios`, `comparar_meses`,

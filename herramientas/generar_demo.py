@@ -1,4 +1,4 @@
-"""Genera ui/demo.json: cuatro meses de movimientos FICTICIOS para la vista previa, las pruebas y las capturas de la página.
+"""Genera ui/demo.json: seis meses de movimientos FICTICIOS para la vista previa, las pruebas y las capturas de la página.
 Uso: python3 herramientas/generar_demo.py   (siempre da lo mismo: semilla fija)
 """
 import json
@@ -55,6 +55,16 @@ for i, mes in enumerate(MESES):
         for _ in range(n):
             dia = random.randint(1, ultimo)
             movs.append((f"{mes}-{dia:02d}", desc, cat, -round(random.randint(lo, hi), -1), cuenta))
+# Mayo y junio van aparte (con su propia semilla) para que julio a octubre no cambien. En junio hubo un viaje: ese mes se pasa.
+otro = random.Random(5)
+for mes in ("2026-05", "2026-06"):
+    for dia, desc, cat, monto, cuenta in FIJOS:
+        movs.append((f"{mes}-{dia:02d}", desc, cat, monto, cuenta))
+    for desc, cat, lo, hi, veces, cuenta in VARIABLES:
+        for _ in range(veces):
+            movs.append((f"{mes}-{otro.randint(1, 28):02d}", desc, cat, -round(otro.randint(lo, hi), -1), cuenta))
+movs.append(("2026-06-21", "PASAJES AEREOS EJEMPLO", "ocio", -189000, "banco-ejemplo"))
+movs.append(("2026-06-24", "HOSTAL VISTA AL MAR", "ocio", -96000, "banco-ejemplo"))
 movs.append((f"2026-10-16", "PAGO PENDIENTE 88231", "", -12990, "banco-ejemplo"))
 movs.append((f"2026-10-17", "TRANSFERENCIA A MATIAS SOTO", "", -25000, "billetera-ejemplo"))
 

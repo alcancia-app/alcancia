@@ -30,7 +30,12 @@ const esDato = (t) => demo.includes(t) || /^(Alcancía|Claude|ChatGPT \(Codex\)|
 const CONECTORES = JSON.parse(fs.readFileSync(path.join(RAIZ, "ui", "demo.json"), "utf8")).conectores || [];
 const VISTAS = [
   ["resumen", "E=>{E.vista='resumen'}"],
-  ["resumen-mes-pasado", "E=>{E.mes='2026-09'}"],
+  ["resumen-categoria", "E=>{E.histCat='comida'}"],
+  ["resumen-categoria-sin-tope", "E=>{E.histCat='otros'}"],
+  ["resumen-mes-pasado", "E=>{E.mes='2026-09';E.histCat='ocio'}"],
+  ["resumen-primer-mes", "E=>{E.mes='2026-05';E.histCat=null}"],
+  ["resumen-mes-recien-empezado", "E=>{E.mes='2026-10';E.hoy='2026-10-02'}"],
+  ["resumen-hoy", "E=>{E.hoy='2026-10-18'}"],
   ["movimientos", "E=>{E.vista='movimientos';E.mes='2026-10'}"],
   ["movimientos-aprender", "E=>{E.aprender={contiene:'PAGO PENDIENTE',categoria:'cuentas'}}"],
   ["movimientos-filtro", "E=>{E.aprender=null;E.filtro={texto:'zzz',categoria:''}}"],
@@ -75,6 +80,10 @@ const navegador = await chromium.launch();
     for (const k of c.resumen) {
       const r = P.resumen(k.movimientos, k.mes, k.hoy, k.presupuesto, c.categorias);
       for (const [campo, esperado] of Object.entries(k.esperado)) if (JSON.stringify(r[campo]) !== JSON.stringify(esperado)) malos.push(`${k.nombre}: ${campo} = ${JSON.stringify(r[campo])}`);
+    }
+    for (const k of c.historia) {
+      const r = P.historia(k.movimientos, k.mes, k.hoy, k.presupuesto, c.categorias, k.categoria ?? null, k.n ?? 6);
+      if (JSON.stringify(r) !== JSON.stringify(k.esperado)) malos.push(`${k.nombre}: historia = ${JSON.stringify(r)}`);
     }
     return malos;
   }, casos);

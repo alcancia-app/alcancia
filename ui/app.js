@@ -11,6 +11,7 @@
     aprender: null, presEdit: null, importar: null, bv: null, bvCerrada: false, ajustes: false, probando: {}, resultadoIA: {},
     consejoSel: null, pidiendoConsejos: false, errorConsejos: "", act: null, buscando: null, idioma: "es", textos: {},
     conectores: [], conexiones: {}, vigilar: { activo: false, recientes: [] }, conectar: null, sincronizando: {}, iaExterna: [], mcpOcupado: {}, mcpError: {},
+    histCat: null,
   };
   const ENLACES = { sitio: "https://alcancia-app.github.io/alcancia/", codigo: "https://github.com/alcancia-app/alcancia",
     comunidad: "https://github.com/alcancia-app/alcancia/discussions", guiaIA: "https://alcancia-app.github.io/alcancia/ia.html",
@@ -100,6 +101,11 @@
     } catch { t = Math.abs(n).toLocaleString(locNumeros()); }
     return (n < 0 ? "−" : signo && n > 0 ? "+" : "") + t;
   }
+  /** Monto corto para las barras («$1,2 M», «$350 mil»). */
+  function dineroCorto(v, moneda = E.presupuesto.moneda || E.config.moneda || "CLP") {
+    try { return new Intl.NumberFormat(locNumeros(), { style: "currency", currency: moneda, notation: "compact", maximumSignificantDigits: 2 }).format(Number(v) || 0); }
+    catch { return dinero(v, moneda); }
+  }
   const numeroPlano = (v) => (Number(v) ? Math.round(Number(v)).toLocaleString(locNumeros()) : "");
   const primeraMayuscula = (t) => t.charAt(0).toUpperCase() + t.slice(1);
   function nombreMes(mes) {
@@ -109,6 +115,10 @@
   function nombreDia(fecha) {
     const [a, m, d] = fecha.split("-").map(Number);
     return new Date(a, m - 1, d).toLocaleDateString(locFechas(), { weekday: "long", day: "numeric", month: "long" });
+  }
+  function mesCorto(mes) {
+    const [a, m] = mes.split("-").map(Number);
+    return new Date(a, m - 1, 1).toLocaleDateString(locFechas(), { month: "short" }).replace(".", "");
   }
   const mesDe = (f) => f.slice(0, 7);
   function sumarMes(mes, n) {
@@ -144,7 +154,9 @@
     const enCurso = dia > 0 && dia < total;
     // Proyección: lo variable (3 o más gastos en el mes) sigue al mismo ritmo; lo fijo (arriendo, cuentas) y lo esporádico queda como está.
     const ritmo = (c, g) => (!fijas.has(c) && (cuantos[c] || 0) >= 3 ? g / dia * total : g);
-    const proyeccion = enCurso && dia >= 3 ? Math.round(Object.entries(porCat).reduce((a, [c, g]) => a + ritmo(c, g), 0)) : null;
+    const proyectar = enCurso && dia >= 3;
+    const proyeccion = proyectar ? Math.round(Object.entries(porCat).reduce((a, [c, g]) => a + ritmo(c, g), 0)) : null;
+    const proyeccionPorCategoria = proyectar ? Object.fromEntries(Object.entries(porCat).map(([c, g]) => [c, Math.round(ritmo(c, g))])) : {};
     const mensual = presupuesto.mensual || {};
     const limite = Object.values(mensual).filter((v) => v > 0).reduce((a, b) => a + b, 0);
     const alertas = [];
@@ -158,7 +170,31 @@
     }
     const ordenado = Object.fromEntries(Object.entries(porCat).sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, Math.round(v)]));
     return { mes, moneda, gastado: Math.round(gastado), ingresos: Math.round(ingresos), presupuesto: limite, por_categoria: ordenado, dia,
-      dias_mes: total, proyeccion, alertas, otras_monedas: otras, sin_categoria: cuantos[""] || 0 };
+      dias_mes: total, proyeccion, proyeccion_por_categoria: proyeccionPorCategoria, alertas, otras_monedas: otras, sin_categoria: cuantos[""] || 0 };
+  }
+  /** Los `n` meses que terminan en `mes` (igual que resumen.historia en Python): gasto total o de una categoría, con su tope. */
+  function historia(movimientos, mes, hoy, presupuesto, categorias, categoria = null, n = 6) {
+    const moneda = presupuesto.moneda || "CLP";
+    const conDatos = new Set(movimientos.filter((m) => (m.moneda || moneda) === moneda).map((m) => m.fecha.slice(0, 7)));
+    const meses = [];
+    let tope = 0;
+    for (let i = n - 1; i >= 0; i--) {
+      const x = sumarMes(mes, -i);
+      const r = resumen(movimientos, x, hoy, presupuesto, categorias);
+      const enCurso = r.dia > 0 && r.dia < r.dias_mes;
+      let gastado, proyeccion;
+      if (categoria == null) { gastado = r.gastado; proyeccion = r.proyeccion; tope = r.presupuesto; }
+      else {
+        gastado = r.por_categoria[categoria] || 0;
+        proyeccion = r.proyeccion != null ? r.proyeccion_por_categoria[categoria] || 0 : null;
+        const t = (presupuesto.mensual || {})[categoria] || 0;
+        tope = t > 0 ? t : 0;
+      }
+      meses.push({ mes: x, gastado, proyeccion: enCurso ? proyeccion : null, en_curso: enCurso, con_datos: conDatos.has(x) });
+    }
+    const anteriores = meses.slice(0, -1).filter((m) => m.con_datos).map((m) => m.gastado);
+    const promedio = anteriores.length ? Math.round(anteriores.reduce((a, b) => a + b, 0) / anteriores.length) : null;
+    return { categoria: categoria || "", moneda: presupuesto.moneda || "CLP", tope, promedio, meses };
   }
   function presupuestoSugerido(movimientos, mesesCompletos, categorias, moneda = "CLP") {
     const r = {};
@@ -264,7 +300,7 @@
       <h1>Empecemos a medirnos</h1>
       <p>Alcancía junta tus cartolas en un solo lugar, ordena tus gastos y te avisa a tiempo cuando algo se está pasando.</p>
       <div class="pasos-vacio">
-        <div><b>1</b><span>Descarga la cartola de tu banco o billetera (CSV o Excel) desde su página web.</span></div>
+        <div><b>1</b><span>Descarga la cartola de tu banco o billetera (CSV, Excel o PDF) desde su página web.</span></div>
         <div><b>2</b><span>Agrégala aquí: se lee en tu computador y no se duplica si la vuelves a subir.</span></div>
         <div><b>3</b><span>Tu IA pone las categorías y te dice qué va bien y a qué ponerle ojo.</span></div>
       </div>
@@ -316,7 +352,7 @@
       ${mundo.length ? `<h2 class="subtitulo">En todo el mundo</h2><div class="conectores">${mundo.map(tarjetaConector).join("")}</div>` : ""}
       ${otros.length ? `<details class="otros-paises"><summary>${frase("Otros países ({n})", { n: otros.length })}</summary><div class="conectores">${otros.map(tarjetaConector).join("")}</div></details>` : ""}
       ${seccionIAExterna()}
-      <section class="tarjeta suave"><b>¿Tu banco no aparece?</b><p>Casi ningún banco deja que una persona use su propia API todavía. Mientras, descarga la cartola (CSV, Excel u OFX) y activa «Cartolas que descargues»: es casi igual de automático. Cuando tu país tenga finanzas abiertas oficiales, Alcancía las va a sumar.</p>
+      <section class="tarjeta suave"><b>¿Tu banco no aparece?</b><p>Casi ningún banco deja que una persona use su propia API todavía. Mientras, descarga la cartola (CSV, Excel, PDF u OFX) y activa «Cartolas que descargues»: es casi igual de automático. Cuando tu país tenga finanzas abiertas oficiales, Alcancía las va a sumar.</p>
         <a href="#" data-enlace="${ENLACES.comunidad}">Proponer una conexión en la comunidad</a></section></div>`;
   }
   function seccionIAExterna() {
@@ -354,6 +390,41 @@
       <div class="candado"><span class="grande-ico" aria-hidden="true">🔐</span><div>La llave se guarda cifrada en el llavero de tu computador y solo se usa para leer tus movimientos. Puedes desconectar cuando quieras.</div></div>
       ${k.error ? `<p class="error-txt" data-sin-traducir>${esc(k.error)}</p>` : ""}
       <div class="pie-dialogo"><button class="boton" data-accion="cerrar-conectar">Cancelar</button><button class="boton principal" data-accion="enviar-conectar" ${k.enviando ? "disabled" : ""}>${k.enviando ? "Revisando…" : "Conectar"}</button></div>`;
+  }
+
+  /** Barras de los últimos meses (HTML y CSS, sin librerías) con la línea del presupuesto. El dibujo es solo para la vista:
+   *  los lectores de pantalla leen el texto de arriba y la tabla oculta, con los mismos números. */
+  function bloqueHistoria(h, titulo, compacto = false) {
+    const ult = h.meses[h.meses.length - 1];
+    const max = Math.max(1, h.tope, ...h.meses.map((m) => Math.max(m.gastado, m.proyeccion || 0)));
+    const alto = (v) => (v / max * 80).toFixed(1);
+    let texto;
+    if (ult.en_curso && ult.proyeccion != null) texto = frase("A este ritmo cierras el mes en **{x}**.", { x: esc(dinero(ult.proyeccion)) });
+    else if (ult.en_curso) texto = frase("Llevas **{x}** este mes.", { x: esc(dinero(ult.gastado)) });
+    else texto = frase("En {m} gastaste **{x}**.", { m: esc(nombreMes(ult.mes)), x: esc(dinero(ult.gastado)) });
+    if (h.promedio == null) texto += " " + frase("Cuando tengas más meses, aquí vas a ver cómo vas comparado con ellos.", {});
+    else if (h.promedio > 0 && !(ult.en_curso && ult.proyeccion == null)) {
+      const v = ult.proyeccion ?? ult.gastado, pct = Math.round(Math.abs(v - h.promedio) / h.promedio * 100), p = esc(dinero(h.promedio));
+      texto += " " + (pct >= 5 && v > h.promedio ? frase("Es {n}% más que tu promedio de los meses anteriores ({x}).", { n: pct, x: p })
+        : pct >= 5 ? frase("Es {n}% menos que tu promedio de los meses anteriores ({x}).", { n: pct, x: p })
+          : frase("Es parecido a tu promedio de los meses anteriores ({x}).", { x: p }));
+    }
+    const sobre = (m) => h.tope > 0 && m.gastado > h.tope;
+    const cols = h.meses.map((m) => `<div class="pila ${m.en_curso ? "actual" : ""} ${m.con_datos ? "" : "sin-datos"} ${sobre(m) ? "sobre" : ""}">
+        ${m.proyeccion > m.gastado ? `<i class="proy" style="height:${alto(m.proyeccion)}%"></i>` : ""}<i class="real" style="height:${alto(m.gastado)}%"></i>
+        <span class="cifra-col" style="bottom:calc(${alto(Math.max(m.gastado, m.proyeccion || 0))}% + 3px)">${m.con_datos ? esc(dineroCorto(m.gastado)) : "—"}</span></div>`).join("");
+    const eje = h.meses.map((m) => `<span class="${m.en_curso ? "actual" : ""}">${esc(mesCorto(m.mes))}</span>`).join("");
+    const hayProy = h.meses.some((m) => m.proyeccion > m.gastado);
+    const filas = h.meses.map((m) => `<tr><th scope="row" data-sin-traducir>${esc(nombreMes(m.mes))}${m.en_curso ? " " + esc(tr("(en curso)")) : ""}</th>
+        <td data-sin-traducir>${m.con_datos ? esc(dinero(m.gastado)) : esc(tr("Sin datos"))}</td><td data-sin-traducir>${m.proyeccion != null ? esc(dinero(m.proyeccion)) : "—"}</td></tr>`).join("");
+    return `<p class="historia-texto">${texto}</p>
+      <div class="grafico ${compacto ? "compacto" : ""}" style="--n:${h.meses.length}" aria-hidden="true">
+        <div class="plot" data-sin-traducir>${cols}${h.tope ? `<div class="tope-linea" style="bottom:${alto(h.tope)}%"></div>` : ""}</div>
+        <div class="eje" data-sin-traducir>${eje}</div></div>
+      <div class="leyenda" aria-hidden="true"><span><i class="m-real"></i>Gastado</span>${hayProy ? `<span><i class="m-proy"></i>Proyección del mes</span>` : ""}
+        ${h.tope ? `<span><i class="m-tope"></i>${frase("Presupuesto: {x}", { x: esc(dinero(h.tope)) })}</span>` : ""}</div>
+      <div class="oculto-accesible"><table><caption data-sin-traducir>${titulo}</caption><thead><tr><th scope="col">Mes</th><th scope="col">Gastado</th><th scope="col">Proyección</th></tr></thead>
+        <tbody>${filas}</tbody></table>${h.tope ? `<p>${frase("Presupuesto: {x}", { x: esc(dinero(h.tope)) })}</p>` : ""}</div>`;
   }
 
   function vistaResumen() {
@@ -402,14 +473,20 @@
       const c = cat(id), g = r.por_categoria[id] || 0, tope = mensual[id] || 0;
       const alerta = r.alertas.find((a) => a.categoria === id);
       const clase = !tope ? "libre" : alerta?.tipo === "pasado" ? "pasado" : alerta ? "ojo" : "";
-      return `<div class="cat"><span class="emoji" aria-hidden="true">${c.emoji}</span><span class="nombre" data-sin-traducir>${esc(nombreCat(c))}</span>
+      const abierta = E.histCat === id;
+      const hist = abierta ? `<div class="cat-historia" id="hist-cat">${frase("Últimos 6 meses de {c}", { c: esc(nombreCat(c)) }, "h3")}
+          ${bloqueHistoria(historia(E.movimientos, E.mes, E.hoy, E.presupuesto, E.categorias, id), T("Gasto en {c} de los últimos 6 meses", { c: esc(nombreCat(c)) }), true)}</div>` : "";
+      return `<button type="button" class="cat" data-historia="${esc(id)}" aria-expanded="${abierta}" ${abierta ? 'aria-controls="hist-cat"' : ""}><span class="emoji" aria-hidden="true">${c.emoji}</span><span class="nombre" data-sin-traducir>${esc(nombreCat(c))}</span>
         <span class="monto" data-sin-traducir>${esc(dinero(g))}${tope ? ` <small>/ ${esc(dinero(tope))}</small>` : ""}</span>
-        <div class="barra ${clase}"><i style="width:${tope ? Math.min(100, g / tope * 100).toFixed(1) : Math.min(100, g / Math.max(1, r.gastado) * 100).toFixed(1)}%"></i></div></div>`;
+        <span class="barra ${clase}"><i style="width:${tope ? Math.min(100, g / tope * 100).toFixed(1) : Math.min(100, g / Math.max(1, r.gastado) * 100).toFixed(1)}%"></i></span></button>${hist}`;
     }).join("");
+    const comparado = `<section class="tarjeta"><div class="tarjeta-cabeza"><h2>Comparado con los últimos meses</h2></div>
+      ${bloqueHistoria(historia(E.movimientos, E.mes, E.hoy, E.presupuesto, E.categorias), T("Gasto total de los últimos 6 meses"))}</section>`;
     return `<div class="contenido"><div class="encabezado"><h1>Resumen</h1>${selectorMes()}</div>
       ${heroe}${cifras}${alertas || sinCat ? `<section class="tarjeta"><div class="tarjeta-cabeza"><h2>Para tener en cuenta</h2></div>${alertas}${sinCat}</section>` : ""}
+      ${comparado}
       <section class="tarjeta"><div class="tarjeta-cabeza"><h2>En qué se fue</h2><button class="boton sutil" data-vista="presupuesto">Editar topes</button></div>
-        ${filas || `<p class="texto-suave">Aún no hay gastos este mes.</p>`}</section>
+        ${filas ? `<p class="pista-cat">Toca una categoría para ver sus últimos 6 meses.</p>${filas}` : `<p class="texto-suave">Aún no hay gastos este mes.</p>`}</section>
       ${r.otras_monedas ? `<p class="texto-suave">${frase("{n} movimientos en otra moneda no entran en estas cuentas.", { n: r.otras_monedas })}</p>` : ""}</div>`;
   }
 
@@ -579,7 +656,7 @@
       default:
         return `${cab}<p>Descarga la cartola desde la página de tu banco o billetera y elígela aquí. Se lee en tu computador: nada sale de aquí.</p>
           <div class="zona-archivo"><span class="grande-ico" aria-hidden="true">📄</span><button class="boton principal" data-accion="elegir-cartola">Elegir archivo</button>
-            <small>CSV, Excel (.xlsx), OFX, QIF o CAMT.053. Si la subes dos veces, no se duplica nada.</small></div>
+            <small>CSV, Excel (.xlsx), PDF con texto, OFX, QIF o CAMT.053. Si la subes dos veces, no se duplica nada.</small></div>
           <div class="pie-dialogo">${cerrar}</div>`;
     }
   }
@@ -610,7 +687,7 @@
       ["¿Dónde vives?", `<p>Para mostrar bien la plata y sugerirte las recetas de los bancos de tu país.</p>${camposPais()}`, true],
       ["Elige tu IA", `<p>Alcancía usa la IA que ya tienes, con tu cuenta. La probamos con una pregunta corta.</p><div class="seccion">${filasIA()}</div>`, !!E.config.ia],
       ["Tu respaldo", opcionesRespaldo(), true],
-      ["Tu primera cartola", `<p>Descarga la cartola de tu banco o billetera (CSV o Excel) y agrégala. Si tu banco aún no está, tu IA aprende a leerlo.</p>
+      ["Tu primera cartola", `<p>Descarga la cartola de tu banco o billetera (CSV, Excel o PDF) y agrégala. Si tu banco aún no está, tu IA aprende a leerlo.</p>
         <button class="boton principal grande" data-accion="bv-importar">＋ <span>Agregar mi primera cartola</span></button>`, true],
     ];
     const [titulo, cuerpo, puede] = pasos[paso];
@@ -632,12 +709,13 @@
   // ───────────── Eventos ─────────────
   const ocupadoImportando = () => ["leyendo", "aprendiendo", "guardando"].includes(E.importar?.paso);
   document.addEventListener("click", (ev) => {
-    const el = ev.target.closest("[data-accion],[data-vista],[data-mes],[data-probar],[data-bv],[data-enlace],[data-respaldo],[data-consejo],[data-conectar],[data-sincronizar],[data-desconectar],[data-mcp],[data-mcp-quitar]");
+    const el = ev.target.closest("[data-accion],[data-vista],[data-mes],[data-probar],[data-bv],[data-enlace],[data-respaldo],[data-consejo],[data-conectar],[data-sincronizar],[data-desconectar],[data-mcp],[data-mcp-quitar],[data-historia]");
     if (!el) return;
     const d = el.dataset;
     if (d.enlace) { ev.preventDefault(); return host.enviar("abrirEnlace", { url: d.enlace }); }
     if (d.vista) { E.vista = d.vista; E.presEdit = null; E.aprender = null; return render(); }
     if (d.mes) { E.mes = d.mes; E.aprender = null; return render(); }
+    if (d.historia != null) { E.histCat = E.histCat === d.historia ? null : d.historia; render(); $(`[data-historia="${CSS.escape(d.historia)}"]`)?.focus(); return; }
     if (d.probar) { E.probando[d.probar] = true; delete E.resultadoIA[d.probar]; host.enviar("probarIA", { id: d.probar }); return render(); }
     if (d.bv) { E.bv = Number(d.bv); return render(); }
     if (d.respaldo) { if (d.respaldo !== "local") return toast("Muy pronto: el respaldo con candado llega en la próxima versión"); E.config.respaldo = d.respaldo; host.enviar("config", { respaldo: d.respaldo }); return render(); }
@@ -827,7 +905,7 @@
       if ((r.sin_receta || []).length) toast(T("Descargaste «{x}», pero todavía no sé leerla. Agrégala a mano y tu IA aprende.", { x: r.sin_receta[0] }));
     },
     _probar(f) { f(E); render(); },
-    _pruebas: { resumen, redondearArriba, presupuestoSugerido, reglaPara },
+    _pruebas: { resumen, historia, redondearArriba, presupuestoSugerido, reglaPara },
   };
 
   // ───────────── Vista previa en el navegador (datos ficticios de demo.json) ─────────────
