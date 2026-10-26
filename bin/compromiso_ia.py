@@ -71,7 +71,13 @@ Hoy es {hoy}. Moneda por defecto: {moneda}.
 
 Campos (usa solo estos; los que no sepas, déjalos fuera):
 - nombre: corto y claro (máximo 60 caracteres), p. ej. «Crédito hipotecario».
-- tipo: «deuda», «cuenta», «suscripcion», «transferencia», «ingreso» u «otro».
+- tipo: «deuda», «prestamo», «cuenta», «suscripcion», «transferencia», «ingreso» u «otro». Usa «prestamo» cuando la plata la
+  prestó o la debe una persona (papá, mamá, un amigo, un hermano: «mi papá me prestó…», «le presté a…»); «deuda» es con un banco o
+  una empresa (crédito hipotecario, de consumo, automotriz, tarjeta).
+- con (solo en «prestamo»): con quién, corto y sin apellidos ni números (p. ej. «Papá», «Matías»).
+- prestamo (solo en «prestamo»): {{"total": lo prestado, "interes": % simple sobre el total si lo dice (si no, 0)}}. Pon además
+  cuotas_total (en cuántas cuotas o meses) y signo «gasto» si la persona debe o «ingreso» si le deben. No pongas monto: la app
+  calcula la cuota. Si no dice el día, no pongas dia (la app usa su día de pago).
 - signo: «gasto» o «ingreso».
 - monto: número positivo, sin puntos de miles ni símbolos (450.000 → 450000). Montos dichos con palabras: «3M», «3 millones» o
   «3 palos» = 3000000; «800 lucas» u «800 mil» = 800000; «1,5 millones» = 1500000. En UF, con decimales con punto (12,75 UF → 12.75).
@@ -84,7 +90,8 @@ Campos (usa solo estos; los que no sepas, déjalos fuera):
 - fecha: AAAA-MM-DD, solo en anual o una_vez.
 - categoria: el id de una de estas categorías:
 {lista}
-- buscar: lista de 1 a 3 palabras que seguramente aparecen en la cartola cuando se paga (p. ej. ["DIVIDENDO"]).
+- buscar: lista de 1 a 3 palabras que seguramente aparecen en la cartola cuando se paga (p. ej. ["DIVIDENDO"]). Nunca palabras
+  genéricas que aparecen en cualquier movimiento (TRANSFERENCIA, PAGO, COMPRA, ABONO, CARGO, CUOTA); si no sabes, déjalo fuera.
 - cuotas_total, cuotas_pagadas o cuotas_restantes: números enteros, solo si la persona los dice.
 - fecha_fin: AAAA-MM-DD, si dice cuándo termina.
 - saldo: número, si dice cuánto le queda por pagar en total.

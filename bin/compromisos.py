@@ -97,12 +97,18 @@ def limpiar_clave(t):
     return datos.normalizar(re.sub(r"\d(?:[\s.\-/]?\d){5,}", " ", str(t or "")))
 
 
-def limpiar_buscar(lista):
+GENERICAS = {"TRANSFERENCIA", "TRANSFERENCIAS", "TRANSF", "TEF", "PAGO", "PAGOS", "COMPRA", "COMPRAS", "ABONO", "CARGO", "CUOTA",
+              "CUOTAS", "DEBITO", "CREDITO"}
+
+
+def limpiar_buscar(lista, sin_genericas=False):
     if isinstance(lista, str):
         lista = lista.split(",")
     r = []
     for p in lista if isinstance(lista, list) else []:
         p = limpiar_clave(p)
+        if sin_genericas and p in GENERICAS:
+            continue  # aparecen en cualquier movimiento: reconocerían pagos que no son
         if 2 <= len(p) <= 40 and p not in r:
             r.append(p)
     return r[:6]
@@ -248,7 +254,7 @@ def validar(c, ids_categorias, hoy, moneda="CLP", estricto=False):
     r["categoria"] = str(c.get("categoria") or "")
     if r["categoria"] and ids_categorias is not None and r["categoria"] not in ids_categorias:
         errores.append("Esa categoría no existe.")
-    r["buscar"] = limpiar_buscar(c.get("buscar"))
+    r["buscar"] = limpiar_buscar(c.get("buscar"), sin_genericas=estricto)  # lo que propone la IA, sin palabras de cualquier movimiento
     t = _numero(c.get("tolerancia", TOLERANCIA), -1, 50.01)
     r["tolerancia"] = TOLERANCIA if t is None or t < 0 else t
     # Cuotas: total y pagadas (o restantes, que se convierten). Todo opcional.
@@ -329,8 +335,8 @@ def parcial(p, ids_categorias, moneda="CLP", cfg=None):
             r[k] = p[k]
     if p.get("categoria") in (ids_categorias or ()):
         r["categoria"] = p["categoria"]
-    if limpiar_buscar(p.get("buscar")):
-        r["buscar"] = limpiar_buscar(p.get("buscar"))
+    if limpiar_buscar(p.get("buscar"), True):
+        r["buscar"] = limpiar_buscar(p.get("buscar"), True)
     for k in ("cuotas_total", "cuotas_pagadas"):
         if _entero(p.get(k), 1 if k == "cuotas_total" else 0, 1200) is not None:
             r[k] = _entero(p.get(k), 0, 1200)
