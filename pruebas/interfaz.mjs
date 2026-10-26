@@ -27,6 +27,7 @@ const casos = JSON.parse(fs.readFileSync(path.join(RAIZ, "pruebas", "casos.json"
 // Textos que vienen de los datos (descripciones, nombres de IA y de categorías) o que no se traducen.
 const esDato = (t) => demo.includes(t) || /^(Alcancía|Claude|ChatGPT \(Codex\)|Gemini|English|Español|CLP|USD)$/.test(t);
 
+const EDITOR = "{nombre:'Crédito hipotecario',tipo:'deuda',signo:'gasto',monto:500000,moneda:'CLP',frecuencia:'mensual',dia:15,fecha:'2026-10-18',categoria:'casa',buscar:['DIVIDENDO'],buscarTexto:'DIVIDENDO',cuotas_total:240,cuotas_pagadas:53,desde:'2026-10-18',activo:true,origen:'ia'}";
 const CONECTORES = JSON.parse(fs.readFileSync(path.join(RAIZ, "ui", "demo.json"), "utf8")).conectores || [];
 const VISTAS = [
   ["resumen", "E=>{E.vista='resumen'}"],
@@ -43,7 +44,26 @@ const VISTAS = [
   ["consejos", "E=>{E.vista='consejos'}"],
   ["consejos-pidiendo", "E=>{E.pidiendoConsejos=true}"],
   ["consejos-vacio", "E=>{E.pidiendoConsejos=false;E.consejos=[];E.errorConsejos='x'}"],
-  ["importar", "E=>{E.importar={paso:'elegir',ia:true}}"],
+  ["compromisos", "E=>{E.pidiendoConsejos=false;E.errorConsejos='';E.vista='compromisos';E.mes='2026-10'}"],
+  ["compromisos-todas-sugerencias", "E=>{E.sugTodas=true}"],
+  ["compromisos-editor-ia", `E=>{E.compEdit={c:${EDITOR},origen:'ia',error:''}}`],
+  ["compromisos-editor-error", "E=>{E.compEdit.error='Falta el monto.';E.compEdit.c.frecuencia='semanal';E.compEdit.c.dia=3}"],
+  ["compromisos-editor-anual", "E=>{E.compEdit.error='';E.compEdit.c.frecuencia='anual';E.compEdit.c.fecha='2026-03-31';E.compEdit.c.tipo='suscripcion'}"],
+  ["compromisos-editar-existente", "E=>{const c=E.compromisos.compromisos[1];E.compEdit={c:{...c,buscarTexto:c.buscar.join(', ')},origen:'manual',error:''}}"],
+  ["compromisos-ia-pidiendo", "E=>{E.compEdit=null;E.compTexto='el arriendo vence el 5, son 450.000';E.compIA={pidiendo:true,error:''}}"],
+  ["compromisos-ia-error", "E=>{E.compIA={pidiendo:false,error:'x'}}"],
+  ["compromisos-sin-ia", "E=>{E.compIA={pidiendo:false,error:''};E.config.ia=''}"],
+  ["compromisos-mes-pasado", "E=>{E.config.ia='claude';E.mes='2026-09';E.sugTodas=false}"],
+  ["compromisos-con-pausado-y-cuotas", "E=>{E.mes='2026-10';E.compromisos.compromisos.push({id:'c-pausa00001',nombre:'Gimnasio',tipo:'otro',signo:'gasto',monto:25000,moneda:'CLP',frecuencia:'semanal',dia:2,categoria:'ocio',buscar:[],tolerancia:5,activo:false,desde:'2026-10-01',origen:'manual',pagos:{}},{id:'c-deuda00001',nombre:'Crédito de consumo',tipo:'deuda',signo:'gasto',monto:64500,moneda:'CLP',frecuencia:'mensual',dia:9,categoria:'',buscar:['CREDITO CONSUMO'],tolerancia:5,activo:true,desde:'2026-10-01',origen:'detectado',pagos:{},saldo:1200000})}"],
+  ["presupuesto-maximo", "E=>{E.vista='presupuesto';E.presEdit=null}"],
+  ["presupuesto-no-alcanza", "E=>{E.compromisos.compromisos.push({id:'c-grande0001',nombre:'Grande',tipo:'deuda',signo:'gasto',monto:3000000,moneda:'CLP',frecuencia:'mensual',dia:25,categoria:'',buscar:[],tolerancia:5,activo:true,desde:'2026-10-01',origen:'manual',pagos:{}})}"],
+  ["presupuesto-sin-ingresos", "E=>{E.compromisos.compromisos=E.compromisos.compromisos.filter(c=>c.tipo!=='ingreso'&&c.id!=='c-grande0001');E.movimientos=E.movimientos.filter(m=>m.monto<0)}"],
+  ["periodo-sueldo", "E=>{E.compromisos.compromisos=E.compromisos.compromisos.filter(c=>!['c-pausa00001','c-deuda00001'].includes(c.id));E.config.inicio_mes={modo:'sueldo',dia:25};E.vista='resumen';E.mes='2026-10'}"],
+  ["periodo-sueldo-movimientos", "E=>{E.vista='movimientos'}"],
+  ["periodo-sueldo-compromisos", "E=>{E.vista='compromisos'}"],
+  ["ajustes-tu-mes", "E=>{E.ajustes=true}"],
+  ["ajustes-tu-mes-dia", "E=>{E.config.inicio_mes={modo:'dia',dia:1};E.mes='2026-10'}"],
+  ["importar", "E=>{E.ajustes=false;E.vista='resumen';E.importar={paso:'elegir',ia:true}}"],
   ["importar-leyendo", "E=>{E.importar={paso:'leyendo',nombre:'cartola.csv',ia:true}}"],
   ["importar-vista", "E=>{E.importar={paso:'vista',ia:true,vista:{total:41,desde:'2026-10-01',hasta:'2026-10-17',avisos:['x'],receta:{id:'cl-x',nombre:'Banco Ejemplo',institucion:'Banco Ejemplo'},muestra:E.movimientos.slice(0,5)}}}"],
   ["importar-sin-receta", "E=>{E.importar={paso:'sin_receta',nombre:'cartola.xlsx',ia:true,error:'x'}}"],
@@ -51,7 +71,10 @@ const VISTAS = [
   ["importar-receta", "E=>{E.importar={paso:'receta',ia:true,compartir:false,receta:{id:'cl-x'},vista:{total:12,muestra:E.movimientos.slice(0,4)}}}"],
   ["importar-guardando", "E=>{E.importar={paso:'guardando',progreso:{paso:2,total:3,texto:'Guardando sin duplicar…'}}}"],
   ["importar-listo", "E=>{E.importar={paso:'listo',resultado:{nuevos:12,repetidos:29,sin_categoria:2,error_ia:'x'}}}"],
-  ["importar-listo-uno", "E=>{E.importar={paso:'listo',resultado:{nuevos:1,repetidos:0,sin_categoria:0}}}"],
+  ["importar-detectados", "E=>{E.importar={paso:'listo',resultado:{nuevos:2,repetidos:0,sin_categoria:0,detectados:E.sugerencias.slice(0,3)},hechos:{1:'no'}}}"],
+  ["importar-compromiso", "E=>{const s=E.sugerencias[0];E.importar.paso='compromiso';E.compEdit={c:{...s,buscarTexto:s.buscar.join(', '),desde:E.hoy,activo:true},origen:'detectado',extraido:!!s.cuotas_total,detectado:0,error:''}}"],
+  ["importar-compromiso-sin-cuotas", "E=>{E.compEdit.extraido=false;E.compEdit.c.cuotas_total=0}"],
+  ["importar-listo-uno", "E=>{E.compEdit=null;E.importar={paso:'listo',resultado:{nuevos:1,repetidos:0,sin_categoria:0}}}"],
   ["importar-error", "E=>{E.importar={paso:'error',error:'x'}}"],
   ["ajustes", "E=>{E.importar=null;E.ajustes=true}"],
   ["ajustes-al-dia", "E=>{E.buscando='alDia'}"],
@@ -84,6 +107,33 @@ const navegador = await chromium.launch();
     for (const k of c.historia) {
       const r = P.historia(k.movimientos, k.mes, k.hoy, k.presupuesto, c.categorias, k.categoria ?? null, k.n ?? 6);
       if (JSON.stringify(r) !== JSON.stringify(k.esperado)) malos.push(`${k.nombre}: historia = ${JSON.stringify(r)}`);
+    }
+    // Igual sin importar el orden de las llaves (Python y JS arman los objetos en distinto orden).
+    const canon = (v) => (Array.isArray(v) ? `[${v.map(canon).join(",")}]` : v && typeof v === "object"
+      ? `{${Object.keys(v).sort().map((k) => JSON.stringify(k) + ":" + canon(v[k])).join(",")}}` : JSON.stringify(v));
+    const comp = c.compromisos;
+    const delCaso = (k) => [comp.compromisos.filter((x) => !k.compromisos_ids || k.compromisos_ids.includes(x.id)).concat(k.extra || []),
+      comp.movimientos.filter((m) => !k.movimientos_ids || k.movimientos_ids.includes(m.id))];
+    for (const k of comp.estado) {
+      const [cs, ms] = delCaso(k), r = P.estadoCompromisos(cs, ms, k.mes, k.hoy, k.moneda);
+      if (canon(r) !== canon(k.esperado)) malos.push(`compromisos «${k.nombre}» = ${canon(r).slice(0, 600)}`);
+    }
+    for (const k of comp.gasto_maximo) {
+      const [cs, ms] = delCaso(k), r = P.gastoMaximo(ms, cs, k.mes, k.hoy, comp.categorias, k.meses_completos, k.moneda);
+      if (canon(r) !== canon(k.esperado)) malos.push(`gasto máximo «${k.nombre}» = ${canon(r)}`);
+    }
+    const per = c.periodos;
+    for (const k of per.rango) if (canon(P.rango(k.mes, k.per)) !== canon(k.esperado)) malos.push(`periodo «${k.nombre}» = ${P.rango(k.mes, k.per)}`);
+    for (const k of per.periodo_de) if (P.periodoDe(k.fecha, k.per) !== k.esperado) malos.push(`periodoDe(${k.fecha}) = ${P.periodoDe(k.fecha, k.per)}`);
+    const s = per.sueldo, ps = P.periodoConfig(s.inicio_mes, [s.compromiso], s.movimientos, s.hoy, "CLP");
+    if (canon(ps) !== canon(s.esperado_per)) malos.push(`periodo con sueldo = ${canon(ps)}`);
+    else {
+      const mes = P.periodoDe(s.hoy, ps), r = P.resumen(s.movimientos, mes, s.hoy, s.presupuesto, s.categorias, ps);
+      if (mes !== s.esperado_periodo) malos.push(`periodo de hoy = ${mes}`);
+      for (const [x, v] of Object.entries(s.esperado_resumen)) if (canon(r[x]) !== canon(v)) malos.push(`resumen del periodo: ${x} = ${canon(r[x])}`);
+      if (canon(P.historia(s.movimientos, mes, s.hoy, s.presupuesto, s.categorias, null, 3, ps)) !== canon(s.esperado_historia)) malos.push("historia por periodos distinta");
+      const e = P.estadoCompromisos([s.compromiso], s.movimientos, mes, s.hoy, "CLP", ps); delete e.compromisos;
+      if (canon(e) !== canon(s.esperado_compromisos)) malos.push(`compromisos del periodo = ${canon(e)}`);
     }
     return malos;
   }, casos);
@@ -169,6 +219,69 @@ for (const [locale, sugerido] of [["es-CL", "es"], ["en-US", "en"]]) {
   await p.close();
 }
 console.log("  ✓ Primer uso: lo primero es el idioma, se guarda y la bienvenida sigue en ese idioma");
+
+// Compromisos de punta a punta con la simulación: la tarjeta «Por pagar», «Ya lo pagué», agregar con tus palabras, el gasto
+// máximo y lo que se detecta al importar una cartola (con las preguntas que siguen). En español e inglés, escritorio y celular.
+const TEXTOS_COMP = {
+  español: { atrasado: "Atrasado 8 días", pronto: "Vence en 2 días", maximo: "puedes gastar hasta", cuota: "cuota 4 de 24", agregado: "Agregado" },
+  inglés: { atrasado: "8 days overdue", pronto: "Due in 2 days", maximo: "you can spend up to", cuota: "installment 4 of 24", agregado: "Added" },
+};
+for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma=en"]]) {
+  for (const [modo, opciones] of [["escritorio", { viewport: { width: 1200, height: 820 } }], ["celular", { viewport: { width: 390, height: 844 }, colorScheme: "dark" }]]) {
+    const t = TEXTOS_COMP[idioma], donde = `(${idioma}, ${modo})`;
+    const p = await navegador.newPage(opciones);
+    p.on("pageerror", (e) => falla(`error de JavaScript en compromisos ${donde}: ${e.message}`));
+    const ancho = async (paso) => { if (modo === "celular" && (await p.evaluate(() => document.documentElement.scrollWidth)) > 392) falla(`se sale de la pantalla en «${paso}» ${donde}`); };
+    const texto = (sel) => p.$eval(sel, (el) => el.textContent.replace(/\s+/g, " "));
+    await p.goto(BASE + "?" + consulta);
+    await p.waitForSelector(".por-pagar");
+    let porPagar = await texto(".por-pagar");
+    if (!porPagar.includes("Plan de celular") || !porPagar.includes(t.atrasado)) falla(`«Por pagar» debe mostrar el plan de celular atrasado ${donde}: ${porPagar.slice(0, 200)}`);
+    if (!porPagar.includes("Crédito automotriz") || !porPagar.includes(t.pronto)) falla(`«Por pagar» debe mostrar el crédito que vence en 2 días ${donde}`);
+    if (porPagar.includes("Arriendo")) falla(`el arriendo ya se reconoció pagado: no va en «Por pagar» ${donde}`);
+    const atrasadoPrimero = await p.$eval(".por-pagar .comp-fila", (el) => el.classList.contains("atrasado"));
+    if (!atrasadoPrimero) falla(`lo atrasado va primero en «Por pagar» ${donde}`);
+    await ancho("por pagar");
+    await p.click(".por-pagar .comp-fila.atrasado [data-comp-pagado]");
+    porPagar = await texto(".por-pagar");
+    if (porPagar.includes("Plan de celular")) falla(`«Ya lo pagué» debe sacarlo de «Por pagar» ${donde}`);
+    // Agregar con tus palabras (la simulación hace de IA) y confirmar la tarjeta.
+    await p.click('.nav [data-vista="compromisos"]');
+    await p.fill("#comp-texto", "el arriendo de la bodega vence el 5 de cada mes, son 85.000");
+    await p.click('[data-accion="comp-entender"]');
+    await p.waitForSelector("#editor-comp #ce-nombre");
+    const editor = await p.evaluate(() => ({ monto: document.querySelector("#ce-monto").value.replace(/\D/g, ""), dia: document.querySelector("#ce-dia").value,
+      nombre: document.querySelector("#ce-nombre").value }));
+    if (editor.monto !== "85000" || editor.dia !== "5") falla(`la tarjeta editable debe traer monto y día ${donde}: ${JSON.stringify(editor)}`);
+    await ancho("editor");
+    await p.fill("#ce-nombre", "Bodega");
+    await p.click('[data-accion="comp-guardar"]');
+    await p.waitForFunction(() => !document.querySelector("#editor-comp"));
+    if (!(await texto(".contenido")).includes("Bodega")) falla(`el compromiso nuevo debe aparecer en la lista ${donde}`);
+    await ancho("compromisos");
+    // Gasto máximo en Presupuesto.
+    await p.click('.nav [data-vista="presupuesto"]');
+    if (!(await texto(".maximo")).includes(t.maximo)) falla(`Presupuesto debe decir cuánto se puede gastar en lo variable ${donde}`);
+    await ancho("gasto máximo");
+    // Importar: lo detectado y las preguntas que siguen (la cuota sale de la cartola y no se pregunta).
+    await p.click('.lateral [data-accion="importar"]');
+    await p.click('[data-accion="elegir-cartola"]');
+    await p.click('[data-accion="importar-guardar"]');
+    await p.waitForSelector(".detectados [data-det-agregar]", { timeout: 8000 });
+    await ancho("detectados");
+    await p.click(".detectados [data-det-agregar]");
+    await p.waitForSelector(".dialogo #ce-nombre");
+    const dialogo = await texto(".dialogo");
+    if (!dialogo.toLowerCase().includes(t.cuota)) falla(`la cuota sacada de la cartola debe verse ${donde}`);
+    if (await p.$(".dialogo #ce-cuotas_total")) falla(`si la cartola trae la cuota, no se pregunta ${donde}`);
+    await ancho("preguntas tras importar");
+    await p.click('.dialogo [data-accion="comp-guardar"]');
+    await p.waitForSelector(".detectados .ok-txt");
+    if (!(await texto(".detectados")).includes(t.agregado)) falla(`tras guardar, el detectado queda como agregado ${donde}`);
+    await p.close();
+  }
+}
+console.log("  ✓ Compromisos: por pagar, ya lo pagué, agregar con tus palabras, gasto máximo y lo detectado al importar");
 
 // Contraste del botón principal en modo claro y oscuro (WCAG AA: 4.5).
 for (const esquema of ["light", "dark"]) {

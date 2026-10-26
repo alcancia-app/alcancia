@@ -19,6 +19,7 @@ from datetime import date
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import categorizar  # noqa: E402
+import compromisos as K  # noqa: E402
 import datos  # noqa: E402
 import resumen as resumen_mod  # noqa: E402
 
@@ -27,7 +28,8 @@ LIMITE_FILAS = 200
 INSTRUCCIONES = """Alcancía guarda los movimientos bancarios de la persona (sus cartolas y cuentas conectadas) en su computador.
 Montos: negativo = gasto, positivo = ingreso, en la moneda indicada. Las transferencias entre cuentas propias (categoría de tipo
 "neutro") no son gasto ni ingreso. Fechas en AAAA-MM-DD. Si falta un mes o un rango, usa el mes actual.
-Para preguntas de totales usa gastos_por_categoria o resumen_del_mes; para detalles, buscar_movimientos. Responde en el idioma de
+Para preguntas de totales usa gastos_por_categoria o resumen_del_mes; para detalles, buscar_movimientos; para lo que falta pagar
+(cuentas, créditos, suscripciones), compromisos. Responde en el idioma de
 la persona, con cifras redondeadas y sin juzgar. No recomiendes productos financieros específicos."""
 
 
@@ -73,15 +75,23 @@ def _cuentas():
 
 
 # ───────────── Herramientas (todas de solo lectura) ─────────────
-def resumen_del_mes(args):
-    mes = str(args.get("mes") or _mes_actual())[:7]
+def _periodo(args):
+    """(per, mes): el mes pedido o el actual, de sueldo a sueldo si la persona lo eligió en Ajustes (ver resumen.rango)."""
+    per, actual = K.periodo_actual()
+    mes = str(args.get("mes") or actual)[:7]
     datos.ruta_mes(mes)  # valida el formato
+    return per, mes
+
+
+def resumen_del_mes(args):
+    per, mes = _periodo(args)
     cats = _cats()
-    r = resumen_mod.resumen(datos.leer_todos(), mes, date.today().isoformat(), datos.presupuesto(), list(cats.values()))
+    r = resumen_mod.resumen(datos.leer_todos(), mes, date.today().isoformat(), datos.presupuesto(), list(cats.values()), per)
     r["por_categoria"] = {_nombre_cat(k, cats): v for k, v in r["por_categoria"].items()}
     for a in r["alertas"]:
         a["categoria"] = _nombre_cat(a["categoria"], cats)
-    r["nota"] = "proyeccion = cómo terminaría el mes si sigue el ritmo de los gastos variables; null si el mes no está en curso."
+    r["nota"] = ("proyeccion = cómo terminaría el mes si sigue el ritmo de los gastos variables; null si el mes no está en curso. "
+                 "desde/hasta = días que abarca el mes (puede ir de sueldo a sueldo).")
     return r
 
 
@@ -166,16 +176,15 @@ def comparar_meses(args):
 
 
 def presupuesto(args):
-    mes = str(args.get("mes") or _mes_actual())[:7]
-    datos.ruta_mes(mes)
+    per, mes = _periodo(args)
     cats = _cats()
     p = datos.presupuesto()
-    r = resumen_mod.resumen(datos.leer_todos(), mes, date.today().isoformat(), p, list(cats.values()))
+    r = resumen_mod.resumen(datos.leer_todos(), mes, date.today().isoformat(), p, list(cats.values()), per)
     filas = []
     for cid, tope in sorted(p.get("mensual", {}).items(), key=lambda x: -x[1]):
         g = r["por_categoria"].get(cid, 0)
         filas.append({"categoria": _nombre_cat(cid, cats), "tope": tope, "gastado": g, "queda": tope - g, "porcentaje": round(g / tope * 100) if tope else None})
-    return {"mes": mes, "moneda": p.get("moneda"), "dia": r["dia"], "dias_mes": r["dias_mes"], "categorias": filas,
+    return {"mes": mes, "desde": r["desde"], "hasta": r["hasta"], "moneda": p.get("moneda"), "dia": r["dia"], "dias_mes": r["dias_mes"], "categorias": filas,
             "sin_presupuesto": not filas}
 
 
@@ -187,6 +196,38 @@ def cuentas_y_datos(args):
             "conexiones": {k: {"conectado": v.get("conectado", False), "ultima_revision": v.get("ultima")} for k, v in cons.items()},
             "meses_con_datos": sorted(meses), "categorias": [{"id": k, "nombre": c["nombre"], "tipo": c["tipo"]} for k, c in _cats().items()],
             "moneda_principal": _moneda(), "pais": datos.config().get("pais")}
+
+
+def compromisos(args):
+    """Estado de los compromisos del mes (pagos y cobros que se repiten), sin ids internos."""
+    per, mes = _periodo(args)
+    hoy, moneda, cats = date.today().isoformat(), _moneda(), _cats()
+    lista = K.validos(None, hoy, moneda)
+    e = K.estado_mes(lista, datos.leer_todos(), mes, hoy, moneda, per)
+    def fila(i):
+        r = {"nombre": i["nombre"], "tipo": i["tipo"], "es": i["signo"], "monto": i["monto"], "moneda": i["moneda"],
+             "categoria": _nombre_cat(i["categoria"], cats), "vence": i["vence"], "estado": i["estado"]}
+        if i["estado"] == "pagado":
+            r["pagado_el"] = i["pago"]["fecha"]
+            r["como"] = "reconocido en la cartola" if i["pago"]["como"] == "automatico" else "marcado a mano"
+        elif i["estado"] == "pendiente":
+            r["vence_en_dias"] = i["dias"]
+        elif i["estado"] == "atrasado":
+            r["dias_de_atraso"] = i["dias"]
+        if i["cuota"]:
+            r["cuota"] = f"{i['cuota']['numero']} de {i['cuota']['total']}"
+        if i["anterior"]:
+            r["del_mes_anterior"] = True
+        return r
+    deudas = [{"nombre": c["nombre"], "cuotas_pagadas": c["cuotas"]["pagadas"], "cuotas_total": c["cuotas"]["total"],
+               "quedan": c["cuotas"]["quedan"], "termina": c["termina"], "por_pagar": c["por_pagar"]}
+              for c in e["compromisos"] if c["cuotas"]]
+    desde, hasta = resumen_mod.rango(mes, per)
+    return {"mes": mes, "desde": desde, "hasta": hasta, "moneda": moneda, "compromisos": [fila(i) for i in e["items"]], "total_del_mes": e["total"],
+            "pagado": e["pagado"], "pendiente": e["pendiente"], "atrasado": e["atrasado"],
+            "ingresos_esperados": e["ingresos_esperados"], "ingresos_recibidos": e["ingresos_recibidos"], "deudas_con_cuotas": deudas,
+            "sin_compromisos": not lista,
+            "nota": "estado: pagado, pendiente (aún no vence), hoy (vence hoy) o atrasado. Los montos de gasto e ingreso van en positivo."}
 
 
 def _esquema(props, requeridos=()):
@@ -211,6 +252,9 @@ HERRAMIENTAS = {
     "comparar_meses": (comparar_meses, "Gasto e ingresos de los últimos N meses, por categoría, para ver tendencias.",
                        _esquema({"meses": {"type": "integer", "minimum": 2, "maximum": 24}})),
     "presupuesto": (presupuesto, "El presupuesto mensual de cada categoría y cuánto se lleva gastado y cuánto queda.", _esquema({"mes": MES})),
+    "compromisos": (compromisos, "Pagos y cobros que se repiten (arriendo, créditos, cuentas, suscripciones, sueldo) y su estado en "
+                    "el mes: qué está pagado, qué está pendiente o atrasado, el total y cuánto falta. Úsala para «¿qué me falta pagar?».",
+                    _esquema({"mes": MES})),
     "cuentas_y_datos": (cuentas_y_datos, "Qué cuentas hay, de dónde vienen los datos, qué meses tienen movimientos, las categorías y "
                         "la moneda. Úsala primero si no sabes qué datos existen.", _esquema({})),
 }

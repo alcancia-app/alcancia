@@ -2,7 +2,9 @@
 
   estado.py <salida.json>
 
-Devuelve config, movimientos, categorías, presupuesto, reglas, cuentas, consejos, conectores, conexiones y carpeta vigilada. La app agrega lo suyo (IA instaladas, versión,
+Devuelve config, movimientos, categorías, presupuesto, reglas, cuentas, consejos, conectores, conexiones, carpeta vigilada y
+compromisos (los válidos, las sugerencias detectadas en la cartola y las descartadas). Antes anota en compromisos.json los pagos
+que se reconocieron solos (compromisos.fijar_automaticos), para que no cambien después. La app agrega lo suyo (IA instaladas, versión,
 carpeta, actualizaciones). Si ~/Alcancia aún no existe, devuelve todo vacío: la interfaz muestra la bienvenida.
 """
 import json
@@ -11,6 +13,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import compromisos as K  # noqa: E402
 import conectores  # noqa: E402
 import datos  # noqa: E402
 
@@ -61,11 +64,29 @@ def ia_externa():
         return []
 
 
+def compromisos(cfg, movimientos):
+    """Los compromisos válidos, las sugerencias y las descartadas. Si algo falla aquí, la app igual se abre."""
+    from datetime import date
+    hoy = date.today().isoformat()
+    try:
+        K.fijar_automaticos(hoy, movimientos)
+        raw = K.leer()
+        moneda = datos.presupuesto().get("moneda") or cfg["moneda"]
+        lista = K.validos(raw, hoy, moneda)
+        return {"formato": 1, "compromisos": lista, "descartados": raw["descartados"],
+                "invalidos": len(raw["compromisos"]) - len(lista)}, K.sugerencias(movimientos, hoy)
+    except Exception:  # nunca debe impedir que la app se abra
+        return {"formato": 1, "compromisos": [], "descartados": [], "invalidos": 0}, []
+
+
 def estado():
     cfg = datos.config()
-    return {"config": cfg, "movimientos": datos.leer_todos(), "categorias": datos.categorias(), "presupuesto": datos.presupuesto(),
+    movimientos = datos.leer_todos()
+    comp, sugerencias = compromisos(cfg, movimientos)
+    return {"config": cfg, "movimientos": movimientos, "categorias": datos.categorias(), "presupuesto": datos.presupuesto(),
             "reglas": datos.reglas(), "cuentas": datos.leer_json(os.path.join(datos.BASE, "cuentas.json"), []), "consejos": consejos(),
-            "conectores": conectores.info_publica(), "conexiones": conexiones(), "vigilar": vigilar(cfg), "ia_externa": ia_externa()}
+            "conectores": conectores.info_publica(), "conexiones": conexiones(), "vigilar": vigilar(cfg), "ia_externa": ia_externa(),
+            "compromisos": comp, "sugerencias": sugerencias}
 
 
 if __name__ == "__main__":

@@ -12,6 +12,7 @@ import sys
 import tempfile
 import unittest
 import zipfile
+from datetime import date, timedelta
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATOS_PRUEBA = os.path.join(RAIZ, "pruebas", "datos")
@@ -27,6 +28,8 @@ os.environ["PATH"] = BIN_FALSO + os.pathsep + os.environ["PATH"]
 sys.path.insert(0, os.path.join(RAIZ, "bin"))
 
 import categorizar  # noqa: E402
+import compromiso_ia  # noqa: E402
+import compromisos  # noqa: E402
 import consejos  # noqa: E402
 import datos  # noqa: E402
 import pdf  # noqa: E402
@@ -158,6 +161,27 @@ class Resumen(unittest.TestCase):
             r = resumen.historia(c["movimientos"], c["mes"], c["hoy"], c["presupuesto"], CASOS["categorias"], c.get("categoria"), c.get("n", 6))
             self.assertEqual(r, c["esperado"], c["nombre"])
 
+    def test_periodos(self):
+        sec = CASOS["periodos"]
+        for c in sec["rango"]:
+            self.assertEqual(list(resumen.rango(c["mes"], c["per"])), c["esperado"], c["nombre"])
+        for c in sec["periodo_de"]:
+            self.assertEqual(resumen.periodo_de(c["fecha"], c["per"]), c["esperado"], c["fecha"])
+        k = sec["sueldo"]
+        per = compromisos.periodo(k["inicio_mes"], [k["compromiso"]], k["movimientos"], k["hoy"], "CLP")
+        self.assertEqual(per, k["esperado_per"])
+        mes = resumen.periodo_de(k["hoy"], per)
+        self.assertEqual(mes, k["esperado_periodo"])
+        r = resumen.resumen(k["movimientos"], mes, k["hoy"], k["presupuesto"], k["categorias"], per)
+        self.assertEqual({x: r[x] for x in k["esperado_resumen"]}, k["esperado_resumen"])
+        self.assertEqual(resumen.historia(k["movimientos"], mes, k["hoy"], k["presupuesto"], k["categorias"], None, 3, per), k["esperado_historia"])
+        e = compromisos.estado_mes([k["compromiso"]], k["movimientos"], mes, k["hoy"], "CLP", per)
+        self.assertEqual({x: v for x, v in e.items() if x != "compromisos"}, k["esperado_compromisos"])
+        # En palabras: el sueldo llegó el 15 (antes del 25) y el periodo parte ese día; el bono no mueve nada pero cuenta como ingreso.
+        self.assertEqual((r["desde"], r["hasta"], r["ingresos"]), ("2026-10-15", "2026-11-24", 1650000))
+        self.assertIsNone(compromisos.periodo({"modo": "dia", "dia": 25}, [], [], "2026-10-26", "CLP"))
+        self.assertIsNone(compromisos.periodo({"modo": "sueldo", "dia": 40}, [], [], "2026-10-26", "CLP"))
+
     def test_presupuesto_sugerido(self):
         movs = [{"fecha": f"2026-0{m}-05", "monto": -v, "categoria": "comida", "moneda": "CLP"} for m, v in [(7, 40000), (8, 52000), (9, 61000)]]
         self.assertEqual(resumen.presupuesto_sugerido(movs, ["2026-07", "2026-08", "2026-09"], CASOS["categorias"]), {"comida": 52000})
@@ -251,6 +275,246 @@ class Flujo(unittest.TestCase):
         self.assertEqual(datos.presupuesto()["mensual"], {"comida": 90000})
         self.assertFalse(self.guardar("receta", {"receta": {**RECETA, "id": "MAL"}})["ok"])
         self.assertTrue(self.guardar("receta", {"receta": {**RECETA, "id": "cl-otro-banco"}})["ok"])
+
+
+def casos_compromisos(caso):
+    """Compromisos y movimientos de un caso de pruebas/casos.json (los de la sección, o solo algunos, más los extra)."""
+    sec = CASOS["compromisos"]
+    comps = [c for c in sec["compromisos"] if "compromisos_ids" not in caso or c["id"] in caso["compromisos_ids"]] + caso.get("extra", [])
+    movs = [m for m in sec["movimientos"] if "movimientos_ids" not in caso or m["id"] in caso["movimientos_ids"]]
+    return comps, movs
+
+
+def un_compromiso(**k):
+    base = {"nombre": "Arriendo", "tipo": "cuenta", "monto": 420000, "frecuencia": "mensual", "dia": 1, "categoria": "casa",
+            "buscar": ["ARRIENDO"]}
+    return {**base, **k}
+
+
+class Compromisos(unittest.TestCase):
+    def setUp(self):
+        limpiar()
+
+    def test_casos(self):
+        sec = CASOS["compromisos"]
+        for c in sec["estado"]:
+            comps, movs = casos_compromisos(c)
+            self.assertEqual(compromisos.estado_mes(comps, movs, c["mes"], c["hoy"], c["moneda"]), c["esperado"], c["nombre"])
+        for c in sec["gasto_maximo"]:
+            comps, movs = casos_compromisos(c)
+            r = compromisos.gasto_maximo(movs, comps, c["mes"], c["hoy"], sec["categorias"], c["meses_completos"], c["moneda"])
+            self.assertEqual(r, c["esperado"], c["nombre"])
+
+    def test_reglas_a_mano(self):
+        """Lo mismo que los casos, pero dicho en palabras (los casos los genera Python; esto revisa que tengan sentido)."""
+        e = CASOS["compromisos"]["estado"][0]["esperado"]
+        por = {(i["nombre"], i["vence"]): i for i in e["items"]}
+        self.assertEqual(por[("Arriendo", "2026-10-01")]["pago"]["fecha"], "2026-09-30", "pagado un día antes del vencimiento")
+        self.assertEqual(por[("Clases", "2026-10-07")]["estado"], "pagado", "el pago justo del día no se lo lleva un vencimiento anterior")
+        self.assertEqual(por[("Plan de celular", "2026-10-10")]["estado"], "atrasado")
+        self.assertEqual(por[("Cuota A", "2026-10-10")]["estado"], "pagado")
+        self.assertEqual(por[("Cuota B", "2026-10-12")]["estado"], "atrasado", "un movimiento cuenta para un solo compromiso")
+        self.assertEqual(por[("Seguro", "2026-10-12")]["estado"], "atrasado", "«no es este» se respeta")
+        self.assertEqual(por[("Permiso de circulación", "2026-10-15")]["pago"]["como"], "manual")
+        self.assertTrue(por[("Streaming", "2026-09-28")]["anterior"], "lo del mes anterior sin pagar sigue apareciendo")
+        self.assertEqual(por[("Crédito automotriz", "2026-10-20")]["cuota"], {"numero": 13, "total": 36})
+        self.assertNotIn("Ya no", {i["nombre"] for i in e["items"]}, "los inactivos no cuentan")
+        credito = next(c for c in e["compromisos"] if c["nombre"] == "Crédito automotriz")
+        self.assertEqual((credito["cuotas"]["quedan"], credito["termina"], credito["por_pagar"]), (24, "2028-09-20", 24 * 189000))
+        g = CASOS["compromisos"]["gasto_maximo"]
+        self.assertTrue(g[0]["esperado"]["disponible"] == 1450000 - g[0]["esperado"]["compromisos"] - g[0]["esperado"]["otros_fijos"])
+        self.assertLessEqual(sum(x["maximo"] for x in g[0]["esperado"]["por_categoria"]), g[0]["esperado"]["disponible"])
+        self.assertEqual(g[1]["esperado"]["fuente"], "promedio")
+        self.assertFalse(g[2]["esperado"]["alcanza"])
+        self.assertTrue(all(x["maximo"] == 0 for x in g[2]["esperado"]["por_categoria"]))
+
+    def test_validar(self):
+        hoy = "2026-10-26"
+        c, e = compromisos.validar(un_compromiso(nombre="Crédito cuenta 0012-3456-78 del banco " + "x" * 80), {"casa"}, hoy)
+        self.assertEqual(e, [])
+        self.assertNotIn("3456", c["nombre"], "nunca números de cuenta en el nombre")
+        self.assertLessEqual(len(c["nombre"]), 60)
+        self.assertEqual((c["signo"], c["desde"], c["tolerancia"], c["activo"], c["origen"]), ("gasto", hoy, 5, True, "manual"))
+        self.assertRegex(c["id"], r"^c-[a-z0-9]{10}$")
+        c, e = compromisos.validar(un_compromiso(tipo="deuda", cuotas_restantes=120), {"casa"}, hoy)
+        self.assertEqual((c["cuotas_total"], c["cuotas_pagadas"]), (120, 0))
+        c, e = compromisos.validar(un_compromiso(tipo="deuda", cuotas_total=240, cuotas_restantes=187), {"casa"}, hoy)
+        self.assertEqual((c["cuotas_total"], c["cuotas_pagadas"]), (240, 53))
+        c, e = compromisos.validar(un_compromiso(tipo="ingreso", buscar="remuneracion, Sueldo 12345678"), {"casa"}, hoy)
+        self.assertEqual((c["signo"], c["buscar"]), ("ingreso", ["REMUNERACION", "SUELDO"]))
+        for malo, texto in [({"monto": -5}, "monto"), ({"dia": 40}, "día"), ({"tipo": "raro"}, "tipo"), ({"categoria": "inventada"}, "categoría"),
+                            ({"frecuencia": "anual"}, "fecha"), ({"nombre": "123456789"}, "nombre"), ({"saldo": "mucho"}, "saldo")]:
+            c, e = compromisos.validar(un_compromiso(**malo), {"casa"}, hoy)
+            self.assertIsNone(c, malo)
+            self.assertIn(texto, " ".join(e).lower(), malo)
+        c, e = compromisos.validar({**un_compromiso(), "id": "c-abcdef1234", "pagos": {}}, {"casa"}, hoy, estricto=True)
+        self.assertIn("Campos desconocidos", " ".join(e), "la IA no puede poner ids ni pagos")
+        c, e = compromisos.validar(un_compromiso(frecuencia="una_vez", fecha="2026-03-01"), {"casa"}, hoy)
+        self.assertEqual(c["desde"], "2026-03-01")
+
+    def test_extraer_cuotas(self):
+        for d, esperado in [("PAGO DIVIDENDO CUOTA 53/240", (53, 240)), ("Crédito consumo cuota 4 de 24", (4, 24)), ("CTA 07/36 AUTO", (7, 36)),
+                            ("LOAN INSTALLMENT 3 OF 12", (3, 12)), ("COMPRA 03/10 LIDER", None), ("CUOTA 50/12", None), ("CUOTAS SOCIALES", None)]:
+            self.assertEqual(compromisos.extraer_cuotas(d), esperado, d)
+
+    def test_sugerir(self):
+        hoy, cats = "2026-10-26", datos.CATEGORIAS_BASE
+        movs, n = [], 0
+        def m(f, d, monto, cat=""):
+            nonlocal n
+            n += 1
+            movs.append({"id": f"s{n}", "fecha": f, "descripcion": d, "monto": monto, "moneda": "CLP", "categoria": cat})
+        for mes, dia, monto in [("2026-06", 14, 31990), ("2026-07", 15, 31990), ("2026-08", 16, 33000), ("2026-09", 15, 31990)]:
+            m(f"{mes}-{dia:02d}", f"GIMNASIO EJEMPLO {dia}{mes[-2:]}", -monto, "ocio")
+        for mes in ("2026-07", "2026-08", "2026-09"):
+            for d in (3, 9, 20):
+                m(f"{mes}-{d:02d}", "CAFE LA ESQUINA", -3200, "comida")  # varias veces al mes: no es compromiso
+            m(f"{mes}-05", "REMUNERACION EMPRESA FICTICIA SPA", 1250000, "sueldo")
+            m(f"{mes}-15", "TRASPASO A BILLETERA", -150000, "transferencia")  # entre cuentas propias: no
+        m("2026-10-15", "PAGO DIVIDENDO CUOTA 53/240", -512000)
+        m("2026-10-12", "SEGURO HOGAR EJEMPLO", -8990)
+        m("2026-10-02", "PACIFICO RESTAURANT", -15000)  # «PAC» como palabra completa, no dentro de otra
+        m("2026-02-15", "PAGO DIVIDENDO CUOTA 45/240", -512000)  # fuera de la ventana
+        r = compromisos.sugerir(movs, [], hoy, cats, "CLP")
+        claves = [s["clave"] for s in r]
+        self.assertEqual(claves[0], "PAGO DIVIDENDO CUOTA", "las deudas que delata la descripción van primero")
+        self.assertIn("GIMNASIO EJEMPLO", claves)
+        self.assertIn("REMUNERACION EMPRESA FICTICIA", claves)
+        self.assertIn("SEGURO HOGAR EJEMPLO", claves)
+        for no in ("CAFE LA ESQUINA", "TRASPASO A BILLETERA", "PACIFICO RESTAURANT"):
+            self.assertNotIn(no, claves)
+        div = r[0]
+        self.assertEqual((div["tipo"], div["monto"], div["dia"], div["cuotas_pagadas"], div["cuotas_total"], div["preguntar"], div["motivo"]),
+                         ("deuda", 512000, 15, 53, 240, "saldo", "palabra"))
+        gim = next(s for s in r if s["clave"] == "GIMNASIO EJEMPLO")
+        self.assertEqual((gim["monto"], gim["dia"], gim["meses"], gim["motivo"], gim["preguntar"]), (31990, 15, 4, "repite", "frecuencia"))
+        sueldo = next(s for s in r if s["clave"] == "REMUNERACION EMPRESA FICTICIA")
+        self.assertEqual((sueldo["tipo"], sueldo["signo"]), ("ingreso", "ingreso"))
+        # Lo que ya es compromiso o se descartó no se vuelve a sugerir; y solo_ids filtra lo recién importado.
+        gimnasio, _ = compromisos.validar({"nombre": "Gimnasio", "monto": 31990, "dia": 15, "buscar": ["GIMNASIO"]}, None, hoy)
+        r2 = compromisos.sugerir(movs, [gimnasio], hoy, cats, "CLP", descartados=["seguro hogar ejemplo"])
+        self.assertNotIn("GIMNASIO EJEMPLO", [s["clave"] for s in r2])
+        self.assertNotIn("SEGURO HOGAR EJEMPLO", [s["clave"] for s in r2])
+        solo = compromisos.sugerir(movs, [], hoy, cats, "CLP", solo_ids={movs[-3]["id"]})
+        self.assertEqual([s["clave"] for s in solo], ["SEGURO HOGAR EJEMPLO"])
+
+    def test_palabras_conocidas_son_datos(self):
+        j = datos.leer_json(os.path.join(RAIZ, "bin", "compromisos_conocidos.json"), {})
+        self.assertEqual(j["formato"], 1)
+        for pais, lista in j["paises"].items():
+            for e in lista:
+                self.assertEqual(set(e) - {"tipo", "categoria", "preguntar", "palabras"}, set(), pais)
+                self.assertIn(e["tipo"], compromisos.TIPOS)
+                self.assertIn(e["categoria"], {c["id"] for c in datos.CATEGORIAS_BASE} | {""})
+                self.assertTrue(all(p == datos.normalizar(p) for p in e["palabras"]), "en mayúsculas y sin tildes")
+
+    def test_compromiso_con_ia(self):
+        r = correr("compromiso_ia.py", "tengo que pagar el crédito hipotecario los 15, son 500000, me quedan 120 cuotas", "2026-10-26")
+        self.assertTrue(r["ok"], r)
+        c = r["compromiso"]
+        self.assertEqual((c["tipo"], c["monto"], c["dia"], c["cuotas_total"], c["origen"], c["desde"]), ("deuda", 500000, 15, 120, "ia", "2026-10-26"))
+        self.assertNotIn("12345678", c["nombre"], "lo que propone la IA también se limpia")
+        self.assertFalse(os.path.exists(compromisos.RUTA), "no se guarda nada hasta que la persona confirma")
+        malo = correr("compromiso_ia.py", "ROMPER todo", "2026-10-26")
+        self.assertFalse(malo["ok"])
+        self.assertIn("Campos desconocidos", malo["error"])
+        self.assertFalse(correr("compromiso_ia.py", "NADA que ver", "2026-10-26")["ok"])
+        self.assertFalse(correr("compromiso_ia.py", "x", "2026-10-26")["ok"])
+        rut = "11.111.111" + "-1"  # ficticio y armado por partes: ningún RUT entero queda escrito en el repo
+        limpio = compromiso_ia.limpiar_texto(f"mi rut {rut} y cuenta 001234567890, pago 450.000 el 15")
+        self.assertNotIn("111", limpio)
+        self.assertNotIn("1234567890", limpio)
+        self.assertIn("450.000", limpio, "los montos se mantienen")
+
+    def guardar(self, entrada):
+        ruta = os.path.join(TMP, "entrada.json")
+        with open(ruta, "w", encoding="utf-8") as f:
+            json.dump(entrada, f)
+        return correr("guardar.py", "compromiso", ruta)
+
+    def test_guardar_marcar_y_borrar(self):
+        r = self.guardar({"accion": "guardar", "hoy": "2026-10-26", "compromiso": un_compromiso()})
+        self.assertTrue(r["ok"] and r["primero"], r)
+        cid = r["id"]
+        self.assertFalse(self.guardar({"accion": "guardar", "compromiso": un_compromiso(monto=0)})["ok"])
+        self.assertFalse(self.guardar({"accion": "guardar", "compromiso": un_compromiso(categoria="inventada")})["ok"])
+        self.assertTrue(self.guardar({"accion": "pagado", "id": cid, "periodo": "2026-10", "hoy": "2026-10-26"})["ok"])
+        self.assertEqual(compromisos.leer()["compromisos"][0]["pagos"]["2026-10"], {"como": "manual", "fecha": "2026-10-26"})
+        editado = self.guardar({"accion": "guardar", "compromiso": {**un_compromiso(monto=430000), "id": cid, "pagos": {}, "desde": "2020-01-01"}})
+        self.assertFalse(editado["primero"])
+        c = compromisos.leer()["compromisos"][0]
+        self.assertEqual((c["monto"], c["desde"], c["pagos"]["2026-10"]["como"]), (430000, "2026-10-26", "manual"),
+                         "editar no borra lo marcado ni cambia desde cuándo")
+        self.assertTrue(self.guardar({"accion": "desmarcar", "id": cid, "periodo": "2026-10"})["ok"])
+        self.assertNotIn("2026-10", compromisos.leer()["compromisos"][0]["pagos"])
+        self.assertTrue(self.guardar({"accion": "no_es", "id": cid, "periodo": "2026-10", "movimiento": "abc123"})["ok"])
+        self.assertEqual(compromisos.leer()["compromisos"][0]["pagos"]["2026-10"], {"no_es": ["abc123"]})
+        self.assertFalse(self.guardar({"accion": "no_es", "id": cid, "periodo": "2026-10", "movimiento": "../x"})["ok"])
+        self.assertFalse(self.guardar({"accion": "pagado", "id": cid, "periodo": "octubre"})["ok"])
+        self.assertFalse(self.guardar({"accion": "pagado", "id": "c-noexiste1", "periodo": "2026-10"})["ok"])
+        self.assertTrue(self.guardar({"accion": "descartar", "clave": "seguro hogar"})["ok"])
+        self.assertEqual(compromisos.leer()["descartados"], ["SEGURO HOGAR"])
+        self.assertTrue(self.guardar({"accion": "borrar", "id": cid})["ok"])
+        self.assertEqual(compromisos.leer()["compromisos"], [])
+        with open(compromisos.RUTA, encoding="utf-8") as f:
+            self.assertEqual(json.load(f)["formato"], 1)
+
+    def test_estado_fija_lo_reconocido_y_sugiere(self):
+        datos.escribir_json(os.path.join(datos.INTERNO, "recetas", "cl-banco-ejemplo.json"), RECETA)
+        correr("importar.py", "guardar", CARTOLA, "cl-banco-ejemplo", "0")
+        hoy = date.today().isoformat()
+        sueldo, _ = compromisos.validar({"nombre": "Sueldo", "tipo": "ingreso", "monto": 1250000, "dia": 5, "buscar": ["REMUNERACION"],
+                                         "desde": "2026-10-01"}, None, hoy)
+        roto = {"id": "c-roto000001", "nombre": "", "monto": "mucho"}
+        datos.escribir_json(compromisos.RUTA, {"formato": 1, "compromisos": [sueldo, roto], "descartados": []})
+        e = correr("estado.py")
+        self.assertEqual([c["nombre"] for c in e["compromisos"]["compromisos"]], ["Sueldo"])
+        self.assertEqual(e["compromisos"]["invalidos"], 1, "uno roto a mano se salta, no rompe la app")
+        self.assertIsInstance(e["sugerencias"], list)
+        guardado = compromisos.leer()["compromisos"]
+        self.assertEqual(guardado[1], roto, "lo que la persona escribió a mano no se pierde")
+        p = guardado[0]["pagos"]["2026-10"]
+        self.assertEqual((p["como"], p["fecha"], p["monto"]), ("automatico", "2026-10-05", 1250000))
+
+    def test_importar_detecta_compromisos(self):
+        datos.escribir_json(os.path.join(datos.INTERNO, "recetas", "cl-banco-ejemplo.json"), RECETA)
+        hoy = date.today()
+        f = lambda d: (hoy - timedelta(days=d)).strftime("%d/%m/%Y")
+        ruta = os.path.join(TMP, "cartola_compromisos.csv")
+        with open(ruta, "w", encoding="utf-8") as out:
+            out.write("Banco Ejemplo;;;;\nFecha;Descripción;Cargos;Abonos;Saldo\n"
+                      f"{f(3)};PAGO DIVIDENDO CUOTA 53/240;512.000;;1\n{f(4)};SUPERMERCADO DEL BARRIO;20.000;;1\n")
+        r = correr("importar.py", "guardar", ruta, "cl-banco-ejemplo", "0")
+        self.assertTrue(r["ok"], r)
+        self.assertEqual([d["clave"] for d in r["detectados"]], ["PAGO DIVIDENDO CUOTA"])
+        d = r["detectados"][0]
+        self.assertEqual((d["cuotas_pagadas"], d["cuotas_total"], d["tipo"]), (53, 240, "deuda"))
+        otra = correr("importar.py", "guardar", ruta, "cl-banco-ejemplo", "0")
+        self.assertEqual(otra["detectados"], [], "si no hay nada nuevo, no se vuelve a preguntar")
+
+    def test_avisos(self):
+        hoy = date.today()
+        dia = (hoy + timedelta(days=2))
+        if dia.month != hoy.month:
+            self.skipTest("cerca de fin de mes")
+        c, _ = compromisos.validar({"nombre": "Luz", "monto": 30000, "dia": dia.day, "buscar": ["LUZ"], "desde": hoy.replace(day=1).isoformat()}, None, hoy.isoformat())
+        datos.escribir_json(compromisos.RUTA, {"formato": 1, "compromisos": [c], "descartados": []})
+        self.assertEqual(correr("compromisos.py", "avisos", hoy.isoformat())["avisos"], [], "sin avisos activados, nada")
+        datos.escribir_json(os.path.join(datos.INTERNO, "config.json"), {"avisos": True})
+        a = correr("compromisos.py", "avisos", hoy.isoformat())["avisos"]
+        self.assertEqual([(x["nombre"], x["tipo"], x["dias"]) for x in a], [("Luz", "pronto", 2)])
+        self.assertEqual(correr("compromisos.py", "avisos", hoy.isoformat())["avisos"], [], "uno por compromiso al día")
+        self.assertEqual(compromisos.avisos((hoy + timedelta(days=1)).isoformat())["avisos"], [], "«pronto» se avisa una sola vez")
+        self.assertEqual([x["tipo"] for x in compromisos.avisos(dia.isoformat())["avisos"]], ["hoy"])
+
+    def test_consejos_con_compromisos(self):
+        movs = CASOS["compromisos"]["movimientos"]
+        cats = [{**c, "nombre": c["id"]} for c in CASOS["compromisos"]["categorias"]]
+        texto = consejos.prompt("2026-10-18", movs, {"moneda": "CLP", "mensual": {}}, cats, CASOS["compromisos"]["compromisos"])
+        self.assertIn("Compromisos del mes", texto)
+        self.assertIn("disponible para gastos variables", texto)
+        self.assertNotIn("Plan de celular", texto, "a la IA solo le llegan totales")
+        self.assertIn("no ha anotado compromisos", consejos.prompt("2026-10-18", movs, {"moneda": "CLP", "mensual": {}}, cats))
 
 
 class Ofx(unittest.TestCase):
@@ -484,9 +748,20 @@ class Mcp(unittest.TestCase):
         self.assertIn("error", r[4])
         self.assertTrue(r[5]["result"]["isError"])
 
+    def test_compromisos(self):
+        c, _ = compromisos.validar({"nombre": "Sueldo", "tipo": "ingreso", "monto": 1250000, "dia": 5, "buscar": ["REMUNERACION"],
+                                    "desde": "2026-10-01"}, None, "2026-10-01")
+        datos.escribir_json(compromisos.RUTA, {"formato": 1, "compromisos": [c], "descartados": []})
+        r = self.hablar({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "compromisos", "arguments": {"mes": "2026-10"}}})
+        s = r[0]["result"]["structuredContent"]
+        self.assertEqual(s["ingresos_recibidos"], 1250000)
+        self.assertEqual(s["compromisos"][0]["estado"], "pagado")
+        self.assertNotIn(c["id"], json.dumps(s), "sin ids internos")
+        self.assertNotIn("movimiento", json.dumps(s))
+
     def test_no_escribe_nada(self):
         antes = {f: os.path.getmtime(os.path.join(datos.MOVIMIENTOS, f)) for f in os.listdir(datos.MOVIMIENTOS)}
-        for n in ["resumen_del_mes", "presupuesto", "comparar_meses", "principales_comercios", "cuentas_y_datos"]:
+        for n in ["resumen_del_mes", "presupuesto", "comparar_meses", "principales_comercios", "cuentas_y_datos", "compromisos"]:
             r = self.hablar({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": n, "arguments": {}}})
             self.assertFalse(r[0]["result"]["isError"], n)
         self.assertEqual(antes, {f: os.path.getmtime(os.path.join(datos.MOVIMIENTOS, f)) for f in os.listdir(datos.MOVIMIENTOS)})

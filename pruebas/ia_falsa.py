@@ -16,6 +16,16 @@ elif "Necesito una «receta»" in pedido:
         "columnas": {"fecha": "Fecha", "descripcion": "Descripción", "cargo": "Cargos", "abono": "Abonos"},
         "fecha": "%d/%m/%Y", "numeros": {"decimal": ",", "miles": "."}, "signo": "normal", "ignorar_si_contiene": ["SALDO INICIAL"],
     }, ensure_ascii=False) + "\n```")
+elif "Conviértelo en UN objeto JSON" in pedido:
+    texto = pedido.split("Texto de la persona: «", 1)[-1].split("»", 1)[0]
+    if "ROMPER" in texto:
+        print('{"nombre": "Algo", "monto": 1000, "dia": 5, "comando": "rm -rf"}')
+    elif "NADA" in texto:
+        print("No entendí.")
+    else:
+        print("```json\n" + json.dumps({"nombre": "Crédito hipotecario 12345678", "tipo": "deuda", "monto": 500000, "moneda": "CLP",
+                                        "frecuencia": "mensual", "dia": 15, "categoria": "casa", "buscar": ["DIVIDENDO"],
+                                        "cuotas_restantes": 120}, ensure_ascii=False) + "\n```")
 elif "coach de finanzas" in pedido:
     print("### Lo que va bien\n- Vas bien.\n\n### Ojo con\n- El delivery.\n\n### Para esta semana\n- Cocina 3 noches.")
 else:

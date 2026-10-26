@@ -8,6 +8,7 @@ import sys
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(RAIZ, "bin"))
+import compromisos  # noqa: E402
 import conectores  # noqa: E402
 import datos  # noqa: E402
 
@@ -63,6 +64,13 @@ for mes in ("2026-05", "2026-06"):
     for desc, cat, lo, hi, veces, cuenta in VARIABLES:
         for _ in range(veces):
             movs.append((f"{mes}-{otro.randint(1, 28):02d}", desc, cat, -round(otro.randint(lo, hi), -1), cuenta))
+# Compromisos de Ana: el crédito automotriz (cuota N/36, el 20) y el plan de celular (el 10), que en octubre todavía no se paga.
+for i, mes in enumerate(("2026-05", "2026-06", "2026-07", "2026-08", "2026-09")):
+    movs.append((f"{mes}-20", f"CREDITO AUTOMOTRIZ CUOTA {8 + i}/36", "auto", -189000, "banco-ejemplo"))
+    movs.append((f"{mes}-10", "PLAN MOVIL EJEMPLO", "cuentas", -15990, "banco-ejemplo"))
+# Lo que Alcancía detecta en la cartola de octubre y pregunta si es un compromiso.
+movs.append(("2026-10-09", "CREDITO CONSUMO CUOTA 4/24", "", -64500, "banco-ejemplo"))
+movs.append(("2026-10-12", "SEGURO HOGAR EJEMPLO", "", -8990, "banco-ejemplo"))
 movs.append(("2026-06-21", "PASAJES AEREOS EJEMPLO", "ocio", -189000, "banco-ejemplo"))
 movs.append(("2026-06-24", "HOSTAL VISTA AL MAR", "ocio", -96000, "banco-ejemplo"))
 movs.append((f"2026-10-16", "PAGO PENDIENTE 88231", "", -12990, "banco-ejemplo"))
@@ -75,6 +83,23 @@ for f, desc, cat, monto, cuenta in sorted(movs):
     vistos[k] = vistos.get(k, -1) + 1
     salida.append({"id": datos.nuevo_id(cuenta, f, desc, monto, vistos[k]), "fecha": f, "descripcion": desc, "monto": monto,
                    "moneda": "CLP", "categoria": cat, "cuenta": cuenta, "origen": "demo", "nota": ""})
+
+def compromiso(**k):
+    c, errores = compromisos.validar({**k, "origen": "manual"}, None, HOY)
+    assert not errores, errores
+    return c
+
+
+COMPROMISOS = [
+    compromiso(id="c-arriendo01", nombre="Arriendo", tipo="cuenta", monto=420000, dia=1, categoria="casa", buscar=["ARRIENDO"], desde="2026-07-01"),
+    compromiso(id="c-credito001", nombre="Crédito automotriz", tipo="deuda", monto=189000, dia=20, categoria="auto",
+               buscar=["CREDITO AUTOMOTRIZ"], cuotas_total=36, cuotas_pagadas=12, desde="2026-10-01"),
+    compromiso(id="c-celular001", nombre="Plan de celular", tipo="cuenta", monto=15990, dia=10, categoria="cuentas", buscar=["PLAN MOVIL"],
+               desde="2026-07-01"),
+    compromiso(id="c-sueldo0001", nombre="Sueldo", tipo="ingreso", monto=1450000, dia=5, categoria="sueldo", buscar=["REMUNERACION"],
+               desde="2026-07-01"),
+]
+SUGERENCIAS = compromisos.sugerir(salida, COMPROMISOS, HOY, datos.CATEGORIAS_BASE, "CLP")
 
 demo = {
     "hoy": HOY,
@@ -100,10 +125,12 @@ demo = {
                    {"id": "codex", "nombre": "ChatGPT (app de escritorio y Codex)", "instalado": True, "conectado": False, "al_dia": False, "nota": ""},
                    {"id": "gemini", "nombre": "Gemini CLI", "instalado": False, "conectado": False, "al_dia": False, "nota": ""},
                    {"id": "antigravity", "nombre": "Antigravity (Gemini)", "instalado": False, "conectado": False, "al_dia": False, "nota": ""}],
+    "compromisos": {"formato": 1, "compromisos": COMPROMISOS, "descartados": [], "invalidos": 0},
+    "sugerencias": SUGERENCIAS,
     "vigilar": {"activo": True, "recientes": [{"archivo": "cartola-banco-ejemplo-octubre.csv", "resultado": "importado", "institucion": "Banco Ejemplo",
                                                "nuevos": 12, "cuando": 1792332000}]},
 }
 with open(os.path.join(RAIZ, "ui", "demo.json"), "w", encoding="utf-8") as f:
     json.dump(demo, f, ensure_ascii=False, indent=1)
     f.write("\n")
-print(f"{len(salida)} movimientos ficticios")
+print(f"{len(salida)} movimientos ficticios, {len(COMPROMISOS)} compromisos y {len(SUGERENCIAS)} sugerencias")

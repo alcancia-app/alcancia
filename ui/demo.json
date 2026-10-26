@@ -448,6 +448,17 @@
    "nota": ""
   },
   {
+   "id": "ced5cc9c9fcd",
+   "fecha": "2026-05-10",
+   "descripcion": "PLAN MOVIL EJEMPLO",
+   "monto": -15990,
+   "moneda": "CLP",
+   "categoria": "cuentas",
+   "cuenta": "banco-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
    "id": "0756954032c5",
    "fecha": "2026-05-12",
    "descripcion": "AGUA POTABLE",
@@ -565,6 +576,17 @@
    "moneda": "CLP",
    "categoria": "comida",
    "cuenta": "billetera-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
+   "id": "509f7723ff11",
+   "fecha": "2026-05-20",
+   "descripcion": "CREDITO AUTOMOTRIZ CUOTA 8/36",
+   "monto": -189000,
+   "moneda": "CLP",
+   "categoria": "auto",
+   "cuenta": "banco-ejemplo",
    "origen": "demo",
    "nota": ""
   },
@@ -965,6 +987,17 @@
    "nota": ""
   },
   {
+   "id": "139155bb8824",
+   "fecha": "2026-06-10",
+   "descripcion": "PLAN MOVIL EJEMPLO",
+   "monto": -15990,
+   "moneda": "CLP",
+   "categoria": "cuentas",
+   "cuenta": "banco-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
    "id": "9bebd8b06844",
    "fecha": "2026-06-10",
    "descripcion": "VIAJES APP *TRIP",
@@ -1137,6 +1170,17 @@
    "moneda": "CLP",
    "categoria": "comida",
    "cuenta": "billetera-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
+   "id": "854429a560ab",
+   "fecha": "2026-06-20",
+   "descripcion": "CREDITO AUTOMOTRIZ CUOTA 9/36",
+   "monto": -189000,
+   "moneda": "CLP",
+   "categoria": "auto",
+   "cuenta": "banco-ejemplo",
    "origen": "demo",
    "nota": ""
   },
@@ -1581,6 +1625,17 @@
    "nota": ""
   },
   {
+   "id": "052249d1c277",
+   "fecha": "2026-07-10",
+   "descripcion": "PLAN MOVIL EJEMPLO",
+   "monto": -15990,
+   "moneda": "CLP",
+   "categoria": "cuentas",
+   "cuenta": "banco-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
    "id": "b8f09c43b9d7",
    "fecha": "2026-07-11",
    "descripcion": "SUPERMERCADO DEL BARRIO",
@@ -1764,6 +1819,17 @@
    "moneda": "CLP",
    "categoria": "transporte",
    "cuenta": "billetera-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
+   "id": "21c574dcbe4d",
+   "fecha": "2026-07-20",
+   "descripcion": "CREDITO AUTOMOTRIZ CUOTA 10/36",
+   "monto": -189000,
+   "moneda": "CLP",
+   "categoria": "auto",
+   "cuenta": "banco-ejemplo",
    "origen": "demo",
    "nota": ""
   },
@@ -2109,6 +2175,17 @@
    "nota": ""
   },
   {
+   "id": "78134f766f5f",
+   "fecha": "2026-08-10",
+   "descripcion": "PLAN MOVIL EJEMPLO",
+   "monto": -15990,
+   "moneda": "CLP",
+   "categoria": "cuentas",
+   "cuenta": "banco-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
    "id": "9f65e932a2d8",
    "fecha": "2026-08-10",
    "descripcion": "SUPERMERCADO DEL BARRIO",
@@ -2336,6 +2413,17 @@
    "moneda": "CLP",
    "categoria": "comida",
    "cuenta": "billetera-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
+   "id": "f6ef0f6e0b1f",
+   "fecha": "2026-08-20",
+   "descripcion": "CREDITO AUTOMOTRIZ CUOTA 11/36",
+   "monto": -189000,
+   "moneda": "CLP",
+   "categoria": "auto",
+   "cuenta": "banco-ejemplo",
    "origen": "demo",
    "nota": ""
   },
@@ -2692,6 +2780,17 @@
    "nota": ""
   },
   {
+   "id": "229313635a7f",
+   "fecha": "2026-09-10",
+   "descripcion": "PLAN MOVIL EJEMPLO",
+   "monto": -15990,
+   "moneda": "CLP",
+   "categoria": "cuentas",
+   "cuenta": "banco-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
    "id": "7c6f762f5f4b",
    "fecha": "2026-09-11",
    "descripcion": "DELIVERY RAPIDITO *PEDIDO",
@@ -2896,6 +2995,17 @@
    "monto": -10000,
    "moneda": "CLP",
    "categoria": "transporte",
+   "cuenta": "banco-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
+   "id": "9ef119446c35",
+   "fecha": "2026-09-20",
+   "descripcion": "CREDITO AUTOMOTRIZ CUOTA 12/36",
+   "monto": -189000,
+   "moneda": "CLP",
+   "categoria": "auto",
    "cuenta": "banco-ejemplo",
    "origen": "demo",
    "nota": ""
@@ -3165,6 +3275,17 @@
    "nota": ""
   },
   {
+   "id": "c1db42e507e9",
+   "fecha": "2026-10-09",
+   "descripcion": "CREDITO CONSUMO CUOTA 4/24",
+   "monto": -64500,
+   "moneda": "CLP",
+   "categoria": "",
+   "cuenta": "banco-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
    "id": "8ee62e14fbc8",
    "fecha": "2026-10-09",
    "descripcion": "VIAJES APP *TRIP",
@@ -3271,6 +3392,17 @@
    "moneda": "CLP",
    "categoria": "supermercado",
    "cuenta": "billetera-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
+   "id": "9243c17b359c",
+   "fecha": "2026-10-12",
+   "descripcion": "SEGURO HOGAR EJEMPLO",
+   "monto": -8990,
+   "moneda": "CLP",
+   "categoria": "",
+   "cuenta": "banco-ejemplo",
    "origen": "demo",
    "nota": ""
   },
@@ -3655,6 +3787,239 @@
    "conectado": false,
    "al_dia": false,
    "nota": ""
+  }
+ ],
+ "compromisos": {
+  "formato": 1,
+  "compromisos": [
+   {
+    "id": "c-arriendo01",
+    "nombre": "Arriendo",
+    "tipo": "cuenta",
+    "signo": "gasto",
+    "monto": 420000,
+    "moneda": "CLP",
+    "frecuencia": "mensual",
+    "dia": 1,
+    "categoria": "casa",
+    "buscar": [
+     "ARRIENDO"
+    ],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-07-01",
+    "origen": "manual",
+    "pagos": {}
+   },
+   {
+    "id": "c-credito001",
+    "nombre": "Crédito automotriz",
+    "tipo": "deuda",
+    "signo": "gasto",
+    "monto": 189000,
+    "moneda": "CLP",
+    "frecuencia": "mensual",
+    "dia": 20,
+    "categoria": "auto",
+    "buscar": [
+     "CREDITO AUTOMOTRIZ"
+    ],
+    "tolerancia": 5,
+    "cuotas_total": 36,
+    "cuotas_pagadas": 12,
+    "activo": true,
+    "desde": "2026-10-01",
+    "origen": "manual",
+    "pagos": {}
+   },
+   {
+    "id": "c-celular001",
+    "nombre": "Plan de celular",
+    "tipo": "cuenta",
+    "signo": "gasto",
+    "monto": 15990,
+    "moneda": "CLP",
+    "frecuencia": "mensual",
+    "dia": 10,
+    "categoria": "cuentas",
+    "buscar": [
+     "PLAN MOVIL"
+    ],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-07-01",
+    "origen": "manual",
+    "pagos": {}
+   },
+   {
+    "id": "c-sueldo0001",
+    "nombre": "Sueldo",
+    "tipo": "ingreso",
+    "signo": "ingreso",
+    "monto": 1450000,
+    "moneda": "CLP",
+    "frecuencia": "mensual",
+    "dia": 5,
+    "categoria": "sueldo",
+    "buscar": [
+     "REMUNERACION"
+    ],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-07-01",
+    "origen": "manual",
+    "pagos": {}
+   }
+  ],
+  "descartados": [],
+  "invalidos": 0
+ },
+ "sugerencias": [
+  {
+   "clave": "CREDITO CONSUMO CUOTA",
+   "nombre": "Credito consumo cuota",
+   "tipo": "deuda",
+   "signo": "gasto",
+   "monto": 64500,
+   "moneda": "CLP",
+   "frecuencia": "mensual",
+   "dia": 9,
+   "categoria": "otros",
+   "buscar": [
+    "CREDITO CONSUMO CUOTA"
+   ],
+   "origen": "detectado",
+   "motivo": "palabra",
+   "meses": 1,
+   "preguntar": "saldo",
+   "cuotas_pagadas": 4,
+   "cuotas_total": 24
+  },
+  {
+   "clave": "JARDIN INFANTIL",
+   "nombre": "Jardin infantil",
+   "tipo": "cuenta",
+   "signo": "gasto",
+   "monto": 95000,
+   "moneda": "CLP",
+   "frecuencia": "mensual",
+   "dia": 20,
+   "categoria": "educacion",
+   "buscar": [
+    "JARDIN INFANTIL"
+   ],
+   "origen": "detectado",
+   "motivo": "repite",
+   "meses": 4,
+   "preguntar": "frecuencia"
+  },
+  {
+   "clave": "LUZ DEL SUR",
+   "nombre": "Luz del sur",
+   "tipo": "cuenta",
+   "signo": "gasto",
+   "monto": 32000,
+   "moneda": "CLP",
+   "frecuencia": "mensual",
+   "dia": 8,
+   "categoria": "cuentas",
+   "buscar": [
+    "LUZ DEL SUR"
+   ],
+   "origen": "detectado",
+   "motivo": "repite",
+   "meses": 4,
+   "preguntar": "frecuencia"
+  },
+  {
+   "clave": "INTERNET CELULAR",
+   "nombre": "Internet celular",
+   "tipo": "cuenta",
+   "signo": "gasto",
+   "monto": 27990,
+   "moneda": "CLP",
+   "frecuencia": "mensual",
+   "dia": 10,
+   "categoria": "cuentas",
+   "buscar": [
+    "INTERNET CELULAR"
+   ],
+   "origen": "detectado",
+   "motivo": "repite",
+   "meses": 4,
+   "preguntar": "frecuencia"
+  },
+  {
+   "clave": "AGUA POTABLE",
+   "nombre": "Agua potable",
+   "tipo": "cuenta",
+   "signo": "gasto",
+   "monto": 14500,
+   "moneda": "CLP",
+   "frecuencia": "mensual",
+   "dia": 12,
+   "categoria": "cuentas",
+   "buscar": [
+    "AGUA POTABLE"
+   ],
+   "origen": "detectado",
+   "motivo": "repite",
+   "meses": 4,
+   "preguntar": "frecuencia"
+  },
+  {
+   "clave": "STREAMING PELIS",
+   "nombre": "Streaming pelis",
+   "tipo": "suscripcion",
+   "signo": "gasto",
+   "monto": 9990,
+   "moneda": "CLP",
+   "frecuencia": "mensual",
+   "dia": 6,
+   "categoria": "suscripciones",
+   "buscar": [
+    "STREAMING PELIS"
+   ],
+   "origen": "detectado",
+   "motivo": "repite",
+   "meses": 4,
+   "preguntar": "frecuencia"
+  },
+  {
+   "clave": "SEGURO HOGAR EJEMPLO",
+   "nombre": "Seguro hogar ejemplo",
+   "tipo": "cuenta",
+   "signo": "gasto",
+   "monto": 8990,
+   "moneda": "CLP",
+   "frecuencia": "mensual",
+   "dia": 12,
+   "categoria": "salud",
+   "buscar": [
+    "SEGURO HOGAR EJEMPLO"
+   ],
+   "origen": "detectado",
+   "motivo": "palabra",
+   "meses": 1,
+   "preguntar": "frecuencia"
+  },
+  {
+   "clave": "MUSICA PREMIUM",
+   "nombre": "Musica premium",
+   "tipo": "suscripcion",
+   "signo": "gasto",
+   "monto": 5490,
+   "moneda": "CLP",
+   "frecuencia": "mensual",
+   "dia": 6,
+   "categoria": "suscripciones",
+   "buscar": [
+    "MUSICA PREMIUM"
+   ],
+   "origen": "detectado",
+   "motivo": "repite",
+   "meses": 4,
+   "preguntar": "frecuencia"
   }
  ],
  "vigilar": {

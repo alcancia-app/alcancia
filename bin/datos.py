@@ -6,6 +6,7 @@
   presupuesto.json          {"moneda": "CLP", "mensual": {"supermercado": 250000, ...}}
   reglas.json               [{"contiene": "TEXTO", "categoria": "id"}]   lo que la app aprende al corregir
   cuentas.json              [{"id", "nombre", "receta", "moneda"}]
+  compromisos.json          {"formato": 1, "compromisos": [...], "descartados": [...]}  lo que se paga o se recibe seguido (bin/compromisos.py)
   consejos/AAAA-MM-DD.md    los consejos de tu IA
   .alcancia/config.json     ajustes de la app
   .alcancia/recetas/        recetas descargadas o creadas (ganan sobre las incluidas)

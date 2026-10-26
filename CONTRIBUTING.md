@@ -10,6 +10,8 @@ Alcancía es gratis y abierta, y la hacemos entre todos. Hay lugar para cualquie
 - **Cuéntanos qué falla o qué te gustaría** en [issues](https://github.com/alcancia-app/alcancia/issues/new/choose).
 - **Pruébala en tu sistema:** los issues con la etiqueta [`probar`](https://github.com/alcancia-app/alcancia/labels/probar) piden justo eso.
 - **Comercios de tu país:** `bin/categorizar.py` tiene una lista de comercios conocidos por categoría. Agregar los de tu país ayuda a todos.
+- **Palabras que delatan un compromiso:** `bin/compromisos_conocidos.json` (solo datos) tiene las palabras con que las cartolas
+  muestran un dividendo, un crédito, un PAC o un seguro. Suma las de tu país (en mayúsculas y sin tildes) bajo su código.
 - **Traducciones:** revisa o mejora `ui/idiomas/en.json`, o propón otro idioma.
 
 ## Programando (con o sin IA)

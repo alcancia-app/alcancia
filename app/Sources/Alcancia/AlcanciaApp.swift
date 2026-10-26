@@ -23,13 +23,15 @@ final class AlcanciaApp: NSObject, NSApplicationDelegate {
         if Idioma.elegido { AlcanciaApp.iniciarTareas() }
     }
 
-    /// Lo que corre solo: actualizaciones, conexiones, carpeta vigilada y reparar las IA conectadas por MCP. Una sola vez.
+    /// Lo que corre solo: actualizaciones, conexiones, carpeta vigilada, avisos de compromisos (solo si la persona los activó y
+    /// ya dio permiso: aquí nunca se pide) y reparar las IA conectadas por MCP. Una sola vez.
     static func iniciarTareas() {
         guard !tareasIniciadas else { return }
         tareasIniciadas = true
         Actualizaciones.revisarCadaRato()
         Conexiones.revisarCadaRato()
         Vigilante.empezar()
+        Avisos.revisarCadaRato()
         // Si la app cambió de lugar (o se actualizó), las IA conectadas por MCP siguen apuntando a la ruta nueva.
         Procesador.correrJSON("mcp_conectar.py", ["reparar"]) { _ in }
     }

@@ -716,5 +716,2295 @@
     ]
    }
   }
- ]
+ ],
+ "compromisos": {
+  "_nota": "Compromisos (bin/compromisos.py ↔ ui/app.js). Cada caso usa los compromisos y movimientos de aquí: todos, o solo los de compromisos_ids / movimientos_ids, más los de extra.",
+  "categorias": [
+   {
+    "id": "supermercado",
+    "tipo": "gasto"
+   },
+   {
+    "id": "comida",
+    "tipo": "gasto"
+   },
+   {
+    "id": "casa",
+    "tipo": "gasto",
+    "fijo": true
+   },
+   {
+    "id": "cuentas",
+    "tipo": "gasto",
+    "fijo": true
+   },
+   {
+    "id": "auto",
+    "tipo": "gasto"
+   },
+   {
+    "id": "suscripciones",
+    "tipo": "gasto",
+    "fijo": true
+   },
+   {
+    "id": "sueldo",
+    "tipo": "ingreso"
+   },
+   {
+    "id": "transferencia",
+    "tipo": "neutro"
+   }
+  ],
+  "compromisos": [
+   {
+    "id": "c-arriendo1",
+    "nombre": "Arriendo",
+    "tipo": "cuenta",
+    "signo": "gasto",
+    "monto": 420000,
+    "moneda": "CLP",
+    "frecuencia": "mensual",
+    "categoria": "casa",
+    "buscar": [
+     "ARRIENDO"
+    ],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-09-01",
+    "origen": "manual",
+    "pagos": {},
+    "dia": 1
+   },
+   {
+    "id": "c-credito1",
+    "nombre": "Crédito automotriz",
+    "tipo": "deuda",
+    "signo": "gasto",
+    "monto": 189000,
+    "moneda": "CLP",
+    "frecuencia": "mensual",
+    "categoria": "auto",
+    "buscar": [
+     "credito automotriz"
+    ],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-10-01",
+    "origen": "manual",
+    "pagos": {},
+    "cuotas_total": 36,
+    "cuotas_pagadas": 12,
+    "dia": 20
+   },
+   {
+    "id": "c-celular1",
+    "nombre": "Plan de celular",
+    "tipo": "cuenta",
+    "signo": "gasto",
+    "monto": 12990,
+    "moneda": "CLP",
+    "frecuencia": "mensual",
+    "categoria": "cuentas",
+    "buscar": [],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-09-01",
+    "origen": "manual",
+    "pagos": {},
+    "dia": 10
+   },
+   {
+    "id": "c-sueldo01",
+    "nombre": "Sueldo",
+    "tipo": "ingreso",
+    "signo": "ingreso",
+    "monto": 1450000,
+    "moneda": "CLP",
+    "frecuencia": "mensual",
+    "categoria": "sueldo",
+    "buscar": [
+     "REMUNERACION"
+    ],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-09-01",
+    "origen": "manual",
+    "pagos": {},
+    "dia": 5
+   },
+   {
+    "id": "c-stream01",
+    "nombre": "Streaming",
+    "tipo": "suscripcion",
+    "signo": "gasto",
+    "monto": 9990,
+    "moneda": "CLP",
+    "frecuencia": "mensual",
+    "categoria": "suscripciones",
+    "buscar": [
+     "STREAMING"
+    ],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-09-01",
+    "origen": "manual",
+    "pagos": {},
+    "dia": 28
+   },
+   {
+    "id": "c-clases01",
+    "nombre": "Clases",
+    "tipo": "cuenta",
+    "signo": "gasto",
+    "monto": 15000,
+    "moneda": "CLP",
+    "frecuencia": "semanal",
+    "categoria": "",
+    "buscar": [],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-10-01",
+    "origen": "manual",
+    "pagos": {},
+    "dia": 3
+   },
+   {
+    "id": "c-permiso1",
+    "nombre": "Permiso de circulación",
+    "tipo": "cuenta",
+    "signo": "gasto",
+    "monto": 80000,
+    "moneda": "CLP",
+    "frecuencia": "una_vez",
+    "categoria": "",
+    "buscar": [],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-10-01",
+    "origen": "manual",
+    "pagos": {
+     "2026-10-15": {
+      "como": "manual",
+      "fecha": "2026-10-16"
+     }
+    },
+    "fecha": "2026-10-15"
+   },
+   {
+    "id": "c-seguro01",
+    "nombre": "Seguro",
+    "tipo": "cuenta",
+    "signo": "gasto",
+    "monto": 25000,
+    "moneda": "CLP",
+    "frecuencia": "mensual",
+    "categoria": "",
+    "buscar": [
+     "SEGURO"
+    ],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-10-01",
+    "origen": "manual",
+    "pagos": {
+     "2026-10": {
+      "no_es": [
+       "m08"
+      ]
+     }
+    },
+    "dia": 12
+   },
+   {
+    "id": "c-cuotaa01",
+    "nombre": "Cuota A",
+    "tipo": "cuenta",
+    "signo": "gasto",
+    "monto": 50000,
+    "moneda": "CLP",
+    "frecuencia": "mensual",
+    "categoria": "",
+    "buscar": [],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-10-01",
+    "origen": "manual",
+    "pagos": {},
+    "dia": 10
+   },
+   {
+    "id": "c-cuotab01",
+    "nombre": "Cuota B",
+    "tipo": "cuenta",
+    "signo": "gasto",
+    "monto": 50000,
+    "moneda": "CLP",
+    "frecuencia": "mensual",
+    "categoria": "",
+    "buscar": [],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-10-01",
+    "origen": "manual",
+    "pagos": {},
+    "dia": 12
+   },
+   {
+    "id": "c-viejo001",
+    "nombre": "Ya no",
+    "tipo": "cuenta",
+    "signo": "gasto",
+    "monto": 5000,
+    "moneda": "CLP",
+    "frecuencia": "mensual",
+    "categoria": "",
+    "buscar": [],
+    "tolerancia": 5,
+    "activo": false,
+    "desde": "2026-09-01",
+    "origen": "manual",
+    "pagos": {},
+    "dia": 1
+   },
+   {
+    "id": "c-patente1",
+    "nombre": "Patente",
+    "tipo": "cuenta",
+    "signo": "gasto",
+    "monto": 120000,
+    "moneda": "CLP",
+    "frecuencia": "anual",
+    "categoria": "",
+    "buscar": [],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-03-01",
+    "origen": "manual",
+    "pagos": {},
+    "fecha": "2026-03-31"
+   }
+  ],
+  "movimientos": [
+   {
+    "id": "m01",
+    "fecha": "2026-09-01",
+    "descripcion": "ARRIENDO DEPTO",
+    "monto": -420000,
+    "categoria": "casa",
+    "moneda": "CLP"
+   },
+   {
+    "id": "m02",
+    "fecha": "2026-09-30",
+    "descripcion": "ARRIENDO DEPTO",
+    "monto": -420000,
+    "categoria": "casa",
+    "moneda": "CLP"
+   },
+   {
+    "id": "m03",
+    "fecha": "2026-09-20",
+    "descripcion": "CREDITO AUTOMOTRIZ CUOTA 12/36",
+    "monto": -189000,
+    "categoria": "auto",
+    "moneda": "CLP"
+   },
+   {
+    "id": "m04",
+    "fecha": "2026-09-10",
+    "descripcion": "PLAN MOVIL",
+    "monto": -12990,
+    "categoria": "cuentas",
+    "moneda": "CLP"
+   },
+   {
+    "id": "m05",
+    "fecha": "2026-10-05",
+    "descripcion": "REMUNERACION EMPRESA FICTICIA",
+    "monto": 1450000,
+    "categoria": "sueldo",
+    "moneda": "CLP"
+   },
+   {
+    "id": "m06",
+    "fecha": "2026-09-05",
+    "descripcion": "Remuneración Empresa Ficticia",
+    "monto": 1449000,
+    "categoria": "sueldo",
+    "moneda": "CLP"
+   },
+   {
+    "id": "m07",
+    "fecha": "2026-10-07",
+    "descripcion": "TRANSFERENCIA CLASES",
+    "monto": -15000,
+    "categoria": "",
+    "moneda": "CLP"
+   },
+   {
+    "id": "m08",
+    "fecha": "2026-10-12",
+    "descripcion": "SEGURO AUTO",
+    "monto": -25000,
+    "categoria": "auto",
+    "moneda": "CLP"
+   },
+   {
+    "id": "m09",
+    "fecha": "2026-10-11",
+    "descripcion": "PAGO CUOTA",
+    "monto": -50000,
+    "categoria": "",
+    "moneda": "CLP"
+   },
+   {
+    "id": "m10",
+    "fecha": "2026-10-14",
+    "descripcion": "STREAMING PELIS",
+    "monto": -9990,
+    "categoria": "suscripciones",
+    "moneda": "USD"
+   },
+   {
+    "id": "m11",
+    "fecha": "2026-10-03",
+    "descripcion": "SUPERMERCADO",
+    "monto": -60000,
+    "categoria": "supermercado",
+    "moneda": "CLP"
+   },
+   {
+    "id": "m12",
+    "fecha": "2026-10-09",
+    "descripcion": "SUPERMERCADO",
+    "monto": -40000,
+    "categoria": "supermercado",
+    "moneda": "CLP"
+   },
+   {
+    "id": "m13",
+    "fecha": "2026-09-15",
+    "descripcion": "SUPERMERCADO",
+    "monto": -150000,
+    "categoria": "supermercado",
+    "moneda": "CLP"
+   },
+   {
+    "id": "m14",
+    "fecha": "2026-08-15",
+    "descripcion": "SUPERMERCADO",
+    "monto": -170000,
+    "categoria": "supermercado",
+    "moneda": "CLP"
+   },
+   {
+    "id": "m15",
+    "fecha": "2026-08-15",
+    "descripcion": "CAFE",
+    "monto": -30000,
+    "categoria": "comida",
+    "moneda": "CLP"
+   },
+   {
+    "id": "m16",
+    "fecha": "2026-09-16",
+    "descripcion": "CAFE",
+    "monto": -50000,
+    "categoria": "comida",
+    "moneda": "CLP"
+   },
+   {
+    "id": "m17",
+    "fecha": "2026-10-10",
+    "descripcion": "CAFE",
+    "monto": -20000,
+    "categoria": "comida",
+    "moneda": "CLP"
+   },
+   {
+    "id": "m18",
+    "fecha": "2026-09-08",
+    "descripcion": "LUZ",
+    "monto": -30000,
+    "categoria": "cuentas",
+    "moneda": "CLP"
+   },
+   {
+    "id": "m19",
+    "fecha": "2026-08-08",
+    "descripcion": "LUZ",
+    "monto": -34000,
+    "categoria": "cuentas",
+    "moneda": "CLP"
+   },
+   {
+    "id": "m20",
+    "fecha": "2026-08-20",
+    "descripcion": "CREDITO AUTOMOTRIZ CUOTA 11/36",
+    "monto": -189000,
+    "categoria": "auto",
+    "moneda": "CLP"
+   },
+   {
+    "id": "m21",
+    "fecha": "2026-08-05",
+    "descripcion": "REMUNERACION EMPRESA FICTICIA",
+    "monto": 1450000,
+    "categoria": "sueldo",
+    "moneda": "CLP"
+   },
+   {
+    "id": "m22",
+    "fecha": "2026-09-12",
+    "descripcion": "BENCINA",
+    "monto": -40000,
+    "categoria": "auto",
+    "moneda": "CLP"
+   }
+  ],
+  "estado": [
+   {
+    "nombre": "mes en curso: pagado, pendiente, hoy, atrasado, arrastre",
+    "mes": "2026-10",
+    "hoy": "2026-10-18",
+    "moneda": "CLP",
+    "esperado": {
+     "mes": "2026-10",
+     "moneda": "CLP",
+     "items": [
+      {
+       "id": "c-stream01",
+       "nombre": "Streaming",
+       "tipo": "suscripcion",
+       "signo": "gasto",
+       "monto": 9990,
+       "moneda": "CLP",
+       "categoria": "suscripciones",
+       "periodo": "2026-09",
+       "vence": "2026-09-28",
+       "estado": "atrasado",
+       "dias": 20,
+       "pago": null,
+       "cuota": null,
+       "anterior": true
+      },
+      {
+       "id": "c-arriendo1",
+       "nombre": "Arriendo",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 420000,
+       "moneda": "CLP",
+       "categoria": "casa",
+       "periodo": "2026-10",
+       "vence": "2026-10-01",
+       "estado": "pagado",
+       "dias": 0,
+       "pago": {
+        "como": "automatico",
+        "fecha": "2026-09-30",
+        "monto": 420000,
+        "movimiento": "m02",
+        "descripcion": "ARRIENDO DEPTO"
+       },
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-sueldo01",
+       "nombre": "Sueldo",
+       "tipo": "ingreso",
+       "signo": "ingreso",
+       "monto": 1450000,
+       "moneda": "CLP",
+       "categoria": "sueldo",
+       "periodo": "2026-10",
+       "vence": "2026-10-05",
+       "estado": "pagado",
+       "dias": 0,
+       "pago": {
+        "como": "automatico",
+        "fecha": "2026-10-05",
+        "monto": 1450000,
+        "movimiento": "m05",
+        "descripcion": "REMUNERACION EMPRESA FICTICIA"
+       },
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-clases01",
+       "nombre": "Clases",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 15000,
+       "moneda": "CLP",
+       "categoria": "",
+       "periodo": "2026-10-07",
+       "vence": "2026-10-07",
+       "estado": "pagado",
+       "dias": 0,
+       "pago": {
+        "como": "automatico",
+        "fecha": "2026-10-07",
+        "monto": 15000,
+        "movimiento": "m07",
+        "descripcion": "TRANSFERENCIA CLASES"
+       },
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-celular1",
+       "nombre": "Plan de celular",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 12990,
+       "moneda": "CLP",
+       "categoria": "cuentas",
+       "periodo": "2026-10",
+       "vence": "2026-10-10",
+       "estado": "atrasado",
+       "dias": 8,
+       "pago": null,
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-cuotaa01",
+       "nombre": "Cuota A",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 50000,
+       "moneda": "CLP",
+       "categoria": "",
+       "periodo": "2026-10",
+       "vence": "2026-10-10",
+       "estado": "pagado",
+       "dias": 0,
+       "pago": {
+        "como": "automatico",
+        "fecha": "2026-10-11",
+        "monto": 50000,
+        "movimiento": "m09",
+        "descripcion": "PAGO CUOTA"
+       },
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-cuotab01",
+       "nombre": "Cuota B",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 50000,
+       "moneda": "CLP",
+       "categoria": "",
+       "periodo": "2026-10",
+       "vence": "2026-10-12",
+       "estado": "atrasado",
+       "dias": 6,
+       "pago": null,
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-seguro01",
+       "nombre": "Seguro",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 25000,
+       "moneda": "CLP",
+       "categoria": "",
+       "periodo": "2026-10",
+       "vence": "2026-10-12",
+       "estado": "atrasado",
+       "dias": 6,
+       "pago": null,
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-clases01",
+       "nombre": "Clases",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 15000,
+       "moneda": "CLP",
+       "categoria": "",
+       "periodo": "2026-10-14",
+       "vence": "2026-10-14",
+       "estado": "atrasado",
+       "dias": 4,
+       "pago": null,
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-permiso1",
+       "nombre": "Permiso de circulación",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 80000,
+       "moneda": "CLP",
+       "categoria": "",
+       "periodo": "2026-10-15",
+       "vence": "2026-10-15",
+       "estado": "pagado",
+       "dias": 0,
+       "pago": {
+        "como": "manual",
+        "fecha": "2026-10-16",
+        "monto": 80000
+       },
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-credito1",
+       "nombre": "Crédito automotriz",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 189000,
+       "moneda": "CLP",
+       "categoria": "auto",
+       "periodo": "2026-10",
+       "vence": "2026-10-20",
+       "estado": "pendiente",
+       "dias": 2,
+       "pago": null,
+       "cuota": {
+        "numero": 13,
+        "total": 36
+       },
+       "anterior": false
+      },
+      {
+       "id": "c-clases01",
+       "nombre": "Clases",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 15000,
+       "moneda": "CLP",
+       "categoria": "",
+       "periodo": "2026-10-21",
+       "vence": "2026-10-21",
+       "estado": "pendiente",
+       "dias": 3,
+       "pago": null,
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-clases01",
+       "nombre": "Clases",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 15000,
+       "moneda": "CLP",
+       "categoria": "",
+       "periodo": "2026-10-28",
+       "vence": "2026-10-28",
+       "estado": "pendiente",
+       "dias": 10,
+       "pago": null,
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-stream01",
+       "nombre": "Streaming",
+       "tipo": "suscripcion",
+       "signo": "gasto",
+       "monto": 9990,
+       "moneda": "CLP",
+       "categoria": "suscripciones",
+       "periodo": "2026-10",
+       "vence": "2026-10-28",
+       "estado": "pendiente",
+       "dias": 10,
+       "pago": null,
+       "cuota": null,
+       "anterior": false
+      }
+     ],
+     "total": 896980,
+     "pagado": 565000,
+     "pendiente": 341970,
+     "atrasado": 112980,
+     "arrastre": 9990,
+     "ingresos_esperados": 1450000,
+     "ingresos_recibidos": 1450000,
+     "compromisos": [
+      {
+       "id": "c-arriendo1",
+       "nombre": "Arriendo",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 420000,
+       "moneda": "CLP",
+       "frecuencia": "mensual",
+       "categoria": "casa",
+       "mensual": 420000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-credito1",
+       "nombre": "Crédito automotriz",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 189000,
+       "moneda": "CLP",
+       "frecuencia": "mensual",
+       "categoria": "auto",
+       "mensual": 189000,
+       "cuotas": {
+        "pagadas": 12,
+        "total": 36,
+        "quedan": 24
+       },
+       "saldo": null,
+       "por_pagar": 4536000,
+       "termina": "2028-09-20"
+      },
+      {
+       "id": "c-celular1",
+       "nombre": "Plan de celular",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 12990,
+       "moneda": "CLP",
+       "frecuencia": "mensual",
+       "categoria": "cuentas",
+       "mensual": 12990,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-sueldo01",
+       "nombre": "Sueldo",
+       "tipo": "ingreso",
+       "signo": "ingreso",
+       "monto": 1450000,
+       "moneda": "CLP",
+       "frecuencia": "mensual",
+       "categoria": "sueldo",
+       "mensual": 1450000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-stream01",
+       "nombre": "Streaming",
+       "tipo": "suscripcion",
+       "signo": "gasto",
+       "monto": 9990,
+       "moneda": "CLP",
+       "frecuencia": "mensual",
+       "categoria": "suscripciones",
+       "mensual": 9990,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-clases01",
+       "nombre": "Clases",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 15000,
+       "moneda": "CLP",
+       "frecuencia": "semanal",
+       "categoria": "",
+       "mensual": 65000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-permiso1",
+       "nombre": "Permiso de circulación",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 80000,
+       "moneda": "CLP",
+       "frecuencia": "una_vez",
+       "categoria": "",
+       "mensual": 0,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-seguro01",
+       "nombre": "Seguro",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 25000,
+       "moneda": "CLP",
+       "frecuencia": "mensual",
+       "categoria": "",
+       "mensual": 25000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-cuotaa01",
+       "nombre": "Cuota A",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 50000,
+       "moneda": "CLP",
+       "frecuencia": "mensual",
+       "categoria": "",
+       "mensual": 50000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-cuotab01",
+       "nombre": "Cuota B",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 50000,
+       "moneda": "CLP",
+       "frecuencia": "mensual",
+       "categoria": "",
+       "mensual": 50000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-patente1",
+       "nombre": "Patente",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 120000,
+       "moneda": "CLP",
+       "frecuencia": "anual",
+       "categoria": "",
+       "mensual": 10000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      }
+     ]
+    }
+   },
+   {
+    "nombre": "mes pasado",
+    "mes": "2026-09",
+    "hoy": "2026-10-18",
+    "moneda": "CLP",
+    "esperado": {
+     "mes": "2026-09",
+     "moneda": "CLP",
+     "items": [
+      {
+       "id": "c-arriendo1",
+       "nombre": "Arriendo",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 420000,
+       "moneda": "CLP",
+       "categoria": "casa",
+       "periodo": "2026-09",
+       "vence": "2026-09-01",
+       "estado": "pagado",
+       "dias": 0,
+       "pago": {
+        "como": "automatico",
+        "fecha": "2026-09-01",
+        "monto": 420000,
+        "movimiento": "m01",
+        "descripcion": "ARRIENDO DEPTO"
+       },
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-sueldo01",
+       "nombre": "Sueldo",
+       "tipo": "ingreso",
+       "signo": "ingreso",
+       "monto": 1450000,
+       "moneda": "CLP",
+       "categoria": "sueldo",
+       "periodo": "2026-09",
+       "vence": "2026-09-05",
+       "estado": "pagado",
+       "dias": 0,
+       "pago": {
+        "como": "automatico",
+        "fecha": "2026-09-05",
+        "monto": 1449000,
+        "movimiento": "m06",
+        "descripcion": "Remuneración Empresa Ficticia"
+       },
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-celular1",
+       "nombre": "Plan de celular",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 12990,
+       "moneda": "CLP",
+       "categoria": "cuentas",
+       "periodo": "2026-09",
+       "vence": "2026-09-10",
+       "estado": "pagado",
+       "dias": 0,
+       "pago": {
+        "como": "automatico",
+        "fecha": "2026-09-10",
+        "monto": 12990,
+        "movimiento": "m04",
+        "descripcion": "PLAN MOVIL"
+       },
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-cuotab01",
+       "nombre": "Cuota B",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 50000,
+       "moneda": "CLP",
+       "categoria": "",
+       "periodo": "2026-09",
+       "vence": "2026-09-12",
+       "estado": "pagado",
+       "dias": 0,
+       "pago": {
+        "como": "automatico",
+        "fecha": "2026-09-16",
+        "monto": 50000,
+        "movimiento": "m16",
+        "descripcion": "CAFE"
+       },
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-credito1",
+       "nombre": "Crédito automotriz",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 189000,
+       "moneda": "CLP",
+       "categoria": "auto",
+       "periodo": "2026-09",
+       "vence": "2026-09-20",
+       "estado": "pagado",
+       "dias": 0,
+       "pago": {
+        "como": "automatico",
+        "fecha": "2026-09-20",
+        "monto": 189000,
+        "movimiento": "m03",
+        "descripcion": "CREDITO AUTOMOTRIZ CUOTA 12/36"
+       },
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-stream01",
+       "nombre": "Streaming",
+       "tipo": "suscripcion",
+       "signo": "gasto",
+       "monto": 9990,
+       "moneda": "CLP",
+       "categoria": "suscripciones",
+       "periodo": "2026-09",
+       "vence": "2026-09-28",
+       "estado": "atrasado",
+       "dias": 20,
+       "pago": null,
+       "cuota": null,
+       "anterior": false
+      }
+     ],
+     "total": 681980,
+     "pagado": 671990,
+     "pendiente": 9990,
+     "atrasado": 9990,
+     "arrastre": 0,
+     "ingresos_esperados": 1450000,
+     "ingresos_recibidos": 1450000,
+     "compromisos": [
+      {
+       "id": "c-arriendo1",
+       "nombre": "Arriendo",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 420000,
+       "moneda": "CLP",
+       "frecuencia": "mensual",
+       "categoria": "casa",
+       "mensual": 420000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-credito1",
+       "nombre": "Crédito automotriz",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 189000,
+       "moneda": "CLP",
+       "frecuencia": "mensual",
+       "categoria": "auto",
+       "mensual": 189000,
+       "cuotas": {
+        "pagadas": 12,
+        "total": 36,
+        "quedan": 24
+       },
+       "saldo": null,
+       "por_pagar": 4536000,
+       "termina": "2028-09-20"
+      },
+      {
+       "id": "c-celular1",
+       "nombre": "Plan de celular",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 12990,
+       "moneda": "CLP",
+       "frecuencia": "mensual",
+       "categoria": "cuentas",
+       "mensual": 12990,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-sueldo01",
+       "nombre": "Sueldo",
+       "tipo": "ingreso",
+       "signo": "ingreso",
+       "monto": 1450000,
+       "moneda": "CLP",
+       "frecuencia": "mensual",
+       "categoria": "sueldo",
+       "mensual": 1450000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-stream01",
+       "nombre": "Streaming",
+       "tipo": "suscripcion",
+       "signo": "gasto",
+       "monto": 9990,
+       "moneda": "CLP",
+       "frecuencia": "mensual",
+       "categoria": "suscripciones",
+       "mensual": 9990,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-clases01",
+       "nombre": "Clases",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 15000,
+       "moneda": "CLP",
+       "frecuencia": "semanal",
+       "categoria": "",
+       "mensual": 65000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-permiso1",
+       "nombre": "Permiso de circulación",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 80000,
+       "moneda": "CLP",
+       "frecuencia": "una_vez",
+       "categoria": "",
+       "mensual": 0,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-seguro01",
+       "nombre": "Seguro",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 25000,
+       "moneda": "CLP",
+       "frecuencia": "mensual",
+       "categoria": "",
+       "mensual": 25000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-cuotaa01",
+       "nombre": "Cuota A",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 50000,
+       "moneda": "CLP",
+       "frecuencia": "mensual",
+       "categoria": "",
+       "mensual": 50000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-cuotab01",
+       "nombre": "Cuota B",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 50000,
+       "moneda": "CLP",
+       "frecuencia": "mensual",
+       "categoria": "",
+       "mensual": 50000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-patente1",
+       "nombre": "Patente",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 120000,
+       "moneda": "CLP",
+       "frecuencia": "anual",
+       "categoria": "",
+       "mensual": 10000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      }
+     ]
+    }
+   },
+   {
+    "nombre": "vence hoy",
+    "mes": "2026-10",
+    "hoy": "2026-10-12",
+    "moneda": "CLP",
+    "esperado": {
+     "mes": "2026-10",
+     "moneda": "CLP",
+     "items": [
+      {
+       "id": "c-stream01",
+       "nombre": "Streaming",
+       "tipo": "suscripcion",
+       "signo": "gasto",
+       "monto": 9990,
+       "moneda": "CLP",
+       "categoria": "suscripciones",
+       "periodo": "2026-09",
+       "vence": "2026-09-28",
+       "estado": "atrasado",
+       "dias": 14,
+       "pago": null,
+       "cuota": null,
+       "anterior": true
+      },
+      {
+       "id": "c-arriendo1",
+       "nombre": "Arriendo",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 420000,
+       "moneda": "CLP",
+       "categoria": "casa",
+       "periodo": "2026-10",
+       "vence": "2026-10-01",
+       "estado": "pagado",
+       "dias": 0,
+       "pago": {
+        "como": "automatico",
+        "fecha": "2026-09-30",
+        "monto": 420000,
+        "movimiento": "m02",
+        "descripcion": "ARRIENDO DEPTO"
+       },
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-sueldo01",
+       "nombre": "Sueldo",
+       "tipo": "ingreso",
+       "signo": "ingreso",
+       "monto": 1450000,
+       "moneda": "CLP",
+       "categoria": "sueldo",
+       "periodo": "2026-10",
+       "vence": "2026-10-05",
+       "estado": "pagado",
+       "dias": 0,
+       "pago": {
+        "como": "automatico",
+        "fecha": "2026-10-05",
+        "monto": 1450000,
+        "movimiento": "m05",
+        "descripcion": "REMUNERACION EMPRESA FICTICIA"
+       },
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-clases01",
+       "nombre": "Clases",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 15000,
+       "moneda": "CLP",
+       "categoria": "",
+       "periodo": "2026-10-07",
+       "vence": "2026-10-07",
+       "estado": "pagado",
+       "dias": 0,
+       "pago": {
+        "como": "automatico",
+        "fecha": "2026-10-07",
+        "monto": 15000,
+        "movimiento": "m07",
+        "descripcion": "TRANSFERENCIA CLASES"
+       },
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-celular1",
+       "nombre": "Plan de celular",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 12990,
+       "moneda": "CLP",
+       "categoria": "cuentas",
+       "periodo": "2026-10",
+       "vence": "2026-10-10",
+       "estado": "atrasado",
+       "dias": 2,
+       "pago": null,
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-cuotaa01",
+       "nombre": "Cuota A",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 50000,
+       "moneda": "CLP",
+       "categoria": "",
+       "periodo": "2026-10",
+       "vence": "2026-10-10",
+       "estado": "pagado",
+       "dias": 0,
+       "pago": {
+        "como": "automatico",
+        "fecha": "2026-10-11",
+        "monto": 50000,
+        "movimiento": "m09",
+        "descripcion": "PAGO CUOTA"
+       },
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-cuotab01",
+       "nombre": "Cuota B",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 50000,
+       "moneda": "CLP",
+       "categoria": "",
+       "periodo": "2026-10",
+       "vence": "2026-10-12",
+       "estado": "hoy",
+       "dias": 0,
+       "pago": null,
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-seguro01",
+       "nombre": "Seguro",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 25000,
+       "moneda": "CLP",
+       "categoria": "",
+       "periodo": "2026-10",
+       "vence": "2026-10-12",
+       "estado": "hoy",
+       "dias": 0,
+       "pago": null,
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-clases01",
+       "nombre": "Clases",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 15000,
+       "moneda": "CLP",
+       "categoria": "",
+       "periodo": "2026-10-14",
+       "vence": "2026-10-14",
+       "estado": "pendiente",
+       "dias": 2,
+       "pago": null,
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-permiso1",
+       "nombre": "Permiso de circulación",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 80000,
+       "moneda": "CLP",
+       "categoria": "",
+       "periodo": "2026-10-15",
+       "vence": "2026-10-15",
+       "estado": "pagado",
+       "dias": 0,
+       "pago": {
+        "como": "manual",
+        "fecha": "2026-10-16",
+        "monto": 80000
+       },
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-credito1",
+       "nombre": "Crédito automotriz",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 189000,
+       "moneda": "CLP",
+       "categoria": "auto",
+       "periodo": "2026-10",
+       "vence": "2026-10-20",
+       "estado": "pendiente",
+       "dias": 8,
+       "pago": null,
+       "cuota": {
+        "numero": 13,
+        "total": 36
+       },
+       "anterior": false
+      },
+      {
+       "id": "c-clases01",
+       "nombre": "Clases",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 15000,
+       "moneda": "CLP",
+       "categoria": "",
+       "periodo": "2026-10-21",
+       "vence": "2026-10-21",
+       "estado": "pendiente",
+       "dias": 9,
+       "pago": null,
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-clases01",
+       "nombre": "Clases",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 15000,
+       "moneda": "CLP",
+       "categoria": "",
+       "periodo": "2026-10-28",
+       "vence": "2026-10-28",
+       "estado": "pendiente",
+       "dias": 16,
+       "pago": null,
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-stream01",
+       "nombre": "Streaming",
+       "tipo": "suscripcion",
+       "signo": "gasto",
+       "monto": 9990,
+       "moneda": "CLP",
+       "categoria": "suscripciones",
+       "periodo": "2026-10",
+       "vence": "2026-10-28",
+       "estado": "pendiente",
+       "dias": 16,
+       "pago": null,
+       "cuota": null,
+       "anterior": false
+      }
+     ],
+     "total": 896980,
+     "pagado": 565000,
+     "pendiente": 341970,
+     "atrasado": 22980,
+     "arrastre": 9990,
+     "ingresos_esperados": 1450000,
+     "ingresos_recibidos": 1450000,
+     "compromisos": [
+      {
+       "id": "c-arriendo1",
+       "nombre": "Arriendo",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 420000,
+       "moneda": "CLP",
+       "frecuencia": "mensual",
+       "categoria": "casa",
+       "mensual": 420000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-credito1",
+       "nombre": "Crédito automotriz",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 189000,
+       "moneda": "CLP",
+       "frecuencia": "mensual",
+       "categoria": "auto",
+       "mensual": 189000,
+       "cuotas": {
+        "pagadas": 12,
+        "total": 36,
+        "quedan": 24
+       },
+       "saldo": null,
+       "por_pagar": 4536000,
+       "termina": "2028-09-20"
+      },
+      {
+       "id": "c-celular1",
+       "nombre": "Plan de celular",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 12990,
+       "moneda": "CLP",
+       "frecuencia": "mensual",
+       "categoria": "cuentas",
+       "mensual": 12990,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-sueldo01",
+       "nombre": "Sueldo",
+       "tipo": "ingreso",
+       "signo": "ingreso",
+       "monto": 1450000,
+       "moneda": "CLP",
+       "frecuencia": "mensual",
+       "categoria": "sueldo",
+       "mensual": 1450000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-stream01",
+       "nombre": "Streaming",
+       "tipo": "suscripcion",
+       "signo": "gasto",
+       "monto": 9990,
+       "moneda": "CLP",
+       "frecuencia": "mensual",
+       "categoria": "suscripciones",
+       "mensual": 9990,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-clases01",
+       "nombre": "Clases",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 15000,
+       "moneda": "CLP",
+       "frecuencia": "semanal",
+       "categoria": "",
+       "mensual": 65000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-permiso1",
+       "nombre": "Permiso de circulación",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 80000,
+       "moneda": "CLP",
+       "frecuencia": "una_vez",
+       "categoria": "",
+       "mensual": 0,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-seguro01",
+       "nombre": "Seguro",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 25000,
+       "moneda": "CLP",
+       "frecuencia": "mensual",
+       "categoria": "",
+       "mensual": 25000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-cuotaa01",
+       "nombre": "Cuota A",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 50000,
+       "moneda": "CLP",
+       "frecuencia": "mensual",
+       "categoria": "",
+       "mensual": 50000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-cuotab01",
+       "nombre": "Cuota B",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 50000,
+       "moneda": "CLP",
+       "frecuencia": "mensual",
+       "categoria": "",
+       "mensual": 50000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-patente1",
+       "nombre": "Patente",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 120000,
+       "moneda": "CLP",
+       "frecuencia": "anual",
+       "categoria": "",
+       "mensual": 10000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      }
+     ]
+    }
+   }
+  ],
+  "gasto_maximo": [
+   {
+    "nombre": "con sueldo como compromiso",
+    "mes": "2026-10",
+    "hoy": "2026-10-18",
+    "moneda": "CLP",
+    "meses_completos": [
+     "2026-08",
+     "2026-09"
+    ],
+    "esperado": {
+     "mes": "2026-10",
+     "moneda": "CLP",
+     "ingreso": 1450000,
+     "fuente": "compromisos",
+     "compromisos": 906970,
+     "otros_fijos": 32000,
+     "disponible": 511030,
+     "alcanza": true,
+     "por_categoria": [
+      {
+       "categoria": "supermercado",
+       "normal": 160000,
+       "maximo": 410000,
+       "gastado": 100000
+      },
+      {
+       "categoria": "auto",
+       "normal": 20000,
+       "maximo": 52000,
+       "gastado": 0
+      },
+      {
+       "categoria": "comida",
+       "normal": 15000,
+       "maximo": 39000,
+       "gastado": 20000
+      }
+     ]
+    }
+   },
+   {
+    "nombre": "sin ingresos comprometidos: promedio de 3 meses",
+    "mes": "2026-10",
+    "hoy": "2026-10-18",
+    "moneda": "CLP",
+    "meses_completos": [
+     "2026-08",
+     "2026-09"
+    ],
+    "compromisos_ids": [
+     "c-arriendo1",
+     "c-credito1",
+     "c-celular1",
+     "c-stream01",
+     "c-clases01",
+     "c-permiso1",
+     "c-seguro01",
+     "c-cuotaa01",
+     "c-cuotab01",
+     "c-viejo001",
+     "c-patente1"
+    ],
+    "extra": [],
+    "esperado": {
+     "mes": "2026-10",
+     "moneda": "CLP",
+     "ingreso": 1449500,
+     "fuente": "promedio",
+     "compromisos": 906970,
+     "otros_fijos": 32000,
+     "disponible": 510530,
+     "alcanza": true,
+     "por_categoria": [
+      {
+       "categoria": "supermercado",
+       "normal": 160000,
+       "maximo": 410000,
+       "gastado": 100000
+      },
+      {
+       "categoria": "auto",
+       "normal": 20000,
+       "maximo": 52000,
+       "gastado": 0
+      },
+      {
+       "categoria": "comida",
+       "normal": 15000,
+       "maximo": 39000,
+       "gastado": 20000
+      }
+     ]
+    }
+   },
+   {
+    "nombre": "los compromisos superan lo que entra",
+    "mes": "2026-10",
+    "hoy": "2026-10-18",
+    "moneda": "CLP",
+    "meses_completos": [
+     "2026-08",
+     "2026-09"
+    ],
+    "compromisos_ids": [
+     "c-arriendo1",
+     "c-credito1",
+     "c-celular1",
+     "c-stream01",
+     "c-clases01",
+     "c-permiso1",
+     "c-seguro01",
+     "c-cuotaa01",
+     "c-cuotab01",
+     "c-viejo001",
+     "c-patente1"
+    ],
+    "extra": [
+     {
+      "id": "c-grande01",
+      "nombre": "Grande",
+      "tipo": "cuenta",
+      "signo": "gasto",
+      "monto": 3000000,
+      "moneda": "CLP",
+      "frecuencia": "mensual",
+      "categoria": "",
+      "buscar": [],
+      "tolerancia": 5,
+      "activo": true,
+      "desde": "2026-10-01",
+      "origen": "manual",
+      "pagos": {},
+      "dia": 25
+     }
+    ],
+    "esperado": {
+     "mes": "2026-10",
+     "moneda": "CLP",
+     "ingreso": 1449500,
+     "fuente": "promedio",
+     "compromisos": 3906970,
+     "otros_fijos": 32000,
+     "disponible": -2489470,
+     "alcanza": false,
+     "por_categoria": [
+      {
+       "categoria": "supermercado",
+       "normal": 160000,
+       "maximo": 0,
+       "gastado": 100000
+      },
+      {
+       "categoria": "comida",
+       "normal": 15000,
+       "maximo": 0,
+       "gastado": 20000
+      },
+      {
+       "categoria": "auto",
+       "normal": 20000,
+       "maximo": 0,
+       "gastado": 0
+      }
+     ]
+    }
+   },
+   {
+    "nombre": "sin ingresos ni historia",
+    "mes": "2026-10",
+    "hoy": "2026-10-18",
+    "moneda": "CLP",
+    "meses_completos": [
+     "2026-08",
+     "2026-09"
+    ],
+    "compromisos_ids": [],
+    "extra": [],
+    "movimientos_ids": [
+     "m07",
+     "m08",
+     "m09",
+     "m10",
+     "m11",
+     "m12",
+     "m17"
+    ],
+    "esperado": {
+     "mes": "2026-10",
+     "moneda": "CLP",
+     "ingreso": null,
+     "fuente": "",
+     "compromisos": 0,
+     "otros_fijos": 0,
+     "disponible": null,
+     "alcanza": false,
+     "por_categoria": [
+      {
+       "categoria": "supermercado",
+       "normal": 0,
+       "maximo": 0,
+       "gastado": 100000
+      },
+      {
+       "categoria": "auto",
+       "normal": 0,
+       "maximo": 0,
+       "gastado": 25000
+      },
+      {
+       "categoria": "comida",
+       "normal": 0,
+       "maximo": 0,
+       "gastado": 20000
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "periodos": {
+  "_nota": "Mes de sueldo a sueldo (resumen.rango / compromisos.periodo ↔ rango / periodoConfig en ui/app.js).",
+  "rango": [
+   {
+    "nombre": "calendario",
+    "mes": "2026-02",
+    "per": null,
+    "esperado": [
+     "2026-02-01",
+     "2026-02-28"
+    ]
+   },
+   {
+    "nombre": "modo día es calendario",
+    "mes": "2026-02",
+    "per": {
+     "modo": "dia",
+     "dia": 25
+    },
+    "esperado": [
+     "2026-02-01",
+     "2026-02-28"
+    ]
+   },
+   {
+    "nombre": "sueldo el 25: el periodo se llama como el mes donde termina",
+    "mes": "2026-11",
+    "per": {
+     "modo": "sueldo",
+     "dia": 25,
+     "llegadas": []
+    },
+    "esperado": [
+     "2026-10-25",
+     "2026-11-24"
+    ]
+   },
+   {
+    "nombre": "sueldo adelantado al 15: el periodo termina antes",
+    "mes": "2026-11",
+    "per": {
+     "modo": "sueldo",
+     "dia": 25,
+     "llegadas": [
+      "2026-11-15"
+     ]
+    },
+    "esperado": [
+     "2026-10-25",
+     "2026-11-14"
+    ]
+   },
+   {
+    "nombre": "sueldo adelantado al 15: el siguiente parte ese día",
+    "mes": "2026-12",
+    "per": {
+     "modo": "sueldo",
+     "dia": 25,
+     "llegadas": [
+      "2026-11-15"
+     ]
+    },
+    "esperado": [
+     "2026-11-15",
+     "2026-12-24"
+    ]
+   },
+   {
+    "nombre": "sueldo aún no llega: parte en el día de siempre",
+    "mes": "2026-12",
+    "per": {
+     "modo": "sueldo",
+     "dia": 25,
+     "llegadas": [
+      "2026-10-24"
+     ]
+    },
+    "esperado": [
+     "2026-11-25",
+     "2026-12-24"
+    ]
+   },
+   {
+    "nombre": "llegada muy lejos del día: no se usa",
+    "mes": "2026-11",
+    "per": {
+     "modo": "sueldo",
+     "dia": 25,
+     "llegadas": [
+      "2026-09-20"
+     ]
+    },
+    "esperado": [
+     "2026-10-25",
+     "2026-11-24"
+    ]
+   },
+   {
+    "nombre": "día 31 con febrero",
+    "mes": "2026-03",
+    "per": {
+     "modo": "sueldo",
+     "dia": 31,
+     "llegadas": []
+    },
+    "esperado": [
+     "2026-02-28",
+     "2026-03-30"
+    ]
+   },
+   {
+    "nombre": "día 30 y febrero de 28 días",
+    "mes": "2027-02",
+    "per": {
+     "modo": "sueldo",
+     "dia": 30,
+     "llegadas": []
+    },
+    "esperado": [
+     "2027-01-30",
+     "2027-02-27"
+    ]
+   },
+   {
+    "nombre": "sueldo el 5: el periodo se llama como el mes donde parte",
+    "mes": "2026-10",
+    "per": {
+     "modo": "sueldo",
+     "dia": 5,
+     "llegadas": []
+    },
+    "esperado": [
+     "2026-10-05",
+     "2026-11-04"
+    ]
+   },
+   {
+    "nombre": "el sueldo llegó lejos del día elegido (el 5 en vez del 25): no mueve el inicio",
+    "mes": "2026-10",
+    "per": {
+     "modo": "sueldo",
+     "dia": 25,
+     "llegadas": [
+      "2026-09-05",
+      "2026-10-05"
+     ]
+    },
+    "esperado": [
+     "2026-09-25",
+     "2026-10-24"
+    ]
+   },
+   {
+    "nombre": "llegó 12 días antes: todavía cuenta",
+    "mes": "2026-11",
+    "per": {
+     "modo": "sueldo",
+     "dia": 25,
+     "llegadas": [
+      "2026-10-13"
+     ]
+    },
+    "esperado": [
+     "2026-10-13",
+     "2026-11-24"
+    ]
+   }
+  ],
+  "periodo_de": [
+   {
+    "fecha": "2026-10-26",
+    "per": {
+     "modo": "sueldo",
+     "dia": 25,
+     "llegadas": []
+    },
+    "esperado": "2026-11"
+   },
+   {
+    "fecha": "2026-10-24",
+    "per": {
+     "modo": "sueldo",
+     "dia": 25,
+     "llegadas": []
+    },
+    "esperado": "2026-10"
+   },
+   {
+    "fecha": "2026-11-16",
+    "per": {
+     "modo": "sueldo",
+     "dia": 25,
+     "llegadas": [
+      "2026-11-15"
+     ]
+    },
+    "esperado": "2026-12"
+   },
+   {
+    "fecha": "2026-11-03",
+    "per": {
+     "modo": "sueldo",
+     "dia": 5,
+     "llegadas": []
+    },
+    "esperado": "2026-10"
+   },
+   {
+    "fecha": "2026-10-26",
+    "per": null,
+    "esperado": "2026-10"
+   }
+  ],
+  "sueldo": {
+   "inicio_mes": {
+    "modo": "sueldo",
+    "dia": 25
+   },
+   "hoy": "2026-10-26",
+   "compromiso": {
+    "id": "c-sueldo0001",
+    "nombre": "Sueldo",
+    "tipo": "ingreso",
+    "signo": "ingreso",
+    "monto": 1450000,
+    "moneda": "CLP",
+    "frecuencia": "mensual",
+    "dia": 25,
+    "categoria": "sueldo",
+    "buscar": [
+     "REMUNERACION"
+    ],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-09-01",
+    "origen": "manual",
+    "pagos": {}
+   },
+   "movimientos": [
+    {
+     "id": "p1",
+     "fecha": "2026-09-25",
+     "descripcion": "REMUNERACION EMPRESA FICTICIA",
+     "monto": 1450000,
+     "moneda": "CLP",
+     "categoria": "sueldo"
+    },
+    {
+     "id": "p2",
+     "fecha": "2026-10-15",
+     "descripcion": "REMUNERACION EMPRESA FICTICIA",
+     "monto": 1450000,
+     "moneda": "CLP",
+     "categoria": "sueldo"
+    },
+    {
+     "id": "p3",
+     "fecha": "2026-10-20",
+     "descripcion": "BONO DE PRODUCTIVIDAD",
+     "monto": 200000,
+     "moneda": "CLP",
+     "categoria": "otros_ingresos"
+    },
+    {
+     "id": "p4",
+     "fecha": "2026-10-10",
+     "descripcion": "SUPERMERCADO",
+     "monto": -80000,
+     "moneda": "CLP",
+     "categoria": "supermercado"
+    },
+    {
+     "id": "p5",
+     "fecha": "2026-10-16",
+     "descripcion": "SUPERMERCADO",
+     "monto": -50000,
+     "moneda": "CLP",
+     "categoria": "supermercado"
+    },
+    {
+     "id": "p6",
+     "fecha": "2026-10-18",
+     "descripcion": "CAFE",
+     "monto": -3000,
+     "moneda": "CLP",
+     "categoria": "comida"
+    },
+    {
+     "id": "p7",
+     "fecha": "2026-10-22",
+     "descripcion": "CAFE",
+     "monto": -3000,
+     "moneda": "CLP",
+     "categoria": "comida"
+    },
+    {
+     "id": "p8",
+     "fecha": "2026-10-25",
+     "descripcion": "CAFE",
+     "monto": -3000,
+     "moneda": "CLP",
+     "categoria": "comida"
+    }
+   ],
+   "categorias": [
+    {
+     "id": "supermercado",
+     "tipo": "gasto"
+    },
+    {
+     "id": "comida",
+     "tipo": "gasto"
+    },
+    {
+     "id": "sueldo",
+     "tipo": "ingreso"
+    },
+    {
+     "id": "otros_ingresos",
+     "tipo": "ingreso"
+    }
+   ],
+   "presupuesto": {
+    "moneda": "CLP",
+    "mensual": {
+     "supermercado": 200000
+    }
+   },
+   "esperado_per": {
+    "modo": "sueldo",
+    "dia": 25,
+    "llegadas": [
+     "2026-09-25",
+     "2026-10-15"
+    ]
+   },
+   "esperado_periodo": "2026-11",
+   "esperado_resumen": {
+    "desde": "2026-10-15",
+    "hasta": "2026-11-24",
+    "dia": 12,
+    "dias_mes": 41,
+    "gastado": 59000,
+    "ingresos": 1650000,
+    "proyeccion": 80750,
+    "proyeccion_por_categoria": {
+     "supermercado": 50000,
+     "comida": 30750
+    }
+   },
+   "esperado_historia": {
+    "categoria": "",
+    "moneda": "CLP",
+    "tope": 200000,
+    "promedio": 80000,
+    "meses": [
+     {
+      "mes": "2026-09",
+      "gastado": 0,
+      "proyeccion": null,
+      "en_curso": false,
+      "con_datos": false
+     },
+     {
+      "mes": "2026-10",
+      "gastado": 80000,
+      "proyeccion": null,
+      "en_curso": false,
+      "con_datos": true
+     },
+     {
+      "mes": "2026-11",
+      "gastado": 59000,
+      "proyeccion": 80750,
+      "en_curso": true,
+      "con_datos": true
+     }
+    ]
+   },
+   "esperado_compromisos": {
+    "mes": "2026-11",
+    "moneda": "CLP",
+    "items": [
+     {
+      "id": "c-sueldo0001",
+      "nombre": "Sueldo",
+      "tipo": "ingreso",
+      "signo": "ingreso",
+      "monto": 1450000,
+      "moneda": "CLP",
+      "categoria": "sueldo",
+      "periodo": "2026-10",
+      "vence": "2026-10-25",
+      "estado": "pagado",
+      "dias": 0,
+      "pago": {
+       "como": "automatico",
+       "fecha": "2026-10-15",
+       "monto": 1450000,
+       "movimiento": "p2",
+       "descripcion": "REMUNERACION EMPRESA FICTICIA"
+      },
+      "cuota": null,
+      "anterior": false
+     }
+    ],
+    "total": 0,
+    "pagado": 0,
+    "pendiente": 0,
+    "atrasado": 0,
+    "arrastre": 0,
+    "ingresos_esperados": 1450000,
+    "ingresos_recibidos": 1450000
+   }
+  }
+ }
 }

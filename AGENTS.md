@@ -25,7 +25,7 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
 
 | Ruta | Qué es |
 |---|---|
-| `bin/` | Python **solo biblioteca estándar**. `datos.py` (formato en disco, ids, escritura atómica), `recetas.py` (validar, detectar y aplicar recetas; lee CSV y .xlsx sin librerías), `pdf.py` (texto de un PDF con posiciones → tabla), `categorizar.py` (reglas, comercios conocidos, IA), `resumen.py` (cuentas del mes, proyección, alertas, presupuesto sugerido, historia de 6 meses), `ia.py` (`preguntar()` con la IA del usuario). Scripts que llama la app: `estado.py` (todo lo que pinta la interfaz), `importar.py`, `receta_ia.py`, `consejos.py` y `guardar.py` (categoría, regla, presupuesto, receta; lo de la interfaz llega en un archivo JSON de entrada). El último argumento siempre es la ruta del JSON de salida. |
+| `bin/` | Python **solo biblioteca estándar**. `datos.py` (formato en disco, ids, escritura atómica), `recetas.py` (validar, detectar y aplicar recetas; lee CSV y .xlsx sin librerías), `pdf.py` (texto de un PDF con posiciones → tabla), `categorizar.py` (reglas, comercios conocidos, IA), `resumen.py` (cuentas del mes, proyección, alertas, presupuesto sugerido, historia de 6 meses, periodos de sueldo a sueldo), `compromisos.py` (validar, reconocer pagos, estado del mes, avance de deudas, gasto máximo, sugerir, avisos; palabras en `compromisos_conocidos.json`), `ia.py` (`preguntar()` con la IA del usuario). Scripts que llama la app: `estado.py` (todo lo que pinta la interfaz), `importar.py`, `receta_ia.py`, `compromiso_ia.py`, `consejos.py`, `compromisos.py avisos` y `guardar.py` (categoría, regla, presupuesto, receta, compromiso; lo de la interfaz llega en un archivo JSON de entrada). El último argumento siempre es la ruta del JSON de salida. |
 | `bin/conectores/` | Un módulo por servicio con API oficial (`INFO`, `probar`, `movimientos`). `bin/red.py` hace los pedidos HTTPS (solo a los dominios de cada conector). `bin/sincronizar.py probar|traer <conector>` los usa; `bin/vigilar.py` es la carpeta vigilada. |
 | `bin/mcp_servidor.py`, `bin/mcp_conectar.py` | Servidor MCP de solo lectura (stdio, JSON-RPC, sin dependencias) para que la IA de la persona consulte sus finanzas, y el script que lo registra en Claude Desktop, Claude Code, Codex/ChatGPT, Gemini CLI y Antigravity (con su comando oficial o editando su JSON con respaldo). |
 | `recetas/` | Recetas incluidas en la app (solo las probadas con una cartola real) y `README.md` con el formato. |
@@ -34,7 +34,7 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
 | `pruebas/` | `correr.sh` (todo), `test_python.py`, `interfaz.mjs` (Playwright), `casos.json` (casos compartidos Python ↔ JS), `ia_falsa.py`, `datos/` (cartola ficticia). |
 | `herramientas/` | `revisar_privacidad.sh`, `generar_demo.py`, `generar_pdf_prueba.py` (las cartolas PDF ficticias de `pruebas/datos/`). |
 | `ejemplos/` | Scripts para construir encima del formato abierto. |
-| `app/` | App de Mac (SwiftPM, macOS 15, sin proyecto de Xcode). `AlcanciaApp.swift` (arranque y barra de menú), `Ventana.swift` (WKWebView + puente: un `case` por acción), `Servicios.swift` (rutas, config, idioma, IA del usuario, `Procesador.correrJSON`), `Actualizaciones.swift` (GitHub Releases o `git pull` en un checkout de desarrollo). |
+| `app/` | App de Mac (SwiftPM, macOS 15, sin proyecto de Xcode). `AlcanciaApp.swift` (arranque y barra de menú), `Ventana.swift` (WKWebView + puente: un `case` por acción), `Servicios.swift` (rutas, config, idioma, IA del usuario, `Procesador.correrJSON`), `Actualizaciones.swift` (GitHub Releases o `git pull` en un checkout de desarrollo), `Avisos.swift` (notificaciones de compromisos). |
 | `build.sh`, `herramientas/empaquetar.sh` | Arman `dist/Alcancia.app` (con Python portátil verificado por SHA-256 y bin/, ui/, recetas/ adentro) + zip + `.sha256`; `build.sh` la instala en `~/Applications`. |
 
 ## Cómo funciona
@@ -50,6 +50,22 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
   (3+ gastos en el mes, categoría no `fijo`); lo fijo y lo esporádico queda como está. `historia` (Python) / `historia` (JS) da los
   6 meses que terminan en el mes elegido (total o una categoría, con su tope y el promedio de los meses anteriores con datos): la
   tarjeta «Comparado con los últimos meses» y la historia al tocar una categoría. `consejos.py` le pasa a la IA solo esos totales.
+- **Compromisos:** `~/Alcancia/compromisos.json` (formato en el README). La misma lógica en `bin/compromisos.py` y `ui/app.js`
+  (`vencimientos`, `coincide`, `asignar`, `estado_mes`/`estadoCompromisos`, `gasto_maximo`/`gastoMaximo`, `llegadas_sueldo`), probada
+  con `pruebas/casos.json` (sección `compromisos`). Un pago se reconoce con signo, moneda, monto ±tolerancia y una palabra de `buscar`
+  (o monto exacto), entre 10 días antes y 7 después; un movimiento cuenta para un solo compromiso (lo marcado a mano primero, luego
+  las parejas más cercanas en fecha y monto); un vencimiento anterior a `desde` solo con un pago anterior a `desde`. `estado.py`
+  anota los reconocidos (`fijar_automaticos`) y manda las sugerencias; `importar.py` y `sincronizar.py` devuelven `detectados` (solo
+  lo nuevo). Sugerir (solo Python): 3 de los últimos 4 meses con monto ±10 % y día ±4, o una palabra de `compromisos_conocidos.json`;
+  la cuota «N/M» sale de la descripción. Nunca se agregan solos. `compromiso_ia.py "<texto>" <hoy>` le pasa a la IA solo el texto
+  (sin RUT ni números de 10+ dígitos), la fecha y las categorías, y valida estricto (`validar(..., estricto=True)`); no guarda nada.
+  Avisos (Mac): `compromisos.py avisos <hoy>` decide (3 días antes, el día, atrasado; uno por compromiso al día, registro en
+  `.alcancia/avisos.json`) y `Avisos.swift` muestra. El permiso se pide al agregar el primer compromiso o al activar los avisos.
+- **Tu mes (periodos):** `config.inicio_mes` = `{"modo": "dia" | "sueldo", "dia"}`. `resumen.rango(mes, per)` da los días de un
+  periodo «AAAA-MM» (se llama por el mes donde cae la mayor parte); `per` lleva las `llegadas` del sueldo (compromisos.periodo).
+  `resumen`, `historia`, `presupuesto_sugerido`, `estado_mes` y `gasto_maximo` reciben `per` (sin él, mes calendario, igual que
+  antes). En la interfaz, `per()` se calcula una vez por pintada; selector, resumen, movimientos, presupuesto, compromisos y
+  consejos/MCP usan el periodo. Los CSV de movimientos siguen por mes calendario.
 - **Conectores:** la app guarda la llave en el Llavero y se la pasa a `sincronizar.py` por la **entrada estándar** (nunca en un
   archivo, un argumento ni el entorno); una llave nueva vuelve por la salida estándar (`CREDENCIAL {json}`). `red.py` no sigue
   redirecciones (se llevarían la llave a otro dominio) y la IA corre sin variables `ALCANCIA_*`. Al revisar cambios, mirar justo eso. `probar` revisa la llave y registra las cuentas en `cuentas.json` (campo `conector`);
@@ -70,7 +86,7 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
 - **Formatos estándar:** `recetas.py` lee sin receta OFX/QFX (`xx-ofx`, `FITID` como id), CAMT.053 (`xx-camt053`, `CdtDbtInd` da el
   signo, solo `BOOK`) y QIF (`xx-qif`, el orden día/mes se deduce de las fechas o del país).
 - **MCP:** las herramientas (`resumen_del_mes`, `gastos_por_categoria`, `buscar_movimientos`, `principales_comercios`, `comparar_meses`,
-  `presupuesto`, `cuentas_y_datos`) solo leen ~/Alcancia y nunca devuelven ids internos. Agregar una herramienta: función + entrada en
+  `presupuesto`, `compromisos`, `cuentas_y_datos`) solo leen ~/Alcancia y nunca devuelven ids internos. Agregar una herramienta: función + entrada en
   `HERRAMIENTAS` con su esquema y `readOnlyHint`, prueba en `test_python.py` (clase `Mcp`). La app corre `mcp_conectar.py reparar` al
   abrirse para que las IA conectadas sigan apuntando a la ruta actual de la app.
 - **docs/conectar.html** se genera con `herramientas/generar_conectar.py` desde `bin/conectores` (las pruebas revisan que esté al día).
@@ -85,8 +101,9 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
 La UI llama `host.enviar(accion, datos)` y la app responde con `window.Alcancia.<funcion>(json)`. En el navegador, `simular()` responde
 con datos ficticios. Acciones: `listo, config, probarIA, elegirCartola, vistaCartola, aprenderReceta, guardarReceta, importar,
 categoria, regla, presupuesto, pedirConsejos, abrirEnlace, abrirCarpeta, conectar, sincronizar, desconectar, vigilar, mcpConectar,
-buscarActualizacion, actualizar`. Respuestas: `estado, iaProbada, cartolaElegida, vistaLista, recetaAprendida, importarProgreso,
-importado, consejosListos, conectado, sincronizado, importadoSolo, mcpListo, actualizacionRevisada, actualizacionProgreso`. `pruebas/contrato.py` revisa que cada acción exista en `Ventana.swift` (y en Windows/Linux cuando exista), que cada
+buscarActualizacion, actualizar, compromisoIA, compromiso, avisos`. Respuestas: `estado, iaProbada, cartolaElegida, vistaLista,
+recetaAprendida, importarProgreso, importado, consejosListos, conectado, sincronizado, importadoSolo, mcpListo, actualizacionRevisada,
+actualizacionProgreso, compromisoEntendido`. `pruebas/contrato.py` revisa que cada acción exista en `Ventana.swift` (y en Windows/Linux cuando exista), que cada
 función que llama la app exista en `window.Alcancia` y que los scripts que llama existan. Una acción nueva va en `ui/app.js`, en `Ventana.swift`
 y simulada en `simular()`.
 
@@ -95,7 +112,8 @@ y simulada en `simular()`.
   (`ALCANCIA_RECURSOS` apunta ahí). La app nunca usa `ui/demo.json` (se quita al empaquetar).
 - Arranque: menús y ventana de inmediato (en el idioma del sistema hasta que la persona elija). Lo que corre solo y puede mostrar algo
   o pedir un permiso del sistema (actualizaciones, conexiones con el Llavero, carpeta vigilada en Descargas, `mcp_conectar.py reparar`)
-  parte en `AlcanciaApp.iniciarTareas()` solo cuando `Idioma.elegido`; en el primer uso, al guardarse `idioma_ui`. Cambiar el idioma
+  parte en `AlcanciaApp.iniciarTareas()` solo cuando `Idioma.elegido` (los avisos de compromisos también, y su permiso se pide recién al
+  agregar el primer compromiso o activarlos); en el primer uso, al guardarse `idioma_ui`. Cambiar el idioma
   rearma los menús y vuelve a mandar el estado.
 - Lo que manda la interfaz no arma comandos: rutas de archivo se revisan, ids se filtran y los datos van en un JSON de entrada.
 - Desarrollo en el Mac: `~/Developer/alcancia` es el checkout; `bash build.sh` (se niega si hay una importación en curso) e instala en

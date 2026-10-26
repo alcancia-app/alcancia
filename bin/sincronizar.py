@@ -144,11 +144,14 @@ def traer(cid, salida, hoy=None):
     cuentas = {(m.get("cuenta") or "") for m in crudos}
     registrar_cuentas(mod, [{"id": c, "nombre": c or mod.INFO["nombre"], "moneda": ""} for c in sorted(cuentas)])
     categorizar.por_reglas(movs, datos.reglas())
+    import importar
+    ya = importar.ids_guardados(movs)
     nuevos, repetidos = datos.agregar(movs)
     resultado = {"ok": True, "nombre": mod.INFO["nombre"], "nuevos": nuevos, "repetidos": repetidos, "categorizados_ia": 0, "error_ia": ""}
     if nuevos and datos.config().get("ia_en_conexiones", True):
-        import importar
         resultado.update(importar.completar_con_ia(movs))
+    if nuevos:
+        resultado["detectados"] = importar.detectados({m["id"] for m in movs} - ya)
     _guardar_estado(cid, {"conectado": True, "hasta": hoy.isoformat(), "ultima": ahora, "intento": ahora, "memoria": memoria or {},
                           "error": "", "nuevos": nuevos})
     if nueva:

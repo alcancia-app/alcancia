@@ -1,0 +1,22 @@
+{
+  "_nota": "Palabras que delatan un compromiso (algo que se paga o se recibe seguido) aunque aparezca una sola vez en la cartola. Solo datos: bin/compromisos.py los lee. En mayúsculas y sin tildes; se buscan como palabras completas. «*» vale para todos los países; cada país puede sumar las suyas. La comunidad las amplía.",
+  "formato": 1,
+  "paises": {
+    "*": [
+      {"tipo": "deuda", "categoria": "casa", "preguntar": "cuotas", "palabras": ["DIVIDENDO", "CREDITO HIPOTECARIO", "HIPOTECARIO", "MUTUO HIPOTECARIO", "MORTGAGE", "HOME LOAN"]},
+      {"tipo": "deuda", "categoria": "auto", "preguntar": "cuotas", "palabras": ["CREDITO AUTOMOTRIZ", "AUTOMOTRIZ", "CAR LOAN", "AUTO LOAN"]},
+      {"tipo": "deuda", "categoria": "otros", "preguntar": "cuotas", "palabras": ["CREDITO DE CONSUMO", "CREDITO CONSUMO", "CONSUMO CUOTA", "PRESTAMO", "PERSONAL LOAN", "LOAN PAYMENT", "STUDENT LOAN"]},
+      {"tipo": "deuda", "categoria": "otros", "preguntar": "cuotas", "palabras": ["CUOTA", "CUOTAS", "AVANCE", "SUPER AVANCE", "INSTALLMENT", "INSTALMENT"]},
+      {"tipo": "cuenta", "categoria": "", "preguntar": "frecuencia", "palabras": ["PAC", "PAT", "CARGO AUTOMATICO", "PAGO AUTOMATICO", "DEBITO AUTOMATICO", "DIRECT DEBIT", "AUTOPAY", "STANDING ORDER"]},
+      {"tipo": "cuenta", "categoria": "salud", "preguntar": "frecuencia", "palabras": ["SEGURO", "INSURANCE", "PRIMA"]},
+      {"tipo": "suscripcion", "categoria": "suscripciones", "preguntar": "frecuencia", "palabras": ["SUSCRIPCION", "SUBSCRIPTION", "MEMBRESIA", "MEMBERSHIP"]},
+      {"tipo": "cuenta", "categoria": "casa", "preguntar": "frecuencia", "palabras": ["ARRIENDO", "ALQUILER", "RENT", "GASTOS COMUNES"]},
+      {"tipo": "cuenta", "categoria": "educacion", "preguntar": "frecuencia", "palabras": ["COLEGIO", "JARDIN INFANTIL", "MENSUALIDAD", "MATRICULA", "UNIVERSIDAD", "TUITION", "SCHOOL FEE"]},
+      {"tipo": "cuenta", "categoria": "cuentas", "preguntar": "frecuencia", "palabras": ["PLAN CELULAR", "PLAN MOVIL", "INTERNET", "LUZ", "ELECTRICIDAD", "AGUA POTABLE", "GAS NATURAL", "PHONE BILL", "MOBILE PLAN", "ELECTRIC", "WATER BILL", "UTILITIES"]}
+    ],
+    "CL": [
+      {"tipo": "deuda", "categoria": "casa", "preguntar": "cuotas", "palabras": ["MUTUARIA"]},
+      {"tipo": "cuenta", "categoria": "cuentas", "preguntar": "frecuencia", "palabras": ["ENEL", "AGUAS ANDINAS", "METROGAS", "ESVAL", "ESSBIO", "CGE"]}
+    ]
+  }
+}

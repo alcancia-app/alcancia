@@ -1,7 +1,8 @@
 """Importar una cartola. Solo biblioteca estándar. Contrato con la app: el último argumento es la ruta del JSON de salida.
 
   importar.py vista   <archivo> [receta_id]               <salida.json>   qué receta calza y una muestra, sin guardar nada
-  importar.py guardar <archivo> <receta_id> <usar_ia 0|1>  <salida.json>   lee, categoriza y guarda (sin duplicar)
+  importar.py guardar <archivo> <receta_id> <usar_ia 0|1>  <salida.json>   lee, categoriza y guarda (sin duplicar); en
+                                                                            "detectados", los compromisos que parecen venir ahí
 
 Mientras guarda deja el avance en ~/Alcancia/.alcancia/estado.json ({"paso", "total", "texto"}) para la barra de progreso.
 """
@@ -69,6 +70,21 @@ def completar_con_ia(movs):
     return {"categorizados_ia": hechos, "error_ia": error}
 
 
+def ids_guardados(movs):
+    """Los ids que ya estaban guardados en los meses de estos movimientos (para saber cuáles son nuevos)."""
+    return {m["id"] for mes in {x["fecha"][:7] for x in movs} for m in datos.leer_mes(mes)}
+
+
+def detectados(ids):
+    """Compromisos que parecen estar en lo recién agregado (se repiten mes a mes o la descripción los delata). Nunca se agregan
+    solos: la interfaz pregunta. Si algo falla aquí, la importación igual quedó bien."""
+    try:
+        import compromisos
+        return compromisos.sugerencias(solo_ids=ids)[:8]
+    except Exception:
+        return []
+
+
 def guardar(archivo, receta_id, usar_ia, salida):
     receta = recetas.VIRTUALES[receta_id][0](archivo) if receta_id in recetas.VIRTUALES else recetas.disponibles().get(receta_id)
     if not receta:
@@ -78,11 +94,13 @@ def guardar(archivo, receta_id, usar_ia, salida):
     movs, avisos = recetas.aplicar(archivo, receta, cuenta_de(receta))
     categorizar.por_reglas(movs, datos.reglas())
     avance(2, total, "Guardando sin duplicar…")
+    ya = ids_guardados(movs)
     nuevos, repetidos = datos.agregar(movs)
     resultado = {"ok": True, "nuevos": nuevos, "repetidos": repetidos, "avisos": avisos, "categorizados_ia": 0, "error_ia": ""}
     if usar_ia and nuevos:
         avance(3, total, f"{ia.nombre()} está poniendo categorías…")
         resultado.update(completar_con_ia(movs))
+    resultado["detectados"] = detectados({m["id"] for m in movs} - ya) if nuevos else []
     resultado["sin_categoria"] = sum(1 for mes in {m["fecha"][:7] for m in movs} for m in datos.leer_mes(mes) if not m["categoria"])
     try:
         os.remove(os.path.join(datos.INTERNO, "estado.json"))

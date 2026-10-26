@@ -7,6 +7,9 @@
   presupuesto  {"mensual": {"<categoria>": tope}}   guarda los topes del mes
   receta       {"receta": {...}}                    guarda una receta nueva (validada) en ~/Alcancia/.alcancia/recetas/
   desconectar  {"conector"}                         olvida el estado de una conexión (la llave la borra la app del Llavero)
+  compromiso   {"accion", ...}                      compromisos.json: guardar {"compromiso"}, borrar {"id"},
+                                                    pagado / desmarcar {"id", "periodo"}, no_es {"id", "periodo", "movimiento"},
+                                                    descartar {"clave"} (una sugerencia que no es compromiso)
 
 Todo lo que llega se valida: categorías que existen, montos positivos, recetas con recetas.validar.
 """
@@ -87,7 +90,79 @@ def desconectar(e):
     return {"ok": True}
 
 
-ACCIONES = {"categoria": categoria, "regla": regla, "presupuesto": presupuesto, "receta": receta, "desconectar": desconectar}
+def compromiso(e):
+    """Compromisos: guardar (validado), borrar, marcar «ya lo pagué», desmarcar, «no es este» y descartar una sugerencia."""
+    import re
+    from datetime import date
+    import compromisos as K
+    accion = e.get("accion")
+    hoy = e["hoy"] if K._fecha_valida(e.get("hoy")) else date.today().isoformat()
+    raw = K.leer()
+    lista = raw["compromisos"]
+    cid = str(e.get("id") or "")
+    actual = next((c for c in lista if isinstance(c, dict) and c.get("id") == cid), None)
+    if accion == "guardar":
+        nuevo = e.get("compromiso")
+        moneda = datos.presupuesto().get("moneda") or datos.config()["moneda"]
+        limpio, errores = K.validar(nuevo, ids_categorias(), hoy, moneda)
+        if errores:
+            return {"ok": False, "error": " ".join(errores)}
+        previo = next((c for c in lista if isinstance(c, dict) and c.get("id") == limpio["id"]), None)
+        if previo:  # lo marcado y desde cuándo se mantienen: la interfaz edita lo demás
+            limpio["pagos"] = K._pagos(previo.get("pagos"))
+            if K._fecha_valida(previo.get("desde")):
+                limpio["desde"] = previo["desde"]
+            lista[lista.index(previo)] = limpio
+        elif len(lista) >= 300:
+            return {"ok": False, "error": "Ya hay demasiados compromisos."}
+        else:
+            lista.append(limpio)
+        K.escribir(raw)
+        return {"ok": True, "id": limpio["id"], "primero": not previo and len(lista) == 1}
+    if accion == "descartar":
+        clave = datos.normalizar(e.get("clave"))
+        if not 2 <= len(clave) <= 60:
+            return {"ok": False, "error": "Sugerencia inválida."}
+        if clave not in raw["descartados"]:
+            raw["descartados"] = (raw["descartados"] + [clave])[-300:]
+        K.escribir(raw)
+        return {"ok": True}
+    if not actual:
+        return {"ok": False, "error": "No encontré ese compromiso."}
+    if accion == "borrar":
+        lista.remove(actual)
+        K.escribir(raw)
+        return {"ok": True}
+    periodo = str(e.get("periodo") or "")
+    if accion not in ("pagado", "desmarcar", "no_es") or not K.PERIODO.fullmatch(periodo):
+        return {"ok": False, "error": "Acción inválida."}
+    if not isinstance(actual.get("pagos"), dict):
+        actual["pagos"] = {}
+    p = actual["pagos"].setdefault(periodo, {})
+    if accion == "pagado":
+        for k in ("movimiento", "monto"):
+            p.pop(k, None)
+        p.update({"como": "manual", "fecha": hoy})
+    elif accion == "desmarcar":
+        for k in ("como", "fecha", "movimiento", "monto"):
+            p.pop(k, None)
+    else:
+        mov = str(e.get("movimiento") or "")
+        if not re.fullmatch(r"[A-Za-z0-9_\-]{1,64}", mov):
+            return {"ok": False, "error": "Movimiento inválido."}
+        if mov not in p.setdefault("no_es", []):
+            p["no_es"] = (p["no_es"] + [mov])[-20:]
+        if p.get("movimiento") == mov:
+            for k in ("como", "fecha", "movimiento", "monto"):
+                p.pop(k, None)
+    if not p:
+        del actual["pagos"][periodo]
+    K.escribir(raw)
+    return {"ok": True}
+
+
+ACCIONES = {"categoria": categoria, "regla": regla, "presupuesto": presupuesto, "receta": receta, "desconectar": desconectar,
+            "compromiso": compromiso}
 
 if __name__ == "__main__":
     if len(sys.argv) != 4 or sys.argv[1] not in ACCIONES:

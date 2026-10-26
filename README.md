@@ -27,6 +27,14 @@ Gratis, de código abierto y con tus datos en tu computador.</p>
 - **Te dice si vas bien:** cuánto llevas gastado, a qué ritmo vas y qué categoría se te está pasando, antes de que termine el mes,
   y cómo vas comparado con tus últimos 6 meses (en total y por categoría).
 - **Te da consejos concretos:** tu IA mira tus números y te deja lo que va bien, a qué ponerle ojo y algo para hacer esta semana.
+- **Compromisos: que no se te olvide nada.** Anota lo que pagas o recibes seguido (dividendo, arriendo, créditos, cuentas,
+  suscripciones, transferencias, tu sueldo) escribiéndolo con tus palabras («el arriendo vence el 5, son 450.000») o a mano.
+  Alcancía **reconoce el pago en tu cartola**, te muestra lo que falta pagar este mes (y lo atrasado primero), el avance de tus
+  deudas («te quedan 187 de 240 cuotas») y, en Mac, te avisa antes de que venza. Al agregar una cartola detecta lo que parece un
+  compromiso (se repite cada mes o la descripción lo delata: dividendo, cuota 53/240, PAC, seguro…) y te pregunta; nunca lo agrega solo.
+- **Gasto máximo sugerido:** lo que entra − tus compromisos − tus otros gastos fijos = lo que puedes gastar en lo variable,
+  repartido por categoría según lo que gastas normalmente.
+- **Tu mes empieza cuando te pagan** (si quieres): el mes puede ir de sueldo a sueldo; si te pagan antes, parte ese día.
 
 ## Tus datos son tuyos
 - Todo queda en tu computador, en una carpeta con archivos abiertos (CSV y JSON) que puedes abrir con Excel o llevarte adonde quieras.
@@ -59,8 +67,45 @@ Todo vive en `~/Alcancia/` (en Windows, `C:\Users\<tú>\Alcancia`). Es un format
 | `reglas.json` | `[{"contiene": "TEXTO", "categoria": "<id>"}]`: lo que Alcancía aprende cuando corriges una categoría. |
 | `cuentas.json` | `[{"id", "nombre", "receta", "moneda"}]` |
 | `consejos/AAAA-MM-DD.md` | Los consejos de tu IA. |
+| `compromisos.json` | Lo que pagas o recibes seguido. Ver [Compromisos](#compromisos-formato). |
 | `cuentas.json` (cont.) | Las cuentas que vienen de una conexión llevan `"conector"` en vez de `"receta"`. |
-| `.alcancia/` | Ajustes de la app, recetas descargadas o creadas por ti, `conexiones.json` (estado de cada conexión, sin llaves) y `vigilar.json` (cartolas ya revisadas en Descargas). Las llaves de las conexiones viven en el Llavero de tu sistema, nunca en esta carpeta. |
+| `.alcancia/config.json` | Ajustes. Entre ellos `inicio_mes`: `{"modo": "dia" \| "sueldo", "dia": 25}` (tu mes parte el día 1 o cuando llega tu sueldo) y `avisos` (`true` si quieres avisos de tus compromisos). |
+| `.alcancia/` | Ajustes de la app, `avisos.json` (qué avisos ya se mostraron), recetas descargadas o creadas por ti, `conexiones.json` (estado de cada conexión, sin llaves) y `vigilar.json` (cartolas ya revisadas en Descargas). Las llaves de las conexiones viven en el Llavero de tu sistema, nunca en esta carpeta. |
+
+### Compromisos (formato)
+<a id="compromisos-formato"></a>
+`compromisos.json` = `{"formato": 1, "compromisos": [...], "descartados": ["CLAVE", ...]}`. Cada compromiso:
+
+| Campo | Qué es |
+|---|---|
+| `id` | `c-` + letras y números. |
+| `nombre` | Hasta 60 caracteres. Nunca un número de cuenta: las secuencias de 6 o más dígitos se quitan al guardar. |
+| `tipo` | `deuda`, `cuenta`, `suscripcion`, `transferencia`, `ingreso` u `otro`. |
+| `signo` | `gasto` o `ingreso`. |
+| `monto`, `moneda` | Monto positivo y código de 3 letras. |
+| `frecuencia` | `mensual` (con `dia` 1–31; si el mes es más corto, el último día), `semanal` (`dia` 1 = lunes … 7 = domingo), `anual` o `una_vez` (con `fecha` AAAA-MM-DD). |
+| `categoria` | Id de una categoría (o vacío). |
+| `buscar` | Palabras para reconocer el pago en la cartola (sin tildes ni mayúsculas). Sin palabras, se reconoce por el monto exacto. |
+| `tolerancia` | Cuánto puede variar el monto, en % (por defecto 5). |
+| `cuotas_total`, `cuotas_pagadas` | Opcionales. Las pagadas son las de antes de `desde`; cada pago reconocido después suma una. |
+| `fecha_fin`, `saldo` | Opcionales: cuándo termina y lo que te queda por pagar (como lo anotaste). |
+| `activo` | `false` = en pausa (ni se recuerda ni se busca). |
+| `desde` | Desde qué día cuenta (AAAA-MM-DD). Un vencimiento anterior solo se da por pagado si ya estaba pagado. |
+| `origen` | `manual`, `detectado` (salió de tu cartola) o `ia` (lo entendió tu IA). |
+| `pagos` | Por periodo (`AAAA-MM` en mensual, `AAAA` en anual, la fecha en semanal y una vez): `{"como": "automatico", "fecha", "movimiento", "monto"}` cuando se reconoció en la cartola, `{"como": "manual", "fecha"}` cuando marcaste «ya lo pagué», y `"no_es": ["<id de movimiento>"]` cuando dijiste «no es este». |
+
+`descartados` son las sugerencias que dijiste que no son compromisos. **Cómo se reconoce un pago:** el movimiento del signo
+correcto, en la moneda del compromiso, con el monto dentro de la tolerancia y alguna palabra de `buscar`, entre 10 días antes y 7
+después del vencimiento. Un movimiento cuenta para un solo compromiso: primero lo marcado a mano y después las parejas que calzan
+mejor (más cerca de la fecha, luego del monto). La lista de palabras que delatan un compromiso (dividendo, crédito, cuota, PAC,
+seguro, arriendo, colegio, plan celular…) es solo datos: [`bin/compromisos_conocidos.json`](bin/compromisos_conocidos.json), por país.
+
+### Tu mes: de sueldo a sueldo
+Con `inicio_mes` en modo `sueldo` y el día en que te pagan (p. ej. 25), cada «mes» va de sueldo a sueldo y se llama como el mes
+donde cae la mayor parte (si te pagan del 16 en adelante, el mes en que termina: «noviembre» = 25 oct – 24 nov; si te pagan del 2
+al 15, el mes en que parte). Si anotaste tu sueldo como compromiso (tipo `ingreso`, categoría `sueldo`), el mes parte el día que
+de verdad llegó, si llegó entre 12 días antes y 7 después del día de siempre. Los bonos e ingresos extra cuentan en el mes en que
+caen. Los archivos `movimientos/AAAA-MM.csv` no cambian: siguen por mes calendario.
 
 ## Cartolas en PDF
 Algunos bancos solo entregan la cartola en PDF. Alcancía lee los PDF **con texto** (los que genera el banco, no los escaneados) sin
@@ -98,7 +143,8 @@ Mira [Agregar un conector](CONTRIBUTING.md#agregar-un-conector-conexión-automá
 ## Tu IA, fuera de Alcancía (MCP)
 `bin/mcp_servidor.py` es un servidor [MCP](https://modelcontextprotocol.io) de **solo lectura**: corre en tu computador, lo abre tu
 IA cuando lo necesita y no tiene servidores ni puertos abiertos. Herramientas: `resumen_del_mes`, `gastos_por_categoria`,
-`buscar_movimientos`, `principales_comercios`, `comparar_meses`, `presupuesto` y `cuentas_y_datos`. En la app: **Conexiones → Tu IA,
+`buscar_movimientos`, `principales_comercios`, `comparar_meses`, `presupuesto`, `compromisos` (qué está pagado, pendiente o
+atrasado este mes) y `cuentas_y_datos`. En la app: **Conexiones → Tu IA,
 fuera de Alcancía → Conectar** (Claude Desktop, Claude Code, ChatGPT/Codex, Gemini CLI y Antigravity). A mano:
 ```bash
 claude mcp add --scope user alcancia -- python3 ~/Developer/alcancia/bin/mcp_servidor.py
@@ -135,7 +181,9 @@ tienes que publicar tu código con la misma licencia: así nadie puede tomarla y
 **Alcancía** ("piggy bank") is a free, open-source spending tracker for people who struggle to keep their spending in check. Add
 statements from any bank or wallet in the world (CSV, Excel or text-based PDF); Alcancía sorts them without duplicates, your own AI (Claude Code,
 Codex or Gemini, with your account) fills in categories and gives you concrete tips, and you see in time when a category is running
-over budget. Your data stays on your computer in open files: no servers, no accounts, no ads, and it never asks for your bank
+over budget. Commitments (rent, loans, bills, subscriptions, salary) can be added in your own words; Alcancía spots each payment in
+your statements, shows what's still due (overdue first), tracks loan installments, suggests a spending limit for day-to-day
+expenses and, on Mac, reminds you before things are due. Your month can run from payday to payday. Your data stays on your computer in open files: no servers, no accounts, no ads, and it never asks for your bank
 password. Each bank is supported through a data-only *recipe* (plus OFX, QIF and CAMT.053 out of the box); if yours is missing, your AI
 learns it and you can share just the recipe with the community. Transactions can also arrive automatically: official APIs with a key
 you create (Mercado Pago, PayPal, Stripe, Buda.com, SimpleFIN for US/Canada banks, Up, Akahu) and a watched Downloads folder. A

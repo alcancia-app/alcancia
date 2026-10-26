@@ -58,6 +58,12 @@ final class Ventana: NSObject, NSWindowDelegate, WKScriptMessageHandler {
         web?.evaluateJavaScript("window.Alcancia && window.Alcancia._probar(E => { E.ajustes = true })")
     }
 
+    /// Al tocar un aviso de compromisos: la ventana adelante y la vista de Compromisos.
+    func abrirCompromisos() {
+        mostrar()
+        web?.evaluateJavaScript("window.Alcancia && window.Alcancia._probar(E => { E.vista = 'compromisos' })")
+    }
+
     @objc func abrirCarpetaDatos() {
         try? FileManager.default.createDirectory(at: Rutas.base, withIntermediateDirectories: true)
         NSWorkspace.shared.open(Rutas.base)
@@ -168,6 +174,21 @@ final class Ventana: NSObject, NSWindowDelegate, WKScriptMessageHandler {
             Procesador.conEntrada("guardar.py", accion, d) { r in
                 if r["ok"] as? Bool != true { Ventana.shared.enviarEstado(aviso: r["error"] as? String) }
             }
+        case "compromisoIA":
+            // El texto va como argumento del script (sin shell): lo limpia y lo valida bin/compromiso_ia.py.
+            let texto = String((d["texto"] as? String ?? "").prefix(500))
+            let hoy = (d["hoy"] as? String ?? "").filter { $0.isNumber || $0 == "-" }
+            Procesador.correrJSON("compromiso_ia.py", [texto, hoy]) { Ventana.shared.llamar("compromisoEntendido", $0) }
+        case "compromiso":
+            Procesador.conEntrada("guardar.py", "compromiso", d) { r in
+                guard r["ok"] as? Bool == true else { return Ventana.shared.enviarEstado(aviso: r["error"] as? String) }
+                // Primer compromiso: recién ahí se activan los avisos y se pide el permiso del sistema (si la persona no los apagó antes).
+                if r["primero"] as? Bool == true, Config.leer()["avisos"] == nil { Avisos.activar(true) }
+                Ventana.shared.enviarEstado()
+                Avisos.revisar()
+            }
+        case "avisos":
+            Avisos.activar(d["activo"] as? Bool ?? false)
         case "pedirConsejos":
             let hoy = (d["hoy"] as? String ?? "").filter { $0.isNumber || $0 == "-" }
             Procesador.correrJSON("consejos.py", [hoy]) { Ventana.shared.llamar("consejosListos", $0) }
