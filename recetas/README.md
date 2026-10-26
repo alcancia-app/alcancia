@@ -37,7 +37,7 @@ viven en el catálogo comunitario [alcancia-app/alcancia-catalogo](https://githu
 | `tipo` | `cartola` (por ahora el único). |
 | `archivo` | `extension` (lista: `csv`, `xlsx`, `pdf`), y opcionalmente `separador`, `codificacion` y `hoja` (número de hoja de Excel). |
 | `reconocer.encabezados` | Los nombres de columna que identifican el archivo. Alcancía busca la fila de encabezados en las primeras 40 filas (no importan mayúsculas, tildes ni espacios). |
-| `columnas` | Une `fecha`, `descripcion` y `monto` — o `cargo` y `abono` si vienen separados — con el nombre de su columna. Opcionales: `detalle` (se suma a la descripción) y `moneda`. |
+| `columnas` | Une `fecha`, `descripcion` y `monto` — o `cargo` y `abono` si vienen separados — con el nombre de su columna. Opcionales: `detalle` (se suma a la descripción), `moneda` y `saldo` (la columna de saldo: el de la fila más reciente pasa a ser el saldo de la cuenta en «Lo que tienes»). |
 | `fecha` | Formato de [strptime](https://docs.python.org/3/library/datetime.html#format-codes) o una lista. Las fechas de Excel (números) se entienden solas. |
 | `numeros` | `decimal` (`,` o `.`) y `miles` (`.`, `,`, espacio o vacío). |
 | `signo` | `normal`: los gastos vienen negativos o en la columna de cargos. `invertido`: los gastos vienen positivos en una sola columna de monto. |

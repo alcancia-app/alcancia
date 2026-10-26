@@ -91,7 +91,11 @@ def guardar(archivo, receta_id, usar_ia, salida):
         salir(salida, {"ok": False, "error": "No encontré esa receta."})
     total = 3 if usar_ia else 2
     avance(1, total, "Leyendo la cartola…")
-    movs, avisos = recetas.aplicar(archivo, receta, cuenta_de(receta))
+    info = {}
+    cuenta = cuenta_de(receta)
+    movs, avisos = recetas.aplicar(archivo, receta, cuenta, info)
+    if info.get("saldo"):
+        datos.anotar_saldo(cuenta, info["saldo"]["monto"], info["saldo"]["fecha"], "cartola")
     categorizar.por_reglas(movs, datos.reglas())
     avance(2, total, "Guardando sin duplicar…")
     ya = ids_guardados(movs)

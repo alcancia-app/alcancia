@@ -74,3 +74,16 @@ def movimientos(cred, desde, hasta, memoria, red):
     if avisos and not movs:
         raise Error("SimpleFIN avisó: " + "; ".join(avisos)[:300])
     return movs, {}, nueva
+
+
+def saldo(cred, red):
+    """El saldo de cada cuenta como lo informa el banco a SimpleFIN (`balance`, al día de `balance-date`)."""
+    base, cab, _ = _acceso(cred, red)
+    r = red.get(f"{base}/accounts?balances-only=1", cabeceras=cab)
+    out = []
+    for a in r.get("accounts") or []:
+        monto = numero(a.get("balance"))
+        if monto is not None:
+            out.append({"cuenta": str(a.get("id")), "monto": monto, "moneda": str(a.get("currency", ""))[:3] if len(str(a.get("currency", ""))) == 3 else "",
+                        "fecha": fecha_unix(a.get("balance-date")) if a.get("balance-date") else None})
+    return out

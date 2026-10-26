@@ -1159,6 +1159,170 @@ class Conectores(unittest.TestCase):
         self.assertIn("esperar", e["error"])
 
 
+    def test_mercadopago_como_se_pago_devolucion_y_saldo(self):
+        """Crédito en cuotas, débito, saldo y una devolución; lo ya guardado se completa por id (reparación) sin duplicar; el saldo
+        disponible queda en cuentas.json. Si el saldo no existe para la cuenta (404), no pasa nada."""
+        from servidor_falso import ServidorFalso
+        hoy = date.today()
+        f = lambda dias: (hoy - timedelta(days=dias)).isoformat() + "T12:00:00.000-03:00"
+        pagos = [
+            {"id": 31, "status": "approved", "transaction_amount": 349900, "currency_id": "CLP", "date_approved": f(40), "description": "Lavadora Ejemplo",
+             "operation_type": "regular_payment", "payment_type_id": "credit_card", "payment_method_id": "master", "installments": 6,
+             "transaction_details": {"installment_amount": 61000}, "collector_id": 555, "payer": {"id": 999}},
+            {"id": 32, "status": "approved", "transaction_amount": 5990, "currency_id": "CLP", "date_approved": f(3), "description": "Panadería Ejemplo",
+             "operation_type": "regular_payment", "payment_type_id": "account_money", "installments": 1, "collector_id": 555, "payer": {"id": 999}},
+            {"id": 33, "status": "refunded", "transaction_amount": 24990, "transaction_amount_refunded": 24990, "currency_id": "CLP", "date_approved": f(5),
+             "description": "Audífonos Ejemplo", "operation_type": "regular_payment", "payment_type_id": "debit_card", "installments": 1,
+             "refunds": [{"date_created": f(2)}], "collector_id": 555, "payer": {"id": 999}},
+            {"id": 34, "status": "approved", "transaction_amount": 15990, "currency_id": "CLP", "date_approved": f(300), "description": "Librería Ejemplo",
+             "operation_type": "regular_payment", "payment_type_id": "credit_card", "installments": 1, "collector_id": 555, "payer": {"id": 999}},
+        ]
+        saldo = {"estado": 200}
+        def buscar(q, b, h):
+            return 200, {"paging": {"total": len(pagos) if "payer.id" in q else 0}, "results": pagos if "payer.id" in q else []}
+        rutas = {("GET", "api.mercadopago.com/users/me"): lambda q, b, h: (200, {"id": 999, "site_id": "MLC"}),
+                 ("GET", "api.mercadopago.com/v1/payments/search"): buscar,
+                 ("GET", "api.mercadopago.com/users/999/mercadopago_account/balance"):
+                     lambda q, b, h: (saldo["estado"], {"available_balance": 84300, "unavailable_balance": 1000, "currency_id": "CLP"} if saldo["estado"] == 200 else {"message": "not found"})}
+        # Lo que dejó la versión anterior: la compra de hace 300 días guardada sin saber cómo se pagó (mismo id que la de ahora).
+        import sincronizar
+        viejo = {"id": sincronizar.id_movimiento("mercadopago", "mercadopago", "34|pagado"), "fecha": f(300)[:10], "descripcion": "Pago: Librería Ejemplo",
+                 "monto": -15990, "moneda": "CLP", "categoria": "educacion", "cuenta": "mercadopago", "origen": "conector:mercadopago", "nota": "mía"}
+        datos.agregar([viejo])
+        datos.escribir_json(os.path.join(datos.INTERNO, "conexiones.json"), {"mercadopago": {"conectado": True, "hasta": hoy.isoformat(), "reparado": 2}})
+        with ServidorFalso(rutas) as srv:
+            p = self.sinc(srv, "probar", "mercadopago", {"token": "APP_USR-123"})
+            self.assertTrue(p["ok"])
+            cuenta = next(c for c in datos.leer_json(os.path.join(datos.BASE, "cuentas.json"), []) if c["id"] == "mercadopago")
+            self.assertEqual(cuenta["saldo"], {"monto": 84300, "fecha": hoy.isoformat(), "origen": "conector"}, "el saldo disponible que muestra la app")
+            r = self.sinc(srv, "traer", "mercadopago", {"token": "APP_USR-123"})
+            self.assertTrue(r["ok"], r)
+            inicio = min(x[2]["begin_date"][:10] for x in srv.pedidos if x[1].endswith("payments/search"))
+            self.assertLessEqual(inicio, (hoy - timedelta(days=360)).isoformat(), "con la reparación pendiente se pide el año completo")
+            movs = {m["descripcion"]: m for m in self.movs("mercadopago")}
+            self.assertEqual((movs["Pago: Lavadora Ejemplo"]["medio"], movs["Pago: Lavadora Ejemplo"]["cuotas"], float(movs["Pago: Lavadora Ejemplo"]["cuota"])), ("credito", "6", 61000.0))
+            self.assertEqual(movs["Pago: Panadería Ejemplo"]["medio"], "saldo")
+            self.assertEqual((movs["Pago: Audífonos Ejemplo"]["monto"], movs["Pago: Audífonos Ejemplo"]["medio"]), (-24990, "debito"))
+            dev = movs["Devolución: Pago: Audífonos Ejemplo"]
+            self.assertEqual((dev["monto"], dev["fecha"]), (24990, f(2)[:10]), "lo devuelto queda aparte, positivo y en su fecha")
+            lib = [m for m in self.movs("mercadopago") if m["descripcion"] == "Pago: Librería Ejemplo"]
+            self.assertEqual(len(lib), 1, "la reparación no duplica")
+            self.assertEqual((lib[0]["medio"], lib[0]["categoria"], lib[0]["nota"]), ("credito", "educacion", "mía"), "completa cómo se pagó sin tocar lo de la persona")
+            self.assertGreaterEqual(r["reparados"], 1)
+            self.assertEqual(datos.leer_json(os.path.join(datos.INTERNO, "conexiones.json"), {})["mercadopago"]["reparado"], sincronizar.REPARACIONES)
+            # Sin reparación pendiente, la próxima vez se pide desde la última menos 10 días.
+            antes = len(srv.pedidos)
+            saldo["estado"] = 404
+            r2 = self.sinc(srv, "traer", "mercadopago", {"token": "APP_USR-123"})
+            self.assertEqual((r2["ok"], r2["nuevos"]), (True, 0), "no duplica")
+            inicio2 = min(x[2]["begin_date"][:10] for x in srv.pedidos[antes:] if x[1].endswith("payments/search"))
+            self.assertGreater(inicio2, (hoy - timedelta(days=30)).isoformat())
+        cuenta = next(c for c in datos.leer_json(os.path.join(datos.BASE, "cuentas.json"), []) if c["id"] == "mercadopago")
+        self.assertEqual(cuenta["saldo"]["monto"], 84300, "si el saldo falla (404), queda el último conocido y la sincronización sigue bien")
+
+    def test_saldo_de_otros_conectores(self):
+        from servidor_falso import ServidorFalso
+        rutas = {("GET", "api.up.com.au/api/v1/accounts"): lambda q, b, h: (200, {"data": [{"id": "acc", "attributes": {"displayName": "Gastos",
+                                                                                           "balance": {"currencyCode": "AUD", "value": "1234.56"}}}]})}
+        with ServidorFalso(rutas) as srv:
+            self.assertTrue(self.sinc(srv, "probar", "up", {"token": "up:yeah:x"})["ok"])
+        c = next(c for c in datos.leer_json(os.path.join(datos.BASE, "cuentas.json"), []) if c["id"] == "up-acc")
+        self.assertEqual((c["saldo"]["monto"], c["saldo"]["origen"]), (1234.56, "conector"))
+
+
+class TresCifras(unittest.TestCase):
+    """Lo que tienes, lo que gastaste y lo que debes: los mismos casos que ui/app.js (pruebas/casos.json)."""
+
+    def test_casos(self):
+        tc = CASOS["tres_cifras"]
+        for k in tc["casos"]:
+            g = resumen.resumen(tc["movimientos"], k["mes"], k["hoy"], tc["presupuesto"], tc["categorias"])
+            for campo, v in k["esperado"]["resumen"].items():
+                self.assertEqual(g[campo], v, f"{k['nombre']}: {campo}")
+            self.assertEqual(resumen.lo_que_tienes(tc["cuentas"], tc["movimientos"], "CLP"), k["esperado"]["tienes"], k["nombre"])
+            self.assertEqual(compromisos.lo_que_debes(tc["compromisos"], tc["movimientos"], k["hoy"], "CLP"), k["esperado"]["debes"], k["nombre"])
+
+    def test_cargos_en_cuotas(self):
+        m = {"fecha": "2026-01-31", "monto": -300000, "medio": "credito", "cuotas": "3", "cuota": ""}
+        self.assertEqual(resumen.cargos(m), [("2026-01-31", -100000, 1, 3), ("2026-02-28", -100000, 2, 3), ("2026-03-31", -100000, 3, 3)])
+        self.assertEqual(resumen.cargos({**m, "medio": "debito"}), [("2026-01-31", -300000, 0, 0)], "solo el crédito va en cuotas")
+        self.assertTrue(compromisos.es_pago_tarjeta({"descripcion": "Pago T.C. Visa", "monto": -1}))
+        self.assertFalse(compromisos.es_pago_tarjeta({"descripcion": "PAGO TARJETA", "monto": 1}))
+
+    def setUp(self):
+        limpiar()
+
+    def test_csv_compatible(self):
+        """Las columnas nuevas (medio, cuotas, cuota) van al final y solo si algún movimiento del mes las usa."""
+        base = {"id": "a1", "fecha": "2026-10-01", "descripcion": "X", "monto": -1000, "moneda": "CLP", "categoria": "", "cuenta": "b", "origen": "o", "nota": ""}
+        datos.escribir_mes("2026-10", [base])
+        with open(datos.ruta_mes("2026-10"), encoding="utf-8") as f:
+            self.assertEqual(f.readline().strip(), ",".join(datos.CAMPOS), "sin medio no cambia el archivo")
+        datos.escribir_mes("2026-10", [base, {**base, "id": "a2", "medio": "credito", "cuotas": 3, "cuota": 333.5}])
+        with open(datos.ruta_mes("2026-10"), encoding="utf-8") as f:
+            self.assertEqual(f.readline().strip(), ",".join(datos.CAMPOS + datos.CAMPOS_EXTRA))
+        leidos = {m["id"]: m for m in datos.leer_mes("2026-10")}
+        self.assertEqual((leidos["a1"]["medio"], leidos["a2"]["cuotas"], leidos["a2"]["cuota"]), ("", "3", "333.50"))
+        # El ejemplo del README sigue funcionando con las columnas nuevas.
+        p = subprocess.run([sys.executable, os.path.join(RAIZ, "ejemplos", "gastos_por_categoria.py"), "2026-10"], capture_output=True, text=True)
+        self.assertEqual(p.returncode, 0, p.stderr)
+        self.assertIn("TOTAL", p.stdout)
+
+    def test_saldo_de_la_cartola(self):
+        receta = {**RECETA, "columnas": {**RECETA["columnas"], "saldo": "Saldo"}}
+        self.assertEqual(recetas.validar(receta), [])
+        info = {}
+        recetas.aplicar(CARTOLA, receta, "banco-ejemplo", info)
+        self.assertEqual(info["saldo"], {"monto": 1953419.5, "fecha": "2026-10-10"})
+        datos.escribir_json(os.path.join(datos.INTERNO, "recetas", "cl-banco-ejemplo.json"), receta)
+        correr("importar.py", "guardar", CARTOLA, "cl-banco-ejemplo", "0")
+        c = datos.leer_json(os.path.join(datos.BASE, "cuentas.json"), [])[0]
+        self.assertEqual(c["saldo"], {"monto": 1953419.5, "fecha": "2026-10-10", "origen": "cartola"})
+        t = resumen.lo_que_tienes([c], datos.leer_todos(), "CLP")
+        self.assertEqual(t["total"], 1953419.5, "el saldo de la cartola ya incluye sus movimientos")
+
+    def guardar(self, accion, entrada):
+        ruta = os.path.join(TMP, "entrada.json")
+        with open(ruta, "w", encoding="utf-8") as f:
+            json.dump(entrada, f)
+        return correr("guardar.py", accion, ruta)
+
+    def test_categoria_nueva_y_saldo(self):
+        datos.escribir_json(os.path.join(datos.INTERNO, "recetas", "cl-banco-ejemplo.json"), RECETA)
+        correr("importar.py", "guardar", CARTOLA, "cl-banco-ejemplo", "0")
+        m = next(x for x in datos.leer_mes("2026-10") if x["descripcion"] == "NETFLIX.COM")
+        r = self.guardar("categoriaNueva", {"categoria": {"id": "cine", "nombre": "Cine <b>", "emoji": "🎬", "tipo": "gasto"}, "mes": "2026-10", "id": m["id"]})
+        self.assertTrue(r["ok"], r)
+        cats = datos.leer_json(os.path.join(datos.BASE, "categorias.json"), [])
+        self.assertEqual(cats[-1], {"id": "cine", "nombre": "Cine b", "emoji": "🎬", "tipo": "gasto"}, "sin HTML")
+        self.assertEqual(len(cats), len(datos.CATEGORIAS_BASE) + 1, "parte de las de siempre")
+        self.assertEqual(next(x for x in datos.leer_mes("2026-10") if x["id"] == m["id"])["categoria"], "cine")
+        self.assertFalse(self.guardar("categoriaNueva", {"categoria": {"id": "cine", "nombre": "Otra", "emoji": "🎬"}})["ok"], "no repite ids")
+        self.assertFalse(self.guardar("categoriaNueva", {"categoria": {"id": "Mal Id", "nombre": "x", "emoji": "🎬"}})["ok"])
+        self.assertFalse(self.guardar("categoriaNueva", {"categoria": {"id": "letras", "nombre": "x", "emoji": "abc"}})["ok"], "el emoji no es texto")
+        # Saldo: la primera vez no hay con qué comparar; después dice la diferencia con lo que calculaba.
+        r = self.guardar("saldo", {"cuenta": "banco-ejemplo", "monto": 900000, "fecha": "2026-10-05"})
+        self.assertEqual((r["ok"], r["diferencia"]), (True, None))
+        r = self.guardar("saldo", {"cuenta": "banco-ejemplo", "monto": 840000, "fecha": "2026-10-10"})
+        self.assertEqual(r["calculado"], 900000 - 9990 - 35000 - 50000 - 8750.5)
+        self.assertEqual(r["diferencia"], round(840000 - r["calculado"], 2))
+        self.assertFalse(self.guardar("saldo", {"cuenta": "../x", "monto": 1})["ok"])
+        self.assertFalse(self.guardar("saldo", {"cuenta": "banco-ejemplo", "monto": "mucho"})["ok"])
+
+    def test_mcp_y_consejos_usan_las_tres_cifras(self):
+        datos.escribir_json(os.path.join(datos.INTERNO, "recetas", "cl-banco-ejemplo.json"), RECETA)
+        correr("importar.py", "guardar", CARTOLA, "cl-banco-ejemplo", "0")
+        datos.anotar_saldo("banco-ejemplo", 500000, "2026-10-31", "persona")
+        texto = consejos.prompt("2026-10-12", datos.leer_todos(), datos.presupuesto(), datos.categorias())
+        self.assertIn("tiene 500000 en sus cuentas", texto)
+        self.assertIn("debe 0 en total", texto)
+        entrada = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "resumen_del_mes", "arguments": {}}}) + "\n"
+        p = subprocess.run([sys.executable, os.path.join(RAIZ, "bin", "mcp_servidor.py")], input=entrada, capture_output=True, text=True, timeout=30)
+        t = json.loads(p.stdout.splitlines()[0])["result"]["structuredContent"]["tres_cifras"]
+        self.assertEqual((t["lo_que_tienes"], t["cuentas_con_saldo"], t["lo_que_debes"]), (500000, 1, 0))
+        self.assertNotIn("banco-ejemplo", json.dumps(t), "solo totales")
+
+
 if __name__ == "__main__":
     try:
         unittest.main(verbosity=1)

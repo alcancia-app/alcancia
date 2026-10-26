@@ -45,3 +45,15 @@ def movimientos(cred, desde, hasta, memoria, red):
         cursor = (r.get("cursor") or {}).get("next")
         if not cursor:
             return movs, {}, None
+
+
+def saldo(cred, red):
+    """El saldo de cada cuenta en Akahu (`balance.current`)."""
+    r = red.get(f"{BASE}/accounts", cabeceras=_cab(cred))
+    out = []
+    for a in r.get("items") or []:
+        b = a.get("balance") or {}
+        monto = numero(b.get("current"))
+        if monto is not None:
+            out.append({"cuenta": a.get("_id", ""), "monto": monto, "moneda": str(b.get("currency") or "NZD")[:3]})
+    return out

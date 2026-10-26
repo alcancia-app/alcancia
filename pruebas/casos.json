@@ -3006,5 +3006,566 @@
     "ingresos_recibidos": 1450000
    }
   }
+ },
+ "tres_cifras": {
+  "_nota": "Lo que tienes, lo que gastaste y lo que debes (resumen.lo_que_tienes, resumen.resumen con cuotas y devoluciones, compromisos.lo_que_debes ↔ loQueTienes, resumen, loQueDebes en ui/app.js).",
+  "categorias": [
+   {
+    "id": "supermercado",
+    "tipo": "gasto"
+   },
+   {
+    "id": "comida",
+    "tipo": "gasto"
+   },
+   {
+    "id": "compras",
+    "tipo": "gasto"
+   },
+   {
+    "id": "casa",
+    "tipo": "gasto",
+    "fijo": true
+   },
+   {
+    "id": "sueldo",
+    "tipo": "ingreso"
+   },
+   {
+    "id": "transferencia",
+    "tipo": "neutro"
+   }
+  ],
+  "cuentas": [
+   {
+    "id": "banco",
+    "nombre": "Banco Ejemplo",
+    "moneda": "CLP",
+    "saldo": {
+     "monto": 500000,
+     "fecha": "2026-10-01",
+     "origen": "persona"
+    }
+   },
+   {
+    "id": "billetera",
+    "nombre": "Billetera Ejemplo",
+    "moneda": "CLP",
+    "saldo": {
+     "monto": 80000,
+     "fecha": "2026-10-20",
+     "origen": "conector"
+    }
+   },
+   {
+    "id": "otra",
+    "nombre": "Cuenta sin saldo",
+    "moneda": "CLP"
+   }
+  ],
+  "presupuesto": {
+   "moneda": "CLP",
+   "mensual": {
+    "compras": 100000
+   }
+  },
+  "compromisos": [
+   {
+    "id": "c-arriendo1",
+    "nombre": "Arriendo",
+    "tipo": "cuenta",
+    "signo": "gasto",
+    "monto": 400000,
+    "moneda": "CLP",
+    "frecuencia": "mensual",
+    "dia": 1,
+    "categoria": "casa",
+    "buscar": [
+     "ARRIENDO"
+    ],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-09-01",
+    "origen": "manual",
+    "pagos": {}
+   },
+   {
+    "id": "c-credito1",
+    "nombre": "Crédito de consumo",
+    "tipo": "deuda",
+    "signo": "gasto",
+    "monto": 100000,
+    "moneda": "CLP",
+    "frecuencia": "mensual",
+    "dia": 25,
+    "categoria": "",
+    "buscar": [
+     "CREDITO CONSUMO"
+    ],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-09-01",
+    "origen": "manual",
+    "pagos": {},
+    "cuotas_total": 10,
+    "cuotas_pagadas": 3
+   },
+   {
+    "id": "c-celular1",
+    "nombre": "Plan de celular",
+    "tipo": "cuenta",
+    "signo": "gasto",
+    "monto": 15990,
+    "moneda": "CLP",
+    "frecuencia": "mensual",
+    "dia": 12,
+    "categoria": "",
+    "buscar": [
+     "PLAN MOVIL"
+    ],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-10-01",
+    "origen": "manual",
+    "pagos": {}
+   }
+  ],
+  "movimientos": [
+   {
+    "id": "t01",
+    "fecha": "2026-10-03",
+    "cuenta": "banco",
+    "descripcion": "SUPERMERCADO EJEMPLO",
+    "monto": -40000,
+    "moneda": "CLP",
+    "categoria": "supermercado"
+   },
+   {
+    "id": "t02",
+    "fecha": "2026-10-05",
+    "cuenta": "banco",
+    "descripcion": "REMUNERACION EMPRESA FICTICIA",
+    "monto": 900000,
+    "moneda": "CLP",
+    "categoria": "sueldo"
+   },
+   {
+    "id": "t03",
+    "fecha": "2026-10-06",
+    "cuenta": "banco",
+    "descripcion": "PAGO TARJETA BILLETERA",
+    "monto": -50000,
+    "moneda": "CLP",
+    "categoria": "transferencia"
+   },
+   {
+    "id": "t04",
+    "fecha": "2026-08-14",
+    "cuenta": "billetera",
+    "descripcion": "TIENDA *LAVADORA",
+    "monto": -300000,
+    "moneda": "CLP",
+    "categoria": "casa",
+    "medio": "credito",
+    "cuotas": "6",
+    "cuota": "55000"
+   },
+   {
+    "id": "t05",
+    "fecha": "2026-10-08",
+    "cuenta": "billetera",
+    "descripcion": "ZAPATILLAS EJEMPLO",
+    "monto": -90000,
+    "moneda": "CLP",
+    "categoria": "compras",
+    "medio": "credito",
+    "cuotas": "3",
+    "cuota": ""
+   },
+   {
+    "id": "t06",
+    "fecha": "2026-10-02",
+    "cuenta": "billetera",
+    "descripcion": "LIBRERIA EJEMPLO",
+    "monto": -15000,
+    "moneda": "CLP",
+    "categoria": "compras",
+    "medio": "credito"
+   },
+   {
+    "id": "t07",
+    "fecha": "2026-10-11",
+    "cuenta": "billetera",
+    "descripcion": "CINE EJEMPLO",
+    "monto": -12000,
+    "moneda": "CLP",
+    "categoria": "",
+    "medio": "credito"
+   },
+   {
+    "id": "t08",
+    "fecha": "2026-10-04",
+    "cuenta": "billetera",
+    "descripcion": "TIENDA *AUDIFONOS",
+    "monto": -25000,
+    "moneda": "CLP",
+    "categoria": "compras",
+    "medio": "saldo"
+   },
+   {
+    "id": "t09",
+    "fecha": "2026-10-13",
+    "cuenta": "billetera",
+    "descripcion": "Devolución: TIENDA *AUDIFONOS",
+    "monto": 25000,
+    "moneda": "CLP",
+    "categoria": "compras",
+    "medio": "saldo"
+   },
+   {
+    "id": "t10",
+    "fecha": "2026-10-15",
+    "cuenta": "billetera",
+    "descripcion": "CAFE EJEMPLO",
+    "monto": -3000,
+    "moneda": "CLP",
+    "categoria": "comida",
+    "medio": "saldo"
+   },
+   {
+    "id": "t11",
+    "fecha": "2026-10-22",
+    "cuenta": "billetera",
+    "descripcion": "CAFE EJEMPLO",
+    "monto": -3500,
+    "moneda": "CLP",
+    "categoria": "comida",
+    "medio": "saldo"
+   },
+   {
+    "id": "t12",
+    "fecha": "2026-10-10",
+    "cuenta": "otra",
+    "descripcion": "PANADERIA EJEMPLO",
+    "monto": -1000,
+    "moneda": "CLP",
+    "categoria": "comida"
+   },
+   {
+    "id": "t13",
+    "fecha": "2026-10-01",
+    "cuenta": "banco",
+    "descripcion": "ARRIENDO OCTUBRE",
+    "monto": -400000,
+    "moneda": "CLP",
+    "categoria": "casa"
+   },
+   {
+    "id": "t14",
+    "fecha": "2026-09-25",
+    "cuenta": "banco",
+    "descripcion": "CREDITO CONSUMO",
+    "monto": -100000,
+    "moneda": "CLP",
+    "categoria": ""
+   }
+  ],
+  "casos": [
+   {
+    "nombre": "octubre en curso: cuotas, devolución, tarjeta desde el último pago y saldos",
+    "hoy": "2026-10-23",
+    "mes": "2026-10",
+    "esperado": {
+     "resumen": {
+      "gastado": 559500,
+      "ingresos": 900000,
+      "por_categoria": {
+       "casa": 455000,
+       "compras": 45000,
+       "supermercado": 40000,
+       "": 12000,
+       "comida": 7500
+      },
+      "sin_categoria": 1
+     },
+     "tienes": {
+      "moneda": "CLP",
+      "total": 1386500,
+      "con_saldo": 2,
+      "sin_saldo": 1,
+      "cuentas": [
+       {
+        "id": "banco",
+        "nombre": "Banco Ejemplo",
+        "moneda": "CLP",
+        "saldo": 1310000,
+        "base": {
+         "monto": 500000,
+         "fecha": "2026-10-01",
+         "origen": "persona"
+        },
+        "movimientos_despues": 3
+       },
+       {
+        "id": "billetera",
+        "nombre": "Billetera Ejemplo",
+        "moneda": "CLP",
+        "saldo": 76500,
+        "base": {
+         "monto": 80000,
+         "fecha": "2026-10-20",
+         "origen": "conector"
+        },
+        "movimientos_despues": 1
+       },
+       {
+        "id": "otra",
+        "nombre": "Cuenta sin saldo",
+        "moneda": "CLP",
+        "saldo": null,
+        "base": null,
+        "movimientos_despues": 0
+       }
+      ]
+     },
+     "debes": {
+      "mes": "2026-10",
+      "moneda": "CLP",
+      "total": 1337990,
+      "este_mes": 612990,
+      "ultimo_pago_tarjeta": "2026-10-06",
+      "partes": [
+       {
+        "tipo": "compromiso",
+        "nombre": "Arriendo",
+        "monto": 400000,
+        "este_mes": 400000,
+        "estado": "atrasado",
+        "vence": "2026-09-01",
+        "dias": 52,
+        "categoria": "casa",
+        "clave": "c-arriendo1|2026-09"
+       },
+       {
+        "tipo": "compromiso",
+        "nombre": "Plan de celular",
+        "monto": 15990,
+        "este_mes": 15990,
+        "estado": "atrasado",
+        "vence": "2026-10-12",
+        "dias": 11,
+        "categoria": "",
+        "clave": "c-celular1|2026-10"
+       },
+       {
+        "tipo": "tarjeta",
+        "nombre": "",
+        "monto": 97000,
+        "este_mes": 97000,
+        "compras": 3,
+        "desde": "2026-10-06"
+       },
+       {
+        "tipo": "deuda",
+        "nombre": "Crédito de consumo",
+        "monto": 600000,
+        "este_mes": 100000,
+        "cuotas": {
+         "pagadas": 4,
+         "total": 10,
+         "quedan": 6
+        },
+        "categoria": "",
+        "termina": "2027-03-25",
+        "pendientes": [
+         {
+          "estado": "pendiente",
+          "vence": "2026-10-25",
+          "dias": 2,
+          "monto": 100000,
+          "clave": "c-credito1|2026-10"
+         }
+        ]
+       },
+       {
+        "tipo": "cuotas",
+        "nombre": "TIENDA *LAVADORA",
+        "monto": 165000,
+        "este_mes": 0,
+        "cuota": 55000,
+        "quedan": 3,
+        "total": 6,
+        "categoria": "casa"
+       },
+       {
+        "tipo": "cuotas",
+        "nombre": "ZAPATILLAS EJEMPLO",
+        "monto": 60000,
+        "este_mes": 0,
+        "cuota": 30000,
+        "quedan": 2,
+        "total": 3,
+        "categoria": "compras"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "nombre": "noviembre: la cuota del mes y lo que queda",
+    "hoy": "2026-11-02",
+    "mes": "2026-11",
+    "esperado": {
+     "resumen": {
+      "gastado": 85000,
+      "ingresos": 0,
+      "por_categoria": {
+       "casa": 55000,
+       "compras": 30000
+      },
+      "sin_categoria": 0
+     },
+     "tienes": {
+      "moneda": "CLP",
+      "total": 1386500,
+      "con_saldo": 2,
+      "sin_saldo": 1,
+      "cuentas": [
+       {
+        "id": "banco",
+        "nombre": "Banco Ejemplo",
+        "moneda": "CLP",
+        "saldo": 1310000,
+        "base": {
+         "monto": 500000,
+         "fecha": "2026-10-01",
+         "origen": "persona"
+        },
+        "movimientos_despues": 3
+       },
+       {
+        "id": "billetera",
+        "nombre": "Billetera Ejemplo",
+        "moneda": "CLP",
+        "saldo": 76500,
+        "base": {
+         "monto": 80000,
+         "fecha": "2026-10-20",
+         "origen": "conector"
+        },
+        "movimientos_despues": 1
+       },
+       {
+        "id": "otra",
+        "nombre": "Cuenta sin saldo",
+        "moneda": "CLP",
+        "saldo": null,
+        "base": null,
+        "movimientos_despues": 0
+       }
+      ]
+     },
+     "debes": {
+      "mes": "2026-11",
+      "moneda": "CLP",
+      "total": 1353980,
+      "este_mes": 813980,
+      "ultimo_pago_tarjeta": "2026-10-06",
+      "partes": [
+       {
+        "tipo": "compromiso",
+        "nombre": "Plan de celular",
+        "monto": 15990,
+        "este_mes": 15990,
+        "estado": "atrasado",
+        "vence": "2026-10-12",
+        "dias": 21,
+        "categoria": "",
+        "clave": "c-celular1|2026-10"
+       },
+       {
+        "tipo": "compromiso",
+        "nombre": "Arriendo",
+        "monto": 400000,
+        "este_mes": 400000,
+        "estado": "atrasado",
+        "vence": "2026-11-01",
+        "dias": 1,
+        "categoria": "casa",
+        "clave": "c-arriendo1|2026-11"
+       },
+       {
+        "tipo": "compromiso",
+        "nombre": "Plan de celular",
+        "monto": 15990,
+        "este_mes": 15990,
+        "estado": "pendiente",
+        "vence": "2026-11-12",
+        "dias": 10,
+        "categoria": "",
+        "clave": "c-celular1|2026-11"
+       },
+       {
+        "tipo": "tarjeta",
+        "nombre": "",
+        "monto": 182000,
+        "este_mes": 182000,
+        "compras": 3,
+        "desde": "2026-10-06"
+       },
+       {
+        "tipo": "deuda",
+        "nombre": "Crédito de consumo",
+        "monto": 600000,
+        "este_mes": 200000,
+        "cuotas": {
+         "pagadas": 4,
+         "total": 10,
+         "quedan": 6
+        },
+        "categoria": "",
+        "termina": "2027-03-25",
+        "pendientes": [
+         {
+          "estado": "atrasado",
+          "vence": "2026-10-25",
+          "dias": 8,
+          "monto": 100000,
+          "clave": "c-credito1|2026-10"
+         },
+         {
+          "estado": "pendiente",
+          "vence": "2026-11-25",
+          "dias": 23,
+          "monto": 100000,
+          "clave": "c-credito1|2026-11"
+         }
+        ]
+       },
+       {
+        "tipo": "cuotas",
+        "nombre": "TIENDA *LAVADORA",
+        "monto": 110000,
+        "este_mes": 0,
+        "cuota": 55000,
+        "quedan": 2,
+        "total": 6,
+        "categoria": "casa"
+       },
+       {
+        "tipo": "cuotas",
+        "nombre": "ZAPATILLAS EJEMPLO",
+        "monto": 30000,
+        "este_mes": 0,
+        "cuota": 30000,
+        "quedan": 1,
+        "total": 3,
+        "categoria": "compras"
+       }
+      ]
+     }
+    }
+   }
+  ]
  }
 }

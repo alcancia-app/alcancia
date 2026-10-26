@@ -48,3 +48,15 @@ def movimientos(cred, desde, hasta, memoria, red):
                          "monto": monto, "moneda": (a.get("amount") or {}).get("currencyCode", "AUD")})
         url = (r.get("links") or {}).get("next")
     return movs, {}, None
+
+
+def saldo(cred, red):
+    """El saldo de cada cuenta de Up (`attributes.balance`)."""
+    r = red.get(f"{BASE}/accounts?page[size]=100".replace("[", "%5B").replace("]", "%5D"), cabeceras=_cab(cred))
+    out = []
+    for a in r.get("data") or []:
+        b = (a.get("attributes") or {}).get("balance") or {}
+        monto = numero(b.get("value"))
+        if monto is not None:
+            out.append({"cuenta": a.get("id", ""), "monto": monto, "moneda": b.get("currencyCode", "AUD")})
+    return out

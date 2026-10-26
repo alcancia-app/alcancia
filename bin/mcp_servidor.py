@@ -90,9 +90,25 @@ def resumen_del_mes(args):
     r["por_categoria"] = {_nombre_cat(k, cats): v for k, v in r["por_categoria"].items()}
     for a in r["alertas"]:
         a["categoria"] = _nombre_cat(a["categoria"], cats)
+    r["tres_cifras"] = tres_cifras(per)
     r["nota"] = ("proyeccion = cómo terminaría el mes si sigue el ritmo de los gastos variables; null si el mes no está en curso. "
-                 "desde/hasta = días que abarca el mes (puede ir de sueldo a sueldo).")
+                 "desde/hasta = días que abarca el mes (puede ir de sueldo a sueldo). gastado = lo que gastaste: las compras en cuotas "
+                 "con crédito cuentan por la cuota del mes y las devoluciones descuentan. tres_cifras = hoy: lo_que_tienes (suma de "
+                 "los saldos conocidos; null si la persona aún no anotó ninguno), lo_que_debes (total y lo que toca este mes).")
     return r
+
+
+def tres_cifras(per=None):
+    """Lo que tienes, lo que gastaste este mes y lo que debes: solo totales (sin cuentas, nombres ni ids)."""
+    hoy = date.today().isoformat()
+    moneda, movs = _moneda(), datos.leer_todos()
+    t = resumen_mod.lo_que_tienes(datos.leer_json(os.path.join(datos.BASE, "cuentas.json"), []), movs, moneda)
+    mes = resumen_mod.periodo_de(hoy, per)
+    g = resumen_mod.resumen(movs, mes, hoy, datos.presupuesto(), datos.categorias(), per)
+    d = K.lo_que_debes(K.validos(None, hoy, moneda), movs, hoy, moneda, per)
+    return {"moneda": moneda, "lo_que_tienes": t["total"], "cuentas_con_saldo": t["con_saldo"], "cuentas_sin_saldo": t["sin_saldo"],
+            "lo_que_gastaste_este_mes": g["gastado"], "lo_que_debes": d["total"], "debes_este_mes": d["este_mes"],
+            "atrasado": sum(p["monto"] for p in d["partes"] if p.get("estado") == "atrasado")}
 
 
 def gastos_por_categoria(args):

@@ -15,6 +15,12 @@ Cada módulo define:
   movimientos(cred, desde, hasta, memoria, red) -> (movs, memoria_nueva, cred_nueva | None)
       movs = [{"cuenta", "id_externo", "fecha": "AAAA-MM-DD", "descripcion", "monto" (negativo = gasto), "moneda"}]
       `memoria` es un dict sin secretos que el conector guarda entre una vez y otra (p. ej. un reporte pedido y aún no listo).
+      Opcionales en cada movimiento: "medio" (saldo | debito | credito | otro), "cuotas" (2 a 72) y "cuota" (monto de cada una).
+Opcionales:
+  saldo(cred, red) -> [{"cuenta", "monto", "moneda", "fecha"?}]   el saldo de cada cuenta que informa el servicio (se guarda en
+      cuentas.json con origen «conector»); si falla, no pasa nada: Alcancía sigue con el saldo que anotó la persona
+  reparar(lista) -> n             arregla lo guardado por una versión anterior (corre una vez por cada REPARACIONES nueva)
+  RELEER_DIAS = n                 con una reparación pendiente, se vuelven a pedir n días para completar lo guardado (por id)
 """
 import importlib
 import pkgutil

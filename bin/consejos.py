@@ -45,6 +45,17 @@ def linea_compromisos(hoy, movimientos, presupuesto, categorias, compromisos, pe
     return "\n".join(lineas)
 
 
+def linea_tres_cifras(hoy, movimientos, presupuesto, compromisos=None, per=None):
+    """Las tres cifras del Resumen, solo totales: lo que tiene hoy, lo que debe (y lo de este mes) y lo atrasado."""
+    moneda = presupuesto.get("moneda", "CLP")
+    t = resumen.lo_que_tienes(datos.leer_json(os.path.join(datos.BASE, "cuentas.json"), []), movimientos, moneda)
+    d = K.lo_que_debes(compromisos or [], movimientos, hoy, moneda, per)
+    atrasado = sum(p["monto"] for p in d["partes"] if p.get("estado") == "atrasado")
+    tiene = f"tiene {t['total']} en sus cuentas" if t["total"] is not None else "no ha anotado cuánto tiene en sus cuentas"
+    return (f"Hoy {tiene}; debe {d['total']} en total, de eso {d['este_mes']} toca pagarlo este mes"
+            + (f" ({atrasado} ya atrasado)" if atrasado else "") + ".")
+
+
 def prompt(hoy, movimientos, presupuesto, categorias, compromisos=None, per=None):
     """`per`: el mes de sueldo a sueldo, si la persona lo eligió (ver resumen.rango)."""
     mes = resumen.periodo_de(hoy, per)
@@ -74,7 +85,8 @@ def prompt(hoy, movimientos, presupuesto, categorias, compromisos=None, per=None
     return f"""Eres un coach de finanzas personales cercano, honesto y práctico (nada de sermones). La persona usa una app para
 controlar sus gastos porque le cuesta medirse. Hoy es {hoy} (día {r['dia']} de {r['dias_mes']} de su mes, que va del {r['desde']} al {r['hasta']}). Moneda: {r['moneda']}.
 
-Este mes lleva gastado {r['gastado']} e ingresado {r['ingresos']}. Presupuesto total: {r['presupuesto'] or 'sin definir'}.
+{linea_tres_cifras(hoy, movimientos, presupuesto, compromisos, per)}
+Este mes lleva gastado {r['gastado']} e ingresado {r['ingresos']} (las compras en cuotas con crédito cuentan por la cuota del mes). Presupuesto total: {r['presupuesto'] or 'sin definir'}.
 Proyección a fin de mes a este ritmo: {r['proyeccion'] if r['proyeccion'] is not None else 'aún no se puede calcular'}.
 
 Por categoría este mes:

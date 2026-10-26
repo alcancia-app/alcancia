@@ -22,7 +22,7 @@ from statistics import median
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import categorizar  # noqa: E402
 import datos  # noqa: E402
-from resumen import dias_del_mes, periodo_de, periodos_con_datos, rango, redondear_arriba, sumar_mes  # noqa: E402
+from resumen import cargos, cuotas_de, dias_del_mes, periodo_de, periodos_con_datos, rango, redondear_arriba, sumar_mes, valor_cuota  # noqa: E402
 
 RUTA = os.path.join(datos.BASE, "compromisos.json")
 RUTA_AVISOS = os.path.join(datos.INTERNO, "avisos.json")
@@ -447,6 +447,74 @@ def gasto_maximo(movimientos, compromisos, mes, hoy, categorias, meses_completos
     por.sort(key=lambda x: (-x["maximo"], -x["gastado"], x["categoria"]))
     return {"mes": mes, "moneda": moneda, "ingreso": ingreso, "fuente": fuente, "compromisos": comp, "otros_fijos": otros_fijos,
             "disponible": disponible, "alcanza": disponible is not None and disponible > 0, "por_categoria": por}
+
+
+# ───────────── Lo que debes (igual que ui/app.js) ─────────────
+#: Palabras con que aparece en la cartola el pago de una tarjeta de crédito (sin tildes, en mayúsculas). Desde ese pago, lo
+#: comprado con crédito antes ya no se debe.
+PAGO_TARJETA = ("PAGO TARJETA", "PAGO DE TARJETA", "PAGO TC", "PAGO T C", "PAGO TARJ", "TARJETA DE CREDITO", "PAGO DE RESUMEN",
+                "CREDIT CARD PAYMENT", "PAYMENT THANK YOU")
+
+
+def es_pago_tarjeta(m):
+    d = datos.normalizar(re.sub(r"[.\-_/]", " ", str(m.get("descripcion") or "")))
+    d = re.sub(r"\s+", " ", d)
+    return m["monto"] < 0 and m.get("medio") != "credito" and any(p in d for p in PAGO_TARJETA)
+
+
+_ORDEN_ESTADO = {"atrasado": 0, "hoy": 1, "pendiente": 2}
+
+
+def lo_que_debes(compromisos, movimientos, hoy, moneda, per=None):
+    """Lo que debes hoy, en palabras simples. Partes:
+    - `compromiso`: cuentas, suscripciones y deudas sin saldo conocido que faltan pagar este mes (y lo atrasado de antes);
+    - `deuda`: créditos con lo que te queda por pagar (cuotas que faltan × cuota, o el saldo que anotaste), con lo de este mes aparte;
+    - `tarjeta`: lo comprado con crédito desde el último pago de tarjeta (las cuotas de este mes y las compras en 1 cuota), nunca
+      más atrás que el inicio del mes anterior (lo de antes ya se facturó);
+    - `cuotas`: las cuotas que vienen de compras en cuotas («te quedan 5 cuotas de 61.000»).
+    `este_mes` es lo que toca pagar en el mes de hoy (compromisos pendientes y atrasados, y la tarjeta); `total`, todo."""
+    mes = periodo_de(hoy, per)
+    inicio, fin = rango(mes, per)
+    e = estado_mes(compromisos, movimientos, mes, hoy, moneda, per)
+    con_saldo = {c["id"]: c for c in e["compromisos"] if c["signo"] == "gasto" and c["tipo"] == "deuda" and c["moneda"] == moneda
+                 and c.get("por_pagar")}
+    pendientes = [i for i in e["items"] if i["signo"] == "gasto" and i["moneda"] == moneda and i["estado"] != "pagado"]
+    pendientes.sort(key=lambda i: (_ORDEN_ESTADO[i["estado"]], i["vence"], i["id"]))
+    partes = []
+    for i in pendientes:
+        if i["id"] not in con_saldo:
+            partes.append({"tipo": "compromiso", "nombre": i["nombre"], "monto": redondear(i["monto"]), "este_mes": redondear(i["monto"]),
+                           "estado": i["estado"], "vence": i["vence"], "dias": i["dias"], "categoria": i["categoria"],
+                           "clave": f"{i['id']}|{i['periodo']}"})
+    pagos = sorted(m["fecha"] for m in movimientos if m["fecha"] <= hoy and (m.get("moneda") or moneda) == moneda and es_pago_tarjeta(m))
+    ultimo = pagos[-1] if pagos else None
+    desde = rango(sumar_mes(mes, -1), per)[0]
+    tarjeta, compras, cuotas = 0, 0, []
+    for m in sorted(movimientos, key=lambda x: (x["fecha"], x.get("id", ""))):
+        if m.get("medio") != "credito" or m["monto"] >= 0 or (m.get("moneda") or moneda) != moneda:
+            continue
+        en_tarjeta = [(f, v) for f, v, _, _ in cargos(m) if f <= fin and f >= desde and (ultimo is None or f > ultimo)]
+        if en_tarjeta:
+            tarjeta += sum(-v for _, v in en_tarjeta)
+            compras += 1
+        n = cuotas_de(m)
+        quedan = sum(1 for f, _, _, _ in cargos(m) if f > fin) if n else 0
+        if quedan:
+            c = valor_cuota(m)
+            cuotas.append({"tipo": "cuotas", "nombre": m["descripcion"], "monto": redondear(quedan * c), "este_mes": 0,
+                           "cuota": redondear(c), "quedan": quedan, "total": n, "categoria": m.get("categoria") or ""})
+    if tarjeta:
+        partes.append({"tipo": "tarjeta", "nombre": "", "monto": redondear(tarjeta), "este_mes": redondear(tarjeta), "compras": compras,
+                       "desde": ultimo})
+    for c in sorted(con_saldo.values(), key=lambda c: c["id"]):
+        mias = [i for i in pendientes if i["id"] == c["id"]]
+        partes.append({"tipo": "deuda", "nombre": c["nombre"], "monto": redondear(c["por_pagar"]), "este_mes": redondear(sum(i["monto"] for i in mias)),
+                       "cuotas": c["cuotas"], "categoria": c["categoria"], "termina": c["termina"],
+                       "pendientes": [{"estado": i["estado"], "vence": i["vence"], "dias": i["dias"], "monto": redondear(i["monto"]),
+                                       "clave": f"{i['id']}|{i['periodo']}"} for i in mias]})
+    partes += sorted(cuotas, key=lambda x: (-x["monto"], x["nombre"]))
+    return {"mes": mes, "moneda": moneda, "total": redondear(sum(p["monto"] for p in partes)),
+            "este_mes": redondear(sum(p["este_mes"] for p in partes)), "ultimo_pago_tarjeta": ultimo, "partes": partes}
 
 
 # ───────────── El mes que parte con el sueldo (igual que ui/app.js) ─────────────

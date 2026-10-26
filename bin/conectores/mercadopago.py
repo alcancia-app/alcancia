@@ -1,7 +1,16 @@
 """Mercado Pago (Argentina, Brasil, Chile, Colombia, México, Perú, Uruguay): pagos que hiciste y recibiste.
 
-API: GET https://api.mercadopago.com/v1/payments/search (pagos de los últimos 12 meses, solo `approved`) con el filtro
-`payer.id` (lo que pagaste: gasto) y `collector.id` (lo que te pagaron: ingreso). El id de la persona sale de GET /users/me.
+API: GET https://api.mercadopago.com/v1/payments/search (pagos de los últimos 12 meses: `approved`, y también `refunded` y
+`charged_back` para anotar la devolución) con el filtro `payer.id` (lo que pagaste: gasto) y `collector.id` (lo que te pagaron:
+ingreso). El id de la persona sale de GET /users/me.
+
+Cómo se pagó (columnas `medio`, `cuotas`, `cuota` de los movimientos): `payment_type_id` account_money → saldo, debit_card y
+prepaid_card → débito, credit_card (y los créditos de Mercado Pago, `consumer_credits`) → crédito; `installments` y
+`transaction_details.installment_amount` dan las cuotas. Lo devuelto (`transaction_amount_refunded`, o todo si el estado es
+`refunded`/`charged_back`) queda como un movimiento aparte, «Devolución: …», del signo contrario y con id «<pago>|devolucion».
+
+Saldo: GET /users/{id}/mercadopago_account/balance → `available_balance` (el disponible que muestra la app; si no viene,
+`total_amount`). Si Mercado Pago no lo entrega para cuentas de personas, no pasa nada: se usa el saldo que anota la persona.
 
 Beta: la documentación muestra esos filtros pero no los describe, así que falta confirmar con una cuenta real que aparecen todas las
 compras y transferencias. La llave de Mercado Pago da acceso completo a la cuenta (no existe una de solo lectura): Alcancía solo la
@@ -42,6 +51,13 @@ def _yo(cred, red):
     return u
 
 
+#: Al subir REPARACIONES en sincronizar.py, se vuelve a pedir este rango (el máximo que deja la búsqueda) para completar lo guardado.
+RELEER_DIAS = 364
+MEDIOS = {"account_money": "saldo", "debit_card": "debito", "prepaid_card": "debito", "credit_card": "credito",
+          "digital_currency": "credito", "ticket": "otro", "atm": "otro", "bank_transfer": "otro"}
+ESTADOS = ("approved", "refunded", "charged_back")
+
+
 def probar(cred, red):
     u = _yo(cred, red)
     return None, [{"id": "", "nombre": "Mercado Pago", "moneda": {"MLC": "CLP", "MLA": "ARS", "MLB": "BRL", "MLM": "MXN", "MCO": "COP",
@@ -72,7 +88,7 @@ def movimientos(cred, desde, hasta, memoria, red):
     vistos = {}  # id del pago → (pago, signos en que apareció)
     for filtro, signo in (("payer.id", -1), ("collector.id", 1)):
         for p in _buscar(cred, red, filtro, yo, desde, hasta):
-            if p.get("status") != "approved" or p.get("id") is None:
+            if p.get("status") not in ESTADOS or p.get("id") is None:
                 continue
             vistos.setdefault(p["id"], [p, set()])[1].add(signo)
     movs = []
@@ -94,8 +110,45 @@ def movimientos(cred, desde, hasta, memoria, red):
              "descripcion": desc, "monto": signo * abs(monto), "moneda": p.get("currency_id") or ""}
         if propio and p.get("operation_type") != "account_fund":
             m["categoria"] = "transferencia"
+        if signo < 0 and not propio:
+            m.update(_como_se_pago(p))
         movs.append(m)
+        devuelto = abs(monto) if p.get("status") in ("refunded", "charged_back") else numero(p.get("transaction_amount_refunded")) or 0
+        if devuelto > 0 and not propio:
+            fechas = [fecha_local(r.get("date_created")) for r in p.get("refunds") or [] if isinstance(r, dict)]
+            fd = max([x for x in fechas if x] or [fecha_local(p.get("date_last_updated")) or f])
+            movs.append({"cuenta": "", "id_externo": f"{pid}|devolucion", "fecha": max(fd, f), "descripcion": f"Devolución: {desc}",
+                         "monto": -signo * min(abs(devuelto), abs(monto)), "moneda": m["moneda"],
+                         **({"medio": m["medio"]} if m.get("medio") else {})})
     return movs, {}, None
+
+
+def _como_se_pago(p):
+    """{"medio", "cuotas", "cuota"} de un pago tuyo (solo lo que Mercado Pago dice)."""
+    tipo = p.get("payment_type_id") or ""
+    medio = "credito" if p.get("payment_method_id") == "consumer_credits" else MEDIOS.get(tipo, "")
+    r = {"medio": medio} if medio else {}
+    n = p.get("installments")
+    if medio == "credito" and isinstance(n, int) and not isinstance(n, bool) and 2 <= n <= 72:
+        r["cuotas"] = n
+        c = numero((p.get("transaction_details") or {}).get("installment_amount"))
+        if c and c > 0:
+            r["cuota"] = round(c, 2)
+    return r
+
+
+def saldo(cred, red):
+    """El saldo disponible de la cuenta de Mercado Pago, como lo muestra la app."""
+    yo = _yo(cred, red)
+    b = red.get(f"{BASE}/users/{int(yo['id'])}/mercadopago_account/balance", cabeceras=_cab(cred))
+    if not isinstance(b, dict):
+        return []
+    monto = next((numero(b[k]) for k in ("available_balance", "availableBalance", "total_amount", "totalAmount", "balance")
+                  if k in b and numero(b[k]) is not None), None)
+    if monto is None:
+        return []
+    moneda = str(b.get("currency_id") or b.get("currency") or "").upper()[:3]
+    return [{"cuenta": "", "monto": monto, "moneda": moneda}]
 
 
 def reparar(lista):

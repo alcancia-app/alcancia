@@ -7,6 +7,9 @@
   presupuesto  {"mensual": {"<categoria>": tope}}   guarda los topes del mes
   receta       {"receta": {...}}                    guarda una receta nueva (validada) en ~/Alcancia/.alcancia/recetas/
   desconectar  {"conector"}                         olvida el estado de una conexión (la llave la borra la app del Llavero)
+  categoriaNueva {"categoria": {"id", "nombre", "emoji", "tipo"}, "mes"?, "id"?}
+                                                    crea una categoría (en categorias.json) y, si viene, se la pone a ese movimiento
+  saldo        {"cuenta", "monto", "fecha"}         lo que la persona tiene hoy en una cuenta (cuentas.json, origen «persona»)
   compromiso   {"accion", ...}                      compromisos.json: guardar {"compromiso"}, borrar {"id"},
                                                     pagado / desmarcar {"id", "periodo"}, no_es {"id", "periodo", "movimiento"},
                                                     descartar {"clave"} (una sugerencia que no es compromiso)
@@ -55,6 +58,48 @@ def regla(e):
         if tocado:
             datos.escribir_mes(mes, movs)
     return {"ok": True, "cambiados": cambiados}
+
+
+def categoria_nueva(e):
+    """Una categoría creada al vuelo («Comida atípica», «Cine»). Si categorias.json aún no existe, parte de las de siempre."""
+    import re
+    c = e.get("categoria")
+    if not isinstance(c, dict):
+        return {"ok": False, "error": "Categoría inválida."}
+    cid = str(c.get("id") or "")
+    nombre = re.sub(r"\s+", " ", re.sub(r"[\x00-\x1f\x7f<>]", " ", str(c.get("nombre") or ""))).strip()[:40].strip()
+    emoji = str(c.get("emoji") or "🏷️").strip()
+    tipo = c.get("tipo") if c.get("tipo") in ("gasto", "ingreso", "neutro") else "gasto"
+    if not re.fullmatch(r"[a-z0-9_]{2,40}", cid) or not nombre or not 1 <= len(emoji) <= 8 or re.search(r"[\w<>&\s]", emoji):
+        return {"ok": False, "error": "Categoría inválida."}
+    lista = [dict(x) for x in datos.categorias()]
+    if any(x["id"] == cid for x in lista):
+        return {"ok": False, "error": "Ya existe una categoría con ese nombre."}
+    lista.append({"id": cid, "nombre": nombre, "emoji": emoji, "tipo": tipo})
+    datos.escribir_json(os.path.join(datos.BASE, "categorias.json"), lista)
+    if e.get("id"):
+        r = categoria({"mes": e.get("mes"), "id": e.get("id"), "categoria": cid})
+        if not r["ok"]:
+            return r
+    return {"ok": True, "id": cid}
+
+
+def saldo(e):
+    """Lo que la persona dice que tiene hoy en una cuenta. Pasa a ser la base: desde ahí se suman los movimientos que lleguen.
+    Devuelve lo que Alcancía calculaba antes, para decir si había una diferencia."""
+    import re
+    from datetime import date
+    import resumen
+    cuenta, fecha = str(e.get("cuenta") or ""), str(e.get("fecha") or date.today().isoformat())
+    monto = e.get("monto")
+    if not re.fullmatch(r"[A-Za-z0-9_\-]{1,60}", cuenta) or isinstance(monto, bool) or not isinstance(monto, (int, float)) \
+            or not -1e13 < monto < 1e13 or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", fecha):
+        return {"ok": False, "error": "Saldo inválido."}
+    cuentas = datos.leer_json(os.path.join(datos.BASE, "cuentas.json"), [])
+    moneda = datos.presupuesto().get("moneda") or datos.config()["moneda"]
+    antes = next((c["saldo"] for c in resumen.lo_que_tienes(cuentas, datos.leer_todos(), moneda)["cuentas"] if c["id"] == cuenta), None)
+    datos.anotar_saldo(cuenta, monto, fecha, "persona")
+    return {"ok": True, "calculado": antes, "diferencia": None if antes is None else round(monto - antes, 2)}
 
 
 def presupuesto(e):
@@ -162,7 +207,7 @@ def compromiso(e):
 
 
 ACCIONES = {"categoria": categoria, "regla": regla, "presupuesto": presupuesto, "receta": receta, "desconectar": desconectar,
-            "compromiso": compromiso}
+            "compromiso": compromiso, "categoriaNueva": categoria_nueva, "saldo": saldo}
 
 if __name__ == "__main__":
     if len(sys.argv) != 4 or sys.argv[1] not in ACCIONES:

@@ -87,12 +87,22 @@ def registrar_cuentas(mod, cuentas):
 
 # Las únicas categorías que un conector puede proponer (el resto lo decide Alcancía con reglas, comercios conocidos o la IA).
 CATEGORIAS_CONECTOR = {"transferencia"}
-REPARACIONES = 2  # sube cuando un conector trae una reparación nueva para lo ya guardado
+REPARACIONES = 3  # sube cuando un conector trae una reparación nueva para lo ya guardado
+# 3: Mercado Pago vuelve a pedir el año completo para anotar cómo se pagó (medio, cuotas) y las devoluciones de lo ya guardado.
+#: Lo que un conector puede completar en lo ya guardado (por id): cómo se pagó y el monto de una devolución que creció.
+COMPLETAR = ("medio", "cuotas", "cuota")
+
+
+def reparacion_pendiente(cid):
+    return estado_conexiones().get(cid, {}).get("reparado", 0) < REPARACIONES
 
 
 def reparar_guardado(mod, cid):
     """Corre una sola vez la reparación del conector (si tiene) sobre todos los meses guardados."""
-    if not hasattr(mod, "reparar") or estado_conexiones().get(cid, {}).get("reparado", 0) >= REPARACIONES:
+    if not reparacion_pendiente(cid):
+        return 0
+    if not hasattr(mod, "reparar"):
+        _guardar_estado(cid, {"reparado": REPARACIONES})
         return 0
     total = 0
     for mes in datos.meses():
@@ -115,10 +125,58 @@ def a_movimientos(mod, crudos):
             continue
         desc = " ".join(str(m.get("descripcion") or "").split())[:200] or mod.INFO["nombre"]
         cuenta = cuenta_id(mod.INFO["id"], str(m.get("cuenta") or ""))
-        r.append({"id": id_movimiento(mod.INFO["id"], cuenta, str(m["id_externo"])), "fecha": fecha, "descripcion": desc, "monto": monto,
-                  "moneda": str(m.get("moneda") or "").upper()[:3], "categoria": m.get("categoria") if m.get("categoria") in CATEGORIAS_CONECTOR else "", "cuenta": cuenta,
-                  "origen": f"conector:{mod.INFO['id']}", "nota": ""})
+        x = {"id": id_movimiento(mod.INFO["id"], cuenta, str(m["id_externo"])), "fecha": fecha, "descripcion": desc, "monto": monto,
+             "moneda": str(m.get("moneda") or "").upper()[:3], "categoria": m.get("categoria") if m.get("categoria") in CATEGORIAS_CONECTOR else "", "cuenta": cuenta,
+             "origen": f"conector:{mod.INFO['id']}", "nota": ""}
+        if m.get("medio") in datos.MEDIOS:
+            x["medio"] = m["medio"]
+        n = m.get("cuotas")
+        if x.get("medio") == "credito" and isinstance(n, int) and not isinstance(n, bool) and 2 <= n <= 72:
+            x["cuotas"] = n
+            try:
+                c = round(float(m.get("cuota") or 0), 2)
+            except (TypeError, ValueError):
+                c = 0
+            if 0 < c < 1e12:
+                x["cuota"] = int(c) if c == int(c) else c
+        r.append(x)
     return r
+
+
+def guardar_saldos(mod, cred, red, hoy):
+    """El saldo que informa el servicio (si el conector sabe pedirlo) queda en cuentas.json con origen «conector». Si el servicio no
+    lo entrega, no pasa nada: la persona lo anota en la app. Devuelve cuántas cuentas quedaron con saldo."""
+    if not hasattr(mod, "saldo"):
+        return 0
+    try:
+        lista = mod.saldo(cred, red) or []
+    except (conectores.Error, ErrorRed, KeyError, TypeError, ValueError, AttributeError):
+        return 0
+    n = 0
+    for s in lista if isinstance(lista, list) else []:
+        try:
+            monto = float(s["monto"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        fecha = str(s.get("fecha") or hoy)[:10]
+        cid = cuenta_id(mod.INFO["id"], str(s.get("cuenta") or ""))
+        datos.anotar_saldo(cid, monto, fecha, "conector", nombre=mod.INFO["nombre"], moneda=str(s.get("moneda") or "").upper()[:3])
+        n += 1
+    return n
+
+
+def categoria_de_devoluciones(movs):
+    """Una devolución nueva toma la categoría de la compra devuelta (si ya la tenía): así descuenta de esa categoría."""
+    por_id = {}
+    for m in movs:
+        if m["descripcion"].startswith("Devolución: ") and not m["categoria"]:
+            por_id[m["id"]] = m
+    if not por_id:
+        return
+    guardados = {(x["cuenta"], x["descripcion"]): x.get("categoria") for x in datos.leer_todos() if x.get("categoria")}
+    for m in movs:
+        if m["descripcion"].startswith("Devolución: ") and not m["categoria"]:
+            m["categoria"] = guardados.get((m["cuenta"], m["descripcion"][len("Devolución: "):]), "") or ""
 
 
 def probar(cid, salida):
@@ -135,6 +193,7 @@ def probar(cid, salida):
     except (conectores.Error, ErrorRed) as e:
         return {"ok": False, "error": str(e)}
     registrar_cuentas(mod, cuentas)
+    guardar_saldos(mod, cred, red, date.today().isoformat())
     _guardar_estado(cid, {"conectado": True, "cuentas": [c["nombre"] for c in cuentas], "error": ""})
     r = {"ok": True, "cuentas": [{**c, "nombre": sin_numeros(c["nombre"])} for c in cuentas]}
     if nueva:
@@ -150,6 +209,9 @@ def traer(cid, salida, hoy=None):
     est = estado_conexiones().get(cid, {})
     ultima = est.get("hasta")
     desde = (date.fromisoformat(ultima) - timedelta(days=SOLAPE_DIAS)) if ultima else hoy - timedelta(days=mod.INFO.get("dias_inicio", 90))
+    releer = ultima and reparacion_pendiente(cid) and getattr(mod, "RELEER_DIAS", 0)
+    if releer:  # una reparación nueva: se vuelve a pedir todo lo que deja el servicio para completar lo ya guardado (por id)
+        desde = min(desde, hoy - timedelta(days=releer))
     red = Red(mod.INFO["hosts"], mod.INFO["nombre"])
     ahora = datetime.now(timezone.utc).isoformat(timespec="seconds")
     try:
@@ -168,10 +230,14 @@ def traer(cid, salida, hoy=None):
         if m["categoria"] and any(r.get("contiene") and datos.normalizar(r["contiene"]) in datos.normalizar(m["descripcion"]) for r in reglas):
             m["categoria"] = ""
     categorizar.por_reglas(movs, reglas)
+    categoria_de_devoluciones(movs)
     import importar
     ya = importar.ids_guardados(movs)
     nuevos, repetidos = datos.agregar(movs)
-    reparados = reparar_guardado(mod, cid)
+    # Lo ya guardado se completa con lo que el servicio dice ahora (cómo se pagó; una devolución que creció). Nunca la categoría.
+    completados = datos.completar(movs, COMPLETAR) + datos.completar([m for m in movs if m["descripcion"].startswith("Devolución: ")], ("monto",))
+    reparados = reparar_guardado(mod, cid) + completados
+    guardar_saldos(mod, credencial(), red, hoy.isoformat())
     resultado = {"ok": True, "nombre": mod.INFO["nombre"], "nuevos": nuevos, "repetidos": repetidos, "categorizados_ia": 0, "error_ia": "",
                  "reparados": reparados}
     if nuevos and datos.config().get("ia_en_conexiones", True):

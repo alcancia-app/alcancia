@@ -61,16 +61,34 @@ Todo vive en `~/Alcancia/` (en Windows, `C:\Users\<tú>\Alcancia`). Es un format
 
 | Archivo | Qué guarda |
 |---|---|
-| `movimientos/AAAA-MM.csv` | Un archivo por mes. Columnas: `id, fecha, descripcion, monto, moneda, categoria, cuenta, origen, nota`. `monto` negativo = gasto, positivo = ingreso, con punto decimal. `id` identifica el movimiento para no duplicarlo. |
+| `movimientos/AAAA-MM.csv` | Un archivo por mes. Columnas: `id, fecha, descripcion, monto, moneda, categoria, cuenta, origen, nota`. `monto` negativo = gasto, positivo = ingreso, con punto decimal. `id` identifica el movimiento para no duplicarlo. Opcionales, **al final y solo si algún movimiento del mes las usa**: `medio` (`saldo`, `debito`, `credito` u `otro`: cómo se pagó, lo dice el conector), `cuotas` (en cuántas cuotas, 2 o más) y `cuota` (cuánto es cada una, con intereses; vacío = monto / cuotas). Lee las columnas por nombre (como `csv.DictReader`) y tus scripts siguen funcionando. |
 | `categorias.json` | `[{"id", "nombre", "emoji", "tipo": "gasto" \| "ingreso" \| "neutro", "fijo"}]`. `neutro` = entre tus cuentas (no cuenta como gasto); `fijo` = se paga una vez al mes. |
 | `presupuesto.json` | `{"moneda": "CLP", "mensual": {"<categoria>": tope}}` |
 | `reglas.json` | `[{"contiene": "TEXTO", "categoria": "<id>"}]`: lo que Alcancía aprende cuando corriges una categoría. |
-| `cuentas.json` | `[{"id", "nombre", "receta", "moneda"}]` |
+| `cuentas.json` | `[{"id", "nombre", "receta", "moneda", "saldo"}]`. `saldo` es opcional: `{"monto", "fecha", "origen"}`, el último saldo que se conoce de la cuenta. `origen` = `conector` (lo informa el servicio, p. ej. el disponible de Mercado Pago), `cartola` (la columna de saldo de la última fila) o `persona` (lo anotaste tú). Ver [Las tres cifras](#tres-cifras). |
 | `consejos/AAAA-MM-DD.md` | Los consejos de tu IA. |
 | `compromisos.json` | Lo que pagas o recibes seguido. Ver [Compromisos](#compromisos-formato). |
 | `cuentas.json` (cont.) | Las cuentas que vienen de una conexión llevan `"conector"` en vez de `"receta"`. |
 | `.alcancia/config.json` | Ajustes. Entre ellos `inicio_mes`: `{"modo": "dia" \| "sueldo", "dia": 25}` (tu mes parte el día 1 o cuando llega tu sueldo) y `avisos` (`true` si quieres avisos de tus compromisos). |
 | `.alcancia/` | Ajustes de la app, `avisos.json` (qué avisos ya se mostraron), recetas descargadas o creadas por ti, `conexiones.json` (estado de cada conexión, sin llaves) y `vigilar.json` (cartolas ya revisadas en Descargas). Las llaves de las conexiones viven en el Llavero de tu sistema, nunca en esta carpeta. |
+
+### Las tres cifras del Resumen
+<a id="tres-cifras"></a>
+- **Lo que tienes** (hoy): la suma de los saldos de tus cuentas. Para cada cuenta se usa el último saldo conocido (`cuentas.json`,
+  campo `saldo`) más los movimientos de los días siguientes. Si un conector sabe pedir el saldo a su API oficial, se guarda en cada
+  sincronización (`origen: "conector"`): en **Mercado Pago** es el saldo disponible que muestra su app (`available_balance` de
+  `/users/{id}/mercadopago_account/balance`); también Up, Akahu y SimpleFIN. Si no, la persona lo anota una vez y Alcancía sigue con
+  los movimientos; cuando lo corrige, dice si había una diferencia con lo que calculaba y parte desde el saldo corregido. Las compras
+  con crédito no mueven el saldo (van a la tarjeta). Sin ningún saldo, la app invita a anotarlo: nunca muestra un cero inventado.
+- **Lo que gastaste** (en tu mes): los gastos, sin lo de «Entre mis cuentas». Una compra con crédito en cuotas cuenta por la cuota de
+  cada mes (la primera, el día de la compra); una devolución (un monto positivo con categoría de gasto) descuenta de esa categoría.
+- **Lo que debes** (hoy): lo que falta pagar de tus compromisos este mes (y lo atrasado), lo que te queda de cada crédito (cuotas
+  que faltan × cuota, o el saldo que anotaste), lo comprado con crédito desde el último pago de tarjeta (un movimiento que diga
+  «PAGO TARJETA», «PAGO TC»…; nunca más atrás que el mes anterior) y las cuotas que vienen de compras en cuotas. Muestra aparte lo
+  que toca pagar este mes.
+
+**Devoluciones de Mercado Pago:** lo devuelto queda como un movimiento aparte, «Devolución: …», positivo, en la fecha de la
+devolución y con la categoría de la compra (si ya la tenía); su id sale de «<pago>|devolucion», así nunca se duplica.
 
 ### Compromisos (formato)
 <a id="compromisos-formato"></a>

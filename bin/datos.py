@@ -1,11 +1,12 @@
 """Los datos de Alcancía en disco: formato abierto y documentado (ver README, "Formato de los datos"). Solo biblioteca estándar.
 
 ~/Alcancia/
-  movimientos/AAAA-MM.csv   un archivo por mes; columnas CAMPOS; monto negativo = gasto, positivo = ingreso
+  movimientos/AAAA-MM.csv   un archivo por mes; columnas CAMPOS (+ CAMPOS_EXTRA al final, solo si algún movimiento del mes las usa);
+                            monto negativo = gasto, positivo = ingreso
   categorias.json           [{"id", "nombre", "emoji", "tipo": "gasto"|"ingreso"|"neutro", "fijo": bool}]  fijo = se paga una vez al mes
   presupuesto.json          {"moneda": "CLP", "mensual": {"supermercado": 250000, ...}}
   reglas.json               [{"contiene": "TEXTO", "categoria": "id"}]   lo que la app aprende al corregir
-  cuentas.json              [{"id", "nombre", "receta", "moneda"}]
+  cuentas.json              [{"id", "nombre", "receta" | "conector", "moneda", "saldo"?: {"monto", "fecha", "origen"}}]
   compromisos.json          {"formato": 1, "compromisos": [...], "descartados": [...]}  lo que se paga o se recibe seguido (bin/compromisos.py)
   consejos/AAAA-MM-DD.md    los consejos de tu IA
   .alcancia/config.json     ajustes de la app
@@ -28,6 +29,11 @@ CONSEJOS = os.path.join(BASE, "consejos")
 RECURSOS = os.environ.get("ALCANCIA_RECURSOS") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 CAMPOS = ["id", "fecha", "descripcion", "monto", "moneda", "categoria", "cuenta", "origen", "nota"]
+#: Columnas opcionales, al final: cómo se pagó (lo dice el conector). `medio` = saldo | debito | credito | otro (vacío = no se sabe);
+#: `cuotas` = en cuántas cuotas (solo si son 2 o más); `cuota` = cuánto es cada una (con intereses; vacío = monto / cuotas).
+#: Solo se escriben si algún movimiento del mes las usa: así los archivos de quien no las necesita quedan igual que antes.
+CAMPOS_EXTRA = ["medio", "cuotas", "cuota"]
+MEDIOS = ("saldo", "debito", "credito", "otro")
 
 #: Categorías con que parte todo el mundo. La persona puede renombrarlas, borrarlas o agregar las suyas.
 CATEGORIAS_BASE = [
@@ -102,6 +108,25 @@ def presupuesto():
     return leer_json(os.path.join(BASE, "presupuesto.json"), {"moneda": config()["moneda"], "mensual": {}})
 
 
+def anotar_saldo(cuenta, monto, fecha, origen, nombre=None, moneda=None):
+    """Guarda en cuentas.json el saldo conocido de una cuenta: {"monto", "fecha", "origen": persona | cartola | conector}.
+    Lo que dice una cartola o un servicio no pisa un saldo más nuevo; lo que escribe la persona siempre manda. Devuelve el anterior."""
+    ruta = os.path.join(BASE, "cuentas.json")
+    lista = leer_json(ruta, [])
+    lista = lista if isinstance(lista, list) else []
+    c = next((x for x in lista if isinstance(x, dict) and x.get("id") == cuenta), None)
+    if c is None:
+        c = {"id": cuenta, "nombre": nombre or cuenta, "receta": "", "moneda": moneda or ""}
+        lista.append(c)
+    anterior = c.get("saldo") if isinstance(c.get("saldo"), dict) else None
+    if origen != "persona" and anterior and str(anterior.get("fecha") or "") > fecha:
+        return anterior
+    v = round(float(monto), 2)
+    c["saldo"] = {"monto": int(v) if v == int(v) else v, "fecha": fecha, "origen": origen}
+    escribir_json(ruta, lista)
+    return anterior
+
+
 # ───────────── Movimientos ─────────────
 def normalizar(texto):
     """Mayúsculas, sin tildes y con espacios simples: para comparar descripciones sin que importe cómo vienen escritas."""
@@ -140,8 +165,10 @@ def leer_mes(mes):
             m["monto"] = float(m.get("monto") or 0)
         except ValueError:
             m["monto"] = 0.0
-        for c in CAMPOS:
-            m.setdefault(c, "")
+        for c in CAMPOS + CAMPOS_EXTRA:
+            if m.get(c) is None:
+                m[c] = ""
+        m.pop(None, None)  # columnas de más sin encabezado (un archivo editado a mano)
     return filas
 
 
@@ -158,10 +185,14 @@ def escribir_mes(mes, movimientos):
     filas = sorted(movimientos, key=lambda m: (m["fecha"], m["id"]))
     import io
     buf = io.StringIO()
-    w = csv.DictWriter(buf, fieldnames=CAMPOS, extrasaction="ignore", lineterminator="\n")
+    campos = CAMPOS + (CAMPOS_EXTRA if any(m.get(c) not in (None, "") for m in filas for c in CAMPOS_EXTRA) else [])
+    w = csv.DictWriter(buf, fieldnames=campos, extrasaction="ignore", lineterminator="\n")
     w.writeheader()
     for m in filas:
-        w.writerow({**{c: m.get(c, "") for c in CAMPOS}, "monto": _monto_texto(m["monto"])})
+        fila = {**{c: m.get(c, "") for c in campos}, "monto": _monto_texto(m["monto"])}
+        if fila.get("cuota") not in (None, ""):
+            fila["cuota"] = _monto_texto(fila["cuota"])
+        w.writerow(fila)
     escribir_atomico(ruta_mes(mes), buf.getvalue())
 
 
@@ -180,6 +211,32 @@ def agregar(movimientos):
             escribir_mes(mes, actuales + agregar_)
             nuevos += len(agregar_)
     return nuevos, repetidos
+
+
+def completar(movimientos, campos):
+    """Para los movimientos que ya estaban guardados (por id), escribe los `campos` que traen con valor y que cambiaron.
+    Lo usa un conector para agregar a lo ya guardado lo que antes no sabía (cómo se pagó). Nunca duplica ni toca la categoría
+    ni la nota de la persona. Devuelve cuántos movimientos cambió."""
+    por_mes = {}
+    for m in movimientos:
+        por_mes.setdefault(m["fecha"][:7], {})[m["id"]] = m
+    cambiados = 0
+    for mes, nuevos in por_mes.items():
+        lista, tocado = leer_mes(mes), False
+        for m in lista:
+            n = nuevos.get(m["id"])
+            if not n:
+                continue
+            cambios = {c: n[c] for c in campos if n.get(c) not in (None, "") and str(n[c]) != str(m.get(c, ""))}
+            if "monto" in cambios and float(cambios["monto"]) == float(m["monto"]):
+                del cambios["monto"]
+            if cambios:
+                m.update(cambios)
+                tocado = True
+                cambiados += 1
+        if tocado:
+            escribir_mes(mes, lista)
+    return cambiados
 
 
 def cambiar(mes, id_, cambios):

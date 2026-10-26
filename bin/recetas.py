@@ -21,7 +21,7 @@ import pdf
 FORMATO = 1
 CLAVES = {"formato", "id", "nombre", "institucion", "pais", "moneda", "tipo", "archivo", "reconocer", "columnas", "fecha",
           "numeros", "signo", "ignorar_si_contiene", "autor", "notas"}
-COLUMNAS = {"fecha", "descripcion", "monto", "cargo", "abono", "moneda", "detalle"}
+COLUMNAS = {"fecha", "descripcion", "monto", "cargo", "abono", "moneda", "detalle", "saldo"}
 
 
 # ───────────── Validar ─────────────
@@ -424,8 +424,10 @@ def fecha(texto, formatos):
 
 
 # ───────────── Aplicar ─────────────
-def aplicar(ruta, receta, cuenta):
-    """Lee la cartola con la receta. Devuelve (movimientos, avisos)."""
+def aplicar(ruta, receta, cuenta, info=None):
+    """Lee la cartola con la receta. Devuelve (movimientos, avisos). Si la receta tiene la columna `saldo` y se pasa `info` (un
+    dict), deja en info["saldo"] = {"monto", "fecha"} el saldo de la fila más reciente (la última de ese día en el orden del archivo:
+    hacia abajo si la cartola va de lo antiguo a lo nuevo, hacia arriba si va al revés)."""
     if receta.get("id") in VIRTUALES:
         return VIRTUALES[receta["id"]][1](ruta, cuenta)
     filas = leer_tabla(ruta, receta.get("archivo"), receta["reconocer"]["encabezados"])
@@ -441,7 +443,7 @@ def aplicar(ruta, receta, cuenta):
     dec, mil = num.get("decimal", ","), num.get("miles", "." if num.get("decimal", ",") == "," else ",")
     signo = -1 if receta.get("signo") == "invertido" else 1
     ignorar = [datos.normalizar(x) for x in receta.get("ignorar_si_contiene", [])]
-    movimientos, avisos, vistos = [], [], {}
+    movimientos, avisos, vistos, saldos = [], [], {}, []
     celda = lambda fila, k: fila[col[k]] if col.get(k) is not None and col[k] < len(fila) else ""
     for fila in filas[i + 1:]:
         if not any(c.strip() for c in fila):
@@ -465,6 +467,15 @@ def aplicar(ruta, receta, cuenta):
         vistos[llave] = vistos.get(llave, -1) + 1
         movimientos.append({"id": datos.nuevo_id(cuenta, f, desc, monto, vistos[llave]), "fecha": f, "descripcion": desc,
                             "monto": monto, "moneda": moneda, "categoria": "", "cuenta": cuenta, "origen": receta["id"], "nota": ""})
+        if "saldo" in col:
+            s = numero(celda(fila, "saldo"), dec, mil)
+            if s is not None:
+                saldos.append((f, s))
+    if info is not None and saldos:
+        ascendente = saldos[0][0] <= saldos[-1][0]
+        ultimo = max(f for f, _ in saldos)
+        del_dia = [s for f, s in saldos if f == ultimo]
+        info["saldo"] = {"monto": del_dia[-1] if ascendente else del_dia[0], "fecha": ultimo}
     return movimientos, avisos
 
 

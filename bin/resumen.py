@@ -92,24 +92,79 @@ def _dias(a, b):
     return (date.fromisoformat(b) - date.fromisoformat(a)).days
 
 
+# ───────────── Cómo se pagó: compras en cuotas con crédito (igual que ui/app.js) ─────────────
+def _entero_texto(v):
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return 0
+    return int(f) if f == int(f) else 0
+
+
+def cuotas_de(m):
+    """En cuántas cuotas se compró (solo compras con crédito en 2 o más cuotas; si no, 0)."""
+    n = _entero_texto(m.get("cuotas"))
+    return n if m.get("medio") == "credito" and 2 <= n <= 72 and m["monto"] < 0 else 0
+
+
+def valor_cuota(m):
+    """Cuánto es cada cuota: la que informó el servicio (con intereses) o, si no la dijo, el monto dividido en las cuotas."""
+    try:
+        c = float(m.get("cuota") or 0)
+    except (TypeError, ValueError):
+        c = 0
+    return c if c > 0 else abs(m["monto"]) / cuotas_de(m)
+
+
+def fecha_mas_meses(fecha, n):
+    """«2026-01-31» + 1 mes → «2026-02-28» (si el mes es más corto, el último día)."""
+    mes = sumar_mes(fecha[:7], n)
+    return f"{mes}-{min(int(fecha[8:10]), dias_del_mes(mes)):02d}"
+
+
+def cargos(m):
+    """Lo que una compra le carga a tu bolsillo, con su fecha: la compra en cuotas con crédito es una cuota cada mes (la primera el
+    día de la compra); todo lo demás, el movimiento tal cual. [(fecha, monto negativo, número de cuota, total de cuotas)]."""
+    n = cuotas_de(m)
+    if not n:
+        return [(m["fecha"], m["monto"], 0, 0)]
+    c = valor_cuota(m)
+    return [(fecha_mas_meses(m["fecha"], k), -c, k + 1, n) for k in range(n)]
+
+
 def resumen(movimientos, mes, hoy, presupuesto, categorias, per=None):
     """`hoy` en «AAAA-MM-DD». Solo cuenta la moneda del presupuesto; las transferencias entre cuentas propias no cuentan.
-    `mes` es el periodo (ver `rango`): `dia` y `dias_mes` son el día del periodo y cuántos días tiene."""
+    `mes` es el periodo (ver `rango`): `dia` y `dias_mes` son el día del periodo y cuántos días tiene.
+    «Lo que gastaste»: una compra en cuotas con crédito cuenta por la cuota de cada mes, y una devolución (un monto positivo con
+    categoría de gasto) descuenta de esa categoría en vez de contar como ingreso."""
     neutras = {c["id"] for c in categorias if c.get("tipo") == "neutro"}
+    de_gasto = {c["id"] for c in categorias if c.get("tipo") == "gasto"}
     fijas = {c["id"] for c in categorias if c.get("fijo")}
     moneda = presupuesto.get("moneda", "CLP")
     inicio, fin = rango(mes, per)
-    del_mes = [m for m in movimientos if inicio <= m["fecha"] <= fin and m.get("categoria") not in neutras]
+    del_mes = []
+    for m in movimientos:
+        if m.get("categoria") in neutras:
+            continue
+        for f, monto, _, _ in cargos(m):
+            if inicio <= f <= fin:
+                del_mes.append({**m, "fecha": f, "monto": monto})
     otras = sum(1 for m in del_mes if m.get("moneda", moneda) != moneda)
     del_mes = [m for m in del_mes if m.get("moneda", moneda) == moneda]
-    gastos = [m for m in del_mes if m["monto"] < 0]
-    por_cat, cuantos = {}, {}
-    for m in gastos:
+    por_cat, cuantos, devuelto = {}, {}, {}
+    for m in del_mes:
         c = m.get("categoria") or ""
-        por_cat[c] = por_cat.get(c, 0) + -m["monto"]
-        cuantos[c] = cuantos.get(c, 0) + 1
+        if m["monto"] < 0:
+            por_cat[c] = por_cat.get(c, 0) + -m["monto"]
+            cuantos[c] = cuantos.get(c, 0) + 1
+        elif m["monto"] > 0 and c in de_gasto:
+            devuelto[c] = devuelto.get(c, 0) + m["monto"]
+    for c, v in devuelto.items():  # lo devuelto descuenta, sin dejar la categoría bajo cero
+        por_cat[c] = max(0, por_cat.get(c, 0) - v)
+        if not por_cat[c] and not cuantos.get(c):
+            del por_cat[c]
     gastado = sum(por_cat.values())
-    ingresos = sum(m["monto"] for m in del_mes if m["monto"] > 0)
+    ingresos = sum(m["monto"] for m in del_mes if m["monto"] > 0 and m.get("categoria") not in de_gasto)
     total_dias = _dias(inicio, fin) + 1
     if hoy < inicio:
         dia = 0
@@ -189,3 +244,48 @@ def presupuesto_sugerido(movimientos, meses_completos, categorias, moneda="CLP",
         if valores and median(valores) > 0:
             r[c] = redondear_arriba(median(valores))
     return r
+
+
+# ───────────── Lo que tienes: el saldo de tus cuentas hoy (igual que ui/app.js) ─────────────
+def _saldo_base(c):
+    s = c.get("saldo") if isinstance(c, dict) else None
+    if not isinstance(s, dict) or isinstance(s.get("monto"), bool) or not isinstance(s.get("monto"), (int, float)):
+        return None
+    f = str(s.get("fecha") or "")
+    if len(f) != 10 or f[4] != "-" or f[7] != "-":
+        return None
+    return {"monto": s["monto"], "fecha": f, "origen": s.get("origen") if s.get("origen") in ("persona", "cartola", "conector") else "persona"}
+
+
+def lo_que_tienes(cuentas, movimientos, moneda):
+    """El saldo de cada cuenta: el último que se conoce (el que informa el servicio conectado, el de la última fila de una cartola
+    con columna de saldo o el que anotó la persona) más los movimientos de los días siguientes. Las compras con crédito no salen de
+    la cuenta (van a la tarjeta), así que no la mueven. `total` suma solo las cuentas con saldo en `moneda` (None si ninguna tiene)."""
+    lista, vistas = [], set()
+    for c in cuentas:
+        if isinstance(c, dict) and c.get("id") and c["id"] not in vistas:
+            vistas.add(c["id"])
+            lista.append(c)
+    for m in movimientos:  # cuentas que solo aparecen en los movimientos (p. ej. un archivo editado a mano)
+        if m.get("cuenta") and m["cuenta"] not in vistas:
+            vistas.add(m["cuenta"])
+            lista.append({"id": m["cuenta"], "nombre": m["cuenta"]})
+    r, total, con = [], 0, 0
+    for c in lista:
+        mon = c.get("moneda") or moneda
+        base = _saldo_base(c)
+        saldo, despues = None, 0
+        if base:
+            mios = [m for m in movimientos if m.get("cuenta") == c["id"] and m["fecha"] > base["fecha"]
+                    and m.get("medio") != "credito" and (m.get("moneda") or mon) == mon]
+            despues = len(mios)
+            saldo = round(base["monto"] + sum(m["monto"] for m in mios), 2)
+            saldo = int(saldo) if saldo == int(saldo) else saldo
+            if mon == moneda:
+                total += saldo
+                con += 1
+        r.append({"id": c["id"], "nombre": c.get("nombre") or c["id"], "moneda": mon, "saldo": saldo, "base": base,
+                  "movimientos_despues": despues})
+    total = round(total, 2)
+    return {"moneda": moneda, "total": (int(total) if total == int(total) else total) if con else None, "con_saldo": con,
+            "sin_saldo": sum(1 for x in r if x["saldo"] is None and x["moneda"] == moneda), "cuentas": r}
