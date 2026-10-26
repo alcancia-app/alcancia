@@ -32,6 +32,8 @@ Gratis, de código abierto y con tus datos en tu computador.</p>
   Alcancía **reconoce el pago en tu cartola**, te muestra lo que falta pagar este mes (y lo atrasado primero), el avance de tus
   deudas («te quedan 187 de 240 cuotas») y, en Mac, te avisa antes de que venza. Al agregar una cartola detecta lo que parece un
   compromiso (se repite cada mes o la descripción lo delata: dividendo, cuota 53/240, PAC, seguro…) y te pregunta; nunca lo agrega solo.
+- **Montos que varían y en UF:** marca un compromiso como aproximado («≈ $480.000, entre $465.000 y $495.000») o anótalo en UF
+  (un dividendo): Alcancía estima cuánto es en pesos con lo que pagaste antes, sin conectarse a ningún lado.
 - **Gasto máximo sugerido:** lo que entra − tus compromisos − tus otros gastos fijos = lo que puedes gastar en lo variable,
   repartido por categoría según lo que gastas normalmente.
 - **Tu mes empieza cuando te pagan** (si quieres): el mes puede ir de sueldo a sueldo; si te pagan antes, parte ese día.
@@ -69,7 +71,7 @@ Todo vive en `~/Alcancia/` (en Windows, `C:\Users\<tú>\Alcancia`). Es un format
 | `consejos/AAAA-MM-DD.md` | Los consejos de tu IA. |
 | `compromisos.json` | Lo que pagas o recibes seguido. Ver [Compromisos](#compromisos-formato). |
 | `cuentas.json` (cont.) | Las cuentas que vienen de una conexión llevan `"conector"` en vez de `"receta"`. |
-| `.alcancia/config.json` | Ajustes. Entre ellos `inicio_mes`: `{"modo": "dia" \| "sueldo", "dia": 25}` (tu mes parte el día 1 o cuando llega tu sueldo) y `avisos` (`true` si quieres avisos de tus compromisos). |
+| `.alcancia/config.json` | Ajustes. Entre ellos `inicio_mes`: `{"modo": "dia" \| "sueldo", "dia": 25}` (tu mes parte el día 1 o cuando llega tu sueldo), `avisos` (`true` si quieres avisos de tus compromisos) y `uf`: `{"valor": 39500, "fecha": "AAAA-MM-DD", "variacion_mensual": 1.5}` (el valor de la UF que escribiste y cuánto puede variar al mes). |
 | `.alcancia/` | Ajustes de la app, `avisos.json` (qué avisos ya se mostraron), recetas descargadas o creadas por ti, `conexiones.json` (estado de cada conexión, sin llaves) y `vigilar.json` (cartolas ya revisadas en Descargas). Las llaves de las conexiones viven en el Llavero de tu sistema, nunca en esta carpeta. |
 
 ### Las tres cifras del Resumen
@@ -100,7 +102,8 @@ devolución y con la categoría de la compra (si ya la tenía); su id sale de «
 | `nombre` | Hasta 60 caracteres. Nunca un número de cuenta: las secuencias de 6 o más dígitos se quitan al guardar. |
 | `tipo` | `deuda`, `cuenta`, `suscripcion`, `transferencia`, `ingreso` u `otro`. |
 | `signo` | `gasto` o `ingreso`. |
-| `monto`, `moneda` | Monto positivo y código de 3 letras. |
+| `monto`, `moneda` | Monto positivo y código de 3 letras, o `"UF"` con el monto en UF (hasta 4 decimales, p. ej. `12.75`). |
+| `aproximado` | Opcional, para montos que varían: `{"variacion": 3}` (± ese porcentaje) o `{"min": 465000, "max": 495000}` (en la moneda del compromiso; el monto va entre los dos). Se muestra «≈ $480.000 (entre $465.000 y $495.000)» y el pago se reconoce en todo el rango. |
 | `frecuencia` | `mensual` (con `dia` 1–31; si el mes es más corto, el último día), `semanal` (`dia` 1 = lunes … 7 = domingo), `anual` o `una_vez` (con `fecha` AAAA-MM-DD). |
 | `categoria` | Id de una categoría (o vacío). |
 | `buscar` | Palabras para reconocer el pago en la cartola (sin tildes ni mayúsculas). Sin palabras, se reconoce por el monto exacto. |
@@ -117,6 +120,18 @@ correcto, en la moneda del compromiso, con el monto dentro de la tolerancia y al
 después del vencimiento. Un movimiento cuenta para un solo compromiso: primero lo marcado a mano y después las parejas que calzan
 mejor (más cerca de la fecha, luego del monto). La lista de palabras que delatan un compromiso (dividendo, crédito, cuota, PAC,
 seguro, arriendo, colegio, plan celular…) es solo datos: [`bin/compromisos_conocidos.json`](bin/compromisos_conocidos.json), por país.
+
+### Montos aproximados y en UF
+Un compromiso con `aproximado` muestra un rango y su pago se reconoce si cae dentro de él (o dentro de la tolerancia de siempre) y trae alguna de sus palabras; sin palabras, solo el monto exacto.
+Uno en **UF** (`moneda: "UF"`) se paga en pesos, así que Alcancía **estima** cuánto es, sin conectarse a ningún lado: usa el valor
+de la UF que sale del último pago reconocido de ese compromiso (pesos pagados ÷ UF); si aún no hay pagos, el más reciente entre el
+que escribiste en Ajustes («Valor de la UF hoy») y el que sale del pago de otro compromiso en UF. Como la UF sube de a poco, el rango
+se abre ±1,5 % por cada mes desde ese valor (configurable en Ajustes) más la variación del compromiso: «12,75 UF ≈ $490.000 –
+$506.000». **Es una estimación, no el valor oficial.** Si no hay cómo estimarlo, se muestra «12,75 UF (aún no sé cuánto es en
+pesos)» y no entra en los totales. Un pago en UF se reconoce por sus palabras (`buscar`) y, si escribiste el valor de la UF, también
+por el monto (±15 %). En «Lo que debes» y el gasto máximo sugerido, lo aproximado cuenta por su máximo (y los ingresos por su
+mínimo), para no quedarte corto. Al detectar un pago que varía mes a mes, se propone como aproximado; si parece un dividendo o la
+descripción dice UF, se pregunta «¿Se paga en UF?».
 
 ### Tu mes: de sueldo a sueldo
 Con `inicio_mes` en modo `sueldo` y el día en que te pagan (p. ej. 25), cada «mes» va de sueldo a sueldo y se llama como el mes

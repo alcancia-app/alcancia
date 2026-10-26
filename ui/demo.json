@@ -282,6 +282,17 @@
    "nota": ""
   },
   {
+   "id": "a01abf5c0acf",
+   "fecha": "2026-05-05",
+   "descripcion": "GASTOS COMUNES EDIFICIO",
+   "monto": -59400,
+   "moneda": "CLP",
+   "categoria": "casa",
+   "cuenta": "banco-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
    "id": "62dac7a229fa",
    "fecha": "2026-05-05",
    "descripcion": "REMUNERACION EMPRESA FICTICIA SPA",
@@ -403,10 +414,10 @@
    "nota": ""
   },
   {
-   "id": "2b7b4e7b2e84",
+   "id": "1bfc8aa24b73",
    "fecha": "2026-05-08",
    "descripcion": "LUZ DEL SUR",
-   "monto": -32000,
+   "monto": -31200,
    "moneda": "CLP",
    "categoria": "cuentas",
    "cuenta": "banco-ejemplo",
@@ -876,6 +887,17 @@
    "nota": ""
   },
   {
+   "id": "2a4db32599f3",
+   "fecha": "2026-06-05",
+   "descripcion": "GASTOS COMUNES EDIFICIO",
+   "monto": -58800,
+   "moneda": "CLP",
+   "categoria": "casa",
+   "cuenta": "banco-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
    "id": "26ff4ec485e5",
    "fecha": "2026-06-05",
    "descripcion": "REMUNERACION EMPRESA FICTICIA SPA",
@@ -942,10 +964,10 @@
    "nota": ""
   },
   {
-   "id": "bfb81b5d04c7",
+   "id": "c6eee4f0cb88",
    "fecha": "2026-06-08",
    "descripcion": "LUZ DEL SUR",
-   "monto": -32000,
+   "monto": -33800,
    "moneda": "CLP",
    "categoria": "cuentas",
    "cuenta": "banco-ejemplo",
@@ -1525,6 +1547,17 @@
    "nota": ""
   },
   {
+   "id": "4abb2aaf2982",
+   "fecha": "2026-07-05",
+   "descripcion": "GASTOS COMUNES EDIFICIO",
+   "monto": -58200,
+   "moneda": "CLP",
+   "categoria": "casa",
+   "cuenta": "banco-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
    "id": "c80f06cc4460",
    "fecha": "2026-07-05",
    "descripcion": "REMUNERACION EMPRESA FICTICIA SPA",
@@ -1580,10 +1613,10 @@
    "nota": ""
   },
   {
-   "id": "aab9c0c9a802",
+   "id": "9bd00de766cf",
    "fecha": "2026-07-08",
    "descripcion": "LUZ DEL SUR",
-   "monto": -32000,
+   "monto": -30500,
    "moneda": "CLP",
    "categoria": "cuentas",
    "cuenta": "banco-ejemplo",
@@ -1877,6 +1910,17 @@
    "nota": ""
   },
   {
+   "id": "2de5dfc2d335",
+   "fecha": "2026-07-22",
+   "descripcion": "SEGURO SALUD COMPLEMENTARIO",
+   "monto": -72520,
+   "moneda": "CLP",
+   "categoria": "salud",
+   "cuenta": "banco-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
    "id": "7853ab870462",
    "fecha": "2026-07-23",
    "descripcion": "TIENDA ONLINE *COMPRA",
@@ -2064,6 +2108,17 @@
    "nota": ""
   },
   {
+   "id": "d536dc87e0a5",
+   "fecha": "2026-08-05",
+   "descripcion": "GASTOS COMUNES EDIFICIO",
+   "monto": -61900,
+   "moneda": "CLP",
+   "categoria": "casa",
+   "cuenta": "banco-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
    "id": "aacb0bf6f156",
    "fecha": "2026-08-05",
    "descripcion": "REMUNERACION EMPRESA FICTICIA SPA",
@@ -2130,10 +2185,10 @@
    "nota": ""
   },
   {
-   "id": "361cae84c03c",
+   "id": "2cab8fc3bdad",
    "fecha": "2026-08-08",
    "descripcion": "LUZ DEL SUR",
-   "monto": -32000,
+   "monto": -33900,
    "moneda": "CLP",
    "categoria": "cuentas",
    "cuenta": "banco-ejemplo",
@@ -2474,6 +2529,17 @@
    "nota": ""
   },
   {
+   "id": "d66dddb249e5",
+   "fecha": "2026-08-22",
+   "descripcion": "SEGURO SALUD COMPLEMENTARIO",
+   "monto": -72705,
+   "moneda": "CLP",
+   "categoria": "salud",
+   "cuenta": "banco-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
    "id": "7b1a9124a827",
    "fecha": "2026-08-23",
    "descripcion": "CAFE LA ESQUINA",
@@ -2694,6 +2760,17 @@
    "nota": ""
   },
   {
+   "id": "4e4b103fcd9c",
+   "fecha": "2026-09-05",
+   "descripcion": "GASTOS COMUNES EDIFICIO",
+   "monto": -60300,
+   "moneda": "CLP",
+   "categoria": "casa",
+   "cuenta": "banco-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
    "id": "bc846eaca062",
    "fecha": "2026-09-05",
    "descripcion": "MINIMARKET DON PEPE",
@@ -2760,10 +2837,10 @@
    "nota": ""
   },
   {
-   "id": "cf9dd42b588f",
+   "id": "f69e1ff941bc",
    "fecha": "2026-09-08",
    "descripcion": "LUZ DEL SUR",
-   "monto": -32000,
+   "monto": -31800,
    "moneda": "CLP",
    "categoria": "cuentas",
    "cuenta": "banco-ejemplo",
@@ -3079,6 +3156,17 @@
    "nota": ""
   },
   {
+   "id": "831d79848542",
+   "fecha": "2026-09-22",
+   "descripcion": "SEGURO SALUD COMPLEMENTARIO",
+   "monto": -72890,
+   "moneda": "CLP",
+   "categoria": "salud",
+   "cuenta": "banco-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
    "id": "05a389c27f50",
    "fecha": "2026-09-22",
    "descripcion": "SUPERMERCADO DEL BARRIO",
@@ -3201,6 +3289,17 @@
    "nota": ""
   },
   {
+   "id": "4d3c800ae86b",
+   "fecha": "2026-10-05",
+   "descripcion": "GASTOS COMUNES EDIFICIO",
+   "monto": -63100,
+   "moneda": "CLP",
+   "categoria": "casa",
+   "cuenta": "banco-ejemplo",
+   "origen": "demo",
+   "nota": ""
+  },
+  {
    "id": "e92b5c760a63",
    "fecha": "2026-10-05",
    "descripcion": "PAGO TARJETA BILLETERA EJEMPLO",
@@ -3311,10 +3410,10 @@
    "nota": ""
   },
   {
-   "id": "efc2d7cd0920",
+   "id": "23ab24f608c3",
    "fecha": "2026-10-08",
    "descripcion": "LUZ DEL SUR",
-   "monto": -32000,
+   "monto": -32700,
    "moneda": "CLP",
    "categoria": "cuentas",
    "cuenta": "banco-ejemplo",
@@ -3916,8 +4015,8 @@
     "nombre": "Arriendo",
     "tipo": "cuenta",
     "signo": "gasto",
-    "monto": 420000,
     "moneda": "CLP",
+    "monto": 420000,
     "frecuencia": "mensual",
     "dia": 1,
     "categoria": "casa",
@@ -3935,8 +4034,8 @@
     "nombre": "Crédito automotriz",
     "tipo": "deuda",
     "signo": "gasto",
-    "monto": 189000,
     "moneda": "CLP",
+    "monto": 189000,
     "frecuencia": "mensual",
     "dia": 20,
     "categoria": "auto",
@@ -3956,8 +4055,8 @@
     "nombre": "Plan de celular",
     "tipo": "cuenta",
     "signo": "gasto",
-    "monto": 15990,
     "moneda": "CLP",
+    "monto": 15990,
     "frecuencia": "mensual",
     "dia": 10,
     "categoria": "cuentas",
@@ -3975,13 +4074,54 @@
     "nombre": "Sueldo",
     "tipo": "ingreso",
     "signo": "ingreso",
-    "monto": 1450000,
     "moneda": "CLP",
+    "monto": 1450000,
     "frecuencia": "mensual",
     "dia": 5,
     "categoria": "sueldo",
     "buscar": [
      "REMUNERACION"
+    ],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-07-01",
+    "origen": "manual",
+    "pagos": {}
+   },
+   {
+    "id": "c-comunes001",
+    "nombre": "Gastos comunes",
+    "tipo": "cuenta",
+    "signo": "gasto",
+    "moneda": "CLP",
+    "monto": 60000,
+    "aproximado": {
+     "variacion": 10
+    },
+    "frecuencia": "mensual",
+    "dia": 5,
+    "categoria": "casa",
+    "buscar": [
+     "GASTOS COMUNES"
+    ],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-07-01",
+    "origen": "manual",
+    "pagos": {}
+   },
+   {
+    "id": "c-seguro0001",
+    "nombre": "Seguro de salud",
+    "tipo": "cuenta",
+    "signo": "gasto",
+    "moneda": "UF",
+    "monto": 1.85,
+    "frecuencia": "mensual",
+    "dia": 22,
+    "categoria": "salud",
+    "buscar": [
+     "SEGURO SALUD"
     ],
     "tolerancia": 5,
     "activo": true,
@@ -4037,7 +4177,7 @@
    "nombre": "Luz del sur",
    "tipo": "cuenta",
    "signo": "gasto",
-   "monto": 32000,
+   "monto": 31800,
    "moneda": "CLP",
    "frecuencia": "mensual",
    "dia": 8,
@@ -4048,7 +4188,10 @@
    "origen": "detectado",
    "motivo": "repite",
    "meses": 4,
-   "preguntar": "frecuencia"
+   "preguntar": "frecuencia",
+   "aproximado": {
+    "variacion": 7
+   }
   },
   {
    "clave": "INTERNET CELULAR",

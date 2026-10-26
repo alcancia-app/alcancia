@@ -105,9 +105,10 @@ def tres_cifras(per=None):
     t = resumen_mod.lo_que_tienes(datos.leer_json(os.path.join(datos.BASE, "cuentas.json"), []), movs, moneda)
     mes = resumen_mod.periodo_de(hoy, per)
     g = resumen_mod.resumen(movs, mes, hoy, datos.presupuesto(), datos.categorias(), per)
-    d = K.lo_que_debes(K.validos(None, hoy, moneda), movs, hoy, moneda, per)
+    d = K.lo_que_debes(K.validos(None, hoy, moneda), movs, hoy, moneda, per, K.uf_config())
     return {"moneda": moneda, "lo_que_tienes": t["total"], "cuentas_con_saldo": t["con_saldo"], "cuentas_sin_saldo": t["sin_saldo"],
             "lo_que_gastaste_este_mes": g["gastado"], "lo_que_debes": d["total"], "debes_este_mes": d["este_mes"],
+            "lo_que_debes_hasta": d["total_max"], "debes_este_mes_hasta": d["este_mes_max"], "hay_montos_aproximados": d["aprox"],
             "atrasado": sum(p["monto"] for p in d["partes"] if p.get("estado") == "atrasado")}
 
 
@@ -219,10 +220,18 @@ def compromisos(args):
     per, mes = _periodo(args)
     hoy, moneda, cats = date.today().isoformat(), _moneda(), _cats()
     lista = K.validos(None, hoy, moneda)
-    e = K.estado_mes(lista, datos.leer_todos(), mes, hoy, moneda, per)
+    e = K.estado_mes(lista, datos.leer_todos(), mes, hoy, moneda, per, K.uf_config())
     def fila(i):
         r = {"nombre": i["nombre"], "tipo": i["tipo"], "es": i["signo"], "monto": i["monto"], "moneda": i["moneda"],
              "categoria": _nombre_cat(i["categoria"], cats), "vence": i["vence"], "estado": i["estado"]}
+        if i["rango"]:
+            r["aproximado"] = {"entre": i["rango"]["min"], "y": i["rango"]["max"]}
+        if i["original"]:
+            r["en_uf"] = i["original"]["monto"]
+            if i["original"]["sin_valor"]:
+                r["nota"] = "en UF; aún no se sabe cuánto es en pesos (no está en los totales)"
+            else:
+                r["valor_uf_usado"] = i["original"]["valor_uf"]
         if i["estado"] == "pagado":
             r["pagado_el"] = i["pago"]["fecha"]
             r["como"] = "reconocido en la cartola" if i["pago"]["como"] == "automatico" else "marcado a mano"
@@ -240,10 +249,12 @@ def compromisos(args):
               for c in e["compromisos"] if c["cuotas"]]
     desde, hasta = resumen_mod.rango(mes, per)
     return {"mes": mes, "desde": desde, "hasta": hasta, "moneda": moneda, "compromisos": [fila(i) for i in e["items"]], "total_del_mes": e["total"],
-            "pagado": e["pagado"], "pendiente": e["pendiente"], "atrasado": e["atrasado"],
+            "pagado": e["pagado"], "pendiente": e["pendiente"], "atrasado": e["atrasado"], "pendiente_hasta": e["pendiente_max"],
+            "hay_montos_aproximados": e["aprox"], "en_uf_sin_estimar": e["sin_valor"],
             "ingresos_esperados": e["ingresos_esperados"], "ingresos_recibidos": e["ingresos_recibidos"], "deudas_con_cuotas": deudas,
             "sin_compromisos": not lista,
-            "nota": "estado: pagado, pendiente (aún no vence), hoy (vence hoy) o atrasado. Los montos de gasto e ingreso van en positivo."}
+            "nota": "estado: pagado, pendiente (aún no vence), hoy (vence hoy) o atrasado. Los montos de gasto e ingreso van en positivo. "
+                    "Un monto aproximado o en UF es una estimación: `aproximado` da el rango y `pendiente_hasta` el máximo posible."}
 
 
 def _esquema(props, requeridos=()):

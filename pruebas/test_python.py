@@ -403,7 +403,7 @@ class Compromisos(unittest.TestCase):
         self.assertEqual(j["formato"], 1)
         for pais, lista in j["paises"].items():
             for e in lista:
-                self.assertEqual(set(e) - {"tipo", "categoria", "preguntar", "palabras"}, set(), pais)
+                self.assertEqual(set(e) - {"tipo", "categoria", "preguntar", "palabras", "uf"}, set(), pais)
                 self.assertIn(e["tipo"], compromisos.TIPOS)
                 self.assertIn(e["categoria"], {c["id"] for c in datos.CATEGORIAS_BASE} | {""})
                 self.assertTrue(all(p == datos.normalizar(p) for p in e["palabras"]), "en mayúsculas y sin tildes")
@@ -542,6 +542,128 @@ class Compromisos(unittest.TestCase):
         self.assertIn("disponible para gastos variables", texto)
         self.assertNotIn("Plan de celular", texto, "a la IA solo le llegan totales")
         self.assertIn("no ha anotado compromisos", consejos.prompt("2026-10-18", movs, {"moneda": "CLP", "mensual": {}}, cats))
+
+
+class Aproximados(unittest.TestCase):
+    """Montos que varían («aprox.») y compromisos en UF: los mismos casos que ui/app.js (pruebas/casos.json, «aproximados»)."""
+
+    def setUp(self):
+        limpiar()
+
+    def sec(self, caso=None):
+        sec = CASOS["aproximados"]
+        comps = [c for c in sec["compromisos"] if not caso or "compromisos_ids" not in caso or c["id"] in caso["compromisos_ids"]]
+        return sec, comps, sec["movimientos"]
+
+    def test_casos(self):
+        sec = CASOS["aproximados"]
+        for k in sec["estado"]:
+            _, comps, movs = self.sec(k)
+            self.assertEqual(compromisos.estado_mes(comps, movs, k["mes"], k["hoy"], k["moneda"], None, k["uf"]), k["esperado"], k["nombre"])
+        _, comps, movs = self.sec()
+        for k in sec["gasto_maximo"]:
+            r = compromisos.gasto_maximo(movs, comps, k["mes"], k["hoy"], sec["categorias"], k["meses_completos"], k["moneda"], None, k["uf"])
+            self.assertEqual(r, k["esperado"], k["nombre"])
+        for k in sec["debes"]:
+            self.assertEqual(compromisos.lo_que_debes(comps, movs, k["hoy"], k["moneda"], None, k["uf"]), k["esperado"], k["nombre"])
+
+    def test_reglas_a_mano(self):
+        """Lo mismo que los casos, dicho en palabras (los casos los genera Python: esto revisa que tengan sentido)."""
+        sec = CASOS["aproximados"]
+        sin, con = ({i["nombre"]: i for i in k["esperado"]["items"] if not i["anterior"]} for k in sec["estado"][:2])
+        self.assertEqual(sin["Luz"]["rango"], {"min": 27200, "max": 36800}, "±15 % de 32.000, redondeado hacia afuera")
+        self.assertEqual(sin["Gastos comunes"]["rango"], {"min": 80000, "max": 110000}, "el rango escrito se respeta tal cual")
+        div = sin["Dividendo"]
+        self.assertEqual((div["moneda"], div["original"]["monto"], div["original"]["fuente"], div["original"]["valor_uf"]), ("CLP", 12.75, "pago", 39058.82),
+                         "la UF sale del último pago: 498.000 / 12,75")
+        self.assertEqual((div["monto"], div["rango"]), (498000, {"min": 490000, "max": 506000}), "±1,5 % por un mes desde el pago")
+        self.assertEqual(sin["Seguro"]["original"]["fuente"], "otro", "sin pagos ni Ajustes: la UF de otro compromiso ya pagado")
+        self.assertEqual(con["Seguro"]["original"]["fuente"], "ajustes", "el valor de Ajustes es más reciente")
+        self.assertEqual(sin["Bodega"]["estado"], "atrasado", "en UF y sin palabras: sin el valor de Ajustes no se reconoce por el monto")
+        self.assertEqual(con["Bodega"]["estado"], "pagado", "con el valor de Ajustes, sí: 12 × 39.500 = 474.000")
+        e = sec["estado"][0]["esperado"]
+        self.assertGreater(e["pendiente_max"], e["pendiente"])
+        self.assertTrue(e["aprox"])
+        sin_valor = sec["estado"][2]["esperado"]
+        self.assertEqual((sin_valor["sin_valor"], sin_valor["total"], sin_valor["items"][0]["moneda"]), (1, 0, "UF"),
+                         "sin forma de estimarlo queda en UF y no se suma")
+        g = sec["gasto_maximo"][0]["esperado"]
+        self.assertEqual((g["ingreso"], g["fuente"], g["compromisos"]), (900000, "compromisos", e["total_max"] + e["arrastre_max"]),
+                         "ingresos por su mínimo y compromisos por su máximo")
+        # Septiembre: la luz (36.000, 12,5 % sobre 32.000, con la palabra LUZ) se reconoce por estar en su rango; los gastos comunes no
+        # tienen palabras, así que solo calzaría el monto exacto (un rango sin palabras confundiría cualquier compra parecida).
+        _, comps, movs = self.sec()
+        sept = {i["nombre"]: i for i in compromisos.estado_mes(comps, movs, "2026-09", "2026-10-05", "CLP")["items"]}
+        self.assertEqual((sept["Luz"]["estado"], sept["Luz"]["pago"]["monto"]), ("pagado", 36000))
+        self.assertEqual(sept["Gastos comunes"]["estado"], "atrasado")
+
+    def test_validar(self):
+        hoy, ids = "2026-10-26", {"casa", "cuentas"}
+        base = {"nombre": "Luz", "monto": 32000, "dia": 8, "categoria": "cuentas"}
+        c, e = compromisos.validar(base, ids, hoy)
+        self.assertNotIn("aproximado", c, "los que ya existían siguen igual")
+        self.assertEqual(compromisos.validar({**base, "aproximado": True}, ids, hoy)[0]["aproximado"], {"variacion": 3})
+        self.assertEqual(compromisos.validar({**base, "aproximado": {"variacion": 15}}, ids, hoy)[0]["aproximado"], {"variacion": 15})
+        self.assertEqual(compromisos.validar({**base, "aproximado": {"min": 28000, "max": 36000}}, ids, hoy)[0]["aproximado"], {"min": 28000, "max": 36000})
+        for malo in ({"variacion": 80}, {"min": 36000, "max": 28000}, {"min": 33000, "max": 36000}, {"variacion": 3, "min": 1, "max": 2},
+                     {"otro": 1}, "mucho"):
+            self.assertIsNone(compromisos.validar({**base, "aproximado": malo}, ids, hoy)[0], malo)
+        uf, e = compromisos.validar({**base, "nombre": "Dividendo", "moneda": "UF", "monto": 12.3456, "saldo": 1850.5}, ids, hoy)
+        self.assertEqual((e, uf["moneda"], uf["monto"], uf["saldo"]), ([], "UF", 12.3456, 1850.5), "en UF con 4 decimales")
+        self.assertIsNone(compromisos.validar({**base, "moneda": "uf"}, ids, hoy)[0], "solo «UF» o un código de 3 letras")
+        self.assertIsNone(compromisos.validar({**base, "aproximado": {"variacion": 3}, "otro": 1}, ids, hoy, estricto=True)[0])
+        self.assertEqual(compromisos.uf_config({"uf": {"valor": 39512.34, "fecha": "2026-10-26"}}), {"valor": 39512.34, "fecha": "2026-10-26"})
+        self.assertIsNone(compromisos.uf_config({"uf": {"valor": "mucho"}}))
+
+    def test_sugerir_aproximado_y_uf(self):
+        hoy, cats, movs = "2026-10-26", datos.CATEGORIAS_BASE, []
+        for i, (mes, monto) in enumerate([("2026-06", 30500), ("2026-07", 33900), ("2026-08", 31800), ("2026-09", 32700)]):
+            movs.append({"id": f"l{i}", "fecha": f"{mes}-08", "descripcion": "LUZ DEL SUR", "monto": -monto, "moneda": "CLP", "categoria": "cuentas"})
+            movs.append({"id": f"a{i}", "fecha": f"{mes}-01", "descripcion": "ARRIENDO DEPTO", "monto": -400000, "moneda": "CLP", "categoria": "casa"})
+        movs.append({"id": "d1", "fecha": "2026-10-15", "descripcion": "PAGO DIVIDENDO", "monto": -980000, "moneda": "CLP", "categoria": ""})
+        movs.append({"id": "u1", "fecha": "2026-10-12", "descripcion": "SEGURO COMPLEMENTARIO UF", "monto": -47000, "moneda": "CLP", "categoria": ""})
+        r = {s["clave"]: s for s in compromisos.sugerir(movs, [], hoy, cats, "CLP")}
+        self.assertEqual(r["LUZ DEL SUR"]["aproximado"], {"variacion": 7}, "varía mes a mes: aproximado con lo observado (2.100 / 31.800)")
+        self.assertNotIn("aproximado", r["ARRIENDO DEPTO"], "siempre lo mismo: exacto")
+        self.assertTrue(r["PAGO DIVIDENDO"]["preguntar_uf"], "un dividendo: se pregunta si es en UF")
+        self.assertTrue(r["SEGURO COMPLEMENTARIO UF"]["preguntar_uf"], "la descripción dice UF")
+        self.assertNotIn("preguntar_uf", r["LUZ DEL SUR"])
+
+    def entender(self, texto):
+        ruta = os.path.join(TMP, "entrada-ia.json")
+        with open(ruta, "w", encoding="utf-8") as f:
+            json.dump({"texto": texto, "hoy": "2026-10-26"}, f)
+        return correr("compromiso_ia.py", "entender", ruta)
+
+    def test_cuentale_aprox_y_uf(self):
+        r = self.entender("el dividendo son 12,75 UF los 15, más o menos")
+        self.assertTrue(r["ok"], r)
+        self.assertEqual((r["compromiso"]["moneda"], r["compromiso"]["monto"], r["compromiso"]["aproximado"]), ("UF", 12.75, {"variacion": 2}))
+        r = self.entender("los gastos comunes son entre 80.000 y 110.000, el 10")
+        self.assertEqual(r["compromiso"]["aproximado"], {"min": 80000, "max": 110000})
+        self.assertEqual(self.entender("la luz es aprox 30.000 el 8")["compromiso"]["aproximado"], {"variacion": 3})
+        malo = self.entender("MALAPROX la luz")
+        self.assertFalse(malo["ok"])
+        self.assertIn("rango", malo["error"])
+        self.assertIn("12,75 UF", compromiso_ia.limpiar_texto("son 12,75 UF el 15"))
+
+    def test_consejos_y_mcp_solo_totales(self):
+        sec, comps, movs = self.sec()
+        cats = [{**c, "nombre": c["id"]} for c in sec["categorias"]]
+        texto = consejos.prompt("2026-10-05", movs, {"moneda": "CLP", "mensual": {}}, cats, comps)
+        self.assertIn("cerca de", texto)
+        self.assertNotIn("Dividendo", texto, "a la IA solo le llegan totales")
+        datos.escribir_json(compromisos.RUTA, {"formato": 1, "compromisos": comps, "descartados": []})
+        for m in movs:
+            datos.agregar([{**m, "cuenta": "x", "origen": "prueba", "nota": "", "id": m["id"]}])
+        p = subprocess.run([sys.executable, os.path.join(RAIZ, "bin", "mcp_servidor.py")], capture_output=True, text=True, timeout=30,
+                           input=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "compromisos", "arguments": {"mes": "2026-10"}}}) + "\n")
+        r = json.loads(p.stdout.splitlines()[0])["result"]["structuredContent"]
+        div = next(x for x in r["compromisos"] if x["nombre"] == "Dividendo")
+        self.assertEqual(div["en_uf"], 12.75)
+        self.assertIn("aproximado", div)
+        self.assertGreaterEqual(r["pendiente_hasta"], r["pendiente"])
+        self.assertNotIn("c-dividuf001", json.dumps(r), "sin ids internos")
 
 
 class IaSinArgumentos(unittest.TestCase):

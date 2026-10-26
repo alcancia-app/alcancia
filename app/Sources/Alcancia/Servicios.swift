@@ -39,6 +39,17 @@ enum Config {
            let dia = (im["dia"] as? NSNumber)?.intValue, (1...31).contains(dia) {
             d["inicio_mes"] = ["modo": modo, "dia": dia]
         }
+        // «Valor de la UF hoy»: {"valor": número, "fecha": "AAAA-MM-DD", "variacion_mensual": 0…20}. Sin valor, se borra el valor.
+        if let u = cambios["uf"] as? [String: Any] {
+            var limpio: [String: Any] = [:]
+            if let valor = (u["valor"] as? NSNumber)?.doubleValue, valor > 0, valor < 10_000_000,
+               let fecha = u["fecha"] as? String, fecha.range(of: #"^\d{4}-\d{2}-\d{2}$"#, options: .regularExpression) != nil {
+                limpio["valor"] = valor
+                limpio["fecha"] = fecha
+            }
+            if let v = (u["variacion_mensual"] as? NSNumber)?.doubleValue, v >= 0, v <= 20 { limpio["variacion_mensual"] = v }
+            d["uf"] = limpio
+        }
         Archivos.escribirJSON(Rutas.config, d)
     }
 

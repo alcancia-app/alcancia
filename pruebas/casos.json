@@ -1180,6 +1180,8 @@
        "signo": "gasto",
        "monto": 9990,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "suscripciones",
        "periodo": "2026-09",
        "vence": "2026-09-28",
@@ -1196,6 +1198,8 @@
        "signo": "gasto",
        "monto": 420000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "casa",
        "periodo": "2026-10",
        "vence": "2026-10-01",
@@ -1218,6 +1222,8 @@
        "signo": "ingreso",
        "monto": 1450000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "sueldo",
        "periodo": "2026-10",
        "vence": "2026-10-05",
@@ -1240,6 +1246,8 @@
        "signo": "gasto",
        "monto": 15000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "",
        "periodo": "2026-10-07",
        "vence": "2026-10-07",
@@ -1262,6 +1270,8 @@
        "signo": "gasto",
        "monto": 12990,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "cuentas",
        "periodo": "2026-10",
        "vence": "2026-10-10",
@@ -1278,6 +1288,8 @@
        "signo": "gasto",
        "monto": 50000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "",
        "periodo": "2026-10",
        "vence": "2026-10-10",
@@ -1300,6 +1312,8 @@
        "signo": "gasto",
        "monto": 50000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "",
        "periodo": "2026-10",
        "vence": "2026-10-12",
@@ -1316,6 +1330,8 @@
        "signo": "gasto",
        "monto": 25000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "",
        "periodo": "2026-10",
        "vence": "2026-10-12",
@@ -1332,6 +1348,8 @@
        "signo": "gasto",
        "monto": 15000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "",
        "periodo": "2026-10-14",
        "vence": "2026-10-14",
@@ -1348,6 +1366,8 @@
        "signo": "gasto",
        "monto": 80000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "",
        "periodo": "2026-10-15",
        "vence": "2026-10-15",
@@ -1368,6 +1388,8 @@
        "signo": "gasto",
        "monto": 189000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "auto",
        "periodo": "2026-10",
        "vence": "2026-10-20",
@@ -1387,6 +1409,8 @@
        "signo": "gasto",
        "monto": 15000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "",
        "periodo": "2026-10-21",
        "vence": "2026-10-21",
@@ -1403,6 +1427,8 @@
        "signo": "gasto",
        "monto": 15000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "",
        "periodo": "2026-10-28",
        "vence": "2026-10-28",
@@ -1419,6 +1445,8 @@
        "signo": "gasto",
        "monto": 9990,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "suscripciones",
        "periodo": "2026-10",
        "vence": "2026-10-28",
@@ -1436,6 +1464,12 @@
      "arrastre": 9990,
      "ingresos_esperados": 1450000,
      "ingresos_recibidos": 1450000,
+     "total_max": 896980,
+     "pendiente_max": 341970,
+     "arrastre_max": 9990,
+     "ingresos_esperados_min": 1450000,
+     "aprox": false,
+     "sin_valor": 0,
      "compromisos": [
       {
        "id": "c-arriendo1",
@@ -1444,6 +1478,8 @@
        "signo": "gasto",
        "monto": 420000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "mensual",
        "categoria": "casa",
        "mensual": 420000,
@@ -1459,6 +1495,8 @@
        "signo": "gasto",
        "monto": 189000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "mensual",
        "categoria": "auto",
        "mensual": 189000,
@@ -1478,6 +1516,8 @@
        "signo": "gasto",
        "monto": 12990,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "mensual",
        "categoria": "cuentas",
        "mensual": 12990,
@@ -1493,6 +1533,8 @@
        "signo": "ingreso",
        "monto": 1450000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "mensual",
        "categoria": "sueldo",
        "mensual": 1450000,
@@ -1508,6 +1550,8 @@
        "signo": "gasto",
        "monto": 9990,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "mensual",
        "categoria": "suscripciones",
        "mensual": 9990,
@@ -1523,6 +1567,8 @@
        "signo": "gasto",
        "monto": 15000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "semanal",
        "categoria": "",
        "mensual": 65000,
@@ -1538,6 +1584,8 @@
        "signo": "gasto",
        "monto": 80000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "una_vez",
        "categoria": "",
        "mensual": 0,
@@ -1553,6 +1601,8 @@
        "signo": "gasto",
        "monto": 25000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "mensual",
        "categoria": "",
        "mensual": 25000,
@@ -1568,6 +1618,8 @@
        "signo": "gasto",
        "monto": 50000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "mensual",
        "categoria": "",
        "mensual": 50000,
@@ -1583,6 +1635,8 @@
        "signo": "gasto",
        "monto": 50000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "mensual",
        "categoria": "",
        "mensual": 50000,
@@ -1598,6 +1652,8 @@
        "signo": "gasto",
        "monto": 120000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "anual",
        "categoria": "",
        "mensual": 10000,
@@ -1625,6 +1681,8 @@
        "signo": "gasto",
        "monto": 420000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "casa",
        "periodo": "2026-09",
        "vence": "2026-09-01",
@@ -1647,6 +1705,8 @@
        "signo": "ingreso",
        "monto": 1450000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "sueldo",
        "periodo": "2026-09",
        "vence": "2026-09-05",
@@ -1669,6 +1729,8 @@
        "signo": "gasto",
        "monto": 12990,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "cuentas",
        "periodo": "2026-09",
        "vence": "2026-09-10",
@@ -1691,6 +1753,8 @@
        "signo": "gasto",
        "monto": 50000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "",
        "periodo": "2026-09",
        "vence": "2026-09-12",
@@ -1713,6 +1777,8 @@
        "signo": "gasto",
        "monto": 189000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "auto",
        "periodo": "2026-09",
        "vence": "2026-09-20",
@@ -1735,6 +1801,8 @@
        "signo": "gasto",
        "monto": 9990,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "suscripciones",
        "periodo": "2026-09",
        "vence": "2026-09-28",
@@ -1752,6 +1820,12 @@
      "arrastre": 0,
      "ingresos_esperados": 1450000,
      "ingresos_recibidos": 1450000,
+     "total_max": 681980,
+     "pendiente_max": 9990,
+     "arrastre_max": 0,
+     "ingresos_esperados_min": 1450000,
+     "aprox": false,
+     "sin_valor": 0,
      "compromisos": [
       {
        "id": "c-arriendo1",
@@ -1760,6 +1834,8 @@
        "signo": "gasto",
        "monto": 420000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "mensual",
        "categoria": "casa",
        "mensual": 420000,
@@ -1775,6 +1851,8 @@
        "signo": "gasto",
        "monto": 189000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "mensual",
        "categoria": "auto",
        "mensual": 189000,
@@ -1794,6 +1872,8 @@
        "signo": "gasto",
        "monto": 12990,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "mensual",
        "categoria": "cuentas",
        "mensual": 12990,
@@ -1809,6 +1889,8 @@
        "signo": "ingreso",
        "monto": 1450000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "mensual",
        "categoria": "sueldo",
        "mensual": 1450000,
@@ -1824,6 +1906,8 @@
        "signo": "gasto",
        "monto": 9990,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "mensual",
        "categoria": "suscripciones",
        "mensual": 9990,
@@ -1839,6 +1923,8 @@
        "signo": "gasto",
        "monto": 15000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "semanal",
        "categoria": "",
        "mensual": 65000,
@@ -1854,6 +1940,8 @@
        "signo": "gasto",
        "monto": 80000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "una_vez",
        "categoria": "",
        "mensual": 0,
@@ -1869,6 +1957,8 @@
        "signo": "gasto",
        "monto": 25000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "mensual",
        "categoria": "",
        "mensual": 25000,
@@ -1884,6 +1974,8 @@
        "signo": "gasto",
        "monto": 50000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "mensual",
        "categoria": "",
        "mensual": 50000,
@@ -1899,6 +1991,8 @@
        "signo": "gasto",
        "monto": 50000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "mensual",
        "categoria": "",
        "mensual": 50000,
@@ -1914,6 +2008,8 @@
        "signo": "gasto",
        "monto": 120000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "anual",
        "categoria": "",
        "mensual": 10000,
@@ -1941,6 +2037,8 @@
        "signo": "gasto",
        "monto": 9990,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "suscripciones",
        "periodo": "2026-09",
        "vence": "2026-09-28",
@@ -1957,6 +2055,8 @@
        "signo": "gasto",
        "monto": 420000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "casa",
        "periodo": "2026-10",
        "vence": "2026-10-01",
@@ -1979,6 +2079,8 @@
        "signo": "ingreso",
        "monto": 1450000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "sueldo",
        "periodo": "2026-10",
        "vence": "2026-10-05",
@@ -2001,6 +2103,8 @@
        "signo": "gasto",
        "monto": 15000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "",
        "periodo": "2026-10-07",
        "vence": "2026-10-07",
@@ -2023,6 +2127,8 @@
        "signo": "gasto",
        "monto": 12990,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "cuentas",
        "periodo": "2026-10",
        "vence": "2026-10-10",
@@ -2039,6 +2145,8 @@
        "signo": "gasto",
        "monto": 50000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "",
        "periodo": "2026-10",
        "vence": "2026-10-10",
@@ -2061,6 +2169,8 @@
        "signo": "gasto",
        "monto": 50000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "",
        "periodo": "2026-10",
        "vence": "2026-10-12",
@@ -2077,6 +2187,8 @@
        "signo": "gasto",
        "monto": 25000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "",
        "periodo": "2026-10",
        "vence": "2026-10-12",
@@ -2093,6 +2205,8 @@
        "signo": "gasto",
        "monto": 15000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "",
        "periodo": "2026-10-14",
        "vence": "2026-10-14",
@@ -2109,6 +2223,8 @@
        "signo": "gasto",
        "monto": 80000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "",
        "periodo": "2026-10-15",
        "vence": "2026-10-15",
@@ -2129,6 +2245,8 @@
        "signo": "gasto",
        "monto": 189000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "auto",
        "periodo": "2026-10",
        "vence": "2026-10-20",
@@ -2148,6 +2266,8 @@
        "signo": "gasto",
        "monto": 15000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "",
        "periodo": "2026-10-21",
        "vence": "2026-10-21",
@@ -2164,6 +2284,8 @@
        "signo": "gasto",
        "monto": 15000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "",
        "periodo": "2026-10-28",
        "vence": "2026-10-28",
@@ -2180,6 +2302,8 @@
        "signo": "gasto",
        "monto": 9990,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "categoria": "suscripciones",
        "periodo": "2026-10",
        "vence": "2026-10-28",
@@ -2197,6 +2321,12 @@
      "arrastre": 9990,
      "ingresos_esperados": 1450000,
      "ingresos_recibidos": 1450000,
+     "total_max": 896980,
+     "pendiente_max": 341970,
+     "arrastre_max": 9990,
+     "ingresos_esperados_min": 1450000,
+     "aprox": false,
+     "sin_valor": 0,
      "compromisos": [
       {
        "id": "c-arriendo1",
@@ -2205,6 +2335,8 @@
        "signo": "gasto",
        "monto": 420000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "mensual",
        "categoria": "casa",
        "mensual": 420000,
@@ -2220,6 +2352,8 @@
        "signo": "gasto",
        "monto": 189000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "mensual",
        "categoria": "auto",
        "mensual": 189000,
@@ -2239,6 +2373,8 @@
        "signo": "gasto",
        "monto": 12990,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "mensual",
        "categoria": "cuentas",
        "mensual": 12990,
@@ -2254,6 +2390,8 @@
        "signo": "ingreso",
        "monto": 1450000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "mensual",
        "categoria": "sueldo",
        "mensual": 1450000,
@@ -2269,6 +2407,8 @@
        "signo": "gasto",
        "monto": 9990,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "mensual",
        "categoria": "suscripciones",
        "mensual": 9990,
@@ -2284,6 +2424,8 @@
        "signo": "gasto",
        "monto": 15000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "semanal",
        "categoria": "",
        "mensual": 65000,
@@ -2299,6 +2441,8 @@
        "signo": "gasto",
        "monto": 80000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "una_vez",
        "categoria": "",
        "mensual": 0,
@@ -2314,6 +2458,8 @@
        "signo": "gasto",
        "monto": 25000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "mensual",
        "categoria": "",
        "mensual": 25000,
@@ -2329,6 +2475,8 @@
        "signo": "gasto",
        "monto": 50000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "mensual",
        "categoria": "",
        "mensual": 50000,
@@ -2344,6 +2492,8 @@
        "signo": "gasto",
        "monto": 50000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "mensual",
        "categoria": "",
        "mensual": 50000,
@@ -2359,6 +2509,8 @@
        "signo": "gasto",
        "monto": 120000,
        "moneda": "CLP",
+       "rango": null,
+       "original": null,
        "frecuencia": "anual",
        "categoria": "",
        "mensual": 10000,
@@ -2981,6 +3133,8 @@
       "signo": "ingreso",
       "monto": 1450000,
       "moneda": "CLP",
+      "rango": null,
+      "original": null,
       "categoria": "sueldo",
       "periodo": "2026-10",
       "vence": "2026-10-25",
@@ -3003,7 +3157,13 @@
     "atrasado": 0,
     "arrastre": 0,
     "ingresos_esperados": 1450000,
-    "ingresos_recibidos": 1450000
+    "ingresos_recibidos": 1450000,
+    "total_max": 0,
+    "pendiente_max": 0,
+    "arrastre_max": 0,
+    "ingresos_esperados_min": 1450000,
+    "aprox": false,
+    "sin_valor": 0
    }
   }
  },
@@ -3333,6 +3493,9 @@
       "moneda": "CLP",
       "total": 1337990,
       "este_mes": 612990,
+      "total_max": 1337990,
+      "este_mes_max": 612990,
+      "aprox": false,
       "ultimo_pago_tarjeta": "2026-10-06",
       "partes": [
        {
@@ -3340,6 +3503,8 @@
         "nombre": "Arriendo",
         "monto": 400000,
         "este_mes": 400000,
+        "max": 400000,
+        "original": null,
         "estado": "atrasado",
         "vence": "2026-09-01",
         "dias": 52,
@@ -3351,6 +3516,8 @@
         "nombre": "Plan de celular",
         "monto": 15990,
         "este_mes": 15990,
+        "max": 15990,
+        "original": null,
         "estado": "atrasado",
         "vence": "2026-10-12",
         "dias": 11,
@@ -3362,6 +3529,8 @@
         "nombre": "",
         "monto": 97000,
         "este_mes": 97000,
+        "max": 97000,
+        "original": null,
         "compras": 3,
         "desde": "2026-10-06"
        },
@@ -3370,6 +3539,8 @@
         "nombre": "Crédito de consumo",
         "monto": 600000,
         "este_mes": 100000,
+        "max": 600000,
+        "original": null,
         "cuotas": {
          "pagadas": 4,
          "total": 10,
@@ -3392,6 +3563,8 @@
         "nombre": "TIENDA *LAVADORA",
         "monto": 165000,
         "este_mes": 0,
+        "max": 165000,
+        "original": null,
         "cuota": 55000,
         "quedan": 3,
         "total": 6,
@@ -3402,6 +3575,8 @@
         "nombre": "ZAPATILLAS EJEMPLO",
         "monto": 60000,
         "este_mes": 0,
+        "max": 60000,
+        "original": null,
         "cuota": 30000,
         "quedan": 2,
         "total": 3,
@@ -3470,6 +3645,9 @@
       "moneda": "CLP",
       "total": 1353980,
       "este_mes": 813980,
+      "total_max": 1353980,
+      "este_mes_max": 813980,
+      "aprox": false,
       "ultimo_pago_tarjeta": "2026-10-06",
       "partes": [
        {
@@ -3477,6 +3655,8 @@
         "nombre": "Plan de celular",
         "monto": 15990,
         "este_mes": 15990,
+        "max": 15990,
+        "original": null,
         "estado": "atrasado",
         "vence": "2026-10-12",
         "dias": 21,
@@ -3488,6 +3668,8 @@
         "nombre": "Arriendo",
         "monto": 400000,
         "este_mes": 400000,
+        "max": 400000,
+        "original": null,
         "estado": "atrasado",
         "vence": "2026-11-01",
         "dias": 1,
@@ -3499,6 +3681,8 @@
         "nombre": "Plan de celular",
         "monto": 15990,
         "este_mes": 15990,
+        "max": 15990,
+        "original": null,
         "estado": "pendiente",
         "vence": "2026-11-12",
         "dias": 10,
@@ -3510,6 +3694,8 @@
         "nombre": "",
         "monto": 182000,
         "este_mes": 182000,
+        "max": 182000,
+        "original": null,
         "compras": 3,
         "desde": "2026-10-06"
        },
@@ -3518,6 +3704,8 @@
         "nombre": "Crédito de consumo",
         "monto": 600000,
         "este_mes": 200000,
+        "max": 600000,
+        "original": null,
         "cuotas": {
          "pagadas": 4,
          "total": 10,
@@ -3547,6 +3735,8 @@
         "nombre": "TIENDA *LAVADORA",
         "monto": 110000,
         "este_mes": 0,
+        "max": 110000,
+        "original": null,
         "cuota": 55000,
         "quedan": 2,
         "total": 6,
@@ -3557,6 +3747,8 @@
         "nombre": "ZAPATILLAS EJEMPLO",
         "monto": 30000,
         "este_mes": 0,
+        "max": 30000,
+        "original": null,
         "cuota": 30000,
         "quedan": 1,
         "total": 3,
@@ -3564,6 +3756,1327 @@
        }
       ]
      }
+    }
+   }
+  ]
+ },
+ "aproximados": {
+  "_nota": "Montos aproximados y en UF (compromisos.en_moneda / valores_uf / coincide con rango ↔ enMoneda / valoresUF en ui/app.js).",
+  "categorias": [
+   {
+    "id": "supermercado",
+    "tipo": "gasto"
+   },
+   {
+    "id": "casa",
+    "tipo": "gasto",
+    "fijo": true
+   },
+   {
+    "id": "cuentas",
+    "tipo": "gasto",
+    "fijo": true
+   },
+   {
+    "id": "sueldo",
+    "tipo": "ingreso"
+   }
+  ],
+  "compromisos": [
+   {
+    "id": "c-luzaprox01",
+    "nombre": "Luz",
+    "tipo": "cuenta",
+    "signo": "gasto",
+    "moneda": "CLP",
+    "monto": 32000,
+    "aproximado": {
+     "variacion": 15
+    },
+    "frecuencia": "mensual",
+    "dia": 8,
+    "categoria": "cuentas",
+    "buscar": [
+     "LUZ"
+    ],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-08-01",
+    "origen": "manual",
+    "pagos": {}
+   },
+   {
+    "id": "c-comunes001",
+    "nombre": "Gastos comunes",
+    "tipo": "cuenta",
+    "signo": "gasto",
+    "moneda": "CLP",
+    "monto": 95000,
+    "aproximado": {
+     "min": 80000,
+     "max": 110000
+    },
+    "frecuencia": "mensual",
+    "dia": 10,
+    "categoria": "casa",
+    "buscar": [],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-08-01",
+    "origen": "manual",
+    "pagos": {}
+   },
+   {
+    "id": "c-dividuf001",
+    "nombre": "Dividendo",
+    "tipo": "deuda",
+    "signo": "gasto",
+    "moneda": "UF",
+    "monto": 12.75,
+    "frecuencia": "mensual",
+    "dia": 15,
+    "categoria": "casa",
+    "buscar": [
+     "DIVIDENDO"
+    ],
+    "tolerancia": 5,
+    "cuotas_total": 240,
+    "cuotas_pagadas": 52,
+    "activo": true,
+    "desde": "2026-09-01",
+    "origen": "manual",
+    "pagos": {}
+   },
+   {
+    "id": "c-segurouf01",
+    "nombre": "Seguro",
+    "tipo": "cuenta",
+    "signo": "gasto",
+    "moneda": "UF",
+    "monto": 1.2,
+    "frecuencia": "mensual",
+    "dia": 20,
+    "categoria": "casa",
+    "buscar": [
+     "SEGURO HOGAR"
+    ],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-10-01",
+    "origen": "manual",
+    "pagos": {}
+   },
+   {
+    "id": "c-arriuf0001",
+    "nombre": "Bodega",
+    "tipo": "cuenta",
+    "signo": "gasto",
+    "moneda": "UF",
+    "monto": 12,
+    "frecuencia": "mensual",
+    "dia": 1,
+    "categoria": "casa",
+    "buscar": [],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-10-01",
+    "origen": "manual",
+    "pagos": {}
+   },
+   {
+    "id": "c-sueldoap01",
+    "nombre": "Sueldo",
+    "tipo": "ingreso",
+    "signo": "ingreso",
+    "moneda": "CLP",
+    "monto": 1000000,
+    "aproximado": {
+     "variacion": 10
+    },
+    "frecuencia": "mensual",
+    "dia": 5,
+    "categoria": "sueldo",
+    "buscar": [
+     "REMUNERACION"
+    ],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-08-01",
+    "origen": "manual",
+    "pagos": {}
+   }
+  ],
+  "movimientos": [
+   {
+    "id": "a01",
+    "fecha": "2026-08-08",
+    "descripcion": "LUZ DEL SUR",
+    "monto": -30500,
+    "moneda": "CLP",
+    "categoria": "cuentas"
+   },
+   {
+    "id": "a02",
+    "fecha": "2026-09-08",
+    "descripcion": "LUZ DEL SUR",
+    "monto": -36000,
+    "moneda": "CLP",
+    "categoria": "cuentas"
+   },
+   {
+    "id": "a03",
+    "fecha": "2026-09-10",
+    "descripcion": "TRANSFERENCIA EDIFICIO",
+    "monto": -104000,
+    "moneda": "CLP",
+    "categoria": "casa"
+   },
+   {
+    "id": "a04",
+    "fecha": "2026-09-15",
+    "descripcion": "PAGO DIVIDENDO CUOTA 53/240",
+    "monto": -498000,
+    "moneda": "CLP",
+    "categoria": "casa"
+   },
+   {
+    "id": "a05",
+    "fecha": "2026-10-01",
+    "descripcion": "TRANSFERENCIA BODEGA",
+    "monto": -474000,
+    "moneda": "CLP",
+    "categoria": "casa"
+   },
+   {
+    "id": "a06",
+    "fecha": "2026-10-05",
+    "descripcion": "REMUNERACION EMPRESA FICTICIA",
+    "monto": 1000000,
+    "moneda": "CLP",
+    "categoria": "sueldo"
+   },
+   {
+    "id": "a07",
+    "fecha": "2026-09-05",
+    "descripcion": "REMUNERACION EMPRESA FICTICIA",
+    "monto": 980000,
+    "moneda": "CLP",
+    "categoria": "sueldo"
+   },
+   {
+    "id": "a08",
+    "fecha": "2026-09-20",
+    "descripcion": "SUPERMERCADO",
+    "monto": -150000,
+    "moneda": "CLP",
+    "categoria": "supermercado"
+   },
+   {
+    "id": "a09",
+    "fecha": "2026-08-20",
+    "descripcion": "SUPERMERCADO",
+    "monto": -170000,
+    "moneda": "CLP",
+    "categoria": "supermercado"
+   },
+   {
+    "id": "a10",
+    "fecha": "2026-10-03",
+    "descripcion": "SUPERMERCADO",
+    "monto": -40000,
+    "moneda": "CLP",
+    "categoria": "supermercado"
+   }
+  ],
+  "estado": [
+   {
+    "nombre": "aproximados y UF, sin valor de la UF en Ajustes",
+    "mes": "2026-10",
+    "hoy": "2026-10-05",
+    "moneda": "CLP",
+    "uf": null,
+    "esperado": {
+     "mes": "2026-10",
+     "moneda": "CLP",
+     "items": [
+      {
+       "id": "c-comunes001",
+       "nombre": "Gastos comunes",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 95000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 80000,
+        "max": 110000
+       },
+       "original": null,
+       "categoria": "casa",
+       "periodo": "2026-09",
+       "vence": "2026-09-10",
+       "estado": "atrasado",
+       "dias": 25,
+       "pago": null,
+       "cuota": null,
+       "anterior": true
+      },
+      {
+       "id": "c-arriuf0001",
+       "nombre": "Bodega",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 469000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 461000,
+        "max": 476000
+       },
+       "original": {
+        "monto": 12,
+        "moneda": "UF",
+        "sin_valor": false,
+        "valor_uf": 39058.82,
+        "fecha_uf": "2026-09-15",
+        "fuente": "otro"
+       },
+       "categoria": "casa",
+       "periodo": "2026-10",
+       "vence": "2026-10-01",
+       "estado": "atrasado",
+       "dias": 4,
+       "pago": null,
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-sueldoap01",
+       "nombre": "Sueldo",
+       "tipo": "ingreso",
+       "signo": "ingreso",
+       "monto": 1000000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 900000,
+        "max": 1100000
+       },
+       "original": null,
+       "categoria": "sueldo",
+       "periodo": "2026-10",
+       "vence": "2026-10-05",
+       "estado": "pagado",
+       "dias": 0,
+       "pago": {
+        "como": "automatico",
+        "fecha": "2026-10-05",
+        "monto": 1000000,
+        "movimiento": "a06",
+        "descripcion": "REMUNERACION EMPRESA FICTICIA"
+       },
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-luzaprox01",
+       "nombre": "Luz",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 32000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 27200,
+        "max": 36800
+       },
+       "original": null,
+       "categoria": "cuentas",
+       "periodo": "2026-10",
+       "vence": "2026-10-08",
+       "estado": "pendiente",
+       "dias": 3,
+       "pago": null,
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-comunes001",
+       "nombre": "Gastos comunes",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 95000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 80000,
+        "max": 110000
+       },
+       "original": null,
+       "categoria": "casa",
+       "periodo": "2026-10",
+       "vence": "2026-10-10",
+       "estado": "pendiente",
+       "dias": 5,
+       "pago": null,
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-dividuf001",
+       "nombre": "Dividendo",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 498000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 490000,
+        "max": 506000
+       },
+       "original": {
+        "monto": 12.75,
+        "moneda": "UF",
+        "sin_valor": false,
+        "valor_uf": 39058.82,
+        "fecha_uf": "2026-09-15",
+        "fuente": "pago"
+       },
+       "categoria": "casa",
+       "periodo": "2026-10",
+       "vence": "2026-10-15",
+       "estado": "pendiente",
+       "dias": 10,
+       "pago": null,
+       "cuota": {
+        "numero": 54,
+        "total": 240
+       },
+       "anterior": false
+      },
+      {
+       "id": "c-segurouf01",
+       "nombre": "Seguro",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 46900,
+       "moneda": "CLP",
+       "rango": {
+        "min": 46100,
+        "max": 47600
+       },
+       "original": {
+        "monto": 1.2,
+        "moneda": "UF",
+        "sin_valor": false,
+        "valor_uf": 39058.82,
+        "fecha_uf": "2026-09-15",
+        "fuente": "otro"
+       },
+       "categoria": "casa",
+       "periodo": "2026-10",
+       "vence": "2026-10-20",
+       "estado": "pendiente",
+       "dias": 15,
+       "pago": null,
+       "cuota": null,
+       "anterior": false
+      }
+     ],
+     "total": 1140900,
+     "pagado": 0,
+     "pendiente": 1235900,
+     "atrasado": 564000,
+     "arrastre": 95000,
+     "ingresos_esperados": 1000000,
+     "ingresos_recibidos": 1000000,
+     "total_max": 1176400,
+     "pendiente_max": 1286400,
+     "arrastre_max": 110000,
+     "ingresos_esperados_min": 900000,
+     "aprox": true,
+     "sin_valor": 0,
+     "compromisos": [
+      {
+       "id": "c-luzaprox01",
+       "nombre": "Luz",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 32000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 27200,
+        "max": 36800
+       },
+       "original": null,
+       "frecuencia": "mensual",
+       "categoria": "cuentas",
+       "mensual": 32000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-comunes001",
+       "nombre": "Gastos comunes",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 95000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 80000,
+        "max": 110000
+       },
+       "original": null,
+       "frecuencia": "mensual",
+       "categoria": "casa",
+       "mensual": 95000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-dividuf001",
+       "nombre": "Dividendo",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 498000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 490000,
+        "max": 506000
+       },
+       "original": {
+        "monto": 12.75,
+        "moneda": "UF",
+        "sin_valor": false,
+        "valor_uf": 39058.82,
+        "fecha_uf": "2026-09-15",
+        "fuente": "pago"
+       },
+       "frecuencia": "mensual",
+       "categoria": "casa",
+       "mensual": 498000,
+       "cuotas": {
+        "pagadas": 53,
+        "total": 240,
+        "quedan": 187
+       },
+       "saldo": null,
+       "por_pagar": 93126000,
+       "termina": "2042-04-15"
+      },
+      {
+       "id": "c-segurouf01",
+       "nombre": "Seguro",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 46900,
+       "moneda": "CLP",
+       "rango": {
+        "min": 46100,
+        "max": 47600
+       },
+       "original": {
+        "monto": 1.2,
+        "moneda": "UF",
+        "sin_valor": false,
+        "valor_uf": 39058.82,
+        "fecha_uf": "2026-09-15",
+        "fuente": "otro"
+       },
+       "frecuencia": "mensual",
+       "categoria": "casa",
+       "mensual": 46900,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-arriuf0001",
+       "nombre": "Bodega",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 469000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 461000,
+        "max": 476000
+       },
+       "original": {
+        "monto": 12,
+        "moneda": "UF",
+        "sin_valor": false,
+        "valor_uf": 39058.82,
+        "fecha_uf": "2026-09-15",
+        "fuente": "otro"
+       },
+       "frecuencia": "mensual",
+       "categoria": "casa",
+       "mensual": 469000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-sueldoap01",
+       "nombre": "Sueldo",
+       "tipo": "ingreso",
+       "signo": "ingreso",
+       "monto": 1000000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 900000,
+        "max": 1100000
+       },
+       "original": null,
+       "frecuencia": "mensual",
+       "categoria": "sueldo",
+       "mensual": 1000000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      }
+     ]
+    }
+   },
+   {
+    "nombre": "con el valor de la UF escrito en Ajustes",
+    "mes": "2026-10",
+    "hoy": "2026-10-05",
+    "moneda": "CLP",
+    "uf": {
+     "valor": 39500,
+     "fecha": "2026-10-01",
+     "variacion_mensual": 1
+    },
+    "esperado": {
+     "mes": "2026-10",
+     "moneda": "CLP",
+     "items": [
+      {
+       "id": "c-comunes001",
+       "nombre": "Gastos comunes",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 95000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 80000,
+        "max": 110000
+       },
+       "original": null,
+       "categoria": "casa",
+       "periodo": "2026-09",
+       "vence": "2026-09-10",
+       "estado": "atrasado",
+       "dias": 25,
+       "pago": null,
+       "cuota": null,
+       "anterior": true
+      },
+      {
+       "id": "c-arriuf0001",
+       "nombre": "Bodega",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 474000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 469000,
+        "max": 479000
+       },
+       "original": {
+        "monto": 12,
+        "moneda": "UF",
+        "sin_valor": false,
+        "valor_uf": 39500.0,
+        "fecha_uf": "2026-10-01",
+        "fuente": "pago"
+       },
+       "categoria": "casa",
+       "periodo": "2026-10",
+       "vence": "2026-10-01",
+       "estado": "pagado",
+       "dias": 0,
+       "pago": {
+        "como": "automatico",
+        "fecha": "2026-10-01",
+        "monto": 474000,
+        "movimiento": "a05",
+        "descripcion": "TRANSFERENCIA BODEGA"
+       },
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-sueldoap01",
+       "nombre": "Sueldo",
+       "tipo": "ingreso",
+       "signo": "ingreso",
+       "monto": 1000000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 900000,
+        "max": 1100000
+       },
+       "original": null,
+       "categoria": "sueldo",
+       "periodo": "2026-10",
+       "vence": "2026-10-05",
+       "estado": "pagado",
+       "dias": 0,
+       "pago": {
+        "como": "automatico",
+        "fecha": "2026-10-05",
+        "monto": 1000000,
+        "movimiento": "a06",
+        "descripcion": "REMUNERACION EMPRESA FICTICIA"
+       },
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-luzaprox01",
+       "nombre": "Luz",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 32000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 27200,
+        "max": 36800
+       },
+       "original": null,
+       "categoria": "cuentas",
+       "periodo": "2026-10",
+       "vence": "2026-10-08",
+       "estado": "pendiente",
+       "dias": 3,
+       "pago": null,
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-comunes001",
+       "nombre": "Gastos comunes",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 95000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 80000,
+        "max": 110000
+       },
+       "original": null,
+       "categoria": "casa",
+       "periodo": "2026-10",
+       "vence": "2026-10-10",
+       "estado": "pendiente",
+       "dias": 5,
+       "pago": null,
+       "cuota": null,
+       "anterior": false
+      },
+      {
+       "id": "c-dividuf001",
+       "nombre": "Dividendo",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 498000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 493000,
+        "max": 503000
+       },
+       "original": {
+        "monto": 12.75,
+        "moneda": "UF",
+        "sin_valor": false,
+        "valor_uf": 39058.82,
+        "fecha_uf": "2026-09-15",
+        "fuente": "pago"
+       },
+       "categoria": "casa",
+       "periodo": "2026-10",
+       "vence": "2026-10-15",
+       "estado": "pendiente",
+       "dias": 10,
+       "pago": null,
+       "cuota": {
+        "numero": 54,
+        "total": 240
+       },
+       "anterior": false
+      },
+      {
+       "id": "c-segurouf01",
+       "nombre": "Seguro",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 47400,
+       "moneda": "CLP",
+       "rango": {
+        "min": 46900,
+        "max": 47900
+       },
+       "original": {
+        "monto": 1.2,
+        "moneda": "UF",
+        "sin_valor": false,
+        "valor_uf": 39500.0,
+        "fecha_uf": "2026-10-01",
+        "fuente": "ajustes"
+       },
+       "categoria": "casa",
+       "periodo": "2026-10",
+       "vence": "2026-10-20",
+       "estado": "pendiente",
+       "dias": 15,
+       "pago": null,
+       "cuota": null,
+       "anterior": false
+      }
+     ],
+     "total": 1146400,
+     "pagado": 474000,
+     "pendiente": 767400,
+     "atrasado": 95000,
+     "arrastre": 95000,
+     "ingresos_esperados": 1000000,
+     "ingresos_recibidos": 1000000,
+     "total_max": 1176700,
+     "pendiente_max": 807700,
+     "arrastre_max": 110000,
+     "ingresos_esperados_min": 900000,
+     "aprox": true,
+     "sin_valor": 0,
+     "compromisos": [
+      {
+       "id": "c-luzaprox01",
+       "nombre": "Luz",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 32000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 27200,
+        "max": 36800
+       },
+       "original": null,
+       "frecuencia": "mensual",
+       "categoria": "cuentas",
+       "mensual": 32000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-comunes001",
+       "nombre": "Gastos comunes",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 95000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 80000,
+        "max": 110000
+       },
+       "original": null,
+       "frecuencia": "mensual",
+       "categoria": "casa",
+       "mensual": 95000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-dividuf001",
+       "nombre": "Dividendo",
+       "tipo": "deuda",
+       "signo": "gasto",
+       "monto": 498000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 493000,
+        "max": 503000
+       },
+       "original": {
+        "monto": 12.75,
+        "moneda": "UF",
+        "sin_valor": false,
+        "valor_uf": 39058.82,
+        "fecha_uf": "2026-09-15",
+        "fuente": "pago"
+       },
+       "frecuencia": "mensual",
+       "categoria": "casa",
+       "mensual": 498000,
+       "cuotas": {
+        "pagadas": 53,
+        "total": 240,
+        "quedan": 187
+       },
+       "saldo": null,
+       "por_pagar": 93126000,
+       "termina": "2042-04-15"
+      },
+      {
+       "id": "c-segurouf01",
+       "nombre": "Seguro",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 47400,
+       "moneda": "CLP",
+       "rango": {
+        "min": 46900,
+        "max": 47900
+       },
+       "original": {
+        "monto": 1.2,
+        "moneda": "UF",
+        "sin_valor": false,
+        "valor_uf": 39500.0,
+        "fecha_uf": "2026-10-01",
+        "fuente": "ajustes"
+       },
+       "frecuencia": "mensual",
+       "categoria": "casa",
+       "mensual": 47400,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-arriuf0001",
+       "nombre": "Bodega",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 474000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 469000,
+        "max": 479000
+       },
+       "original": {
+        "monto": 12,
+        "moneda": "UF",
+        "sin_valor": false,
+        "valor_uf": 39500.0,
+        "fecha_uf": "2026-10-01",
+        "fuente": "pago"
+       },
+       "frecuencia": "mensual",
+       "categoria": "casa",
+       "mensual": 474000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      },
+      {
+       "id": "c-sueldoap01",
+       "nombre": "Sueldo",
+       "tipo": "ingreso",
+       "signo": "ingreso",
+       "monto": 1000000,
+       "moneda": "CLP",
+       "rango": {
+        "min": 900000,
+        "max": 1100000
+       },
+       "original": null,
+       "frecuencia": "mensual",
+       "categoria": "sueldo",
+       "mensual": 1000000,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      }
+     ]
+    }
+   },
+   {
+    "nombre": "un compromiso en UF sin ninguna forma de estimarlo",
+    "mes": "2026-10",
+    "hoy": "2026-10-05",
+    "moneda": "CLP",
+    "uf": null,
+    "esperado": {
+     "mes": "2026-10",
+     "moneda": "CLP",
+     "items": [
+      {
+       "id": "c-segurouf01",
+       "nombre": "Seguro",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 1.2,
+       "moneda": "UF",
+       "rango": null,
+       "original": {
+        "monto": 1.2,
+        "moneda": "UF",
+        "sin_valor": true
+       },
+       "categoria": "casa",
+       "periodo": "2026-10",
+       "vence": "2026-10-20",
+       "estado": "pendiente",
+       "dias": 15,
+       "pago": null,
+       "cuota": null,
+       "anterior": false
+      }
+     ],
+     "total": 0,
+     "pagado": 0,
+     "pendiente": 0,
+     "atrasado": 0,
+     "arrastre": 0,
+     "ingresos_esperados": 0,
+     "ingresos_recibidos": 0,
+     "total_max": 0,
+     "pendiente_max": 0,
+     "arrastre_max": 0,
+     "ingresos_esperados_min": 0,
+     "aprox": false,
+     "sin_valor": 1,
+     "compromisos": [
+      {
+       "id": "c-segurouf01",
+       "nombre": "Seguro",
+       "tipo": "cuenta",
+       "signo": "gasto",
+       "monto": 1.2,
+       "moneda": "UF",
+       "rango": null,
+       "original": {
+        "monto": 1.2,
+        "moneda": "UF",
+        "sin_valor": true
+       },
+       "frecuencia": "mensual",
+       "categoria": "casa",
+       "mensual": 1,
+       "cuotas": null,
+       "saldo": null,
+       "por_pagar": null,
+       "termina": null
+      }
+     ]
+    },
+    "compromisos_ids": [
+     "c-segurouf01"
+    ]
+   }
+  ],
+  "gasto_maximo": [
+   {
+    "nombre": "gasto máximo con aproximados: gastos por su máximo e ingresos por su mínimo",
+    "mes": "2026-10",
+    "hoy": "2026-10-05",
+    "moneda": "CLP",
+    "uf": null,
+    "meses_completos": [
+     "2026-08",
+     "2026-09"
+    ],
+    "esperado": {
+     "mes": "2026-10",
+     "moneda": "CLP",
+     "ingreso": 900000,
+     "fuente": "compromisos",
+     "compromisos": 1286400,
+     "otros_fijos": 52000,
+     "disponible": -438400,
+     "alcanza": false,
+     "por_categoria": [
+      {
+       "categoria": "supermercado",
+       "normal": 160000,
+       "maximo": 0,
+       "gastado": 40000
+      }
+     ]
+    }
+   },
+   {
+    "nombre": "gasto máximo con el valor de la UF en Ajustes",
+    "mes": "2026-10",
+    "hoy": "2026-10-05",
+    "moneda": "CLP",
+    "uf": {
+     "valor": 39500,
+     "fecha": "2026-10-01",
+     "variacion_mensual": 1
+    },
+    "meses_completos": [
+     "2026-08",
+     "2026-09"
+    ],
+    "esperado": {
+     "mes": "2026-10",
+     "moneda": "CLP",
+     "ingreso": 900000,
+     "fuente": "compromisos",
+     "compromisos": 1286700,
+     "otros_fijos": 52000,
+     "disponible": -438700,
+     "alcanza": false,
+     "por_categoria": [
+      {
+       "categoria": "supermercado",
+       "normal": 160000,
+       "maximo": 0,
+       "gastado": 40000
+      }
+     ]
+    }
+   }
+  ],
+  "debes": [
+   {
+    "nombre": "lo que debes con aproximados y una deuda en UF",
+    "hoy": "2026-10-05",
+    "moneda": "CLP",
+    "uf": null,
+    "esperado": {
+     "mes": "2026-10",
+     "moneda": "CLP",
+     "total": 93863900,
+     "este_mes": 1235900,
+     "total_max": 95402400,
+     "este_mes_max": 1286400,
+     "aprox": true,
+     "ultimo_pago_tarjeta": null,
+     "partes": [
+      {
+       "tipo": "compromiso",
+       "nombre": "Gastos comunes",
+       "monto": 95000,
+       "este_mes": 95000,
+       "max": 110000,
+       "original": null,
+       "estado": "atrasado",
+       "vence": "2026-09-10",
+       "dias": 25,
+       "categoria": "casa",
+       "clave": "c-comunes001|2026-09"
+      },
+      {
+       "tipo": "compromiso",
+       "nombre": "Bodega",
+       "monto": 469000,
+       "este_mes": 469000,
+       "max": 476000,
+       "original": {
+        "monto": 12,
+        "moneda": "UF",
+        "sin_valor": false,
+        "valor_uf": 39058.82,
+        "fecha_uf": "2026-09-15",
+        "fuente": "otro"
+       },
+       "estado": "atrasado",
+       "vence": "2026-10-01",
+       "dias": 4,
+       "categoria": "casa",
+       "clave": "c-arriuf0001|2026-10"
+      },
+      {
+       "tipo": "compromiso",
+       "nombre": "Luz",
+       "monto": 32000,
+       "este_mes": 32000,
+       "max": 36800,
+       "original": null,
+       "estado": "pendiente",
+       "vence": "2026-10-08",
+       "dias": 3,
+       "categoria": "cuentas",
+       "clave": "c-luzaprox01|2026-10"
+      },
+      {
+       "tipo": "compromiso",
+       "nombre": "Gastos comunes",
+       "monto": 95000,
+       "este_mes": 95000,
+       "max": 110000,
+       "original": null,
+       "estado": "pendiente",
+       "vence": "2026-10-10",
+       "dias": 5,
+       "categoria": "casa",
+       "clave": "c-comunes001|2026-10"
+      },
+      {
+       "tipo": "compromiso",
+       "nombre": "Seguro",
+       "monto": 46900,
+       "este_mes": 46900,
+       "max": 47600,
+       "original": {
+        "monto": 1.2,
+        "moneda": "UF",
+        "sin_valor": false,
+        "valor_uf": 39058.82,
+        "fecha_uf": "2026-09-15",
+        "fuente": "otro"
+       },
+       "estado": "pendiente",
+       "vence": "2026-10-20",
+       "dias": 15,
+       "categoria": "casa",
+       "clave": "c-segurouf01|2026-10"
+      },
+      {
+       "tipo": "deuda",
+       "nombre": "Dividendo",
+       "monto": 93126000,
+       "este_mes": 498000,
+       "max": 94622000,
+       "original": {
+        "monto": 12.75,
+        "moneda": "UF",
+        "sin_valor": false,
+        "valor_uf": 39058.82,
+        "fecha_uf": "2026-09-15",
+        "fuente": "pago"
+       },
+       "cuotas": {
+        "pagadas": 53,
+        "total": 240,
+        "quedan": 187
+       },
+       "categoria": "casa",
+       "termina": "2042-04-15",
+       "pendientes": [
+        {
+         "estado": "pendiente",
+         "vence": "2026-10-15",
+         "dias": 10,
+         "monto": 498000,
+         "clave": "c-dividuf001|2026-10"
+        }
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "nombre": "lo que debes con el valor de la UF en Ajustes",
+    "hoy": "2026-10-05",
+    "moneda": "CLP",
+    "uf": {
+     "valor": 39500,
+     "fecha": "2026-10-01",
+     "variacion_mensual": 1
+    },
+    "esperado": {
+     "mes": "2026-10",
+     "moneda": "CLP",
+     "total": 93395400,
+     "este_mes": 767400,
+     "total_max": 94365700,
+     "este_mes_max": 807700,
+     "aprox": true,
+     "ultimo_pago_tarjeta": null,
+     "partes": [
+      {
+       "tipo": "compromiso",
+       "nombre": "Gastos comunes",
+       "monto": 95000,
+       "este_mes": 95000,
+       "max": 110000,
+       "original": null,
+       "estado": "atrasado",
+       "vence": "2026-09-10",
+       "dias": 25,
+       "categoria": "casa",
+       "clave": "c-comunes001|2026-09"
+      },
+      {
+       "tipo": "compromiso",
+       "nombre": "Luz",
+       "monto": 32000,
+       "este_mes": 32000,
+       "max": 36800,
+       "original": null,
+       "estado": "pendiente",
+       "vence": "2026-10-08",
+       "dias": 3,
+       "categoria": "cuentas",
+       "clave": "c-luzaprox01|2026-10"
+      },
+      {
+       "tipo": "compromiso",
+       "nombre": "Gastos comunes",
+       "monto": 95000,
+       "este_mes": 95000,
+       "max": 110000,
+       "original": null,
+       "estado": "pendiente",
+       "vence": "2026-10-10",
+       "dias": 5,
+       "categoria": "casa",
+       "clave": "c-comunes001|2026-10"
+      },
+      {
+       "tipo": "compromiso",
+       "nombre": "Seguro",
+       "monto": 47400,
+       "este_mes": 47400,
+       "max": 47900,
+       "original": {
+        "monto": 1.2,
+        "moneda": "UF",
+        "sin_valor": false,
+        "valor_uf": 39500.0,
+        "fecha_uf": "2026-10-01",
+        "fuente": "ajustes"
+       },
+       "estado": "pendiente",
+       "vence": "2026-10-20",
+       "dias": 15,
+       "categoria": "casa",
+       "clave": "c-segurouf01|2026-10"
+      },
+      {
+       "tipo": "deuda",
+       "nombre": "Dividendo",
+       "monto": 93126000,
+       "este_mes": 498000,
+       "max": 94061000,
+       "original": {
+        "monto": 12.75,
+        "moneda": "UF",
+        "sin_valor": false,
+        "valor_uf": 39058.82,
+        "fecha_uf": "2026-09-15",
+        "fuente": "pago"
+       },
+       "cuotas": {
+        "pagadas": 53,
+        "total": 240,
+        "quedan": 187
+       },
+       "categoria": "casa",
+       "termina": "2042-04-15",
+       "pendientes": [
+        {
+         "estado": "pendiente",
+         "vence": "2026-10-15",
+         "dias": 10,
+         "monto": 498000,
+         "clave": "c-dividuf001|2026-10"
+        }
+       ]
+      }
+     ]
     }
    }
   ]

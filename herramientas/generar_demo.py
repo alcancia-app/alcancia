@@ -35,7 +35,6 @@ FIJOS = [
     (5, "REMUNERACION EMPRESA FICTICIA SPA", "sueldo", 1450000, "banco-ejemplo"),
     (6, "STREAMING PELIS", "suscripciones", -9990, "banco-ejemplo"),
     (6, "MUSICA PREMIUM", "suscripciones", -5490, "billetera-ejemplo"),
-    (8, "LUZ DEL SUR", "cuentas", -32000, "banco-ejemplo"),
     (10, "INTERNET Y CELULAR", "cuentas", -27990, "banco-ejemplo"),
     (12, "AGUA POTABLE", "cuentas", -14500, "banco-ejemplo"),
     (15, "TRASPASO A BILLETERA", "transferencia", -150000, "banco-ejemplo"),
@@ -65,6 +64,17 @@ for mes in ("2026-05", "2026-06"):
         for _ in range(veces):
             movs.append((f"{mes}-{otro.randint(1, 28):02d}", desc, cat, -round(otro.randint(lo, hi), -1), cuenta))
 # Compromisos de Ana: el crédito automotriz (cuota N/36, el 20) y el plan de celular (el 10), que en octubre todavía no se paga.
+# La luz y los gastos comunes varían un poco cada mes (montos fijos por mes, sin azar: así lo demás no cambia). El seguro de salud
+# se paga en UF: lo que se paga en pesos sube con la UF (1,85 UF × un valor ficticio de la UF de cada mes).
+LUZ = {"2026-05": 31200, "2026-06": 33800, "2026-07": 30500, "2026-08": 33900, "2026-09": 31800, "2026-10": 32700}
+COMUNES = {"2026-05": 59400, "2026-06": 58800, "2026-07": 58200, "2026-08": 61900, "2026-09": 60300, "2026-10": 63100}
+UF_MES = {"2026-07": 39200, "2026-08": 39300, "2026-09": 39400}  # el de octubre vence el 22: todavía no se paga
+for mes, monto in LUZ.items():
+    movs.append((f"{mes}-08", "LUZ DEL SUR", "cuentas", -monto, "banco-ejemplo"))
+for mes, monto in COMUNES.items():
+    movs.append((f"{mes}-05", "GASTOS COMUNES EDIFICIO", "casa", -monto, "banco-ejemplo"))
+for mes, uf in UF_MES.items():
+    movs.append((f"{mes}-22", "SEGURO SALUD COMPLEMENTARIO", "salud", -round(1.85 * uf), "banco-ejemplo"))
 for i, mes in enumerate(("2026-05", "2026-06", "2026-07", "2026-08", "2026-09")):
     movs.append((f"{mes}-20", f"CREDITO AUTOMOTRIZ CUOTA {8 + i}/36", "auto", -189000, "banco-ejemplo"))
     movs.append((f"{mes}-10", "PLAN MOVIL EJEMPLO", "cuentas", -15990, "banco-ejemplo"))
@@ -114,6 +124,12 @@ COMPROMISOS = [
                desde="2026-07-01"),
     compromiso(id="c-sueldo0001", nombre="Sueldo", tipo="ingreso", monto=1450000, dia=5, categoria="sueldo", buscar=["REMUNERACION"],
                desde="2026-07-01"),
+]
+COMPROMISOS += [
+    compromiso(id="c-comunes001", nombre="Gastos comunes", tipo="cuenta", monto=60000, dia=5, categoria="casa", buscar=["GASTOS COMUNES"],
+               aproximado={"variacion": 10}, desde="2026-07-01"),
+    compromiso(id="c-seguro0001", nombre="Seguro de salud", tipo="cuenta", monto=1.85, moneda="UF", dia=22, categoria="salud",
+               buscar=["SEGURO SALUD"], desde="2026-07-01"),
 ]
 SUGERENCIAS = compromisos.sugerir(salida, COMPROMISOS, HOY, datos.CATEGORIAS_BASE, "CLP")
 

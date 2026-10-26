@@ -22,6 +22,17 @@ elif "Conviértelo en UN objeto JSON" in pedido:
         print('{"nombre": "Algo", "monto": 1000, "dia": 5, "comando": "rm -rf"}')
     elif "NADA" in texto:
         print("No entendí.")
+    elif "MALAPROX" in texto:  # un rango al revés: no pasa la validación
+        print(json.dumps({"nombre": "Luz", "tipo": "cuenta", "monto": 30000, "dia": 8, "aproximado": {"min": 40000, "max": 20000}}))
+    elif " UF" in texto:
+        print(json.dumps({"nombre": "Dividendo", "tipo": "deuda", "monto": 12.75, "moneda": "UF", "frecuencia": "mensual", "dia": 15,
+                          "categoria": "casa", "buscar": ["DIVIDENDO"], "aproximado": {"variacion": 2}}))
+    elif "entre" in texto:
+        print(json.dumps({"nombre": "Gastos comunes", "tipo": "cuenta", "monto": 95000, "frecuencia": "mensual", "dia": 10,
+                          "categoria": "casa", "aproximado": {"min": 80000, "max": 110000}}))
+    elif "aprox" in texto:
+        print(json.dumps({"nombre": "Luz", "tipo": "cuenta", "monto": 30000, "frecuencia": "mensual", "dia": 8, "categoria": "cuentas",
+                          "buscar": ["LUZ"], "aproximado": {"variacion": 3}}))
     else:
         print("```json\n" + json.dumps({"nombre": "Crédito hipotecario 12345678", "tipo": "deuda", "monto": 500000, "moneda": "CLP",
                                         "frecuencia": "mensual", "dia": 15, "categoria": "casa", "buscar": ["DIVIDENDO"],

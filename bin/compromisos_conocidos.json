@@ -1,9 +1,9 @@
 {
-  "_nota": "Palabras que delatan un compromiso (algo que se paga o se recibe seguido) aunque aparezca una sola vez en la cartola. Solo datos: bin/compromisos.py los lee. En mayúsculas y sin tildes; se buscan como palabras completas. «*» vale para todos los países; cada país puede sumar las suyas. La comunidad las amplía.",
+  "_nota": "Palabras que delatan un compromiso (algo que se paga o se recibe seguido) aunque aparezca una sola vez en la cartola. Solo datos: bin/compromisos.py los lee. «uf»: true = se suele pagar en UF (se pregunta, nunca se supone). En mayúsculas y sin tildes; se buscan como palabras completas. «*» vale para todos los países; cada país puede sumar las suyas. La comunidad las amplía.",
   "formato": 1,
   "paises": {
     "*": [
-      {"tipo": "deuda", "categoria": "casa", "preguntar": "cuotas", "palabras": ["DIVIDENDO", "CREDITO HIPOTECARIO", "HIPOTECARIO", "MUTUO HIPOTECARIO", "MORTGAGE", "HOME LOAN"]},
+      {"tipo": "deuda", "categoria": "casa", "preguntar": "cuotas", "uf": true, "palabras": ["DIVIDENDO", "CREDITO HIPOTECARIO", "HIPOTECARIO", "MUTUO HIPOTECARIO", "MORTGAGE", "HOME LOAN"]},
       {"tipo": "deuda", "categoria": "auto", "preguntar": "cuotas", "palabras": ["CREDITO AUTOMOTRIZ", "AUTOMOTRIZ", "CAR LOAN", "AUTO LOAN"]},
       {"tipo": "deuda", "categoria": "otros", "preguntar": "cuotas", "palabras": ["CREDITO DE CONSUMO", "CREDITO CONSUMO", "CONSUMO CUOTA", "PRESTAMO", "PERSONAL LOAN", "LOAN PAYMENT", "STUDENT LOAN"]},
       {"tipo": "deuda", "categoria": "otros", "preguntar": "cuotas", "palabras": ["CUOTA", "CUOTAS", "AVANCE", "SUPER AVANCE", "INSTALLMENT", "INSTALMENT"]},

@@ -69,6 +69,16 @@ const VISTAS = [
   ["compromisos-sin-ia", "E=>{E.compIA={pidiendo:false,error:''};E.config.ia=''}"],
   ["compromisos-mes-pasado", "E=>{E.config.ia='claude';E.mes='2026-09';E.sugTodas=false}"],
   ["compromisos-con-pausado-y-cuotas", "E=>{E.mes='2026-10';E.compromisos.compromisos.push({id:'c-pausa00001',nombre:'Gimnasio',tipo:'otro',signo:'gasto',monto:25000,moneda:'CLP',frecuencia:'semanal',dia:2,categoria:'ocio',buscar:[],tolerancia:5,activo:false,desde:'2026-10-01',origen:'manual',pagos:{}},{id:'c-deuda00001',nombre:'Crédito de consumo',tipo:'deuda',signo:'gasto',monto:64500,moneda:'CLP',frecuencia:'mensual',dia:9,categoria:'',buscar:['CREDITO CONSUMO'],tolerancia:5,activo:true,desde:'2026-10-01',origen:'detectado',pagos:{},saldo:1200000})}"],
+  ["compromisos-aprox-y-uf", "E=>{E.compEdit=null;E.vista='compromisos';E.mes='2026-10'}"],
+  ["compromisos-editor-aprox", `E=>{E.compEdit={c:{...${EDITOR},tipo:'cuenta',nombre:'Luz',monto:32000,aproxActivo:true,aproxModo:'variacion',aproxVariacion:7},origen:'manual',error:''}}`],
+  ["compromisos-editor-rango", "E=>{E.compEdit.c.aproxModo='rango';E.compEdit.c.aproxMin=28000;E.compEdit.c.aproxMax=36000}"],
+  ["compromisos-editor-uf", `E=>{E.compEdit={c:{...${EDITOR},moneda:'UF',monto:12.75,preguntar_uf:true,montoPesos:498000,aproxActivo:false},origen:'detectado',error:''}}`],
+  ["compromisos-editor-uf-sin-valor", "E=>{E.config.uf=null;E.compromisos.compromisos=E.compromisos.compromisos.filter(c=>c.moneda!=='UF');E._per=undefined}"],
+  ["compromisos-uf-sin-valor", "E=>{E.compEdit=null;E.compromisos.compromisos.push({id:'c-ufsin00001',nombre:'Dividendo',tipo:'deuda',signo:'gasto',monto:12.75,moneda:'UF',frecuencia:'mensual',dia:25,categoria:'casa',buscar:['DIVIDENDO'],tolerancia:5,activo:true,desde:'2026-10-01',origen:'manual',pagos:{},cuotas_total:240,cuotas_pagadas:60})}"],
+  ["resumen-uf-sin-valor", "E=>{E.vista='resumen';E.cifra='debes'}"],
+  ["ajustes-uf", "E=>{E.ajustes=true}"],
+  ["ajustes-uf-con-valor", "E=>{E.config.uf={valor:39500,fecha:'2026-10-18',variacion_mensual:1.5}}"],
+  ["compromisos-uf-con-valor", "E=>{E.ajustes=false;E.vista='compromisos'}"],
   ["presupuesto-maximo", "E=>{E.vista='presupuesto';E.presEdit=null}"],
   ["presupuesto-no-alcanza", "E=>{E.compromisos.compromisos.push({id:'c-grande0001',nombre:'Grande',tipo:'deuda',signo:'gasto',monto:3000000,moneda:'CLP',frecuencia:'mensual',dia:25,categoria:'',buscar:[],tolerancia:5,activo:true,desde:'2026-10-01',origen:'manual',pagos:{}})}"],
   ["presupuesto-sin-ingresos", "E=>{E.compromisos.compromisos=E.compromisos.compromisos.filter(c=>c.tipo!=='ingreso'&&c.id!=='c-grande0001');E.movimientos=E.movimientos.filter(m=>m.monto<0)}"],
@@ -160,6 +170,21 @@ const navegador = await chromium.launch();
       if (canon(t) !== canon(k.esperado.tienes)) malos.push(`tres cifras «${k.nombre}»: lo que tienes = ${canon(t)}`);
       const d = P.loQueDebes(tc.compromisos, tc.movimientos, k.hoy, "CLP");
       if (canon(d) !== canon(k.esperado.debes)) malos.push(`tres cifras «${k.nombre}»: lo que debes = ${canon(d)}`);
+    }
+    // Montos aproximados y en UF.
+    const ap = c.aproximados;
+    for (const k of ap.estado) {
+      const cs = ap.compromisos.filter((x) => !k.compromisos_ids || k.compromisos_ids.includes(x.id));
+      const r = P.estadoCompromisos(cs, ap.movimientos, k.mes, k.hoy, k.moneda, null, k.uf);
+      if (canon(r) !== canon(k.esperado)) malos.push(`aproximados «${k.nombre}» = ${canon(r).slice(0, 700)}`);
+    }
+    for (const k of ap.gasto_maximo) {
+      const r = P.gastoMaximo(ap.movimientos, ap.compromisos, k.mes, k.hoy, ap.categorias, k.meses_completos, k.moneda, null, k.uf);
+      if (canon(r) !== canon(k.esperado)) malos.push(`aproximados «${k.nombre}» = ${canon(r)}`);
+    }
+    for (const k of ap.debes) {
+      const r = P.loQueDebes(ap.compromisos, ap.movimientos, k.hoy, k.moneda, null, k.uf);
+      if (canon(r) !== canon(k.esperado)) malos.push(`aproximados «${k.nombre}» = ${canon(r).slice(0, 700)}`);
     }
     return malos;
   }, casos);
@@ -332,8 +357,9 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     const filas = await p.$$eval(".cifra-fila", (l) => l.map((x) => ({ id: x.dataset.cifra, t: x.textContent.replace(/\s+/g, " ") })));
     if (filas.map((f) => f.id).join() !== "tienes,gastaste,debes") falla(`el resumen debe mostrar las tres cifras en orden ${donde}: ${filas.map((f) => f.id)}`);
     if (!filas[0].t.includes(t.tienes) || !filas[1].t.includes(t.gasto) || !filas[2].t.includes(t.debes)) falla(`las tres cifras con palabras simples ${donde}: ${filas.map((f) => f.t.slice(0, 40)).join(" | ")}`);
-    if (!filas[0].t.replace(/\D/g, "").includes("1084890")) falla(`«Lo que tienes» suma los saldos (612.000 anotado + movimientos, y 84.300 que informa la billetera) ${donde}: ${filas[0].t}`);
-    if (!filas[2].t.replace(/\D/g, "").includes("4901950")) falla(`«Lo que debes» suma compromisos, tarjeta, cuotas y créditos ${donde}: ${filas[2].t}`);
+    if (!filas[0].t.replace(/\D/g, "").includes("1021090")) falla(`«Lo que tienes» suma los saldos (612.000 anotado + movimientos, y 84.300 que informa la billetera) ${donde}: ${filas[0].t}`);
+    // Incluye el seguro de salud en UF (≈ 72.900, estimado con su último pago), por eso va con «≈».
+    if (!filas[2].t.replace(/\D/g, "").includes("4974850") || !filas[2].t.includes("≈")) falla(`«Lo que debes» suma compromisos, tarjeta, cuotas y créditos ${donde}: ${filas[2].t}`);
     if (!(await texto(".aprendi")).includes(t.aprendi)) falla(`el resumen muestra lo que aprendió de los movimientos ${donde}`);
     await ancho("tres cifras");
     // «Lo que debes»: cuotas que quedan de la lavadora (3 de 61.000) y lo de la tarjeta desde el último pago.
@@ -343,7 +369,7 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     // Corregir el saldo: si no cuadra, lo dice.
     await p.click('[data-cifra="tienes"]');
     await p.click('[data-saldo-editar="banco-ejemplo"]');
-    await p.fill("#saldo-banco-ejemplo", "1000000");
+    await p.fill("#saldo-banco-ejemplo", "936200");
     await p.press("#saldo-banco-ejemplo", "Enter");
     const aviso = await texto(".saldo-aviso");
     if (!aviso.includes(t.diferencia) || !aviso.replace(/\D/g, "").includes("590")) falla(`al corregir el saldo dice la diferencia (590) ${donde}: ${aviso}`);
@@ -388,6 +414,55 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
   }
 }
 console.log("  ✓ Resumen simple: tres cifras, categorizar en dos toques, crear al vuelo, aprender la regla, saldo y «Por ordenar» con teclado");
+
+// Montos aproximados y en UF: la estimación en pesos, marcar «aprox.», la opción UF, Cuéntale con UF y el valor de la UF en Ajustes.
+for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma=en"]]) {
+  for (const [modo, opciones] of [["escritorio", { viewport: { width: 1200, height: 820 } }], ["celular", { viewport: { width: 390, height: 844 }, colorScheme: "dark" }]]) {
+    const donde = `(${idioma}, ${modo})`;
+    const p = await navegador.newPage(opciones);
+    p.on("pageerror", (e) => falla(`error de JavaScript en UF ${donde}: ${e.message}`));
+    const ancho = async (paso) => { if (modo === "celular" && (await p.evaluate(() => document.documentElement.scrollWidth)) > 392) falla(`se sale de la pantalla en «${paso}» ${donde}`); };
+    const texto = (sel) => p.$eval(sel, (el) => el.textContent.replace(/\s+/g, " "));
+    await p.goto(BASE + "?" + consulta);
+    await p.waitForSelector(".app");
+    await p.click('.nav [data-vista="compromisos"]');
+    const seguro = await p.$$eval(".comp-fila", (l) => l.map((x) => x.textContent.replace(/\s+/g, " ")).find((t) => t.includes("Seguro de salud")) || "");
+    if (!seguro.includes("1,85 UF ≈") || !seguro.includes("≈ $72.900")) falla(`el compromiso en UF muestra la UF y el rango en pesos ${donde}: ${seguro}`);
+    await ancho("compromisos con UF");
+    // A mano: «El monto varía (aprox.)» con un porcentaje.
+    await p.click('[data-accion="comp-nuevo"]');
+    if (!(await p.$$eval("#ce-moneda option", (l) => l.map((o) => o.value))).includes("UF")) falla(`la moneda ofrece «UF» ${donde}`);
+    await p.fill("#ce-nombre", "Luz");
+    await p.fill("#ce-monto", "32500");  // 32.000 justo es una entrada de concierto de la demo: sin palabras calzaría por monto exacto
+    await p.check("[data-ce-aprox]");
+    await p.waitForSelector("#ce-aproxVariacion");
+    await p.fill("#ce-aproxVariacion", "10");
+    await p.press("#ce-aproxVariacion", "Tab");
+    await ancho("editor aproximado");
+    await p.click('[data-accion="comp-guardar"]');
+    await p.waitForFunction(() => !document.querySelector("#editor-comp"));
+    const luz = await p.$$eval(".comp-fila", (l) => l.map((x) => x.textContent.replace(/\s+/g, " ")).find((t) => t.includes("Luz")) || "");
+    if (!luz.includes("≈ $32.500") || !luz.replace(/\D/g, "").includes("2920035800")) falla(`la luz aproximada se muestra con su rango (29.200 a 35.800) ${donde}: ${luz}`);
+    // Cuéntale con UF (la simulación hace de IA).
+    await p.fill("#comp-texto", "el dividendo son 12,75 UF los 25");
+    await p.click('[data-accion="comp-entender"]');
+    await p.waitForSelector("#editor-comp #ce-monto");
+    const ed = await p.evaluate(() => ({ moneda: document.querySelector("#ce-moneda").value, monto: document.querySelector("#ce-monto").value }));
+    if (ed.moneda !== "UF" || ed.monto !== "12,75") falla(`Cuéntale entiende «12,75 UF» ${donde}: ${JSON.stringify(ed)}`);
+    if (!(await texto("#editor-comp")).includes("UF")) falla(`el editor muestra la estimación en UF ${donde}`);
+    await ancho("editor UF");
+    await p.click('[data-accion="comp-cancelar"]');
+    // «Valor de la UF hoy» en Ajustes.
+    await p.click('.lateral [data-accion="ajustes"]');
+    await p.fill("#uf-valor", "39.500");
+    await p.press("#uf-valor", "Tab");
+    const uf = await p.evaluate(() => { let u; window.Alcancia._probar((E) => { u = E.config.uf; }); return u; });
+    if (!uf || uf.valor !== 39500 || !/^\d{4}-\d{2}-\d{2}$/.test(uf.fecha || "")) falla(`el valor de la UF se guarda en Ajustes ${donde}: ${JSON.stringify(uf)}`);
+    await ancho("ajustes UF");
+    await p.close();
+  }
+}
+console.log("  ✓ Aproximados y UF: rango en pesos, «aprox.» en el editor, Cuéntale con UF y el valor de la UF en Ajustes");
 
 // Contraste del botón principal en modo claro y oscuro (WCAG AA: 4.5).
 for (const esquema of ["light", "dark"]) {

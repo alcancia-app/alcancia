@@ -49,8 +49,11 @@ Campos (usa solo estos; los que no sepas, déjalos fuera):
 - nombre: corto y claro (máximo 60 caracteres), p. ej. «Crédito hipotecario».
 - tipo: «deuda», «cuenta», «suscripcion», «transferencia», «ingreso» u «otro».
 - signo: «gasto» o «ingreso».
-- monto: número positivo, sin puntos de miles ni símbolos (450.000 → 450000).
-- moneda: código de 3 letras.
+- monto: número positivo, sin puntos de miles ni símbolos (450.000 → 450000). En UF, con decimales con punto (12,75 UF → 12.75).
+- moneda: código de 3 letras, o «UF» si dice que se paga en UF (unidad de fomento); entonces el monto va en UF, no en pesos.
+- aproximado: solo si dice que el monto varía («aprox.», «más o menos», «alrededor de», «entre X e Y»): {{"variacion": N}}
+  con el porcentaje que varía (si no lo dice, 3), o {{"min": X, "max": Y}} si da un rango (en la misma moneda que el monto, y el
+  monto entre los dos, p. ej. el del medio).
 - frecuencia: «mensual», «semanal», «anual» o «una_vez».
 - dia: número; en mensual el día del mes (1 a 31); en semanal 1 = lunes … 7 = domingo.
 - fecha: AAAA-MM-DD, solo en anual o una_vez.

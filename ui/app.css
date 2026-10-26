@@ -528,3 +528,10 @@ span.barra { display: block; }
   .aviso-regla { flex-wrap: wrap; bottom: 12px; }
 }
 @media (prefers-reduced-motion: reduce) { .cifra-fila::before, .cf-flecha, .avance-ordenar i, .plegable > summary::after { transition: none; } }
+
+/* Montos aproximados y en UF */
+.aprox-signo { font-weight: 600; color: var(--suave); margin-right: 4px; }
+.aprox-campos { display: grid; gap: 12px; margin: -2px 0 4px 28px; }
+.invita-uf h2 { font-size: 17px; font-family: var(--redondeada); margin-bottom: 6px; }
+.invita-uf > .texto-suave { margin: 0 0 12px; }
+@media (max-width: 780px) { .aprox-campos { margin-left: 0; } }

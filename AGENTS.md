@@ -74,6 +74,14 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
   (sin RUT con o sin puntos, sin corridas de 7+ dígitos ni números largos), la fecha y las categorías, y valida estricto (`validar(..., estricto=True)`); no guarda nada.
   Avisos (Mac): `compromisos.py avisos <hoy>` decide (3 días antes, el día, atrasado; uno por compromiso al día, registro en
   `.alcancia/avisos.json`) y `Avisos.swift` muestra, sin montos y con título genérico (con la pantalla bloqueada solo «Tienes un pago por vencer»). El permiso se pide al agregar el primer compromiso o al activar los avisos.
+- **Aproximados y UF:** `aproximado` ({variacion} o {min, max}) y `moneda: "UF"`. `en_moneda`/`enMoneda` da a cada ítem `monto` y
+  `moneda` para sumar (en UF, pasado a la moneda principal), `rango` y `original` (lo anotado en UF, el valor usado y de dónde salió,
+  o `sin_valor`: queda en UF y no se suma). El valor de la UF (`valores_uf`/`valoresUF`) sale del último pago reconocido de ese
+  compromiso; si no hay, el más reciente entre `config.uf` (Ajustes) y otro compromiso en UF pagado. Nunca hay red para esto. El
+  rango en UF se abre `uf.variacion_mensual` (1,5 %) por mes desde ese valor, más la variación del compromiso. Reconocer: un
+  aproximado calza en su rango solo si trae una palabra de `buscar` (sin palabras, monto exacto); uno en UF calza por sus palabras y,
+  con un valor en Ajustes, por el monto ±15 %. Totales `_max` (gasto máximo y «Lo que debes» usan el máximo; los ingresos, el mínimo).
+  Casos en `pruebas/casos.json` (sección `aproximados`).
 - **Tu mes (periodos):** `config.inicio_mes` = `{"modo": "dia" | "sueldo", "dia"}`. `resumen.rango(mes, per)` da los días de un
   periodo «AAAA-MM» (se llama por el mes donde cae la mayor parte); `per` lleva las `llegadas` del sueldo (compromisos.periodo).
   `resumen`, `historia`, `presupuesto_sugerido`, `estado_mes` y `gasto_maximo` reciben `per` (sin él, mes calendario, igual que

@@ -33,11 +33,16 @@ def linea_compromisos(hoy, movimientos, presupuesto, categorias, compromisos, pe
     if not compromisos:
         return "- (no ha anotado compromisos)"
     mes, moneda = resumen.periodo_de(hoy, per), presupuesto.get("moneda", "CLP")
-    e = K.estado_mes(compromisos, movimientos, mes, hoy, moneda, per)
+    uf = K.uf_config()
+    e = K.estado_mes(compromisos, movimientos, mes, hoy, moneda, per, uf)
     completos = [x for x in resumen.periodos_con_datos(movimientos, per) if x < mes][-3:]
-    g = K.gasto_maximo(movimientos, compromisos, mes, hoy, categorias, completos, moneda, per)
-    lineas = [f"- Compromisos del mes (deudas, cuentas, suscripciones): {e['total']}; pagado {e['pagado']}; pendiente {e['pendiente']}"
-              + (f" (atrasado {e['atrasado']})" if e["atrasado"] else "")]
+    g = K.gasto_maximo(movimientos, compromisos, mes, hoy, categorias, completos, moneda, per, uf)
+    # Montos aproximados o en UF: se dice «cerca de X (hasta Y)»; solo totales.
+    aprox = lambda x, y: f"cerca de {x} (hasta {y})" if y != x else f"{x}"
+    lineas = [f"- Compromisos del mes (deudas, cuentas, suscripciones): {aprox(e['total'], e['total_max'])}; pagado {e['pagado']}; "
+              f"pendiente {aprox(e['pendiente'], e['pendiente_max'])}" + (f" (atrasado {e['atrasado']})" if e["atrasado"] else "")]
+    if e["sin_valor"]:
+        lineas.append(f"- {e['sin_valor']} compromiso(s) en UF sin estimar en pesos (no están en los totales)")
     if g["disponible"] is not None:
         origen = "según sus ingresos anotados" if g["fuente"] == "compromisos" else "según el promedio de ingresos de los últimos meses"
         lineas.append(f"- Ingreso esperado {g['ingreso']} ({origen}); disponible para gastos variables después de compromisos y "
@@ -49,9 +54,12 @@ def linea_tres_cifras(hoy, movimientos, presupuesto, compromisos=None, per=None)
     """Las tres cifras del Resumen, solo totales: lo que tiene hoy, lo que debe (y lo de este mes) y lo atrasado."""
     moneda = presupuesto.get("moneda", "CLP")
     t = resumen.lo_que_tienes(datos.leer_json(os.path.join(datos.BASE, "cuentas.json"), []), movimientos, moneda)
-    d = K.lo_que_debes(compromisos or [], movimientos, hoy, moneda, per)
+    d = K.lo_que_debes(compromisos or [], movimientos, hoy, moneda, per, K.uf_config())
     atrasado = sum(p["monto"] for p in d["partes"] if p.get("estado") == "atrasado")
     tiene = f"tiene {t['total']} en sus cuentas" if t["total"] is not None else "no ha anotado cuánto tiene en sus cuentas"
+    if d["aprox"]:
+        return (f"Hoy {tiene}; debe cerca de {d['total']} en total (hasta {d['total_max']}, hay montos aproximados), de eso cerca de "
+                f"{d['este_mes']} (hasta {d['este_mes_max']}) toca pagarlo este mes" + (f" ({atrasado} ya atrasado)" if atrasado else "") + ".")
     return (f"Hoy {tiene}; debe {d['total']} en total, de eso {d['este_mes']} toca pagarlo este mes"
             + (f" ({atrasado} ya atrasado)" if atrasado else "") + ".")
 
