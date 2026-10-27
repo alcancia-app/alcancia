@@ -138,7 +138,7 @@ def desconectar(e):
 
 def compromiso(e):
     """Compromisos: guardar (validado), borrar, marcar «ya lo pagué», desmarcar, «no es este», «ese pago era del mes pasado»
-    (reasignar) y descartar una sugerencia."""
+    (reasignar), actualizar un préstamo con un plan nuevo («es el mismo», actualizar_prestamo) y descartar una sugerencia."""
     import re
     from datetime import date
     import compromisos as K
@@ -180,6 +180,19 @@ def compromiso(e):
         lista.remove(actual)
         K.escribir(raw)
         return {"ok": True}
+    if accion == "actualizar_prestamo":
+        # «Es el mismo» en la conversación con Alcancía (la persona lo confirma): el préstamo (o la deuda) que ya estaba toma el
+        # plan nuevo, incluido desde cuándo (el plan parte de nuevo). Solo un préstamo, con el mismo id; sus pagos se mantienen.
+        nuevo = e.get("compromiso")
+        if not isinstance(nuevo, dict) or nuevo.get("id") != cid or nuevo.get("tipo") != "prestamo" or actual.get("tipo") not in ("prestamo", "deuda"):
+            return {"ok": False, "error": "Acción inválida."}
+        moneda = datos.presupuesto().get("moneda") or datos.config()["moneda"]
+        limpio, errores = K.validar({**nuevo, "pagos": actual.get("pagos")}, ids_categorias(), hoy, moneda)
+        if errores:
+            return {"ok": False, "error": " ".join(errores)}
+        lista[lista.index(actual)] = limpio
+        K.escribir(raw)
+        return {"ok": True, "id": cid}
     if accion == "reasignar":
         # «Ese pago era del mes pasado» (lo propone la conversación con Alcancía y la persona lo confirma): el pago del vencimiento
         # `de` pasa al anterior `a`. El movimiento se busca en los movimientos guardados (nada se inventa).

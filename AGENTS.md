@@ -178,6 +178,27 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
   `calcular_prestamo` viven igual en `ui/app.js` (`margenMensual`, `planPrestamos`, `inicioPlan`, `pagoReasignable`, `reasignarPago`,
   `calcularPrestamo`): casos en `pruebas/casos.json` (secciones `chat` y `prestamos.calcular_cuota`). En el navegador, `chatSimulado`
   responde con esa misma lógica.
+  **¿Es el mismo préstamo?** Para que una deuda que ya está anotada no se cuente dos veces, `prestamos_parecidos`/`prestamosParecidos`
+  busca, por cada préstamo propuesto (del plan o de `crear_compromiso`), un compromiso activo y vigente de tipo `prestamo` o `deuda`
+  con el mismo signo y moneda: primero **la persona** (`claves_persona`: sin tildes, mayúsculas, «mi», «préstamo de», «don»…, con
+  apodos juntados —«mami» = «mamá»—; calza si las claves de uno están todas en las del `con` del otro, «Tío Matías» ~ «Matías», o
+  en el nombre del compromiso, «Crédito con papá»); si alguno de los dos no dice quién, un **préstamo** con el total anotado o lo que
+  falta pagar a ±15 % (`PARECIDO`). Dos personas distintas nunca son la misma deuda. Un compromiso sirve para una sola propuesta.
+  Si hay parecido, la acción trae `parecidos` (plan; uno por propuesta o null) o `parecido` (crear) y la tarjeta pregunta
+  «Ya tienes anotado «X» ($ al mes, quedan N cuotas). ¿Es el mismo?» con «Es el mismo» / «Es otro» antes de ofrecer «Agregar»
+  (en un plan, el resto espera sin botones: sus cifras pueden cambiar). «Es otro» → la propuesta de siempre. «Es el mismo» →
+  «Actualizar» / «Cambiar» / «No» sobre el compromiso que ya estaba: en el plan, `plan_variante`/`planVariante` devuelve su cuota al
+  margen (`margen_mensual(..., sin=ids)`), planifica lo que falta pagar (`por_pagar`, si el total dicho es parecido al anotado; si
+  no, el total dicho) y recalcula **todas** las deudas; `prestamo_actualizado`/`prestamoActualizado` deja ese compromiso con su id,
+  nombre, palabras y categoría, como préstamo que parte de nuevo desde `inicio_plan` (cuotas nuevas, sin cuotas pagadas). `chat.py`
+  calcula **al responder** cada combinación de «es el mismo» (`variantes`, clave «0», «0,1»…; como mucho 2⁴) y la interfaz solo
+  elige (`planElegido`): determinista, sin otra llamada y al reabrir se ve igual. En `crear_compromiso`, `actualizar` es el que ya
+  estaba con el total, el interés y las cuotas de la propuesta (y día, cuotas pagadas o forma de pago solo si la IA los dijo; desde
+  y pagos se mantienen), o null si no cambia nada o venía incompleto («Ya lo tienes anotado: no agrego otro»). La respuesta va en
+  `estados` con la clave `es:<i>` o `es:<i>.<j>` («mismo»/«otro»; `chat.py marcar` solo la acepta donde hay parecido). «Actualizar»
+  usa la subacción `actualizar_prestamo` de `guardar.py` (mismo id, solo a préstamo, validado, mantiene `pagos` y sí cambia
+  `desde`); el editor también, si se abrió desde una actualización. El prompt pide a la IA que lo diga en `respuesta`, pero la
+  detección es del código. Casos en `pruebas/casos.json` (`chat.parecido`).
 - **Consejos:** `consejos.py <hoy>` arma un prompt con totales y exige las tres secciones (`### Lo que va bien`, `### Ojo con`,
   `### Para esta semana`). Si no vienen, no se guarda nada.
 

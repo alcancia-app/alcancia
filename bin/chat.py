@@ -3,7 +3,8 @@ Solo biblioteca estándar.
 
   chat.py enviar <entrada.json> <salida.json>   entrada: {"hoy": "AAAA-MM-DD", "mensajes": [{"rol": "persona"|"alcancia", "texto"}]}
   chat.py borrar <entrada.json> <salida.json>   borra la conversación guardada
-  chat.py marcar <entrada.json> <salida.json>   {"id": "<mensaje>", "i": <n° de acción>, "j"?: <propuesta>, "estado": "hecha"|"no"}
+  chat.py marcar <entrada.json> <salida.json>   {"id": "<mensaje>", "i": <n° de acción>, "j"?: <propuesta>,
+                                                 "estado": "hecha"|"no"|"mismo"|"otro"}
 
 Lo que escribe la persona llega en un archivo de entrada, nunca como argumento (los argumentos de un proceso los puede ver
 cualquier programa del computador). Los últimos 10 mensajes pasan por `limpiar_texto` (sin RUT ni números de cuenta).
@@ -17,6 +18,18 @@ Nunca descripciones de movimientos, ids internos ni números de cuenta.
 La IA responde {"respuesta", "acciones"}; se valida estricto y cada acción se resuelve con código (lista blanca): crear_compromiso,
 plan_prestamos (cuotas y meses los calcula compromisos.plan_prestamos), reasignar_pago, marcar_pagado, marcar_pendiente y
 editar_compromiso. **Nada se aplica solo:** la interfaz muestra cada acción para que la persona la confirme.
+
+**¿Es el mismo préstamo?** Si un préstamo propuesto (en el plan o uno nuevo) se parece a uno que ya está anotado
+(compromisos.prestamos_parecidos: primero la persona, después el total ±15 %), la acción trae `parecido` (crear) o `parecidos`
+(plan, uno por propuesta o null) y la interfaz pregunta «¿Es el mismo?» antes de ofrecer «Agregar»:
+- «Es otro»: la propuesta de siempre.
+- «Es el mismo» (crear): `actualizar`, el compromiso que ya estaba con el total, las cuotas (y el día o la forma de pago, si la IA
+  los dijo) de la propuesta; null si no hay nada que cambiar o la propuesta está incompleta.
+- «Es el mismo» (plan): `variantes`, ya calculadas aquí con compromisos.plan_variante para cada combinación de «es el mismo»
+  (clave: los índices de las propuestas, «0», «0,1»…): la cuota de ese compromiso vuelve al margen, se planifica lo que falta
+  pagar y todas las deudas se recalculan; esa propuesta es el compromiso que ya estaba, actualizado (prestamo_actualizado).
+  Se calcula todo al responder (determinista, sin otra llamada) y la interfaz solo elige: al reabrir se ve igual.
+La elección queda en `estados` con la clave «es:<i>» o «es:<i>.<j>» («mismo» u «otro»).
 
 La conversación se guarda solo en el computador: ~/Alcancia/.alcancia/chat.json (los últimos 50 mensajes, ya limpios).
 """
@@ -155,6 +168,8 @@ def contexto(x):
             partes.append("se paga solo" if modo == "automatico" else "lo paga la persona")
         if c.get("con"):
             partes.append(f"le debe a {c['con']}" if c["signo"] == "gasto" else f"{c['con']} le debe")
+        if c.get("prestamo"):
+            partes.append(f"préstamo de {_n(c['prestamo']['total'])} en total")
         if r_.get("cuotas"):
             partes.append(f"quedan {r_['cuotas']['quedan']} de {r_['cuotas']['total']} cuotas")
         if c.get("buscar"):
@@ -196,12 +211,15 @@ Responde SOLO con un objeto JSON, sin nada antes ni después: {{"respuesta": "..
 - acciones: de 0 a 3 de esta lista. Nada se aplica solo: la app le muestra cada una para que la confirme. Para referirte a un
   compromiso usa su referencia (C1, C2…), nunca otra cosa.
   1. {{"tipo": "crear_compromiso", "compromiso": {{...}}}}: cuando cuenta algo que paga o recibe seguido y no está en la lista.
+     Si es un préstamo y crees que ya está en la lista (la misma persona o un total parecido), propónlo igual y dile en la
+     respuesta que ya tiene uno anotado: la app le pregunta si es el mismo.
      Campos del compromiso (usa solo estos; los que no sepas, déjalos fuera):
 {compromiso_ia.campos(x.categorias, x.moneda)}
   2. {{"tipo": "plan_prestamos", "deudas": [{{"con": "Mamá", "total": 1500000, "interes": 0}}]}}: cuando le prestaron plata
      personas (familia, amigos) y pregunta cuánto puede pagar al mes o en cuántos meses. Una deuda por persona; «interes» solo si lo
      dice. No calcules cuotas ni meses ni los pongas en la respuesta: la app los calcula con su margen y le muestra la propuesta.
-     Si una deuda ya está en sus compromisos, no la repitas.
+     Si una deuda parece estar ya en sus compromisos (por ejemplo «Préstamo de Mamá»), inclúyela igual y dile en la respuesta
+     que ya tiene algo anotado con esa persona: la app le pregunta si es el mismo y, si lo es, recalcula sin contarlo dos veces.
   3. {{"tipo": "reasignar_pago", "compromiso": "C1"}}: cuando dice que algo de este mes aún no lo paga (o que un pago era del mes
      pasado) y ese compromiso aparece pagado este mes. Entiende sinónimos: dividendo = hipoteca = crédito hipotecario; luz =
      electricidad; arriendo = alquiler.
@@ -239,6 +257,49 @@ def _sin_pagos(c):
     return {k: v for k, v in c.items() if k != "pagos"}
 
 
+def _variante(deudas, mismos, x, ini):
+    """{"plan", "propuestas"} con las deudas que la persona dijo que «son el mismo» (`mismos`: {j: id}); None si algo no valida.
+    Las propuestas van en el orden de las deudas: un préstamo nuevo o, en las de `mismos`, el compromiso que ya estaba actualizado."""
+    plan = K.plan_variante(deudas, mismos, x.lista, x.movs, x.hoy, x.categorias, x.moneda, x.per, x.uf, x.auto)
+    actuales = {c["id"]: c for c in x.lista}
+    propuestas = []
+    for j, d in enumerate(plan["deudas"]):
+        if j in mismos:
+            bruto = K.prestamo_actualizado(actuales[mismos[j]], d, ini)
+        else:
+            bruto = {"tipo": "prestamo", "con": d["con"], "signo": "gasto", "prestamo": {"total": d["total"], "interes": d["interes"], "cuota": d["cuota"]},
+                     "cuotas_total": d["cuotas"], "frecuencia": "mensual", "dia": ini["dia"], "desde": ini["desde"], "pago": "manual", "origen": "ia"}
+        c, _ = K.validar(bruto, x.ids_cat, x.hoy, x.moneda)
+        if not c:
+            return None
+        propuestas.append(_sin_pagos(c))
+    return {"plan": plan, "propuestas": propuestas}
+
+
+#: Lo que se compara para saber si «actualizar» cambia algo.
+COMPARAR = ("tipo", "con", "monto", "cuotas_total", "cuotas_pagadas", "dia", "prestamo", "pago", "fecha_fin")
+
+
+def _parecido_al_crear(dicho, completo, propuesto, x):
+    """Un préstamo nuevo que se parece a uno anotado: {"parecido", "actualizar"} (o {} si no hay parecido). `actualizar` es el que
+    ya estaba con el total, el interés y las cuotas de la propuesta (y el día, las cuotas pagadas o la forma de pago solo si la IA
+    los dijo); su id, nombre, palabras, categoría, desde y pagos se mantienen. None si la propuesta está incompleta o no cambia nada."""
+    p = K.prestamos_parecidos([propuesto], x.lista, x.estado, x.hoy)[0]
+    if not p:
+        return {}
+    actual = next(c for c in x.lista if c["id"] == p["id"])
+    nuevo = None
+    if completo:
+        cambios = {"tipo": "prestamo", "con": actual.get("con") or completo["con"], "cuotas_total": completo["cuotas_total"],
+                   "prestamo": {k: completo["prestamo"][k] for k in ("total", "interes", "cuota")}}
+        cambios.update({k: completo[k] for k in ("dia", "cuotas_pagadas", "pago") if k in dicho and k in completo})
+        base = {k: v for k, v in actual.items() if k not in ("fecha", "fecha_fin", "saldo", "aproximado", "cuotas_restantes")}
+        limpio, _ = K.validar({**base, **cambios}, x.ids_cat, x.hoy, x.moneda)
+        if limpio and any(limpio.get(k) != actual.get(k) for k in COMPARAR):
+            nuevo = _sin_pagos(limpio)
+    return {"parecido": p, "actualizar": nuevo}
+
+
 def resolver(a, x):
     """(acción para la interfaz, nota). La nota es un código que la interfaz explica («no_aplica», «sin_pago_para_mover»…)."""
     t = a["tipo"]
@@ -248,10 +309,13 @@ def resolver(a, x):
         p = K.completar_prestamo(a["compromiso"], x.cfg)
         limpio, problemas = K.validar(p, x.ids_cat, x.hoy, x.moneda, estricto=True)
         if limpio:
-            return {"tipo": t, "compromiso": {**_sin_pagos(limpio), "origen": "ia"}}, None
-        # Nunca sin salida: lo que sí se entendió va a la tarjeta, para completarlo en el editor.
-        return {"tipo": t, "compromiso": {**K.parcial(p, x.ids_cat, x.moneda, x.cfg), "origen": "ia"}, "incompleto": True,
-                "error": " ".join(problemas[:3])}, None
+            r = {"tipo": t, "compromiso": {**_sin_pagos(limpio), "origen": "ia"}}
+        else:  # Nunca sin salida: lo que sí se entendió va a la tarjeta, para completarlo en el editor.
+            r = {"tipo": t, "compromiso": {**K.parcial(p, x.ids_cat, x.moneda, x.cfg), "origen": "ia"}, "incompleto": True,
+                 "error": " ".join(problemas[:3])}
+        if r["compromiso"].get("tipo") == "prestamo":
+            r.update(_parecido_al_crear(a["compromiso"], r["compromiso"] if limpio else None, r["compromiso"], x))
+        return r, None
     if t == "plan_prestamos":
         deudas = []
         for d in a["deudas"] if isinstance(a["deudas"], list) else []:
@@ -261,19 +325,26 @@ def resolver(a, x):
             interes = K._numero(d.get("interes", 0) or 0, -0.01, 100.01)
             if con and total and interes is not None:
                 deudas.append({"con": con, "total": total, "interes": interes})
+        deudas = deudas[:MAX_DEUDAS]
         if not deudas:
             return None, "no_aplica"
-        plan = K.plan_prestamos(deudas[:MAX_DEUDAS], x.margen["margen"], x.moneda)
         ini = K.inicio_plan(x.per, x.hoy, x.feriados)
-        propuestas = []
-        for d in plan["deudas"]:
-            c, _ = K.validar({"tipo": "prestamo", "con": d["con"], "signo": "gasto", "prestamo": {"total": d["total"], "interes": d["interes"], "cuota": d["cuota"]},
-                              "cuotas_total": d["cuotas"], "frecuencia": "mensual", "dia": ini["dia"], "desde": ini["desde"], "pago": "manual",
-                              "origen": "ia"}, x.ids_cat, x.hoy, x.moneda)
-            if c:
-                propuestas.append(_sin_pagos(c))
-        plan["base"] = {k: x.margen[k] for k in ("ingreso", "fuente", "gasto", "meses", "compromisos")}
-        return {"tipo": t, "plan": plan, "propuestas": propuestas}, None
+        base = _variante(deudas, {}, x, ini)
+        if not base:
+            return None, "no_aplica"
+        r = {"tipo": t, **base}
+        parecidos = K.prestamos_parecidos([{"con": d["con"], "signo": "gasto", "moneda": x.moneda, "total": d["total"]} for d in deudas],
+                                          x.lista, x.estado, x.hoy)
+        con = [j for j, p in enumerate(parecidos) if p]
+        if con:  # «¿Es el mismo?»: cada combinación de respuestas, ya calculada (como mucho 2^MAX_DEUDAS planes chicos)
+            variantes = {}
+            for n in range(1, 2 ** len(con)):
+                js = [j for k, j in enumerate(con) if n >> k & 1]
+                v = _variante(deudas, {j: parecidos[j]["id"] for j in js}, x, ini)
+                if v:
+                    variantes[",".join(map(str, js))] = v
+            r.update({"parecidos": parecidos, "variantes": variantes})
+        return r, None
     cid = x.refs.get(str(a["compromiso"]).strip().upper())
     c = next((cc for cc in x.activos if cc["id"] == cid), None)
     if not c:
@@ -358,17 +429,24 @@ def enviar(entrada):
 
 def marcar(entrada):
     """La persona confirmó («hecha») o descartó («no») una acción (`i`; en un plan, también la propuesta `j`): se recuerda para no
-    volver a ofrecerla."""
+    volver a ofrecerla. «mismo» u «otro» es lo que respondió a «¿Es el mismo?» (solo donde hay un préstamo parecido); se guarda
+    aparte, con la clave «es:<i>» o «es:<i>.<j>»."""
     lista = historial()
     m = next((m for m in lista if m.get("id") == entrada.get("id") and m.get("rol") == "alcancia"), None)
     acciones = (m.get("acciones") or []) if m else []
     i, j = entrada.get("i"), entrada.get("j")
     entero = lambda v, n: not isinstance(v, bool) and isinstance(v, int) and 0 <= v < n
-    if not entero(i, len(acciones)) or entrada.get("estado") not in ("hecha", "no"):
+    if not entero(i, len(acciones)) or entrada.get("estado") not in ("hecha", "no", "mismo", "otro"):
         return {"ok": False, "error": "No encontré esa acción."}
     if j is not None and not entero(j, len(acciones[i].get("propuestas") or [])):
         return {"ok": False, "error": "No encontré esa acción."}
-    m["estados"] = {**(m.get("estados") if isinstance(m.get("estados"), dict) else {}), (f"{i}.{j}" if j is not None else str(i)): entrada["estado"]}
+    clave = f"{i}.{j}" if j is not None else str(i)
+    if entrada["estado"] in ("mismo", "otro"):
+        a = acciones[i]
+        if not (a.get("parecido") if j is None else (a.get("parecidos") or [None] * (j + 1))[j]):
+            return {"ok": False, "error": "No encontré esa acción."}
+        clave = "es:" + clave
+    m["estados"] = {**(m.get("estados") if isinstance(m.get("estados"), dict) else {}), clave: entrada["estado"]}
     guardar(lista)
     return {"ok": True}
 

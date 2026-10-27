@@ -9,7 +9,8 @@ igual en ui/app.js (`vencimientos`, `coincide`, `asignar`, `valoresUF`, `enMoned
 prueban juntos con pruebas/casos.json.
 Si cambias una regla, cambia los dos lados y el caso. Validar y sugerir (detectar en la cartola) solo viven aquí.
 Lo que usa la conversación con Alcancía (bin/chat.py) también vive en los dos lados: `margen_mensual`, `plan_prestamos`,
-`inicio_plan`, `pago_reasignable` y `reasignar_pago` (casos en «chat»).
+`inicio_plan`, `pago_reasignable`, `reasignar_pago` y, para «¿es el mismo préstamo?», `claves_persona`, `prestamos_parecidos`,
+`plan_variante` y `prestamo_actualizado` (casos en «chat»).
 
   compromisos.py avisos <hoy AAAA-MM-DD> <salida.json>   lo que hay que avisar hoy (la app de Mac manda el aviso del sistema)
 """
@@ -1329,7 +1330,7 @@ def _vigente(r, hoy):
     return not r.get("termina") or r["termina"] >= hoy
 
 
-def margen_mensual(compromisos, movimientos, hoy, categorias, moneda, per=None, uf=None, auto=None):
+def margen_mensual(compromisos, movimientos, hoy, categorias, moneda, per=None, uf=None, auto=None, sin=()):
     """Cuánto queda libre en un mes normal: margen = ingreso típico − gasto típico − compromisos al mes. Igual que margenMensual.
     - Ingreso típico: los compromisos de tipo `ingreso` (el sueldo anotado o detectado) al mes, por su mínimo si varían; si no hay,
       el promedio de lo que entró en los últimos 3 periodos completos (sin lo de «Entre mis cuentas»). Lo que te deben no cuenta.
@@ -1337,7 +1338,9 @@ def margen_mensual(compromisos, movimientos, hoy, categorias, moneda, per=None, 
       (los que calzan con alguno: `coincide`), para no contarlos dos veces.
     - Compromisos al mes: los gastos que siguen vigentes (no los de una vez ni los ya terminados), por su máximo si varían; en UF
       con el valor estimado (los que aún no se pueden estimar no entran y se cuentan en `sin_valor`).
-    Sin periodos completos o sin ingreso conocido, `margen` es None."""
+    Sin periodos completos o sin ingreso conocido, `margen` es None.
+    `sin`: ids de compromisos que no se restan (la persona dijo que una deuda del plan «es la misma» que ese compromiso: su cuota
+    vuelve al margen para pagar el plan nuevo). Sus pagos siguen fuera del gasto típico, para no contarlos como gasto."""
     mes = periodo_de(hoy, per)
     en_moneda_ = [m for m in movimientos if (m.get("moneda") or moneda) == moneda]
     completos = [x for x in periodos_con_datos(en_moneda_, per) if x < mes][-3:]
@@ -1354,7 +1357,7 @@ def margen_mensual(compromisos, movimientos, hoy, categorias, moneda, per=None, 
     uv = (uf or {}).get("valor")
     propios = [m for m in en_moneda_ if not any(coincide(m, c, moneda, uv) for c in activos)]
     gasto = redondear(sum(resumen_periodo(propios, x, hoy, pres, categorias, per)["gastado"] for x in completos) / len(completos)) if completos else None
-    comp = sum(_mensual(r, _maximo(r)) for r in vig if r["signo"] == "gasto")
+    comp = sum(_mensual(r, _maximo(r)) for r in vig if r["signo"] == "gasto" and r["id"] not in sin)
     margen = ingreso - gasto - comp if ingreso is not None and gasto is not None else None
     return {"ingreso": ingreso, "fuente": fuente, "gasto": gasto, "meses": len(completos), "compromisos": comp,
             "sin_valor": sum(1 for r in e["compromisos"] if r["original"] and r["original"]["sin_valor"]), "margen": margen}
@@ -1404,6 +1407,115 @@ def inicio_plan(per, hoy, feriados_):
     if ps:
         return {"desde": _fecha(_num(ps["fecha"]) + 1), "dia": per["dia"] % 31 + 1}
     return {"desde": sumar_mes(hoy[:7], 1) + "-01", "dia": 1}
+
+
+# ───────────── ¿Esa deuda ya está anotada? (préstamo parecido; igual que ui/app.js) ─────────────
+#: Palabras que no dicen quién es la persona («mi», «préstamo de», «don»…) y apodos que dicen lo mismo («mami» = «mamá»).
+VACIAS_PERSONA = {"MI", "MIS", "TU", "SU", "EL", "LA", "LOS", "LAS", "LO", "DE", "DEL", "AL", "CON", "Y", "PARA", "POR", "ME", "LE", "QUE",
+                  "DON", "DONA", "SR", "SRA", "SENOR", "SENORA", "PRESTAMO", "PRESTAMOS", "DEUDA", "DEUDAS", "CREDITO", "PAGO", "CUOTA",
+                  "CUOTAS", "PRESTO", "PRESTE", "MY", "THE", "LOAN", "DEBT", "FROM", "TO"}
+APODOS = {"MAMI": "MAMA", "MAMITA": "MAMA", "MADRE": "MAMA", "MOM": "MAMA", "MOTHER": "MAMA", "PAPI": "PAPA", "PAPITO": "PAPA",
+          "PADRE": "PAPA", "DAD": "PAPA", "FATHER": "PAPA", "ABUELITA": "ABUELA", "ABUELITO": "ABUELO", "TIITA": "TIA", "TIITO": "TIO"}
+#: Un total es parecido a otro si la diferencia es a lo más este % del mayor.
+PARECIDO = 15
+
+
+def claves_persona(t):
+    """Quién es la persona, para comparar: las palabras sin tildes ni mayúsculas, sin «mi», «préstamo de»… y con los apodos
+    juntados («Mi mamá» → ["MAMA"]; «Préstamo de Tío Matías» → ["MATIAS", "TIO"]). Igual que clavesPersona."""
+    return sorted({APODOS.get(p, p) for p in re.findall(r"[A-Z]+", datos.normalizar(t)) if len(p) > 1 and p not in VACIAS_PERSONA})
+
+
+def total_parecido(a, b):
+    """¿Dos totales parecidos (±PARECIDO % del mayor)? Sin uno de los dos, no."""
+    return bool(a) and bool(b) and abs(a - b) * 100 <= PARECIDO * max(a, b)
+
+
+def prestamos_parecidos(propuestas, compromisos, estado, hoy):
+    """Para cada préstamo propuesto (del plan o uno nuevo: {"con", "nombre"?, "signo", "moneda"?, "total" o "prestamo": {"total"}}),
+    el compromiso que ya está anotado y parece ser la misma deuda, o None. Igual que prestamosParecidos en ui/app.js.
+    `estado` es estado_mes(...) del periodo (por las cuotas que quedan y lo que falta pagar).
+    Candidatos: compromisos activos y vigentes de tipo préstamo o deuda, con el mismo signo (le debes / te deben) y la misma moneda.
+    1. **La persona manda:** las claves de quién es (claves_persona) de la propuesta están todas en las del `con` del compromiso o al
+       revés («Tío Matías» ~ «Matías»), o están todas en su nombre («Crédito con papá»). Sirve para préstamos y deudas.
+    2. **Si no se sabe la persona** (la propuesta o el compromiso no dicen quién): un préstamo con el total anotado o lo que falta
+       pagar parecido (±15 %). Si los dos dicen quién y no es la misma persona, no es la misma deuda aunque el monto calce.
+    Entre varios, primero por persona, después el total más cercano y el id. Un compromiso sirve para una sola propuesta.
+    Devuelve {"id", "nombre", "con", "tipo", "monto" (la cuota), "cuotas" ({"pagadas", "total", "quedan"} o None), "por_pagar",
+    "total" (el del préstamo anotado o None), "motivo": "persona" | "monto"}."""
+    raw = {c["id"]: c for c in compromisos if isinstance(c, dict)}
+    tomados, r = set(), []
+    for p in propuestas:
+        pers = set(claves_persona(p.get("con") or p.get("nombre")))
+        total = p.get("total") or (p.get("prestamo") or {}).get("total")
+        moneda, signo = p.get("moneda") or estado["moneda"], p.get("signo") or "gasto"
+        mejor = None
+        for x in estado["compromisos"]:
+            c = raw.get(x["id"])
+            if (not c or x["id"] in tomados or x["tipo"] not in ("prestamo", "deuda") or x["signo"] != signo or x["moneda"] != moneda
+                    or not _vigente(x, hoy)):
+                continue
+            con, nom = set(claves_persona(c.get("con"))), set(claves_persona(c.get("nombre")))
+            persona = bool(pers) and ((bool(con) and (pers <= con or con <= pers)) or pers <= nom)
+            original = (c.get("prestamo") or {}).get("total")
+            cerca = [abs(v - total) for v in (original, x["por_pagar"]) if total_parecido(v, total)]
+            if persona:
+                rango_ = 0
+            elif x["tipo"] == "prestamo" and cerca and not (pers and con):
+                rango_ = 1
+            else:
+                continue
+            clave = (rango_, min(cerca) if cerca else float("inf"), x["id"])
+            if mejor is None or clave < mejor[0]:
+                mejor = (clave, x, c)
+        if not mejor:
+            r.append(None)
+            continue
+        _, x, c = mejor
+        tomados.add(x["id"])
+        r.append({"id": x["id"], "nombre": x["nombre"], "con": c.get("con") or None, "tipo": x["tipo"], "monto": x["monto"],
+                  "cuotas": x["cuotas"], "por_pagar": x["por_pagar"], "total": (c.get("prestamo") or {}).get("total"),
+                  "motivo": "persona" if mejor[0][0] == 0 else "monto"})
+    return r
+
+
+def plan_variante(deudas, mismos, compromisos, movimientos, hoy, categorias, moneda, per=None, uf=None, auto=None):
+    """El plan de préstamos cuando la persona dijo «es el mismo» (`mismos`: {índice de la deuda: id del compromiso}). Igual que
+    planVariante en ui/app.js. Sin `mismos`, es el plan de siempre.
+    - La cuota de esos compromisos vuelve al margen (margen_mensual con `sin`): ya no se cuenta dos veces.
+    - Lo que se debe de esa deuda: si el total que dijo es parecido (±15 %) al total anotado (o, en una deuda sin total, a lo que
+      falta), está hablando del mismo préstamo y se planifica **lo que falta pagar** (`por_pagar`, sin interés: ya lo incluye); si
+      dijo otro total, ese es lo que debe ahora.
+    - Todas las deudas del plan se recalculan con el margen corregido (plan_prestamos).
+    Devuelve el plan con `base` (ingreso, gasto, meses y compromisos que se usaron)."""
+    mismos = {int(j): cid for j, cid in mismos.items()}
+    mg = margen_mensual(compromisos, movimientos, hoy, categorias, moneda, per, uf, auto, sin=set(mismos.values()))
+    e = estado_mes(compromisos, movimientos, periodo_de(hoy, per), hoy, moneda, per, uf, None, auto) if mismos else {"compromisos": []}
+    por_id = {r["id"]: r for r in e["compromisos"]}
+    raw = {c["id"]: c for c in compromisos if isinstance(c, dict)}
+    efectivas = []
+    for j, d in enumerate(deudas):
+        x, c = por_id.get(mismos.get(j)), raw.get(mismos.get(j)) or {}
+        base = (c.get("prestamo") or {}).get("total") or (x or {}).get("por_pagar")
+        if x and x["por_pagar"] and total_parecido(base, d["total"]):
+            efectivas.append({"con": d["con"], "total": x["por_pagar"], "interes": 0})
+        else:
+            efectivas.append({"con": d["con"], "total": d["total"], "interes": d.get("interes") or 0})
+    plan = plan_prestamos(efectivas, mg["margen"], moneda)
+    plan["base"] = {k: mg[k] for k in ("ingreso", "fuente", "gasto", "meses", "compromisos")}
+    return plan
+
+
+def prestamo_actualizado(c, d, ini):
+    """«Es el mismo»: el compromiso que ya estaba (`c`, tal como está en el archivo) con la deuda `d` del plan (con, total, interes,
+    cuota, cuotas) desde `ini` (inicio_plan). Mantiene su id, nombre, palabras, categoría y forma de pago; pasa a ser un préstamo
+    (si era una deuda) que parte de nuevo: lo que falta, en cuotas nuevas, sin cuotas pagadas. Sin validar (se valida al usarlo).
+    Igual que prestamoActualizado en ui/app.js."""
+    nuevo = {k: v for k, v in c.items() if k not in ("pagos", "fecha", "fecha_fin", "saldo", "aproximado", "cuotas_restantes")}
+    nuevo.update({"tipo": "prestamo", "con": c.get("con") or d["con"], "prestamo": {"total": d["total"], "interes": d["interes"], "cuota": d["cuota"]},
+                  "monto": d["cuota"], "cuotas_total": d["cuotas"], "cuotas_pagadas": 0, "frecuencia": "mensual", "dia": ini["dia"],
+                  "desde": ini["desde"]})
+    return nuevo
 
 
 def pago_reasignable(compromisos, movimientos, cid, hoy, moneda, per=None, uf=None, mora=None):

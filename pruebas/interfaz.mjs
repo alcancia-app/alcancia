@@ -265,6 +265,13 @@ const cerrarChat = (p) => p.click('.dialogo-chat [data-accion="cerrar-agregar"]'
       const x = JSON.parse(JSON.stringify(k.compromiso)), err = P.reasignarPago(x, k.de, k.a, k.movimiento);
       if (err !== k.error || canon(x.pagos || {}) !== canon(k.pagos)) malos.push(`reasignarPago «${k.nombre}» = ${err} ${canon(x.pagos)}`);
     }
+    // ¿Es el mismo préstamo?
+    const pa = ch.parecido, conExtra = ch.compromisos.concat(pa.extra);
+    const ep = P.estadoCompromisos(conExtra, ch.movimientos, P.periodoDe(pa.hoy, pa.per), pa.hoy, "CLP", pa.per);
+    for (const [t, esp] of pa.claves) if (canon(P.clavesPersona(t)) !== canon(esp)) malos.push(`clavesPersona «${t}» = ${canon(P.clavesPersona(t))}`);
+    for (const k of pa.casos) { const r = P.prestamosParecidos(k.propuestas, conExtra, ep, pa.hoy); if (canon(r) !== canon(k.esperado)) malos.push(`prestamosParecidos «${k.nombre}» = ${canon(r)}`); }
+    for (const k of pa.variantes) { const r = P.planVariante(k.deudas, k.mismos, conExtra, ch.movimientos, pa.hoy, ch.categorias, "CLP", pa.per); if (canon(r) !== canon(k.esperado)) malos.push(`planVariante «${k.nombre}» = ${canon(r)}`); }
+    for (const k of pa.actualizado) { const r = P.prestamoActualizado(conExtra.find((x) => x.id === k.id), k.deuda, k.inicio); if (canon(r) !== canon(k.esperado)) malos.push(`prestamoActualizado «${k.nombre}» = ${canon(r)}`); }
     const dp = ch.despues, lista = ch.compromisos.map((x) => (x.id === dp.compromiso.id ? dp.compromiso : x));
     if (canon(P.estadoCompromisos(lista, ch.movimientos, dp.mes, dp.hoy, "CLP", dp.per)) !== canon(dp.esperado)) malos.push("estado después de mover el pago: distinto");
     return malos;
@@ -857,6 +864,60 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
   }
 }
 console.log("  ✓ Chat: desde el Inicio, sugerencias, plan de dos préstamos, «ese pago era del mes pasado», borrar y sin IA");
+
+// «¿Es el mismo?»: la demo ya trae «Préstamo de Mamá». Pedir un plan para «mamá» pregunta antes de ofrecer «Agregar»; «Es el mismo»
+// propone actualizarlo con la cuota recalculada (sin contar dos veces la que ya estaba) y «Es otro» vuelve a la propuesta de siempre.
+for (const [idioma, consulta, opciones] of [["español", "idioma=es", { viewport: { width: 390, height: 844 } }], ["inglés", "idioma=en", { viewport: { width: 1200, height: 820 }, colorScheme: "dark" }]]) {
+  const donde = `(${idioma})`, p = await navegador.newPage(opciones);
+  p.on("pageerror", (e) => falla(`error de JavaScript en «¿es el mismo?» ${donde}: ${e.message}`));
+  const ancho = async (paso) => { if ((await p.evaluate(() => document.documentElement.scrollWidth)) > opciones.viewport.width + 2) falla(`se sale de la pantalla en «${paso}» ${donde}`); };
+  const ultimo = () => p.locator(".msg.alcancia").last();
+  const tarjetas = () => ultimo().locator(".accion-chat.plan .propuesta").evaluateAll((l) => l.map((x) => ({ texto: x.textContent.replace(/\s+/g, " "), botones: [...x.querySelectorAll("[data-chat]")].map((b) => b.dataset.chat).join(",") })));
+  const hayTodos = async () => (await ultimo().locator('[data-chat="todos"]').count()) > 0;
+  const preguntar = async () => {
+    const antes = await p.locator(".msg.alcancia").count();
+    await p.fill("#chat-texto", "mi mamá me prestó 1,2 millones y mi tío Matías 4 millones, ¿cuánto puedo pagar al mes?");
+    await p.click('[data-accion="chat-enviar"]');
+    await p.waitForFunction((n) => document.querySelectorAll(".msg.alcancia").length > n && [...document.querySelectorAll(".msg.alcancia")].pop().querySelector(".propuesta.pregunta"),
+      antes, { timeout: 8000 });
+  };
+  await p.goto(BASE + "?" + consulta);
+  await p.waitForSelector(".app");
+  await p.click('[data-accion="abrir-chat"]');
+  await p.waitForSelector(".dialogo-chat #chat-texto");
+  await preguntar();
+  let t = await tarjetas();
+  if (t.length !== 2 || !t[0].texto.includes("Préstamo de Mamá") || t[0].botones !== "mismo,otro") falla(`pregunta si es el mismo ${donde}: ${JSON.stringify(t)}`);
+  if (t[1].botones || (await hayTodos())) falla(`mientras pregunta, el resto del plan espera (las cifras pueden cambiar) ${donde}: ${JSON.stringify(t)}`);
+  await ancho("pregunta");
+  const esperado = await p.evaluate(() => { let r; window.Alcancia._probar((E) => {
+    const P = window.Alcancia._pruebas, d = [{ con: "Mamá", total: 1200000 }, { con: "Tío Matías", total: 4000000 }], args = [E.compromisos.compromisos, E.movimientos, E.hoy, E.categorias, "CLP", null, null, E.palabrasAuto];
+    r = { antes: P.planVariante(d, {}, ...args), despues: P.planVariante(d, { 0: "c-mama000001" }, ...args) }; }); return r; });
+  if (!(esperado.despues.margen > esperado.antes.margen)) falla(`«es el mismo» devuelve su cuota al margen ${donde}: ${esperado.antes.margen} → ${esperado.despues.margen}`);
+  await ultimo().locator('.propuesta.pregunta [data-chat="mismo"]').click();
+  t = await tarjetas();
+  const cuota = String(esperado.despues.deudas[0].cuota);
+  if (t[0].botones !== "hacer,cambiar,no" || !t[0].texto.replace(/\D/g, "").includes(cuota)) falla(`«Es el mismo» → «Actualizar» con la cuota nueva (${cuota}) ${donde}: ${JSON.stringify(t[0])}`);
+  if (!t[1].botones.includes("hacer") || !t[1].texto.replace(/\D/g, "").includes(String(esperado.despues.deudas[1].cuota))) falla(`la otra deuda se recalcula y ya se puede agregar ${donde}: ${JSON.stringify(t[1])}`);
+  if (!(await hayTodos())) falla(`respondida la pregunta, vuelve «Guardar los 2» ${donde}`);
+  await ancho("es el mismo");
+  await ultimo().locator('.accion-chat.plan .propuesta [data-chat="hacer"]').first().click();
+  const mama = await p.evaluate(() => { let r; window.Alcancia._probar((E) => { r = E.compromisos.compromisos.filter((c) => c.con === "Mamá"); }); return r; });
+  if (mama.length !== 1 || mama[0].id !== "c-mama000001" || String(mama[0].monto) !== cuota) falla(`«Actualizar» cambia el que ya estaba, sin crear otro ${donde}: ${JSON.stringify(mama.map((c) => [c.id, c.monto]))}`);
+  // Otra vez, ahora «Es otro»: la propuesta de siempre.
+  await preguntar();
+  await ultimo().locator('.propuesta.pregunta [data-chat="otro"]').click();
+  t = await tarjetas();
+  if (t[0].botones !== "hacer,cambiar,no" || t[0].texto.includes("Lo actualizo") || t[0].texto.includes("I'll update")) falla(`«Es otro» → «Agregar» ${donde}: ${JSON.stringify(t[0])}`);
+  // Al reabrir se ve igual (la respuesta quedó en `estados`).
+  await cerrarChat(p);
+  await p.click('.nav-agregar');
+  await p.click('.dialogo [data-accion="agregar-contar"]');
+  await p.waitForSelector(".dialogo-chat .msg.alcancia");
+  if (await p.$(".propuesta.pregunta")) falla(`al reabrir, lo respondido no se vuelve a preguntar ${donde}`);
+  await p.close();
+}
+console.log("  ✓ ¿Es el mismo préstamo?: pregunta antes de agregar, «Es el mismo» actualiza con la cuota recalculada y «Es otro» agrega");
 
 // Contraste (WCAG AA: 4.5) en modo claro y oscuro: la acción principal («+ Agregar», el único color de acción), el texto suave sobre
 // el fondo y el rojo de lo atrasado sobre el panel.

@@ -27,6 +27,9 @@ elif "Eres Alcancía, la alcancía" in pedido:  # la conversación con Alcancía
         responder("Te dejo lo que entendí.", [{"tipo": "borrar_todo"}, {"tipo": "marcar_pagado", "compromiso": "C1", "comando": "rm"},
                                                {"tipo": "crear_compromiso", "compromiso": {"nombre": "Gimnasio", "tipo": "suscripcion", "monto": 25000,
                                                                                           "frecuencia": "mensual", "dia": 3}}])
+    elif "OTRACUOTA" in ultimo:  # un préstamo suelto que ya podría estar anotado: la app pregunta si es el mismo
+        responder("Lo anoto. Ojo: ya tienes un préstamo con tu mamá; dime si es el mismo.", [{"tipo": "crear_compromiso", "compromiso": {
+            "tipo": "prestamo", "con": "Mamá", "signo": "gasto", "prestamo": {"total": 1500000}, "cuotas_total": 12}}])
     elif "prest" in ultimo.lower():
         responder("Veamos cuánto te cabe al mes sin salirte de tus gastos.", [{"tipo": "plan_prestamos", "deudas": [
             {"con": "Mamá", "total": 1500000}, {"con": "Tío Matías", "total": 4000000, "interes": 0}]}])

@@ -202,6 +202,12 @@ y **nada se aplica solo**: lo que propone aparece como una tarjeta («Agregar»,
   redondeada hacia arriba a 1.000, 5.000 o 10.000, según su tamaño, y en proporción a lo que debes) y propone un préstamo por persona,
   «lo pago yo» y con aviso, desde el día después de tu próximo sueldo (o el 1 del mes que viene). Si no alcanza ni en 60 meses, te
   lo dice y te deja la cuota más chica.
+- **¿Es el mismo préstamo?** Si lo que le cuentas se parece a un préstamo que ya tienes anotado (la misma persona —«mamá», «mi
+  mami» y «Mamá» son la misma— o, si no se sabe quién, un total parecido, ±15 %), Alcancía pregunta antes de agregar nada: «Ya
+  tienes anotado «Préstamo de Mamá» ($150.000 al mes, quedan 8 cuotas). ¿Es el mismo?». **Es otro:** se propone como uno nuevo.
+  **Es el mismo:** no se crea otro; en un plan, su cuota vuelve a tu margen (no se cuenta dos veces), se planifica lo que te falta
+  pagar, se recalculan todas las deudas y se propone **actualizar** el que ya tenías (mismo nombre y palabras, cuotas nuevas desde
+  el día después de tu próximo sueldo). Tu respuesta queda en `chat.json` (`estados`, `es:<n>`).
 - **«Ese pago era del mes pasado»:** si dices que algo de este mes aún no lo pagas y aparece pagado este mes, mientras el
   vencimiento anterior no tiene pago, Alcancía propone mover ese pago al anterior (queda pagado con atraso) y dejar este pendiente.
 - También puede proponer anotar un compromiso nuevo, marcar algo como pagado o pendiente, o cambiar el monto, el día, cómo se paga o
@@ -284,7 +290,8 @@ Codex or Gemini, with your account) fills in categories and gives you concrete t
 over budget. Commitments (rent, loans, bills, subscriptions, salary) can be added in your own words; Alcancía spots each payment in
 your statements, shows what's still due (overdue first), tracks loan installments, suggests a spending limit for day-to-day
 expenses and, on Mac, reminds you before things are due. You can also chat with your piggy bank: tell it you fell behind, that a
-payment was last month's, or ask how much you can pay each month on money family lent you; it proposes, you confirm. Your month can run from payday to payday. Your data stays on your computer in open files: no servers, no accounts, no ads, and it never asks for your bank
+payment was last month's, or ask how much you can pay each month on money family lent you (if that loan is already on your list, it asks whether it's the same one
+so it isn't counted twice); it proposes, you confirm. Your month can run from payday to payday. Your data stays on your computer in open files: no servers, no accounts, no ads, and it never asks for your bank
 password. Each bank is supported through a data-only *recipe* (plus OFX, QIF and CAMT.053 out of the box); if yours is missing, your AI
 learns it and you can share just the recipe with the community. Transactions can also arrive automatically: official APIs with a key
 you create (Mercado Pago, PayPal, Stripe, Buda.com, SimpleFIN for US/Canada banks, Up, Akahu) and a watched Downloads folder. A

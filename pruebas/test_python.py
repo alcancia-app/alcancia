@@ -1804,6 +1804,25 @@ class Chat(unittest.TestCase):
             x = json.loads(json.dumps(c["compromiso"]))
             self.assertEqual(compromisos.reasignar_pago(x, c["de"], c["a"], c["movimiento"]), c["error"], c["nombre"])
             self.assertEqual(x.get("pagos", {}), c["pagos"], c["nombre"])
+        pa = k["parecido"]
+        lista = k["compromisos"] + pa["extra"]
+        e = compromisos.estado_mes(lista, k["movimientos"], compromisos.periodo_de(pa["hoy"], pa["per"]), pa["hoy"], "CLP", pa["per"])
+        for t, esperado in pa["claves"]:
+            self.assertEqual(compromisos.claves_persona(t), esperado, t)
+        for c in pa["casos"]:
+            self.assertEqual(compromisos.prestamos_parecidos(c["propuestas"], lista, e, pa["hoy"]), c["esperado"], c["nombre"])
+        for c in pa["variantes"]:
+            self.assertEqual(compromisos.plan_variante(c["deudas"], c["mismos"], lista, k["movimientos"], pa["hoy"], k["categorias"], "CLP", pa["per"]),
+                             c["esperado"], c["nombre"])
+        for c in pa["actualizado"]:
+            actual = next(x for x in lista if x["id"] == c["id"])
+            self.assertEqual(compromisos.prestamo_actualizado(actual, c["deuda"], c["inicio"]), c["esperado"], c["nombre"])
+        # En palabras: «es el mismo» devuelve su cuota al margen y planifica lo que falta (no el total de nuevo).
+        v0, v1 = pa["variantes"][0]["esperado"], pa["variantes"][1]["esperado"]
+        self.assertEqual(v1["margen"] - v0["margen"], 150000, "la cuota de «Préstamo de Mamá» ya no se resta")
+        self.assertEqual(v1["deudas"][0]["total"], 1200000, "quedan 8 de 10 cuotas de 150.000")
+        self.assertLess(v1["meses"], v0["meses"])
+        self.assertEqual(pa["casos"][0]["esperado"][0]["cuotas"]["quedan"], 8)
         d = k["despues"]
         lista = [d["compromiso"] if c["id"] == d["compromiso"]["id"] else c for c in k["compromisos"]]
         self.assertEqual(compromisos.estado_mes(lista, k["movimientos"], d["mes"], d["hoy"], "CLP", d["per"]), d["esperado"])
@@ -1859,6 +1878,56 @@ class Chat(unittest.TestCase):
             self.assertTrue(guardar.compromiso({"accion": "guardar", "hoy": self.HOY, "compromiso": c})["ok"])
         self.assertEqual(sum(1 for c in compromisos.leer()["compromisos"] if c["tipo"] == "prestamo"), 2)
         self.assertEqual(len(chat.historial()), 2, "la pregunta y la respuesta quedan guardadas")
+
+    def test_prestamo_parecido(self):
+        """«Si detecta algún préstamo similar, que pregunte»: el plan y el préstamo suelto traen el parecido y, ya calculado, lo que
+        cambia si la persona dice «es el mismo» (sin contar dos veces la cuota que ya estaba)."""
+        import guardar
+        mama = next(c for c in CASOS["chat"]["parecido"]["extra"] if c["id"] == "c-mama000001")
+        lista = compromisos.leer()
+        lista["compromisos"].append(dict(mama))
+        compromisos.escribir(lista)
+        r = self.decir("mi mamá me prestó 1,5 millones y mi tío Matías 4 millones, ¿cuánto puedo pagar al mes?")
+        a = r["mensaje"]["acciones"][0]
+        self.assertEqual([p and p["id"] for p in a["parecidos"]], ["c-mama000001", None], "Mamá ya está anotada; Tío Matías no")
+        self.assertEqual((a["parecidos"][0]["motivo"], a["parecidos"][0]["cuotas"]["quedan"], a["parecidos"][0]["monto"]), ("persona", 8, 150000))
+        self.assertEqual(list(a["variantes"]), ["0"])
+        v = a["variantes"]["0"]
+        self.assertEqual(v["plan"]["margen"] - a["plan"]["margen"], 150000, "«es el mismo»: su cuota vuelve al margen")
+        self.assertEqual(v["plan"]["deudas"][0]["total"], 1200000, "se planifica lo que falta, no el total otra vez")
+        self.assertNotEqual(v["plan"]["deudas"][1]["cuota"], a["plan"]["deudas"][1]["cuota"], "la otra deuda también se recalcula")
+        act = v["propuestas"][0]
+        self.assertEqual((act["id"], act["nombre"], act["buscar"], act["cuotas_pagadas"]), ("c-mama000001", "Préstamo de Mamá", ["TRANSFERENCIA MAMA"], 0))
+        self.assertEqual((act["monto"], act["cuotas_total"]), (v["plan"]["deudas"][0]["cuota"], v["plan"]["deudas"][0]["cuotas"]))
+        # La respuesta queda guardada: «Es el mismo» solo donde hay un parecido.
+        mid = r["mensaje"]["id"]
+        self.assertFalse(chat.marcar({"id": mid, "i": 0, "j": 1, "estado": "mismo"})["ok"], "Tío Matías no tiene a quién parecerse")
+        self.assertTrue(chat.marcar({"id": mid, "i": 0, "j": 0, "estado": "mismo"})["ok"])
+        self.assertEqual(chat.historial()[-1]["estados"], {"es:0.0": "mismo"})
+        # «Actualizar»: el préstamo que ya estaba toma el plan nuevo (también desde cuándo); no se crea otro.
+        for malo in ({**act, "id": "c-otro000001"}, {**act, "tipo": "deuda"}):
+            self.assertFalse(guardar.compromiso({"accion": "actualizar_prestamo", "id": "c-mama000001", "hoy": self.HOY, "compromiso": malo})["ok"])
+        ok = guardar.compromiso({"accion": "actualizar_prestamo", "id": "c-mama000001", "hoy": self.HOY, "compromiso": act})
+        self.assertTrue(ok["ok"], ok)
+        guardados = [c for c in compromisos.leer()["compromisos"] if c["tipo"] == "prestamo"]
+        self.assertEqual(len(guardados), 1)
+        self.assertEqual((guardados[0]["desde"], guardados[0]["monto"], guardados[0]["prestamo"]["total"]), (act["desde"], act["monto"], 1200000))
+        # Ya actualizado, la misma pregunta: el margen ya cuenta la cuota nueva y sigue preguntando (la persona decide).
+        r = self.decir("mi mamá me prestó 1,5 millones y mi tío Matías 4 millones")
+        self.assertEqual(r["mensaje"]["acciones"][0]["parecidos"][0]["id"], "c-mama000001")
+        # Un préstamo suelto parecido: «Es el mismo» propone actualizar el que ya estaba (mismo id, desde y pagos).
+        r = self.decir("mi mamá OTRACUOTA")
+        a = r["mensaje"]["acciones"][0]
+        self.assertEqual((a["tipo"], a["parecido"]["id"]), ("crear_compromiso", "c-mama000001"))
+        self.assertEqual((a["actualizar"]["id"], a["actualizar"]["cuotas_total"], a["actualizar"]["prestamo"]["total"], a["actualizar"]["desde"]),
+                         ("c-mama000001", 12, 1500000, act["desde"]))
+        self.assertNotEqual(a["compromiso"]["id"], "c-mama000001", "«Es otro»: la propuesta de siempre, un préstamo nuevo")
+        self.assertIn("Préstamo de Mamá", chat.prompt(chat.Ctx(self.HOY), [{"rol": "persona", "texto": "hola"}]))
+        self.assertIn("préstamo de 1.200.000 en total", chat.prompt(chat.Ctx(self.HOY), [{"rol": "persona", "texto": "hola"}]))
+        # Sin parecido no hay pregunta (el plan de dos préstamos de siempre).
+        compromisos.escribir({"formato": 1, "compromisos": [dict(c) for c in CASOS["chat"]["compromisos"]], "descartados": []})
+        a = self.decir("mi mamá me prestó 1,5 millones")["mensaje"]["acciones"][0]
+        self.assertNotIn("parecidos", a)
 
     def test_reasignar_pago_del_mes_pasado(self):
         import guardar

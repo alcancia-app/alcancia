@@ -750,7 +750,7 @@
   const USO_MARGEN = 75, MESES_MAX = 60, MESES_SIN_DATOS = 12;
   const vigente = (r, hoy) => r.frecuencia !== "una_vez" && !(r.cuotas && r.cuotas.quedan === 0) && (!r.termina || r.termina >= hoy);
   /** Cuánto queda libre en un mes normal: ingreso típico − gasto típico (sin los pagos de compromisos) − compromisos al mes. */
-  function margenMensual(compromisos, movimientos, hoy, categorias, moneda, per = null, uf = null, auto = []) {
+  function margenMensual(compromisos, movimientos, hoy, categorias, moneda, per = null, uf = null, auto = [], sin = []) {
     const mes = periodoDe(hoy, per), enMon = movimientos.filter((m) => (m.moneda || moneda) === moneda);
     const completos = periodosConDatos(enMon, per).filter((x) => x < mes).slice(-3);
     const e = estadoCompromisos(compromisos, movimientos, mes, hoy, moneda, per, uf, [], auto);
@@ -766,7 +766,7 @@
     const activos = compromisos.filter((c) => c.activo !== false), uv = uf ? uf.valor ?? null : null;
     const propios = enMon.filter((m) => !activos.some((c) => coincide(m, c, moneda, uv)));
     const gasto = completos.length ? Math.round(completos.reduce((a, x) => a + resumen(propios, x, hoy, pres, categorias, per).gastado, 0) / completos.length) : null;
-    const comp = vig.filter((r) => r.signo === "gasto").reduce((a, r) => a + mensualDe(r, maximoDe(r)), 0);
+    const comp = vig.filter((r) => r.signo === "gasto" && !sin.includes(r.id)).reduce((a, r) => a + mensualDe(r, maximoDe(r)), 0);
     return { ingreso, fuente, gasto, meses: completos.length, compromisos: comp,
       sin_valor: e.compromisos.filter((r) => r.original && r.original.sin_valor).length, margen: ingreso != null && gasto != null ? ingreso - gasto - comp : null };
   }
@@ -792,6 +792,66 @@
   function inicioPlan(per, hoy, fer) {
     const ps = proximoSueldo(per, hoy, fer);
     return ps ? { desde: sumarDias(ps.fecha, 1), dia: per.dia % 31 + 1 } : { desde: sumarMes(hoy.slice(0, 7), 1) + "-01", dia: 1 };
+  }
+  // ¿Esa deuda ya está anotada? (igual que compromisos.py: claves_persona, prestamos_parecidos, plan_variante, prestamo_actualizado)
+  const VACIAS_PERSONA = new Set(["MI", "MIS", "TU", "SU", "EL", "LA", "LOS", "LAS", "LO", "DE", "DEL", "AL", "CON", "Y", "PARA", "POR", "ME", "LE", "QUE",
+    "DON", "DONA", "SR", "SRA", "SENOR", "SENORA", "PRESTAMO", "PRESTAMOS", "DEUDA", "DEUDAS", "CREDITO", "PAGO", "CUOTA",
+    "CUOTAS", "PRESTO", "PRESTE", "MY", "THE", "LOAN", "DEBT", "FROM", "TO"]);
+  const APODOS = { MAMI: "MAMA", MAMITA: "MAMA", MADRE: "MAMA", MOM: "MAMA", MOTHER: "MAMA", PAPI: "PAPA", PAPITO: "PAPA",
+    PADRE: "PAPA", DAD: "PAPA", FATHER: "PAPA", ABUELITA: "ABUELA", ABUELITO: "ABUELO", TIITA: "TIA", TIITO: "TIO" };
+  const PARECIDO = 15;
+  /** Quién es la persona, para comparar: «Mi mamá» → ["MAMA"]; «Préstamo de Tío Matías» → ["MATIAS", "TIO"]. */
+  const clavesPersona = (t) => [...new Set((normalizar(t).match(/[A-Z]+/g) || []).filter((p) => p.length > 1 && !VACIAS_PERSONA.has(p)).map((p) => APODOS[p] || p))].sort();
+  const totalParecido = (a, b) => !!a && !!b && Math.abs(a - b) * 100 <= PARECIDO * Math.max(a, b);
+  /** Para cada préstamo propuesto, el compromiso anotado que parece la misma deuda (o null): primero la persona, después el total
+   *  (±15 %) si alguno de los dos no dice quién. Ver prestamos_parecidos en compromisos.py. */
+  function prestamosParecidos(propuestas, compromisos, estado, hoy) {
+    const raw = new Map(compromisos.map((c) => [c.id, c])), tomados = new Set();
+    const sub = (a, b) => a.every((x) => b.includes(x));
+    return propuestas.map((p) => {
+      const pers = clavesPersona(p.con || p.nombre), total = p.total || (p.prestamo || {}).total;
+      const moneda = p.moneda || estado.moneda, signo = p.signo || "gasto";
+      let mejor = null;
+      for (const x of estado.compromisos) {
+        const c = raw.get(x.id);
+        if (!c || tomados.has(x.id) || !["prestamo", "deuda"].includes(x.tipo) || x.signo !== signo || x.moneda !== moneda || !vigente(x, hoy)) continue;
+        const con = clavesPersona(c.con), nom = clavesPersona(c.nombre);
+        const persona = pers.length > 0 && ((con.length > 0 && (sub(pers, con) || sub(con, pers))) || sub(pers, nom));
+        const original = (c.prestamo || {}).total;
+        const cerca = [original, x.por_pagar].filter((v) => totalParecido(v, total)).map((v) => Math.abs(v - total));
+        let rangoP;
+        if (persona) rangoP = 0;
+        else if (x.tipo === "prestamo" && cerca.length && !(pers.length && con.length)) rangoP = 1;
+        else continue;
+        const clave = [rangoP, cerca.length ? Math.min(...cerca) : Infinity, x.id];
+        const menor = (a, b) => a[0] !== b[0] ? a[0] < b[0] : a[1] !== b[1] ? a[1] < b[1] : a[2] < b[2];
+        if (!mejor || menor(clave, mejor.clave)) mejor = { clave, x, c };
+      }
+      if (!mejor) return null;
+      const { x, c } = mejor;
+      tomados.add(x.id);
+      return { id: x.id, nombre: x.nombre, con: c.con || null, tipo: x.tipo, monto: x.monto, cuotas: x.cuotas, por_pagar: x.por_pagar,
+        total: (c.prestamo || {}).total ?? null, motivo: mejor.clave[0] === 0 ? "persona" : "monto" };
+    });
+  }
+  /** El plan cuando la persona dijo «es el mismo» (mismos: {índice: id}): esa cuota vuelve al margen, se planifica lo que falta
+   *  pagar (si el total que dijo es parecido al anotado) y todas las deudas se recalculan. Ver plan_variante en compromisos.py. */
+  function planVariante(deudas, mismos, compromisos, movimientos, hoy, categorias, moneda, per = null, uf = null, auto = []) {
+    const ids = Object.values(mismos), mg = margenMensual(compromisos, movimientos, hoy, categorias, moneda, per, uf, auto, ids);
+    const e = ids.length ? estadoCompromisos(compromisos, movimientos, periodoDe(hoy, per), hoy, moneda, per, uf, [], auto) : { compromisos: [] };
+    const efectivas = deudas.map((d, j) => {
+      const id = mismos[j], x = id ? e.compromisos.find((r) => r.id === id) : null, c = (id && compromisos.find((k) => k.id === id)) || {};
+      const base = (c.prestamo || {}).total || (x || {}).por_pagar;
+      return x && x.por_pagar && totalParecido(base, d.total) ? { con: d.con, total: x.por_pagar, interes: 0 } : { con: d.con, total: d.total, interes: d.interes || 0 };
+    });
+    const plan = planPrestamos(efectivas, mg.margen, moneda);
+    return { ...plan, base: { ingreso: mg.ingreso, fuente: mg.fuente, gasto: mg.gasto, meses: mg.meses, compromisos: mg.compromisos } };
+  }
+  /** «Es el mismo»: el compromiso que ya estaba, con la deuda del plan desde `ini` (parte de nuevo). Ver prestamo_actualizado. */
+  function prestamoActualizado(c, d, ini) {
+    const nuevo = Object.fromEntries(Object.entries(c).filter(([k]) => !["pagos", "fecha", "fecha_fin", "saldo", "aproximado", "cuotas_restantes"].includes(k)));
+    return { ...nuevo, tipo: "prestamo", con: c.con || d.con, prestamo: { total: d.total, interes: d.interes, cuota: d.cuota }, monto: d.cuota, cuotas_total: d.cuotas,
+      cuotas_pagadas: 0, frecuencia: "mensual", dia: ini.dia, desde: ini.desde };
   }
   /** «Aún no pago la hipoteca de este mes», pero aparece pagada y el vencimiento anterior no: ese pago era del anterior. */
   function pagoReasignable(compromisos, movimientos, cid, hoy, moneda, per = null, uf = null, mora = []) {
@@ -1894,7 +1954,18 @@
   const NOTAS_CHAT = { no_encontre: "No encontré ese pago entre los tuyos.", sin_pago_para_mover: "Revisé: no hay un pago de este mes que mover.",
     ya_pagado: "Eso ya aparece pagado.", ya_pendiente: "Eso ya aparece pendiente.", sin_cambios: "Eso ya está así.",
     no_aplica: "Hubo algo que no pude preparar. Si quieres, dímelo de otra forma.", descartadas: "Dejé fuera algo que no entendí bien." };
-  const estadoAccion = (m, i, j = null) => (m.estados || {})[j == null ? String(i) : `${i}.${j}`] || "";
+  const claveAccion = (i, j = null) => (j == null ? String(i) : `${i}.${j}`);
+  const estadoAccion = (m, i, j = null) => (m.estados || {})[claveAccion(i, j)] || "";
+  /** Lo que respondió a «¿Es el mismo?» («mismo» u «otro»; "" si aún no): se guarda aparte, con la clave «es:<i>.<j>». */
+  const esMismo = (m, i, j = null) => (m.estados || {})["es:" + claveAccion(i, j)] || "";
+  const claveEstado = (i, j, estado) => (estado === "mismo" || estado === "otro" ? "es:" : "") + claveAccion(i, j);
+  /** El plan según lo que respondió: bin/chat.py ya calculó cada combinación de «es el mismo» (`variantes`, con la clave de los
+   *  índices: «0», «0,1»…). Aquí solo se elige; así al reabrir se ve igual aunque los datos hayan cambiado. */
+  function planElegido(m, a, i) {
+    const js = (a.parecidos || []).map((p, j) => (p && esMismo(m, i, j) === "mismo" ? j : null)).filter((j) => j != null);
+    const v = js.length ? (a.variantes || {})[js.join(",")] : null;
+    return v ? { plan: v.plan, propuestas: v.propuestas, mismos: js } : { plan: a.plan, propuestas: a.propuestas || [], mismos: [] };
+  }
   const textoChat = (t) => esc(t).replace(/\n/g, "<br>");
   const primeraCuota = (c) => (c.frecuencia && c.dia && c.desde ? vencimientos({ ...c, fecha_fin: null }, "2299-12-31").find((o) => o.n) : null);
   /** Un compromiso propuesto, en una línea: cuánto, cuándo y quién lo paga. */
@@ -1914,32 +1985,55 @@
   const botonesChat = (ref, opciones) => `<div class="acciones-chat">${opciones.map(([que, texto, principal]) =>
     `<button class="boton ${principal ? "principal" : que === "no" ? "sutil" : ""}" data-sin-traducir data-chat="${que}" data-msg="${esc(ref.id)}" data-i="${ref.i}" ${ref.j != null ? `data-j="${ref.j}"` : ""}>${texto}</button>`).join("")}</div>`;
   const hechoChat = (estado) => `<p class="accion-estado ${estado === "hecha" ? "hecha" : ""}">${estado === "hecha" ? "✓ Listo" : "Descartado"}</p>`;
-  /** Una propuesta de compromiso (crear o una del plan): «Agregar», «Cambiar» (abre el editor) o «No». */
-  function tarjetaPropuesta(m, a, i, c, j = null) {
+  /** Una propuesta de compromiso (crear o una del plan): «Agregar», «Cambiar» (abre el editor) o «No».
+   *  `x.parecido` (y sin respuesta): primero «¿Es el mismo?». `x.actualiza`: es el préstamo que ya estaba, con el plan nuevo
+   *  («Actualizar»). `x.espera`: hay una pregunta abierta en el mismo plan y las cifras pueden cambiar (sin botones aún). */
+  function tarjetaPropuesta(m, a, i, c, j = null, x = {}) {
     const estado = estadoAccion(m, i, j), ref = { id: m.id, i, j };
     const titulo = esc(c.nombre || (c.con ? T("Préstamo de {p}", { p: esc(c.con) }) : tr("Un pago nuevo")));
-    const pie = estado ? hechoChat(estado) : a.incompleto ? botonesChat(ref, [["cambiar", tr("Completar"), true], ["no", tr("No")]])
-      : botonesChat(ref, [["hacer", tr("Agregar"), true], ["cambiar", tr("Cambiar")], ["no", tr("No")]]);
-    return `<div class="propuesta ${estado ? "resuelta" : ""}"><span class="emoji" aria-hidden="true">${iconoComp(c)}</span>
-      <div class="txt"><b data-sin-traducir>${titulo}</b><small data-sin-traducir>${a.incompleto ? T("Me faltó algo: complétalo y lo guardo.") : lineaPropuesta(c)}</small></div>${pie}</div>`;
+    const icono = `<span class="emoji" aria-hidden="true">${iconoComp(c)}</span>`;
+    if (x.parecido && !x.es && !estado) {
+      const p = x.parecido, mo = (v) => esc(c.moneda === UF ? textoUF(v) : dinero(v));
+      const detalle = p.cuotas && p.cuotas.quedan ? T(p.cuotas.quedan === 1 ? "{c} al mes, queda 1 cuota" : "{c} al mes, quedan {n} cuotas", { c: mo(p.monto), n: p.cuotas.quedan })
+        : T("{c} al mes", { c: mo(p.monto) });
+      return `<div class="propuesta pregunta">${icono}<div class="txt"><b data-sin-traducir>${titulo}</b>
+        <small data-sin-traducir>${T("Ya tienes anotado «{n}» ({d}). ¿Es el mismo?", { n: esc(p.nombre), d: detalle })}</small></div>
+        ${botonesChat(ref, [["mismo", tr("Es el mismo")], ["otro", tr("Es otro")]])}</div>`;
+    }
+    const linea = a.incompleto && !x.actualiza ? T("Me faltó algo: complétalo y lo guardo.") : x.actualiza ? T("Lo actualizo: {x}", { x: lineaPropuesta(c) }) : lineaPropuesta(c);
+    const pie = estado ? hechoChat(estado) : x.espera ? "" : x.actualiza ? botonesChat(ref, [["hacer", tr("Actualizar"), true], ["cambiar", tr("Cambiar")], ["no", tr("No")]])
+      : a.incompleto ? botonesChat(ref, [["cambiar", tr("Completar"), true], ["no", tr("No")]])
+        : botonesChat(ref, [["hacer", tr("Agregar"), true], ["cambiar", tr("Cambiar")], ["no", tr("No")]]);
+    return `<div class="propuesta ${estado ? "resuelta" : ""} ${x.espera && !estado ? "en-espera" : ""}">${icono}
+      <div class="txt"><b data-sin-traducir>${titulo}</b><small data-sin-traducir>${linea}</small></div>${pie}</div>`;
   }
+  /** «Es el mismo» y no hay nada que cambiar (o la propuesta venía incompleta): no se agrega otro. */
+  const tarjetaYaEsta = (p, c) => `<div class="propuesta resuelta"><span class="emoji" aria-hidden="true">${iconoComp(c)}</span>
+    <div class="txt"><b data-sin-traducir>${esc(p.nombre)}</b><small data-sin-traducir>${T("Ya lo tienes anotado: no agrego otro.")}</small></div></div>`;
   /** Lo que la IA propone, ya resuelto con código: nada se aplica solo, la persona confirma cada cosa. */
   function tarjetaAccion(m, a, i) {
     const ref = { id: m.id, i, j: null }, estado = estadoAccion(m, i), x = (v) => `<span class="monto-chat">${esc(dinero(v))}</span>`;
     const caja = (html, botones) => `<div class="accion-chat ${estado ? "resuelta" : ""}"><p data-sin-traducir>${html}</p>${estado ? hechoChat(estado) : botonesChat(ref, botones)}</div>`;
     const no = ["no", tr("No")];
-    if (a.tipo === "crear_compromiso") return `<div class="accion-chat sin-caja">${tarjetaPropuesta(m, a, i, a.compromiso)}</div>`;
+    if (a.tipo === "crear_compromiso") {
+      const es = a.parecido ? esMismo(m, i) : "";
+      const html = es === "mismo" ? (a.actualizar ? tarjetaPropuesta(m, a, i, a.actualizar, null, { actualiza: true }) : tarjetaYaEsta(a.parecido, a.compromiso))
+        : tarjetaPropuesta(m, a, i, a.compromiso, null, { parecido: a.parecido, es });
+      return `<div class="accion-chat sin-caja">${html}</div>`;
+    }
     if (a.tipo === "plan_prestamos") {
-      const p = a.plan, n = p.meses;
+      const { plan: p, propuestas, mismos } = planElegido(m, a, i), n = p.meses, parecidos = a.parecidos || [];
+      const abiertas = parecidos.filter((q, j) => q && !esMismo(m, i, j) && !estadoAccion(m, i, j)).length;
       const intro = p.alcanza === null ? T("Aún no tengo meses completos para saber cuánto te queda libre, así que te propongo {n} meses. Cuando tenga más datos, lo ajustamos.", { n })
         : p.alcanza ? T("Te quedan libres cerca de {m} al mes. Uso como máximo {d} ({u}) y el resto te queda de colchón. Así terminas en {n} meses:", { m: x(p.margen), d: x(p.disponible), u: `<span class="monto-chat">${p.uso}${E.idioma === "es" ? "\u00a0%" : "%"}</span>`, n })
           : p.margen <= 0 ? T("Hoy lo que gastas y tus compromisos ya suman más de lo que entra (te faltan {m} al mes). Te dejo la cuota más chica posible, pero para pagarla tendrías que recortar en otra parte:", { m: x(-p.margen) })
             : T("Con lo que te queda libre (cerca de {m} al mes) no alcanza sin apretarte: aun en {n} meses serían {t} al mes, {f} más de lo que te recomiendo. Te dejo la propuesta más liviana; si puedes, conversa un plazo más largo:", { m: x(p.margen), n, t: x(p.al_mes), f: x(p.falta) });
       const base = p.base && p.base.ingreso != null && p.base.gasto != null ? `<small class="base-plan" data-sin-traducir>${T("Entra {i} · gastas {g} · compromisos {c}", { i: x(p.base.ingreso), g: x(p.base.gasto), c: x(p.base.compromisos) })}</small>` : "";
-      const pendientes = (a.propuestas || []).filter((c, j) => !estadoAccion(m, i, j)).length;
+      const pendientes = propuestas.filter((c, j) => !estadoAccion(m, i, j)).length;
+      const todos = mismos.some((j) => !estadoAccion(m, i, j)) ? "Guardar los {n}" : "Agregar los {n}";
       return `<div class="accion-chat plan"><p data-sin-traducir>${intro}</p>${base}
-        ${(a.propuestas || []).map((c, j) => tarjetaPropuesta(m, a, i, c, j)).join("")}
-        ${pendientes > 1 ? botonesChat(ref, [["todos", T("Agregar los {n}", { n: pendientes }), true]]) : ""}</div>`;
+        ${propuestas.map((c, j) => tarjetaPropuesta(m, a, i, c, j, { parecido: parecidos[j], es: esMismo(m, i, j), actualiza: mismos.includes(j), espera: abiertas > 0 })).join("")}
+        ${pendientes > 1 && !abiertas ? botonesChat(ref, [["todos", T(todos, { n: pendientes }), true]]) : ""}</div>`;
     }
     const nombre = esc(a.nombre), f = (v) => esc(fechaCorta(v));
     if (a.tipo === "reasignar_pago") return caja(T("«{c}»: el pago del {f} ({x}) era del vencimiento del {a}. Lo paso ahí y el del {d} queda pendiente.",
@@ -2174,12 +2268,13 @@
   function guardarCompromiso(sinOpcionales) {
     const c = compromisoDelEditor(sinOpcionales);
     if (!c) return render();
-    const lista = listaCompromisos(), i = lista.findIndex((x) => x.id === c.id);
-    if (i >= 0) lista[i] = { ...c, pagos: lista[i].pagos || {}, desde: lista[i].desde }; else lista.push(c);
+    const lista = listaCompromisos(), i = lista.findIndex((x) => x.id === c.id), k = E.compEdit;
+    // «Es el mismo» desde el chat: el préstamo que ya estaba parte de nuevo con el plan (también cambia desde cuándo).
+    const actualizar = !!k.actualizar && i >= 0 && c.tipo === "prestamo";
+    if (i >= 0) lista[i] = { ...c, pagos: lista[i].pagos || {}, desde: actualizar ? c.desde : lista[i].desde }; else lista.push(c);
     E.compromisos.compromisos = lista;
     const enviar = { ...c }; delete enviar.pagos;
-    host.enviar("compromiso", { accion: "guardar", hoy: E.hoy, compromiso: enviar });
-    const k = E.compEdit;
+    host.enviar("compromiso", actualizar ? { accion: "actualizar_prestamo", id: c.id, hoy: E.hoy, compromiso: enviar } : { accion: "guardar", hoy: E.hoy, compromiso: enviar });
     if (k.sugerencia) E.sugerencias = (E.sugerencias || []).filter((s) => s.clave !== k.sugerencia);
     if (E.importar && k.detectado != null) { E.importar.hechos = { ...(E.importar.hechos || {}), [k.detectado]: "agregado" }; E.importar.paso = "listo"; }
     if (k.chat) marcarAccionChat(k.chat, "hecha", true);
@@ -2754,9 +2849,17 @@
   function marcarAccionChat(ref, estado, sinPintar = false) {
     const m = E.chat.mensajes.find((x) => x.id === ref.id);
     if (!m) return;
-    m.estados = { ...(m.estados || {}), [ref.j == null ? String(ref.i) : `${ref.i}.${ref.j}`]: estado };
+    m.estados = { ...(m.estados || {}), [claveEstado(ref.i, ref.j, estado)]: estado };
     if (!String(m.id).startsWith("local")) host.enviar("chat", { accion: "marcar", id: m.id, i: ref.i, ...(ref.j == null ? {} : { j: ref.j }), estado });
     if (!sinPintar) render();
+  }
+  /** «Es el mismo» → «Actualizar»: el préstamo que ya estaba toma el plan nuevo (guardar.py, accion actualizar_prestamo). */
+  function actualizarPrestamoChat(c) {
+    const lista = listaCompromisos(), k = lista.findIndex((x) => x.id === c.id);
+    if (k < 0) return toast("No encontré ese pago entre los tuyos."), false;
+    lista[k] = { ...c, pagos: lista[k].pagos || {} };
+    host.enviar("compromiso", { accion: "actualizar_prestamo", id: c.id, hoy: E.hoy, compromiso: { ...c } });
+    return true;
   }
   function agregarCompromisoChat(c) {
     const lista = listaCompromisos();
@@ -2771,16 +2874,24 @@
     if (!a) return;
     const ref = { id: m.id, i, j };
     if (d.chat === "no") return marcarAccionChat(ref, "no");
+    if (d.chat === "mismo" || d.chat === "otro") return marcarAccionChat(ref, d.chat);  // «¿Es el mismo?»: la tarjeta cambia, nada se guarda aún
+    const elegido = a.tipo === "plan_prestamos" ? planElegido(m, a, i) : null;
     if (d.chat === "todos") {
-      (a.propuestas || []).forEach((c, jj) => { if (!estadoAccion(m, i, jj)) { agregarCompromisoChat(c); marcarAccionChat({ id: m.id, i, j: jj }, "hecha", true); } });
+      elegido.propuestas.forEach((c, jj) => {
+        if (estadoAccion(m, i, jj)) return;
+        if (elegido.mismos.includes(jj) ? actualizarPrestamoChat(c) : (agregarCompromisoChat(c), true)) marcarAccionChat({ id: m.id, i, j: jj }, "hecha", true);
+      });
       toast("Listo: te aviso antes de cada cuota"); return render();
     }
-    const c = a.tipo === "plan_prestamos" ? (a.propuestas || [])[j] : a.compromiso;
+    const actualiza = elegido ? elegido.mismos.includes(j) : a.tipo === "crear_compromiso" && !!a.actualizar && esMismo(m, i) === "mismo";
+    const c = elegido ? elegido.propuestas[j] : actualiza ? a.actualizar : a.compromiso;
+    if (!c && (elegido || a.tipo === "crear_compromiso")) return;
     if (d.chat === "cambiar") {
-      E.compEdit = { c: borradorDe(c), origen: "ia", error: a.incompleto ? a.error || tr("Me faltó algo: complétalo y lo guardo.") : "", chat: ref };
+      E.compEdit = { c: borradorDe(c), origen: "ia", error: a.incompleto && !actualiza ? a.error || tr("Me faltó algo: complétalo y lo guardo.") : "", chat: ref, actualizar: actualiza };
       render(); return enfocarEditor();
     }
-    if (a.tipo === "crear_compromiso" || a.tipo === "plan_prestamos") { agregarCompromisoChat(c); toast(c.tipo === "prestamo" ? "Listo: te aviso antes de cada cuota" : "Listo: lo voy a reconocer en tu cartola y te recuerdo si falta"); }
+    if (actualiza) { if (!actualizarPrestamoChat(c)) return; toast("Listo: actualicé tu préstamo"); }
+    else if (a.tipo === "crear_compromiso" || a.tipo === "plan_prestamos") { agregarCompromisoChat(c); toast(c.tipo === "prestamo" ? "Listo: te aviso antes de cada cuota" : "Listo: lo voy a reconocer en tu cartola y te recuerdo si falta"); }
     else if (a.tipo === "reasignar_pago") {
       const comp = listaCompromisos().find((x) => x.id === a.id), mov = a.pago.movimiento ? E.movimientos.find((x) => x.id === a.pago.movimiento) : null;
       const problema = comp ? reasignarPago(comp, a.de.periodo, a.a.periodo, mov || null) : tr("No encontré ese pago entre los tuyos.");
@@ -2947,7 +3058,7 @@
     },
     _probar(f) { f(E); render(); },
     _pruebas: { calcularPrestamo, resumen, historia, redondearArriba, presupuestoSugerido, reglaPara, estadoCompromisos, gastoMaximo, rango, periodoDe, periodoConfig, detectarSueldo, reglaHabil, proximoSueldo, correrHabil, moraDelAnio, loQueTienes, loQueDebes, cargos, modoPago,
-      margenMensual, planPrestamos, inicioPlan, pagoReasignable, reasignarPago },
+      margenMensual, planPrestamos, inicioPlan, pagoReasignable, reasignarPago, clavesPersona, prestamosParecidos, planVariante, prestamoActualizado },
   };
 
   // ───────────── Vista previa en el navegador (datos ficticios de demo.json) ─────────────
@@ -2999,12 +3110,13 @@
       case "chat": {
         DEMO.chat = DEMO.chat || [];
         if (d.accion === "borrar") { DEMO.chat = []; return; }
-        if (d.accion === "marcar") { const m = DEMO.chat.find((x) => x.id === d.id); if (m) m.estados = { ...(m.estados || {}), [d.j == null ? String(d.i) : `${d.i}.${d.j}`]: d.estado }; return; }
+        if (d.accion === "marcar") { const m = DEMO.chat.find((x) => x.id === d.id); if (m) m.estados = { ...(m.estados || {}), [claveEstado(d.i, d.j, d.estado)]: d.estado }; return; }
         return luego(1400, () => { const r = chatSimulado(d); if (r.ok) DEMO.chat.push(r.persona, r.mensaje); A.chatRespuesta(r); });
       }
       case "compromiso": {
         const lista = DEMO.compromisos.compromisos, c = lista.find((x) => x.id === d.id);
         if (d.accion === "guardar") { const i = lista.findIndex((x) => x.id === d.compromiso.id); const n = { pagos: {}, ...(i >= 0 ? lista[i] : {}), ...d.compromiso }; if (i >= 0) lista[i] = n; else lista.push(n); }
+        else if (d.accion === "actualizar_prestamo") { const i = lista.findIndex((x) => x.id === d.id); if (i >= 0) lista[i] = { ...d.compromiso, pagos: lista[i].pagos || {} }; }
         else if (d.accion === "borrar") DEMO.compromisos.compromisos = lista.filter((x) => x.id !== d.id);
         else if (d.accion === "descartar") DEMO.compromisos.descartados.push(d.clave);
         else if (c) { const e = window.Alcancia && E.compromisos.compromisos.find((x) => x.id === d.id); if (e) c.pagos = JSON.parse(JSON.stringify(e.pagos || {})); }
@@ -3017,6 +3129,15 @@
     }
   }
 
+  /** Un préstamo propuesto con su cuota, la última y cuándo termina (lo que compromisos.validar calcula en Python). */
+  function prestamoCompleto(c) {
+    const k = calcularPrestamo(c.prestamo.total, c.cuotas_total, c.prestamo.interes || 0, c.moneda, c.prestamo.cuota);
+    const r = { ...c, monto: k.cuota, prestamo: { total: k.total, interes: k.interes, cuota: k.cuota, ultima: k.ultima } };
+    const o = vencimientos({ ...r, fecha_fin: null }, "2299-12-31").filter((v) => v.n);
+    return o.length ? { ...r, fecha_fin: o[o.length - 1].vence } : r;
+  }
+  const canonSimple = (o) => JSON.stringify(Object.keys(o || {}).sort().map((k) => [k, o[k]]));
+  const estadoSimulado = () => estadoCompromisos(listaCompromisos(), E.movimientos, periodoDe(E.hoy, per()), E.hoy, monedaPrincipal(), per(), ufCfg(), E.palabrasMora || [], E.palabrasAuto || []);
   /** En la vista previa: responde como lo haría bin/chat.py con una IA, con la misma lógica (margen, plan, pago del mes pasado). */
   function chatSimulado(d) {
     const ms = d.mensajes || [], texto = String((ms[ms.length - 1] || {}).texto || ""), n = normalizar(texto), hoy = E.hoy, moneda = monedaPrincipal();
@@ -3032,17 +3153,28 @@
       const deudas = [...texto.matchAll(/(?<!\p{L})(?:mi|el|la)\s+((?:t[ií][oa]\s+)?\p{L}+)\s+(?:me\s+prest[oó]\s+)?(\d+(?:[.,]\d+)?)\s*(m|millones?|palos?|lucas?|mil)\b/giu)]
         .map((x) => ({ con: x[1].split(/\s+/).map((w) => primeraMayuscula(w.toLowerCase())).join(" "), total: Number(x[2].replace(",", ".")) * (/^(m|millon|palo)/i.test(x[3]) ? 1e6 : 1e3), interes: 0 }));
       if (!deudas.length) return responder(tr("¿Quién te prestó y cuánto? Por ejemplo: «mi mamá me prestó 1,5 millones»."));
-      const mg = margenMensual(lista, E.movimientos, hoy, E.categorias, moneda, per(), ufCfg(), E.palabrasAuto || []);
-      const plan = { ...planPrestamos(deudas.slice(0, 4), mg.margen, moneda), base: { ingreso: mg.ingreso, fuente: mg.fuente, gasto: mg.gasto, meses: mg.meses, compromisos: mg.compromisos } };
-      const ini = inicioPlan(per(), hoy, E.feriados || []);
-      const propuestas = plan.deudas.map((x) => {
-        const c = { id: nuevoIdComp(), nombre: tr("Préstamo de {p}").replace("{p}", x.con), con: x.con, tipo: "prestamo", signo: "gasto", moneda, monto: x.cuota, frecuencia: "mensual", dia: ini.dia,
-          categoria: "", buscar: [], tolerancia: TOLERANCIA, cuotas_total: x.cuotas, cuotas_pagadas: 0, prestamo: { total: x.total, interes: x.interes, cuota: x.cuota, ultima: x.ultima },
-          pago: "manual", activo: true, desde: ini.desde, origen: "ia" };
-        const o = vencimientos(c, "2299-12-31").filter((v) => v.n);
-        return { ...c, fecha_fin: o[o.length - 1].vence };
-      });
-      return responder(tr("Veamos cuánto te cabe al mes sin salirte de tus gastos."), [{ tipo: "plan_prestamos", plan, propuestas }]);
+      // Igual que bin/chat.py: el plan de siempre y, si alguna deuda se parece a un préstamo anotado, cada combinación de «es el mismo».
+      const dd = deudas.slice(0, 4), ini = inicioPlan(per(), hoy, E.feriados || []);
+      const variante = (mismos) => {
+        const plan = planVariante(dd, mismos, lista, E.movimientos, hoy, E.categorias, moneda, per(), ufCfg(), E.palabrasAuto || []);
+        const propuestas = plan.deudas.map((x, j) => prestamoCompleto(mismos[j] ? prestamoActualizado(lista.find((c) => c.id === mismos[j]), x, ini)
+          : { id: nuevoIdComp(), nombre: tr("Préstamo de {p}").replace("{p}", x.con), con: x.con, tipo: "prestamo", signo: "gasto", moneda, frecuencia: "mensual", dia: ini.dia,
+            categoria: "", buscar: [], tolerancia: TOLERANCIA, cuotas_total: x.cuotas, cuotas_pagadas: 0, prestamo: { total: x.total, interes: x.interes, cuota: x.cuota },
+            pago: "manual", activo: true, desde: ini.desde, origen: "ia" }));
+        return { plan, propuestas };
+      };
+      const accion = { tipo: "plan_prestamos", ...variante({}) };
+      const parecidos = prestamosParecidos(dd.map((x) => ({ con: x.con, signo: "gasto", moneda, total: x.total })), lista, estadoSimulado(), hoy);
+      const con = parecidos.map((q, j) => (q ? j : null)).filter((j) => j != null);
+      if (con.length) {
+        accion.parecidos = parecidos; accion.variantes = {};
+        for (let n = 1; n < 2 ** con.length; n++) {
+          const js = con.filter((j, k) => (n >> k) & 1);
+          accion.variantes[js.join(",")] = variante(Object.fromEntries(js.map((j) => [j, parecidos[j].id])));
+        }
+        return responder(tr("Veamos cuánto te cabe al mes. Ojo: ya tienes anotado «{n}». Dime si es el mismo y no lo cuento dos veces.").replace("{n}", parecidos[con[0]].nombre), [accion]);
+      }
+      return responder(tr("Veamos cuánto te cabe al mes sin salirte de tus gastos."), [accion]);
     }
     if (/\b(AUN NO|TODAVIA NO|NO HE PAGADO|NO LO HE PAGADO|MES PASADO)\b/.test(n)) {
       if (!delQue) return responder(tr("¿De cuál pago me hablas? No lo encontré entre los tuyos."));
@@ -3056,6 +3188,16 @@
       return responder(tr("¡Bien! ¿Lo marco como pagado?"), [{ tipo: "marcar_pagado", id: i.id, nombre: i.nombre, periodo: i.periodo, vence: i.vence, signo: i.signo }]);
     }
     const r = entenderSimulado(texto);
+    if (r.ok && r.compromiso.tipo === "prestamo") {
+      // ¿Ya está anotado? Igual que bin/chat.py: «Es el mismo» propone actualizar el que ya estaba con el total y las cuotas nuevas.
+      const c = { ...r.compromiso, id: nuevoIdComp() }, q = prestamosParecidos([c], lista, estadoSimulado(), hoy)[0];
+      if (q) {
+        const actual = lista.find((x) => x.id === q.id), base = Object.fromEntries(Object.entries(actual).filter(([k]) => !["pagos", "fecha", "fecha_fin", "saldo", "aproximado", "cuotas_restantes"].includes(k)));
+        const nuevo = prestamoCompleto({ ...base, tipo: "prestamo", con: actual.con || c.con, cuotas_total: c.cuotas_total, prestamo: { total: c.prestamo.total, interes: c.prestamo.interes || 0, cuota: c.prestamo.cuota } });
+        const cambia = ["tipo", "con", "monto", "cuotas_total", "fecha_fin"].some((k) => nuevo[k] !== actual[k]) || canonSimple(nuevo.prestamo) !== canonSimple(actual.prestamo);
+        return responder(tr("Ya tienes anotado «{n}». ¿Es el mismo?").replace("{n}", q.nombre), [{ tipo: "crear_compromiso", compromiso: c, parecido: q, actualizar: cambia ? nuevo : null }]);
+      }
+    }
     if (r.ok) return responder(tr("Lo anoto para recordártelo. Revísalo y agrégalo."), [{ tipo: "crear_compromiso", compromiso: { ...r.compromiso, id: nuevoIdComp() } }]);
     return responder(tr("Casi: me faltó algo para anotarlo."), [{ tipo: "crear_compromiso", compromiso: { ...r.parcial, origen: "ia" }, incompleto: true, error: r.error }]);
   }

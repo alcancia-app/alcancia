@@ -867,6 +867,18 @@
     "¡Bien! ¿Lo marco como pagado?": "Nice! Shall I mark it as paid?",
     "Lo anoto para recordártelo. Revísalo y agrégalo.": "I'll note it so I can remind you. Check it and add it.",
     "Casi: me faltó algo para anotarlo.": "Almost: I was missing something to add it.",
-    "Te quedan libres cerca de {m} al mes. Uso como máximo {d} ({u}) y el resto te queda de colchón. Así terminas en {n} meses:": "You have about {m} left over each month. I use at most {d} ({u}) and the rest stays as a cushion. That way you finish in {n} months:"
+    "Te quedan libres cerca de {m} al mes. Uso como máximo {d} ({u}) y el resto te queda de colchón. Así terminas en {n} meses:": "You have about {m} left over each month. I use at most {d} ({u}) and the rest stays as a cushion. That way you finish in {n} months:",
+    "{c} al mes, queda 1 cuota": "{c} a month, 1 payment left",
+    "{c} al mes, quedan {n} cuotas": "{c} a month, {n} payments left",
+    "{c} al mes": "{c} a month",
+    "Ya tienes anotado «{n}» ({d}). ¿Es el mismo?": "You already have “{n}” ({d}). Is it the same one?",
+    "Es el mismo": "It's the same one",
+    "Es otro": "It's a different one",
+    "Lo actualizo: {x}": "I'll update it: {x}",
+    "Ya lo tienes anotado: no agrego otro.": "You already have it: I won't add another one.",
+    "Guardar los {n}": "Save all {n}",
+    "Listo: actualicé tu préstamo": "Done: I updated your loan",
+    "Veamos cuánto te cabe al mes. Ojo: ya tienes anotado «{n}». Dime si es el mismo y no lo cuento dos veces.": "Let's see how much fits each month. Heads up: you already have “{n}”. Tell me if it's the same one and I won't count it twice.",
+    "Ya tienes anotado «{n}». ¿Es el mismo?": "You already have “{n}”. Is it the same one?"
   }
 }

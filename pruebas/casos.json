@@ -10331,6 +10331,577 @@
      }
     }
    }
+  },
+  "parecido": {
+   "_nota": "¿Es el mismo préstamo? claves_persona ↔ clavesPersona, prestamos_parecidos ↔ prestamosParecidos (con el estado del periodo de «hoy»), plan_variante ↔ planVariante y prestamo_actualizado ↔ prestamoActualizado. Datos ficticios.",
+   "hoy": "2026-10-30",
+   "per": {
+    "modo": "sueldo",
+    "dia": 25,
+    "llegadas": [
+     "2026-07-25",
+     "2026-08-25",
+     "2026-09-25",
+     "2026-10-25"
+    ],
+    "hoy": "2026-10-30"
+   },
+   "extra": [
+    {
+     "id": "c-mama000001",
+     "tipo": "prestamo",
+     "signo": "gasto",
+     "moneda": "CLP",
+     "frecuencia": "mensual",
+     "categoria": "",
+     "buscar": [
+      "TRANSFERENCIA MAMA"
+     ],
+     "tolerancia": 5,
+     "activo": true,
+     "origen": "manual",
+     "pagos": {},
+     "nombre": "Préstamo de Mamá",
+     "con": "Mamá",
+     "monto": 150000,
+     "dia": 28,
+     "cuotas_total": 10,
+     "cuotas_pagadas": 2,
+     "prestamo": {
+      "total": 1500000,
+      "interes": 0,
+      "cuota": 150000,
+      "ultima": 150000
+     },
+     "pago": "manual",
+     "desde": "2026-08-01"
+    },
+    {
+     "id": "c-papa000001",
+     "tipo": "deuda",
+     "signo": "gasto",
+     "moneda": "CLP",
+     "frecuencia": "mensual",
+     "categoria": "",
+     "buscar": [],
+     "tolerancia": 5,
+     "activo": true,
+     "origen": "manual",
+     "pagos": {},
+     "nombre": "Crédito con papá",
+     "monto": 80000,
+     "dia": 10,
+     "cuotas_total": 10,
+     "cuotas_pagadas": 0,
+     "desde": "2026-09-01"
+    },
+    {
+     "id": "c-matias0001",
+     "tipo": "prestamo",
+     "signo": "ingreso",
+     "moneda": "CLP",
+     "frecuencia": "mensual",
+     "categoria": "",
+     "buscar": [],
+     "tolerancia": 5,
+     "activo": true,
+     "origen": "manual",
+     "pagos": {},
+     "nombre": "Préstamo a Matías",
+     "con": "Matías",
+     "monto": 100000,
+     "dia": 5,
+     "cuotas_total": 3,
+     "cuotas_pagadas": 0,
+     "prestamo": {
+      "total": 300000,
+      "interes": 0,
+      "cuota": 100000,
+      "ultima": 100000
+     },
+     "desde": "2026-10-01"
+    },
+    {
+     "id": "c-carmen0001",
+     "tipo": "prestamo",
+     "signo": "gasto",
+     "moneda": "CLP",
+     "frecuencia": "mensual",
+     "categoria": "",
+     "buscar": [],
+     "tolerancia": 5,
+     "activo": true,
+     "origen": "manual",
+     "pagos": {},
+     "nombre": "Préstamo de Tía Carmen",
+     "con": "Tía Carmen",
+     "monto": 90000,
+     "dia": 15,
+     "cuotas_total": 10,
+     "cuotas_pagadas": 0,
+     "prestamo": {
+      "total": 900000,
+      "interes": 0,
+      "cuota": 90000,
+      "ultima": 90000
+     },
+     "desde": "2026-10-01"
+    }
+   ],
+   "claves": [
+    [
+     "Mi mamá",
+     [
+      "MAMA"
+     ]
+    ],
+    [
+     "mami",
+     [
+      "MAMA"
+     ]
+    ],
+    [
+     "Préstamo de Tío Matías",
+     [
+      "MATIAS",
+      "TIO"
+     ]
+    ],
+    [
+     "Crédito con papá",
+     [
+      "PAPA"
+     ]
+    ],
+    [
+     "Don Matías Soto",
+     [
+      "MATIAS",
+      "SOTO"
+     ]
+    ],
+    [
+     "",
+     []
+    ]
+   ],
+   "casos": [
+    {
+     "nombre": "la misma persona, sin tildes ni «mi»",
+     "propuestas": [
+      {
+       "con": "mi mamá",
+       "total": 1500000
+      }
+     ],
+     "esperado": [
+      {
+       "id": "c-mama000001",
+       "nombre": "Préstamo de Mamá",
+       "con": "Mamá",
+       "tipo": "prestamo",
+       "monto": 150000,
+       "cuotas": {
+        "pagadas": 2,
+        "total": 10,
+        "quedan": 8
+       },
+       "por_pagar": 1200000,
+       "total": 1500000,
+       "motivo": "persona"
+      }
+     ]
+    },
+    {
+     "nombre": "Tío Matías no es «Préstamo a Matías»: ahí te debe él",
+     "propuestas": [
+      {
+       "con": "Tío Matías",
+       "total": 300000
+      }
+     ],
+     "esperado": [
+      null
+     ]
+    },
+    {
+     "nombre": "una deuda con la persona en el nombre",
+     "propuestas": [
+      {
+       "con": "Papá",
+       "total": 800000
+      }
+     ],
+     "esperado": [
+      {
+       "id": "c-papa000001",
+       "nombre": "Crédito con papá",
+       "con": null,
+       "tipo": "deuda",
+       "monto": 80000,
+       "cuotas": {
+        "pagadas": 0,
+        "total": 10,
+        "quedan": 10
+       },
+       "por_pagar": 800000,
+       "total": null,
+       "motivo": "persona"
+      }
+     ]
+    },
+    {
+     "nombre": "otra persona con el mismo total: no es la misma deuda",
+     "propuestas": [
+      {
+       "con": "Tía Ana",
+       "total": 900000
+      }
+     ],
+     "esperado": [
+      null
+     ]
+    },
+    {
+     "nombre": "sin decir quién: por el total (±15 %)",
+     "propuestas": [
+      {
+       "nombre": "",
+       "total": 950000
+      }
+     ],
+     "esperado": [
+      {
+       "id": "c-carmen0001",
+       "nombre": "Préstamo de Tía Carmen",
+       "con": "Tía Carmen",
+       "tipo": "prestamo",
+       "monto": 90000,
+       "cuotas": {
+        "pagadas": 0,
+        "total": 10,
+        "quedan": 10
+       },
+       "por_pagar": 900000,
+       "total": 900000,
+       "motivo": "monto"
+      }
+     ]
+    },
+    {
+     "nombre": "sin decir quién y un total lejano: ninguno",
+     "propuestas": [
+      {
+       "nombre": "",
+       "total": 5000000
+      }
+     ],
+     "esperado": [
+      null
+     ]
+    },
+    {
+     "nombre": "un compromiso sirve para una sola propuesta",
+     "propuestas": [
+      {
+       "con": "Mamá",
+       "total": 1500000
+      },
+      {
+       "con": "Mami",
+       "total": 1500000
+      }
+     ],
+     "esperado": [
+      {
+       "id": "c-mama000001",
+       "nombre": "Préstamo de Mamá",
+       "con": "Mamá",
+       "tipo": "prestamo",
+       "monto": 150000,
+       "cuotas": {
+        "pagadas": 2,
+        "total": 10,
+        "quedan": 8
+       },
+       "por_pagar": 1200000,
+       "total": 1500000,
+       "motivo": "persona"
+      },
+      null
+     ]
+    }
+   ],
+   "variantes": [
+    {
+     "nombre": "sin «es el mismo»: el plan de siempre",
+     "deudas": [
+      {
+       "con": "Mamá",
+       "total": 1500000
+      },
+      {
+       "con": "Tío Matías",
+       "total": 4000000
+      }
+     ],
+     "mismos": {},
+     "esperado": {
+      "margen": 288540,
+      "uso": 75,
+      "disponible": 216405,
+      "alcanza": true,
+      "al_mes": 215000,
+      "meses": 26,
+      "falta": 0,
+      "deudas": [
+       {
+        "con": "Mamá",
+        "total": 1500000,
+        "interes": 0,
+        "pagar": 1500000,
+        "cuota": 60000,
+        "ultima": 60000,
+        "cuotas": 25
+       },
+       {
+        "con": "Tío Matías",
+        "total": 4000000,
+        "interes": 0,
+        "pagar": 4000000,
+        "cuota": 155000,
+        "ultima": 125000,
+        "cuotas": 26
+       }
+      ],
+      "base": {
+       "ingreso": 1500000,
+       "fuente": "compromisos",
+       "gasto": 399960,
+       "meses": 3,
+       "compromisos": 811500
+      }
+     }
+    },
+    {
+     "nombre": "«es el mismo»: su cuota vuelve al margen y se planifica lo que falta",
+     "deudas": [
+      {
+       "con": "Mamá",
+       "total": 1500000
+      },
+      {
+       "con": "Tío Matías",
+       "total": 4000000
+      }
+     ],
+     "mismos": {
+      "0": "c-mama000001"
+     },
+     "esperado": {
+      "margen": 438540,
+      "uso": 75,
+      "disponible": 328905,
+      "alcanza": true,
+      "al_mes": 325000,
+      "meses": 16,
+      "falta": 0,
+      "deudas": [
+       {
+        "con": "Mamá",
+        "total": 1200000,
+        "interes": 0,
+        "pagar": 1200000,
+        "cuota": 75000,
+        "ultima": 75000,
+        "cuotas": 16
+       },
+       {
+        "con": "Tío Matías",
+        "total": 4000000,
+        "interes": 0,
+        "pagar": 4000000,
+        "cuota": 250000,
+        "ultima": 250000,
+        "cuotas": 16
+       }
+      ],
+      "base": {
+       "ingreso": 1500000,
+       "fuente": "compromisos",
+       "gasto": 399960,
+       "meses": 3,
+       "compromisos": 661500
+      }
+     }
+    },
+    {
+     "nombre": "«es el mismo» pero dijo otro total: ese es lo que debe ahora",
+     "deudas": [
+      {
+       "con": "Mamá",
+       "total": 600000
+      }
+     ],
+     "mismos": {
+      "0": "c-mama000001"
+     },
+     "esperado": {
+      "margen": 438540,
+      "uso": 75,
+      "disponible": 328905,
+      "alcanza": true,
+      "al_mes": 300000,
+      "meses": 2,
+      "falta": 0,
+      "deudas": [
+       {
+        "con": "Mamá",
+        "total": 600000,
+        "interes": 0,
+        "pagar": 600000,
+        "cuota": 300000,
+        "ultima": 300000,
+        "cuotas": 2
+       }
+      ],
+      "base": {
+       "ingreso": 1500000,
+       "fuente": "compromisos",
+       "gasto": 399960,
+       "meses": 3,
+       "compromisos": 661500
+      }
+     }
+    },
+    {
+     "nombre": "una deuda sin total anotado: lo que falta",
+     "deudas": [
+      {
+       "con": "Papá",
+       "total": 800000
+      }
+     ],
+     "mismos": {
+      "0": "c-papa000001"
+     },
+     "esperado": {
+      "margen": 368540,
+      "uso": 75,
+      "disponible": 276405,
+      "alcanza": true,
+      "al_mes": 270000,
+      "meses": 3,
+      "falta": 0,
+      "deudas": [
+       {
+        "con": "Papá",
+        "total": 800000,
+        "interes": 0,
+        "pagar": 800000,
+        "cuota": 270000,
+        "ultima": 260000,
+        "cuotas": 3
+       }
+      ],
+      "base": {
+       "ingreso": 1500000,
+       "fuente": "compromisos",
+       "gasto": 399960,
+       "meses": 3,
+       "compromisos": 731500
+      }
+     }
+    }
+   ],
+   "actualizado": [
+    {
+     "nombre": "el préstamo que ya estaba, con el plan nuevo",
+     "id": "c-mama000001",
+     "deuda": {
+      "con": "Mamá",
+      "total": 1200000,
+      "interes": 0,
+      "pagar": 1200000,
+      "cuota": 75000,
+      "ultima": 75000,
+      "cuotas": 16
+     },
+     "inicio": {
+      "desde": "2026-11-26",
+      "dia": 26
+     },
+     "esperado": {
+      "id": "c-mama000001",
+      "tipo": "prestamo",
+      "signo": "gasto",
+      "moneda": "CLP",
+      "frecuencia": "mensual",
+      "categoria": "",
+      "buscar": [
+       "TRANSFERENCIA MAMA"
+      ],
+      "tolerancia": 5,
+      "activo": true,
+      "origen": "manual",
+      "nombre": "Préstamo de Mamá",
+      "con": "Mamá",
+      "monto": 75000,
+      "dia": 26,
+      "cuotas_total": 16,
+      "cuotas_pagadas": 0,
+      "prestamo": {
+       "total": 1200000,
+       "interes": 0,
+       "cuota": 75000
+      },
+      "pago": "manual",
+      "desde": "2026-11-26"
+     }
+    },
+    {
+     "nombre": "una deuda pasa a ser préstamo",
+     "id": "c-papa000001",
+     "deuda": {
+      "con": "Papá",
+      "total": 800000,
+      "interes": 0,
+      "pagar": 800000,
+      "cuota": 270000,
+      "ultima": 260000,
+      "cuotas": 3
+     },
+     "inicio": {
+      "desde": "2026-11-26",
+      "dia": 26
+     },
+     "esperado": {
+      "id": "c-papa000001",
+      "tipo": "prestamo",
+      "signo": "gasto",
+      "moneda": "CLP",
+      "frecuencia": "mensual",
+      "categoria": "",
+      "buscar": [],
+      "tolerancia": 5,
+      "activo": true,
+      "origen": "manual",
+      "nombre": "Crédito con papá",
+      "monto": 270000,
+      "dia": 26,
+      "cuotas_total": 3,
+      "cuotas_pagadas": 0,
+      "desde": "2026-11-26",
+      "con": "Papá",
+      "prestamo": {
+       "total": 800000,
+       "interes": 0,
+       "cuota": 270000
+      }
+     }
+    }
+   ]
   }
  }
 }
