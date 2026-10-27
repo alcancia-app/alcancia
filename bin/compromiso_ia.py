@@ -7,6 +7,8 @@ El texto llega en un archivo de entrada, nunca como argumento (los argumentos de
 computador). A la IA le llega SOLO tu texto (sin RUT ni números largos, que se borran antes), la fecha de hoy y la lista de categorías.
 Lo que devuelve se valida estrictamente (compromisos.validar); si no cumple, no se guarda nada y se avisa. Tampoco se guarda nada
 si cumple: la interfaz muestra la tarjeta para que la persona la revise y confirme.
+
+La app ahora lo hace conversando (bin/chat.py), que usa de aquí `limpiar_texto`, `campos` y `leer_json`; `entender` queda para scripts.
 """
 import json
 import os
@@ -36,7 +38,7 @@ def digito_verificador(cuerpo):
     return "0" if r == 11 else "K" if r == 10 else str(r)
 
 
-def limpiar_texto(texto):
+def limpiar_texto(texto, largo=LARGO_MAXIMO):
     """Lo que la persona escribió, sin caracteres de control y sin números que identifiquen a alguien:
     - un RUT con guion o con K (con o sin puntos: dígitos, guion y dígito verificador o K), y uno de 8–9 dígitos pegados cuyo dígito
       verificador calza (si no termina en «000», que es un monto redondo);
@@ -59,18 +61,13 @@ def limpiar_texto(texto):
     t = re.sub(r"(?<![\d.,])(\d{7,8})(\d)(?![\d.,]?\d)",
                lambda m: " " if digito_verificador(m.group(1)) == m.group(2) and not (m.group(1) + m.group(2)).endswith("000") else m.group(0), t)
     t = re.sub(r"\d(?:[\s\-]?\d){9,}", " ", t)
-    return re.sub(r"\s+", " ", t).strip()[:LARGO_MAXIMO]
+    return re.sub(r"\s+", " ", t).strip()[:largo]
 
 
-def prompt(texto, hoy, categorias, moneda):
+def campos(categorias, moneda):
+    """Los campos de un compromiso explicados para la IA (los usa también la conversación con Alcancía, bin/chat.py)."""
     lista = "\n".join(f"{c['id']}: {c['nombre']} ({c.get('tipo', 'gasto')})" for c in categorias)
-    return f"""Eres parte de una app de finanzas personales. La persona describe con sus palabras algo que paga o recibe seguido
-(una deuda, una cuenta, una suscripción, una transferencia frecuente o un ingreso). Conviértelo en UN objeto JSON.
-
-Hoy es {hoy}. Moneda por defecto: {moneda}.
-
-Campos (usa solo estos; los que no sepas, déjalos fuera):
-- nombre: corto y claro (máximo 60 caracteres), p. ej. «Crédito hipotecario».
+    return f"""- nombre: corto y claro (máximo 60 caracteres), p. ej. «Crédito hipotecario».
 - tipo: «deuda», «prestamo», «cuenta», «suscripcion», «transferencia», «ingreso» u «otro». Usa «prestamo» cuando la plata la
   prestó o la debe una persona (papá, mamá, un amigo, un hermano: «mi papá me prestó…», «le presté a…»); «deuda» es con un banco o
   una empresa (crédito hipotecario, de consumo, automotriz, tarjeta).
@@ -98,7 +95,17 @@ Campos (usa solo estos; los que no sepas, déjalos fuera):
 - pago (solo en gastos): «automatico» si se cobra solo, sin que la persona haga nada (dice «se cobra solo», «se paga solo»,
   «PAC», «PAT», «cargo automático», «débito automático», o es una suscripción digital con tarjeta como Netflix, Spotify o
   iCloud); «manual» si la persona lo paga (dice «lo pago yo», «transfiero», «pago en la caja», «tengo que pagar», «voy al
-  banco»). Si no se sabe, déjalo fuera.
+  banco»). Si no se sabe, déjalo fuera."""
+
+
+def prompt(texto, hoy, categorias, moneda):
+    return f"""Eres parte de una app de finanzas personales. La persona describe con sus palabras algo que paga o recibe seguido
+(una deuda, una cuenta, una suscripción, una transferencia frecuente o un ingreso). Conviértelo en UN objeto JSON.
+
+Hoy es {hoy}. Moneda por defecto: {moneda}.
+
+Campos (usa solo estos; los que no sepas, déjalos fuera):
+{campos(categorias, moneda)}
 
 Texto de la persona: «{texto}»
 

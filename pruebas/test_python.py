@@ -28,6 +28,7 @@ os.environ["PATH"] = BIN_FALSO + os.pathsep + os.environ["PATH"]
 sys.path.insert(0, os.path.join(RAIZ, "bin"))
 
 import categorizar  # noqa: E402
+import chat  # noqa: E402
 import compromiso_ia  # noqa: E402
 import compromisos  # noqa: E402
 import consejos  # noqa: E402
@@ -447,7 +448,9 @@ class Compromisos(unittest.TestCase):
     def test_el_texto_no_va_como_argumento(self):
         with open(os.path.join(RAIZ, "app", "Sources", "Alcancia", "Ventana.swift"), encoding="utf-8") as f:
             swift = f.read()
-        self.assertIn('conEntrada("compromiso_ia.py", "entender"', swift)
+        # Lo que escribe la persona (la conversación con Alcancía) va en un archivo de entrada; nunca como argumento.
+        self.assertIn('conEntrada("chat.py", "enviar"', swift)
+        self.assertNotIn('correrJSON("chat.py"', swift)
         self.assertNotIn('correrJSON("compromiso_ia.py"', swift)
         p = subprocess.run([sys.executable, os.path.join(RAIZ, "bin", "compromiso_ia.py"), "el arriendo son 450.000", "2026-10-26",
                             os.path.join(TMP, "x.json")], capture_output=True, text=True)
@@ -581,6 +584,17 @@ class CuentaleYPrestamos(unittest.TestCase):
         pr = CASOS["prestamos"]
         for t, n, i, m, esperado in pr["calcular"]:
             self.assertEqual(compromisos.calcular_prestamo(t, n, i, m), esperado, (t, n, i, m))
+        for t, n, i, m, cuota, esperado in pr["calcular_cuota"]:
+            self.assertEqual(compromisos.calcular_prestamo(t, n, i, m, cuota), esperado, (t, n, i, m, cuota))
+        # Una cuota fija solo si calza: 130.000 en 12 cuotas de 1.500.000 deja la última en 70.000; 120.000 no alcanza y 140.000
+        # pagaría todo antes de la última: se calcula como siempre.
+        porCuota = {(r[0], r[1], r[4]): r[5] for r in pr["calcular_cuota"]}
+        self.assertEqual((porCuota[(1500000, 12, 130000)]["cuota"], porCuota[(1500000, 12, 130000)]["ultima"]), (130000, 70000))
+        self.assertEqual(porCuota[(1500000, 12, 120000)]["cuota"], 125000)
+        self.assertEqual(porCuota[(1500000, 12, 140000)]["cuota"], 125000)
+        c, e = compromisos.validar({"tipo": "prestamo", "con": "Mamá", "prestamo": {"total": 1500000, "cuota": 130000}, "cuotas_total": 12, "dia": 26},
+                                   None, "2026-10-30")
+        self.assertEqual((e, c["monto"], c["prestamo"]["ultima"]), ([], 130000, 70000), "validar respeta la cuota fija que calza")
         self.assertEqual(compromisos.estado_mes(pr["compromisos"], pr["movimientos"], pr["estado"]["mes"], pr["estado"]["hoy"], "CLP"), pr["estado"]["esperado"])
         d = compromisos.lo_que_debes(pr["compromisos"], pr["movimientos"], pr["debes"]["hoy"], "CLP")
         self.assertEqual(d, pr["debes"]["esperado"])
@@ -1756,6 +1770,166 @@ class SePagaSolo(unittest.TestCase):
         self.assertFalse(malo["ok"])
         self.assertIn("forma de pago", malo["error"])
         self.assertNotIn("pago", malo["parcial"])
+
+
+class Chat(unittest.TestCase):
+    """Conversar con Alcancía (bin/chat.py): lo que ve la IA, el plan de dos préstamos, «ese pago era del mes pasado», respuestas
+    inválidas y sin IA. Los casos compartidos con ui/app.js están en pruebas/casos.json, «chat». Todo ficticio."""
+    HOY = "2026-10-30"
+
+    def setUp(self):
+        limpiar()
+        k = CASOS["chat"]
+        datos.agregar([dict(m) for m in k["movimientos"]])
+        compromisos.escribir({"formato": 1, "compromisos": [dict(c) for c in k["compromisos"]], "descartados": []})
+        datos.escribir_json(os.path.join(datos.INTERNO, "config.json"),
+                            {"ia": "claude", "pais": "CL", "moneda": "CLP", "inicio_mes": {"modo": "sueldo", "dia": 25}})
+
+    def decir(self, texto, antes=()):
+        return chat.enviar({"hoy": self.HOY, "mensajes": [*antes, {"rol": "persona", "texto": texto}]})
+
+    def test_casos_compartidos(self):
+        k = CASOS["chat"]
+        de = lambda ids: [c for c in k["compromisos"] if ids is None or c["id"] in ids]
+        for c in k["margen"]:
+            self.assertEqual(compromisos.margen_mensual(de(c["compromisos_ids"]), k["movimientos"], c["hoy"], k["categorias"], "CLP", c["per"]),
+                             c["esperado"], c["nombre"])
+        for c in k["plan"]:
+            self.assertEqual(compromisos.plan_prestamos(c["deudas"], c["margen"], "CLP"), c["esperado"], c["nombre"])
+        for c in k["inicio"]:
+            self.assertEqual(compromisos.inicio_plan(c["per"], c["hoy"], k["feriados"]), c["esperado"], c["nombre"])
+        for c in k["reasignable"]:
+            self.assertEqual(compromisos.pago_reasignable(k["compromisos"], k["movimientos"], c["id"], c["hoy"], "CLP", c["per"]), c["esperado"], c["nombre"])
+        for c in k["mover"]:
+            x = json.loads(json.dumps(c["compromiso"]))
+            self.assertEqual(compromisos.reasignar_pago(x, c["de"], c["a"], c["movimiento"]), c["error"], c["nombre"])
+            self.assertEqual(x.get("pagos", {}), c["pagos"], c["nombre"])
+        d = k["despues"]
+        lista = [d["compromiso"] if c["id"] == d["compromiso"]["id"] else c for c in k["compromisos"]]
+        self.assertEqual(compromisos.estado_mes(lista, k["movimientos"], d["mes"], d["hoy"], "CLP", d["per"]), d["esperado"])
+        # En palabras: el margen es ingreso − gasto típico − compromisos; el plan usa como máximo el 75 % y la cuota es redonda.
+        m = k["margen"][0]["esperado"]
+        self.assertEqual(m["margen"], m["ingreso"] - m["gasto"] - m["compromisos"])
+        self.assertEqual(m["compromisos"], 450000 + 16500 + 25000, "dividendo + agua por su máximo + gimnasio; el pasaje (una vez) no")
+        p = k["plan"][0]["esperado"]
+        self.assertLessEqual(p["al_mes"], p["disponible"])
+        self.assertEqual(p["disponible"], 650000 * 75 // 100)
+        self.assertTrue(all(x["cuota"] % 5000 == 0 for x in p["deudas"]))
+        self.assertFalse(k["plan"][2]["esperado"]["alcanza"])
+        self.assertIsNone(k["plan"][4]["esperado"]["alcanza"])
+        items = {(i["nombre"], i["vence"]): i["estado"] for i in d["esperado"]["items"]}
+        self.assertEqual(items[("Dividendo", "2026-11-05")], "pendiente", "después de moverlo, el de este mes queda pendiente")
+        self.assertEqual(k["reasignable"][0]["esperado"]["a"]["vence"], "2026-10-05")
+
+    def test_lo_que_ve_la_ia(self):
+        cuerpo = "1111111" + "1"  # un RUT ficticio armado por partes
+        x = chat.Ctx(self.HOY)
+        p = chat.prompt(x, [{"rol": "persona", "texto": "hola"}])
+        for no in ("SUPERMERCADO DEL BARRIO", "DELIVERY", "EMPRESA EJEMPLO", "DIVIDENDO HIPOTECARIO", "AGUA POTABLE", "c-dividend01", "m031",
+                   "banco-ejemplo"):
+            self.assertNotIn(no, p, "nunca descripciones de movimientos, ids internos ni cuentas")
+        for si in ("Margen mensual (ingreso típico − gasto típico − compromisos): 608.540", "C2 · «Dividendo»", "en la cartola dice: DIVIDENDO",
+                   "pagado el 2026-10-28", "propone reasignar_pago", "Ingreso típico al mes: 1.500.000"):
+            self.assertIn(si, p)
+        r = self.decir(f"mi rut es {cuerpo}-{compromiso_ia.digito_verificador(cuerpo)} y la cuenta 12345678, ya pagué el agua")
+        self.assertNotIn(cuerpo, json.dumps(chat.historial()), "lo guardado ya va limpio")
+        self.assertNotIn("12345678", r["persona"]["texto"])
+
+    def test_plan_de_dos_prestamos(self):
+        r = self.decir("mi mamá me prestó 1,5 millones y mi tío Matías 4 millones, ¿cuánto puedo pagar al mes sin salirme de mis gastos?")
+        self.assertTrue(r["ok"], r)
+        a = r["mensaje"]["acciones"][0]
+        self.assertEqual(a["tipo"], "plan_prestamos")
+        plan = a["plan"]
+        self.assertTrue(plan["alcanza"])
+        self.assertEqual(plan["margen"], 608540)
+        self.assertLessEqual(plan["al_mes"], plan["disponible"])
+        self.assertEqual(len(a["propuestas"]), 2)
+        ini = compromisos.inicio_plan(chat.Ctx(self.HOY).per, self.HOY, compromisos.feriados("CL"))
+        for c, d in zip(a["propuestas"], plan["deudas"]):
+            self.assertEqual((c["tipo"], c["signo"], c["pago"], c["frecuencia"]), ("prestamo", "gasto", "manual", "mensual"))
+            self.assertEqual((c["monto"], c["cuotas_total"], c["prestamo"]["ultima"]), (d["cuota"], d["cuotas"], d["ultima"]))
+            self.assertEqual((c["desde"], c["dia"]), (ini["desde"], ini["dia"]), "la primera cuota, el día después del sueldo")
+            limpio, e = compromisos.validar(c, None, self.HOY)
+            self.assertEqual(e, [])
+        self.assertEqual([c["con"] for c in a["propuestas"]], ["Mamá", "Tío Matías"])
+        # Agregarlas: el mismo camino que «Agregar» en la interfaz (guardar.py compromiso).
+        import guardar
+        for c in a["propuestas"]:
+            self.assertTrue(guardar.compromiso({"accion": "guardar", "hoy": self.HOY, "compromiso": c})["ok"])
+        self.assertEqual(sum(1 for c in compromisos.leer()["compromisos"] if c["tipo"] == "prestamo"), 2)
+        self.assertEqual(len(chat.historial()), 2, "la pregunta y la respuesta quedan guardadas")
+
+    def test_reasignar_pago_del_mes_pasado(self):
+        import guardar
+        r = self.decir("aún no pago el dividendo de este mes")
+        a = r["mensaje"]["acciones"][0]
+        self.assertEqual((a["tipo"], a["id"], a["de"]["periodo"], a["a"]["periodo"]), ("reasignar_pago", "c-dividend01", "2026-11", "2026-10"))
+        # Aunque la IA proponga «dejar pendiente», si hay un vencimiento anterior sin pago se corrige moviéndolo.
+        x = chat.Ctx(self.HOY)
+        self.assertEqual(chat.resolver({"tipo": "marcar_pendiente", "compromiso": "C2"}, x)[0]["tipo"], "reasignar_pago")
+        self.assertEqual(chat.resolver({"tipo": "reasignar_pago", "compromiso": "C9"}, x), (None, "no_encontre"))
+        for malo in ({"de": "nov", "a": "2026-10"}, {"movimiento": "no-existe"}):
+            self.assertFalse(guardar.compromiso({"accion": "reasignar", "id": a["id"], "de": "2026-11", "a": "2026-10", **malo})["ok"], malo)
+        ok = guardar.compromiso({"accion": "reasignar", "id": a["id"], "de": a["de"]["periodo"], "a": a["a"]["periodo"], "movimiento": a["pago"]["movimiento"]})
+        self.assertTrue(ok["ok"], ok)
+        lista = compromisos.validos(None, self.HOY)
+        per, mes = compromisos.periodo_actual(self.HOY, datos.leer_todos(), lista)
+        e = compromisos.estado_mes(lista, datos.leer_todos(), mes, self.HOY, "CLP", per)
+        div = [(i["vence"], i["estado"]) for i in e["items"] if i["id"] == "c-dividend01"]
+        self.assertEqual(div, [("2026-11-05", "pendiente")], "octubre quedó pagado (no aparece) y noviembre pendiente")
+        compromisos.fijar_automaticos(self.HOY)
+        self.assertNotIn("como", compromisos.leer()["compromisos"][1]["pagos"]["2026-11"], "no se vuelve a reconocer solo")
+        r = self.decir("aún no pago el dividendo de este mes")
+        self.assertEqual((r["mensaje"]["acciones"], r["mensaje"]["notas"]), ([], ["sin_pago_para_mover"]))
+        r = self.decir("ya pagué el dividendo")
+        self.assertEqual(r["mensaje"]["notas"], ["no_encontre"], "la IA falsa busca «ARRIENDO»: no hay, y se dice")
+
+    def test_respuesta_invalida_y_acciones_raras(self):
+        r = self.decir("INVALIDA")
+        self.assertFalse(r["ok"])
+        self.assertIn("no respondió como esperaba", r["error"])
+        self.assertTrue(chat.historial()[-1]["error"], "el mensaje honesto también queda en la conversación")
+        r = self.decir("RARA", antes=[{"rol": "persona", "texto": "hola"}, {"rol": "alcancia", "texto": "¡Hola!"}])
+        self.assertTrue(r["ok"])
+        self.assertEqual([a["tipo"] for a in r["mensaje"]["acciones"]], ["crear_compromiso"], "solo pasa la acción válida")
+        self.assertEqual(r["mensaje"]["notas"], ["descartadas"])
+        r = self.decir("SINMONTO el gimnasio")
+        a = r["mensaje"]["acciones"][0]
+        self.assertTrue(a["incompleto"])
+        self.assertEqual(a["compromiso"]["nombre"], "Gimnasio", "nunca sin salida: lo que se entendió va a la tarjeta")
+        for malo in ('{"respuesta": "hola", "extra": 1}', '{"acciones": []}', '{"respuesta": "", "acciones": []}', '{"respuesta": "x", "acciones": {}}'):
+            self.assertIsNone(chat.validar_respuesta(malo)[0], malo)
+        self.assertEqual(chat.validar_respuesta('{"respuesta": "Listo"}'), ("Listo", [], 0))
+        self.assertFalse(self.decir("x")["ok"], "un mensaje de una letra no se manda")
+
+    def test_sin_ia(self):
+        datos.escribir_json(os.path.join(datos.INTERNO, "config.json"), {"ia": "gemini"})
+        antes = os.environ["PATH"]
+        os.environ["PATH"] = BIN_FALSO  # sin agy ni gemini
+        try:
+            r = self.decir("hola")
+        finally:
+            os.environ["PATH"] = antes
+        self.assertEqual((r["ok"], r.get("sin_ia")), (False, True))
+        self.assertIn("Ajustes", r["error"])
+        self.assertEqual(chat.historial(), [], "sin IA no se guarda nada")
+
+    def test_marcar_borrar_y_cli(self):
+        entrada = os.path.join(TMP, "entrada-chat.json")
+        datos.escribir_json(entrada, {"hoy": self.HOY, "mensajes": [{"rol": "persona", "texto": "mi mamá me prestó 1,5 millones y mi tío Matías 4 millones"}]})
+        r = correr("chat.py", "enviar", entrada)
+        self.assertTrue(r["ok"], r)
+        mid = r["mensaje"]["id"]
+        datos.escribir_json(entrada, {"id": mid, "i": 0, "j": 1, "estado": "hecha"})
+        self.assertTrue(correr("chat.py", "marcar", entrada)["ok"])
+        self.assertEqual(chat.historial()[-1]["estados"], {"0.1": "hecha"})
+        for malo in ({"id": mid, "i": 3, "estado": "hecha"}, {"id": mid, "i": 0, "j": 5, "estado": "hecha"}, {"id": mid, "i": 0, "estado": "rm"},
+                     {"id": "otro", "i": 0, "estado": "no"}):
+            self.assertFalse(chat.marcar(malo)["ok"], malo)
+        self.assertTrue(correr("chat.py", "borrar", entrada)["ok"])
+        self.assertEqual(chat.historial(), [])
+        self.assertEqual(json.loads(json.dumps(__import__("estado").estado()["chat"])), [])
 
 
 if __name__ == "__main__":

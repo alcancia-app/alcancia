@@ -47,6 +47,11 @@ def nombre():
     return IAS[elegida()][1]
 
 
+def instalada():
+    """¿Está el CLI de la IA elegida en este computador? (No revisa la sesión: eso lo dice la respuesta.)"""
+    return any(shutil.which(c) for c in IAS[elegida()][0])
+
+
 def ejecutar_ia(prompt, timeout=600):
     """Le pasa el prompt a la IA del usuario y devuelve un CompletedProcess (stdout = respuesta)."""
     ia = elegida()

@@ -25,7 +25,7 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
 
 | Ruta | Qué es |
 |---|---|
-| `bin/` | Python **solo biblioteca estándar**. `datos.py` (formato en disco, ids, escritura atómica), `recetas.py` (validar, detectar y aplicar recetas; lee CSV y .xlsx sin librerías), `pdf.py` (texto de un PDF con posiciones → tabla), `categorizar.py` (reglas, comercios conocidos, IA), `resumen.py` (cuentas del mes, proyección, alertas, presupuesto sugerido, historia de 6 meses, periodos de sueldo a sueldo), `compromisos.py` (validar, reconocer pagos, estado del mes, avance de deudas, gasto máximo, sugerir, avisos; palabras en `compromisos_conocidos.json`), `ia.py` (`preguntar()` con la IA del usuario). Scripts que llama la app: `estado.py` (todo lo que pinta la interfaz), `importar.py`, `receta_ia.py`, `compromiso_ia.py`, `consejos.py`, `compromisos.py avisos` y `guardar.py` (categoría, regla, presupuesto, receta, compromiso; lo de la interfaz llega en un archivo JSON de entrada). El último argumento siempre es la ruta del JSON de salida. |
+| `bin/` | Python **solo biblioteca estándar**. `datos.py` (formato en disco, ids, escritura atómica), `recetas.py` (validar, detectar y aplicar recetas; lee CSV y .xlsx sin librerías), `pdf.py` (texto de un PDF con posiciones → tabla), `categorizar.py` (reglas, comercios conocidos, IA), `resumen.py` (cuentas del mes, proyección, alertas, presupuesto sugerido, historia de 6 meses, periodos de sueldo a sueldo), `compromisos.py` (validar, reconocer pagos, estado del mes, avance de deudas, gasto máximo, sugerir, avisos; palabras en `compromisos_conocidos.json`), `ia.py` (`preguntar()` con la IA del usuario), `compromiso_ia.py` (`limpiar_texto` y los campos de un compromiso explicados para la IA). Scripts que llama la app: `estado.py` (todo lo que pinta la interfaz), `importar.py`, `receta_ia.py`, `chat.py` (conversar con Alcancía), `consejos.py`, `compromisos.py avisos` y `guardar.py` (categoría, regla, presupuesto, receta, compromiso; lo de la interfaz llega en un archivo JSON de entrada). El último argumento siempre es la ruta del JSON de salida. |
 | `bin/conectores/` | Un módulo por servicio con API oficial (`INFO`, `probar`, `movimientos`). `bin/red.py` hace los pedidos HTTPS (solo a los dominios de cada conector). `bin/sincronizar.py probar|traer <conector>` los usa; `bin/vigilar.py` es la carpeta vigilada. |
 | `bin/mcp_servidor.py`, `bin/mcp_conectar.py` | Servidor MCP de solo lectura (stdio, JSON-RPC, sin dependencias) para que la IA de la persona consulte sus finanzas, y el script que lo registra en Claude Desktop, Claude Code, Codex/ChatGPT, Gemini CLI y Antigravity (con su comando oficial o editando su JSON con respaldo). |
 | `recetas/` | Recetas incluidas en la app (solo las probadas con una cartola real) y `README.md` con el formato. |
@@ -82,7 +82,8 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
   (`limpiar_texto` quita RUT con guion o K, 8–9 dígitos con dígito verificador válido que no terminan en «000», lo que va después
   de rut/cuenta/cta/tarjeta/n°/nro/número/cuentarut/vista y 10+ dígitos; los montos como «2000000» pasan), la fecha y las
   categorías, y valida estricto (`validar(..., estricto=True)`); no guarda nada. Si la IA falla o su respuesta no pasa, devuelve
-  `{"ok": false, "error", "parcial"}` (`parcial`: solo los campos válidos) y la interfaz abre el editor con eso: nunca sin salida.
+  `{"ok": false, "error", "parcial"}` (`parcial`: solo los campos válidos): nunca sin salida. La app ya no lo llama (lo de
+  «Cuéntale» va por `chat.py`, que usa sus mismas piezas); queda para scripts.
   Un movimiento con categoría `transferencia` solo paga compromisos de tipo `transferencia`.
   **Se paga solo:** `pago` (`automatico`/`manual`, opcional) y `modo_pago`/`modoPago`: lo dicho manda; si no, palabras de
   `compromisos_conocidos.json` (`automatico`, llegan a la interfaz en el estado, `palabras_automatico`) en el nombre o `buscar` →
@@ -106,7 +107,7 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
   deja el cargo en la categoría `intereses` (nueva predeterminada; `datos.NUEVAS` la suma a un categorias.json de antes).
   `mora_del_anio`/`moraDelAnio` para el Resumen y los consejos. Casos en `pruebas/casos.json` (sección `mora`).
 - **Préstamos:** tipo `prestamo` con `con` y `prestamo` {total, interes, cuota, ultima}. `calcular_prestamo`/`calcularPrestamo`
-  (cuota hacia abajo, la última ajusta; interés simple % sobre el total), `completar_prestamo` (día del sueldo o 25). `estado_mes`
+  (cuota hacia abajo, la última ajusta; interés simple % sobre el total; una `cuota` fija se respeta si calza y la última es lo que falta), `completar_prestamo` (día del sueldo o 25). `estado_mes`
   usa `ultima` en la última cuota; `lo_que_debes`/`loQueDebes` suman lo que debes y aparte `te_deben` (signo `ingreso`), que nunca se
   resta. Consejos y MCP reciben solo esos totales. Casos en `pruebas/casos.json` (sección `prestamos`). Compromisos y sugerencias se
   agrupan por tipo (`GRUPOS_COMP`); Movimientos puede agrupar por comercio (`reglaPara`, `E.agruparMov`).
@@ -155,6 +156,28 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
   idioma, con el del equipo sugerido y enfocado; elegir guarda `idioma_ui` por el mismo `config` que Ajustes y sigue la bienvenida ya
   traducida. Quien hizo la bienvenida antes (`bienvenida: true`) no la repite; quien eligió idioma y la dejó a medias sigue desde el
   saludo. Nada pregunta ni avisa antes de esa pantalla (ver «App de Mac»).
+- **Conversar con Alcancía (chat):** `chat.py enviar|marcar|borrar <entrada.json>`. «Cuéntale a Alcancía» (`E.agregar = "contar"`,
+  `dialogoChat`) se abre desde «+» («Un pago que se repite»), «Anotar un pago» en Pagos y la fila «Pregúntale a Alcancía» del Inicio.
+  La interfaz manda los últimos 10 mensajes (`{hoy, mensajes: [{rol, texto}]}`); `chat.py` los pasa por `limpiar_texto` y arma un
+  contexto **calculado por código** (`contexto`): periodo y días que quedan, `margen_mensual` (ingreso típico − gasto típico sin pagos
+  de compromisos − compromisos vigentes al mes por su máximo), las tres cifras en totales y cada compromiso con una referencia opaca
+  (C1, C2…), nombre, tipo, monto o rango, día, `modo_pago`, `buscar`, cuotas, estado del periodo y sus últimos 3 pagos con el
+  vencimiento al que se asignaron. **Nunca** descripciones de movimientos, ids ni números de cuenta. La IA responde
+  `{"respuesta", "acciones"}`; se valida estricto y cada acción (lista blanca `ACCIONES`) se resuelve con código: `crear_compromiso`
+  (`validar(estricto)`; si no pasa, `parcial` con `incompleto`), `plan_prestamos` (la IA solo da `{con, total, interes}`;
+  `plan_prestamos` usa como máximo `USO_MARGEN` (75 %) del margen, busca los menos meses en que las cuotas redondeadas hacia arriba
+  (`paso_cuota`) caben, y `inicio_plan` pone la primera el día después del próximo sueldo; las propuestas son préstamos con
+  `prestamo.cuota` fija y `pago: "manual"`), `reasignar_pago` (`pago_reasignable`: el último vencimiento del periodo tiene pago y el
+  anterior no; también si la IA dijo `marcar_pendiente`), `marcar_pagado`, `marcar_pendiente` y `editar_compromiso` (monto, día,
+  pago, fecha_fin). Lo que no se pudo preparar vuelve como código en `notas` (la interfaz lo explica). **Nada se aplica solo:** cada
+  acción es una tarjeta («Agregar», «Sí, corrígelo», «Cambiar» abre `#editor-comp`, «No») que usa la acción `compromiso` de siempre
+  (nueva subacción `reasignar` en `guardar.py`: `reasignar_pago` mueve el pago con el formato de `pagos` de siempre y deja el
+  movimiento en `no_es`). Sin IA instalada (`ia.instalada()`) devuelve `sin_ia` y la interfaz lleva a Ajustes. La conversación se
+  guarda solo en `~/Alcancia/.alcancia/chat.json` (últimos 50, ya limpios, con lo que se hizo con cada acción en `estados`) y llega
+  en el estado (`chat`). `margen_mensual`, `plan_prestamos`, `inicio_plan`, `pago_reasignable`, `reasignar_pago` y la cuota fija de
+  `calcular_prestamo` viven igual en `ui/app.js` (`margenMensual`, `planPrestamos`, `inicioPlan`, `pagoReasignable`, `reasignarPago`,
+  `calcularPrestamo`): casos en `pruebas/casos.json` (secciones `chat` y `prestamos.calcular_cuota`). En el navegador, `chatSimulado`
+  responde con esa misma lógica.
 - **Consejos:** `consejos.py <hoy>` arma un prompt con totales y exige las tres secciones (`### Lo que va bien`, `### Ojo con`,
   `### Para esta semana`). Si no vienen, no se guarda nada.
 
@@ -166,8 +189,8 @@ Diseño mobile first (la misma interfaz va a ir en una app de celular): pensar p
   las pantallas de segundo nivel, que llevan «‹ Más» o «‹ Movimientos» (`volver`).
 - **Una sola acción para agregar** (`.nav-agregar`, `E.agregar`): en celular es el botón central de la **barra inferior fija** (zona
   del pulgar, 64 px de alto, respeta `env(safe-area-inset-bottom)`, objetivos de 44 px o más); en escritorio la barra pasa a ser
-  lateral con «+ Agregar» arriba. Abre una hoja con: una cartola (`importar`), un pago que se repite («Cuéntale a Alcancía», `E.agregar =
-  "contar"`) y conectar una cuenta. El editor de compromisos es un diálogo (`#editor-comp`). En celular los diálogos salen desde abajo.
+  lateral con «+ Agregar» arriba. Abre una hoja con: una cartola (`importar`), un pago que se repite (el chat «Cuéntale a Alcancía», `E.agregar =
+  "contar"`, en celular a pantalla completa con el campo abajo) y conectar una cuenta. El editor de compromisos es un diálogo (`#editor-comp`). En celular los diálogos salen desde abajo.
 - **Jerarquía:** una cifra protagonista por pantalla cuando la hay, tres niveles de texto como máximo (cifra · título · texto/detalle),
   cifras con `tabular-nums` y alineadas a la derecha, espacios en múltiplos de 4/8, líneas de ~70 caracteres como máximo, sin sombras
   ni bordes que no digan algo. Los textos que explican van al tocar (desgloses), no en la pantalla.
@@ -184,9 +207,9 @@ Diseño mobile first (la misma interfaz va a ir en una app de celular): pensar p
 La UI llama `host.enviar(accion, datos)` y la app responde con `window.Alcancia.<funcion>(json)`. En el navegador, `simular()` responde
 con datos ficticios. Acciones: `listo, config, probarIA, elegirCartola, vistaCartola, aprenderReceta, guardarReceta, importar,
 categoria, categoriaNueva, saldo, regla, presupuesto, pedirConsejos, abrirEnlace, abrirCarpeta, conectar, sincronizar, desconectar, vigilar, mcpConectar,
-buscarActualizacion, actualizar, compromisoIA, compromiso, avisos`. Respuestas: `estado, iaProbada, cartolaElegida, vistaLista,
+buscarActualizacion, actualizar, chat, compromiso, avisos`. Respuestas: `estado, iaProbada, cartolaElegida, vistaLista,
 recetaAprendida, importarProgreso, importado, consejosListos, conectado, sincronizado, importadoSolo, mcpListo, actualizacionRevisada,
-actualizacionProgreso, compromisoEntendido`. `pruebas/contrato.py` revisa que cada acción exista en `Ventana.swift` (y en Windows/Linux cuando exista), que cada
+actualizacionProgreso, chatRespuesta`. `pruebas/contrato.py` revisa que cada acción exista en `Ventana.swift` (y en Windows/Linux cuando exista), que cada
 función que llama la app exista en `window.Alcancia` y que los scripts que llama existan. Una acción nueva va en `ui/app.js`, en `Ventana.swift`
 y simulada en `simular()`.
 

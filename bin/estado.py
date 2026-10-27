@@ -3,7 +3,8 @@
   estado.py <salida.json>
 
 Devuelve config, movimientos, categorías, presupuesto, reglas, cuentas, consejos, conectores, conexiones, carpeta vigilada y
-compromisos (los válidos, las sugerencias detectadas en la cartola y las descartadas). Antes, si la persona nunca eligió cuándo
+compromisos (los válidos, las sugerencias detectadas en la cartola y las descartadas) y la conversación con Alcancía
+(.alcancia/chat.json, ver bin/chat.py). Antes, si la persona nunca eligió cuándo
 empieza su mes, detecta el sueldo y lo aplica (compromisos.aplicar_sueldo), y anota en compromisos.json los pagos que se reconocieron
 solos (compromisos.fijar_automaticos), para que no cambien después. La app agrega lo suyo (IA instaladas, versión,
 carpeta, actualizaciones). Si ~/Alcancia aún no existe, devuelve todo vacío: la interfaz muestra la bienvenida.
@@ -90,6 +91,15 @@ def sueldo(movimientos):
         return None
 
 
+def chat():
+    """La conversación guardada con Alcancía (los últimos mensajes). Si algo falla aquí, la app igual se abre."""
+    try:
+        import chat as conversacion
+        return conversacion.historial()
+    except Exception:
+        return []
+
+
 def estado():
     movimientos = datos.leer_todos()
     if sueldo(movimientos):
@@ -100,7 +110,8 @@ def estado():
             "reglas": datos.reglas(), "cuentas": datos.leer_json(os.path.join(datos.BASE, "cuentas.json"), []), "consejos": consejos(),
             "conectores": conectores.info_publica(), "conexiones": conexiones(), "vigilar": vigilar(cfg), "ia_externa": ia_externa(),
             "compromisos": comp, "sugerencias": sugerencias, "feriados": K.feriados(cfg.get("pais")),
-            "palabras_mora": K.palabras_mora(cfg.get("pais") or "CL"), "palabras_automatico": K.palabras_automatico(cfg.get("pais") or "CL")}
+            "palabras_mora": K.palabras_mora(cfg.get("pais") or "CL"), "palabras_automatico": K.palabras_automatico(cfg.get("pais") or "CL"),
+            "chat": chat()}
 
 
 if __name__ == "__main__":

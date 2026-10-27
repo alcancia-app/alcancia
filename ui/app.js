@@ -11,8 +11,8 @@
     aprender: null, presEdit: null, importar: null, bv: null, bvCerrada: false, ajustes: false, probando: {}, resultadoIA: {},
     consejoSel: null, pidiendoConsejos: false, errorConsejos: "", act: null, buscando: null, idioma: "es", textos: {},
     conectores: [], conexiones: {}, vigilar: { activo: false, recientes: [] }, conectar: null, sincronizando: {}, iaExterna: [], mcpOcupado: {}, mcpError: {},
-    histCat: null, compromisos: { compromisos: [], descartados: [] }, sugerencias: [], compEdit: null, compTexto: "",
-    compIA: { pidiendo: false, error: "" }, sugTodas: false,
+    histCat: null, compromisos: { compromisos: [], descartados: [] }, sugerencias: [], compEdit: null, sugTodas: false,
+    chat: { mensajes: [], texto: "", pensando: false, bajar: false, confirmarBorrar: false },
     cifra: null, agregar: null, movVer: null, picker: null, ordenar: { i: 0, buscar: "", nueva: null }, saldoEdit: null, saldoAviso: null, reglasNo: [], compararAbierto: false,
   };
   const ENLACES = { sitio: "https://alcancia-app.github.io/alcancia/", codigo: "https://github.com/alcancia-app/alcancia",
@@ -481,9 +481,12 @@
       original: { monto: c.monto, moneda: UF, sin_valor: false, valor_uf: Math.round(ref.valor * 100) / 100, fecha_uf: ref.fecha, fuente: ref.fuente } };
   }
   /** Un préstamo entre personas (igual que compromisos.calcular_prestamo): total con interés simple, cuota y la última que ajusta. */
-  function calcularPrestamo(total, cuotas, interes = 0, moneda = "CLP") {
+  function calcularPrestamo(total, cuotas, interes = 0, moneda = "CLP", cuotaFija = null) {
     const escala = moneda === UF ? 10000 : 1, pagar = Math.floor(total * (1 + interes / 100) * escala + 0.5);
-    const cuota = Math.floor(pagar / cuotas), ultima = pagar - cuota * (cuotas - 1), a = (x) => x / escala;
+    // Una cuota fija y redonda (la del plan de préstamos) si calza: al menos lo justo, no más que el total y sin pagarlo todo antes de la última.
+    const fija = typeof cuotaFija === "number" && cuotaFija > 0 ? Math.floor(cuotaFija * escala + 0.5) : null, base = Math.floor(pagar / cuotas);
+    const cuota = fija != null && base <= fija && fija <= pagar && fija * (cuotas - 1) < pagar ? fija : base;
+    const ultima = pagar - cuota * (cuotas - 1), a = (x) => x / escala;
     return { total, interes, pagar: a(pagar), cuota: a(cuota), ultima: a(ultima) };
   }
   const maximoDe = (x) => (x.rango ? x.rango.max : x.monto), minimoDe = (x) => (x.rango ? x.rango.min : x.monto);
@@ -742,6 +745,89 @@
       total_max: Math.round(partes.reduce((a, p) => a + p.max, 0)), este_mes_max: Math.round(esteMesMax), aprox: partes.some((p) => p.max !== p.monto),
       ultimo_pago_tarjeta: ultimo, partes };
   }
+  // ───────────── Para conversar con Alcancía (igual que compromisos.py: margen_mensual, plan_prestamos, inicio_plan,
+  // pago_reasignable y reasignar_pago; casos en pruebas/casos.json, «chat») ─────────────
+  const USO_MARGEN = 75, MESES_MAX = 60, MESES_SIN_DATOS = 12;
+  const vigente = (r, hoy) => r.frecuencia !== "una_vez" && !(r.cuotas && r.cuotas.quedan === 0) && (!r.termina || r.termina >= hoy);
+  /** Cuánto queda libre en un mes normal: ingreso típico − gasto típico (sin los pagos de compromisos) − compromisos al mes. */
+  function margenMensual(compromisos, movimientos, hoy, categorias, moneda, per = null, uf = null, auto = []) {
+    const mes = periodoDe(hoy, per), enMon = movimientos.filter((m) => (m.moneda || moneda) === moneda);
+    const completos = periodosConDatos(enMon, per).filter((x) => x < mes).slice(-3);
+    const e = estadoCompromisos(compromisos, movimientos, mes, hoy, moneda, per, uf, [], auto);
+    const vig = e.compromisos.filter((r) => r.moneda === moneda && vigente(r, hoy)), pres = { moneda, mensual: {} };
+    let ingreso = vig.filter((r) => r.signo === "ingreso" && r.tipo === "ingreso").reduce((a, r) => a + mensualDe(r, minimoDe(r)), 0), fuente = "compromisos";
+    if (ingreso <= 0) {
+      ingreso = null; fuente = "";
+      if (completos.length) {
+        const v = Math.round(completos.reduce((a, x) => a + resumen(enMon, x, hoy, pres, categorias, per).ingresos, 0) / completos.length);
+        if (v > 0) { ingreso = v; fuente = "promedio"; }
+      }
+    }
+    const activos = compromisos.filter((c) => c.activo !== false), uv = uf ? uf.valor ?? null : null;
+    const propios = enMon.filter((m) => !activos.some((c) => coincide(m, c, moneda, uv)));
+    const gasto = completos.length ? Math.round(completos.reduce((a, x) => a + resumen(propios, x, hoy, pres, categorias, per).gastado, 0) / completos.length) : null;
+    const comp = vig.filter((r) => r.signo === "gasto").reduce((a, r) => a + mensualDe(r, maximoDe(r)), 0);
+    return { ingreso, fuente, gasto, meses: completos.length, compromisos: comp,
+      sin_valor: e.compromisos.filter((r) => r.original && r.original.sin_valor).length, margen: ingreso != null && gasto != null ? ingreso - gasto - comp : null };
+  }
+  const pasoCuota = (v) => (v >= 500000 ? 10000 : v >= 50000 ? 5000 : v >= 5000 ? 1000 : v >= 500 ? 100 : v >= 50 ? 10 : 1);
+  /** Cuánto pagar al mes, y en cuántos meses, a cada persona que te prestó: como máximo el 75 % del margen (ver plan_prestamos). */
+  function planPrestamos(deudas, margen, moneda = "CLP") {
+    const pagar = deudas.map((d) => calcularPrestamo(d.total, 1, d.interes || 0, moneda).pagar);
+    const disponible = margen == null ? null : Math.max(0, Math.floor(margen * USO_MARGEN / 100));
+    const cuotas = (n) => pagar.map((p) => { const paso = pasoCuota(p / n); return Math.ceil(p / (n * paso)) * paso; });
+    let elegido = null;
+    if (disponible) for (let n = 1; n <= MESES_MAX; n++) if (cuotas(n).reduce((a, c) => a + c, 0) <= disponible) { elegido = n; break; }
+    const alcanza = margen == null ? null : elegido != null;
+    const cs = cuotas(elegido || (margen == null ? MESES_SIN_DATOS : MESES_MAX));
+    const detalle = deudas.map((d, i) => {
+      const n = Math.max(1, Math.ceil(pagar[i] / cs[i])), k = calcularPrestamo(d.total, n, d.interes || 0, moneda, cs[i]);
+      return { con: d.con, total: d.total, interes: d.interes || 0, pagar: k.pagar, cuota: k.cuota, ultima: k.ultima, cuotas: n };
+    });
+    const alMes = detalle.reduce((a, x) => a + x.cuota, 0);
+    return { margen, uso: USO_MARGEN, disponible, alcanza, al_mes: alMes, meses: Math.max(...detalle.map((x) => x.cuotas)),
+      falta: alcanza === false ? Math.max(0, alMes - (disponible || 0)) : 0, deudas: detalle };
+  }
+  /** Desde cuándo se pagan las cuotas de un plan: el día después del próximo sueldo; si no, el 1 del mes que viene. */
+  function inicioPlan(per, hoy, fer) {
+    const ps = proximoSueldo(per, hoy, fer);
+    return ps ? { desde: sumarDias(ps.fecha, 1), dia: per.dia % 31 + 1 } : { desde: sumarMes(hoy.slice(0, 7), 1) + "-01", dia: 1 };
+  }
+  /** «Aún no pago la hipoteca de este mes», pero aparece pagada y el vencimiento anterior no: ese pago era del anterior. */
+  function pagoReasignable(compromisos, movimientos, cid, hoy, moneda, per = null, uf = null, mora = []) {
+    const activos = compromisos.filter((c) => c.activo !== false), c = activos.find((x) => x.id === cid);
+    if (!c) return null;
+    const [inicio, fin] = rango(periodoDe(hoy, per), per);
+    const { ocs, pagos } = asignar(activos, movimientos, fin, moneda, uf ? uf.valor ?? null : null, mora);
+    const mios = ocs.filter(([cc]) => cc === c).map(([, o]) => o);
+    const pagados = mios.map((o, i) => [o, i]).filter(([o]) => inicio <= o.vence && o.vence <= fin && pagos[`${cid}|${o.periodo}`]).map(([, i]) => i);
+    if (!pagados.length || pagados[pagados.length - 1] === 0) return null;
+    const de = mios[pagados[pagados.length - 1]], a = mios[pagados[pagados.length - 1] - 1];
+    if (pagos[`${cid}|${a.periodo}`]) return null;
+    const p = pagos[`${cid}|${de.periodo}`];
+    return { id: cid, nombre: c.nombre, de: { periodo: de.periodo, vence: de.vence }, a: { periodo: a.periodo, vence: a.vence },
+      pago: { como: p.como, fecha: p.fecha, monto: p.monto, ...(p.movimiento ? { movimiento: p.movimiento } : {}) } };
+  }
+  /** Mueve el pago del vencimiento `de` al anterior `a` (cambia `c.pagos`). Devuelve "" o el problema (igual que reasignar_pago). */
+  function reasignarPago(c, de, a, mov = null) {
+    const pagos = c.pagos && typeof c.pagos === "object" ? { ...c.pagos } : {}, d = { ...(pagos[de] || {}) }, x = { ...(pagos[a] || {}) };
+    const quitar = (o) => { for (const k of ["como", "fecha", "movimiento", "monto", "mora"]) delete o[k]; };
+    if (!(a < de)) return "Solo se puede mover a un vencimiento anterior.";
+    if (x.como) return "Ese vencimiento ya tiene un pago.";
+    if (mov) {
+      x.no_es = (x.no_es || []).filter((i) => i !== mov.id);
+      Object.assign(x, { como: "automatico", fecha: mov.fecha, movimiento: mov.id, monto: Math.abs(mov.monto) });
+      quitar(d); d.no_es = [...(d.no_es || []).filter((i) => i !== mov.id), mov.id].slice(-20);
+    } else if (d.como === "manual") {
+      Object.assign(x, { como: "manual", ...(d.fecha ? { fecha: d.fecha } : {}) }); quitar(d);
+    } else return "No hay un pago que mover.";
+    for (const [clave, v] of [[a, x], [de, d]]) {
+      if (!(v.no_es || []).length) delete v.no_es;
+      if (Object.keys(v).length) pagos[clave] = v; else delete pagos[clave];
+    }
+    c.pagos = pagos;
+    return "";
+  }
   const cat = (id) => E.categorias.find((c) => c.id === id) || { id: "", nombre: "Sin categoría", emoji: "🏷️", tipo: "gasto" };
   const nombreCat = (c) => (c.id && cat(c.id) === c ? c.nombre : tr("Sin categoría"));
   const nombreIA = () => E.ias.find((i) => i.id === E.config.ia)?.nombre || tr("tu IA");
@@ -784,10 +870,13 @@
     const raiz = $("#app");
     const scroll = $(".principal-area")?.scrollTop || 0, scrollPagina = window.scrollY || 0;
     const activo = document.activeElement, idActivo = activo?.id, cursor = activo?.selectionStart;
+    const scrollChat = $(".chat-cuerpo")?.scrollTop;
     E._per = undefined;
     raiz.innerHTML = `<div class="app">${lateral()}<main class="principal-area">${avisoActualizacion()}${principal()}</main></div>${E.picker ? pickerHTML() : ""}${avisoRegla()}${dialogos()}`;
     traducirDOM(raiz);
     const area = $(".principal-area"); if (area) area.scrollTop = scroll;
+    const chat = $(".chat-cuerpo");
+    if (chat) { if (E.chat.bajar || scrollChat == null) { chat.scrollTop = chat.scrollHeight; E.chat.bajar = false; } else chat.scrollTop = scrollChat; }
     if (scrollPagina && window.scrollY !== scrollPagina) window.scrollTo(0, scrollPagina);
     if (idActivo) { const el = document.getElementById(idActivo); if (el) { el.focus(); if (cursor != null && el.setSelectionRange) try { el.setSelectionRange(cursor, cursor); } catch {} } }
     // En la pantalla de idioma el foco parte en el sugerido: Enter ya elige.
@@ -801,6 +890,7 @@
     compromisos: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /><path d="m9 15 2 2 4-4" />',
     mas: '<circle cx="5.5" cy="12" r="1.3" /><circle cx="12" cy="12" r="1.3" /><circle cx="18.5" cy="12" r="1.3" />',
     agregar: '<path d="M12 5v14M5 12h14" />',
+    enviar: '<path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" />',
     cartola: '<path d="M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10A.5.5 0 0 1 7 20z" /><path d="M14 3.5V8h4M9.5 12.5h5M9.5 16h5" />',
     repetir: '<path d="M17 3.5 20.5 7 17 10.5" /><path d="M3.5 12V10a3 3 0 0 1 3-3h14M7 20.5 3.5 17 7 13.5" /><path d="M20.5 12v2a3 3 0 0 1-3 3h-14" />',
     presupuesto: '<circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r=".8" />',
@@ -1197,6 +1287,7 @@
       ${heroe(r, t, enCurso)}${E.mes === periodoHoy() ? lineaAlDia() : ""}${E.cifra === "queda" ? caja : ""}
       ${tres}${E.cifra !== "queda" ? caja : ""}
       ${enQueSeFue(r)}${pendientesHTML(lm.pregunta)}
+      <button class="fila-consejos fila-chat" data-accion="abrir-chat" aria-haspopup="dialog"><span class="ico chanchito">${LOGO}</span><span>Pregúntale a Alcancía</span><span class="cf-flecha" aria-hidden="true">›</span></button>
       <button class="fila-consejos" data-vista="consejos"><span class="ico">${icono("consejos", 20)}</span><span>${frase("Pídele consejos a {ia} sobre este mes", { ia: esc(nombreIA()) })}</span><span class="cf-flecha" aria-hidden="true">›</span></button></div>`;
   }
 
@@ -1793,28 +1884,111 @@
         <div class="acciones"><button class="boton sutil" data-sug-no="${esc(s.clave)}">No es</button><button class="boton principal" data-sug-agregar="${esc(s.clave)}">¿Lo agrego?</button></div></div>`).join("")).join("")}
       ${lista.length > 3 ? `<button class="enlace" data-accion="sug-todas">${E.sugTodas ? "Ver menos" : frase("Ver {n} más", { n: lista.length - 3 })}</button>` : ""}</section>`;
   }
-  /** «Un pago que se repite» (desde «+ Agregar»): con tu IA lo escribes con tus palabras; sin IA, el formulario a mano. */
-  function dialogoContar() {
-    const ia = esc(nombreIA()), k = E.compIA;
-    const atras = `<button class="boton izq" data-accion="agregar">‹ <span>Atrás</span></button>`;
-    if (!E.config.ia) {
-      return `<h2 id="t-agregar">Agrega lo que pagas seguido</h2>
-        <p class="texto-suave">El dividendo, el arriendo, el plan del celular, una suscripción o tu sueldo. Alcancía reconoce el pago en tu cartola y te recuerda lo que falta.</p>
-        <p class="nota-mcp">Con tu IA configurada (en Ajustes) también puedes escribirlo con tus palabras.</p>
-        <div class="pie-dialogo">${atras}<button class="boton principal" data-accion="comp-nuevo">＋ <span>Agregar un compromiso</span></button></div>`;
+  // ───────────── Conversar con Alcancía (el chanchito): bin/chat.py con la IA de la persona ─────────────
+  /** ¿Hay una IA elegida e instalada? (En el navegador no se sabe si está instalada: basta con la elegida.) */
+  const hayIA = () => !!E.config.ia && (E.ias || []).find((i) => i.id === E.config.ia)?.instalada !== false;
+  /** Para empezar: tocar una llena el campo con el comienzo de la frase (la persona la completa). */
+  const SUGERENCIAS_CHAT = [["Me atrasé con un pago", "Me atrasé con el pago de "], ["Ese pago era del mes pasado", "Aún no pago este mes el "],
+    ["¿Cuánto puedo pagar al mes por un préstamo?", "¿Cuánto puedo pagar al mes? Me prestaron "], ["Anotar un pago que se repite", "Pago todos los meses "]];
+  /** Lo que la app explica cuando algo que propuso la IA no se pudo preparar (bin/chat.py devuelve el código). */
+  const NOTAS_CHAT = { no_encontre: "No encontré ese pago entre los tuyos.", sin_pago_para_mover: "Revisé: no hay un pago de este mes que mover.",
+    ya_pagado: "Eso ya aparece pagado.", ya_pendiente: "Eso ya aparece pendiente.", sin_cambios: "Eso ya está así.",
+    no_aplica: "Hubo algo que no pude preparar. Si quieres, dímelo de otra forma.", descartadas: "Dejé fuera algo que no entendí bien." };
+  const estadoAccion = (m, i, j = null) => (m.estados || {})[j == null ? String(i) : `${i}.${j}`] || "";
+  const textoChat = (t) => esc(t).replace(/\n/g, "<br>");
+  const primeraCuota = (c) => (c.frecuencia && c.dia && c.desde ? vencimientos({ ...c, fecha_fin: null }, "2299-12-31").find((o) => o.n) : null);
+  /** Un compromiso propuesto, en una línea: cuánto, cuándo y quién lo paga. */
+  function lineaPropuesta(c) {
+    const partes = [];
+    if (c.tipo === "prestamo" && c.prestamo && c.cuotas_total) {
+      const m = (x) => esc(c.moneda === UF ? textoUF(x) : dinero(x, c.moneda));
+      partes.push(T(c.prestamo.ultima !== c.prestamo.cuota ? "{c} al mes por {n} meses (la última de {u})" : "{c} al mes por {n} meses",
+        { c: m(c.prestamo.cuota), n: c.cuotas_total, u: m(c.prestamo.ultima) }));
+      const o = primeraCuota(c);
+      if (o) partes.push(T("la primera el {f}", { f: esc(fechaCorta(o.vence)) }));
+    } else if (c.monto) partes.push((c.aproximado ? "≈ " : "") + esc(c.moneda === UF ? textoUF(c.monto) : dinero(c.monto, c.moneda)) + (c.frecuencia && (c.dia || c.fecha) ? " " + textoFrecuencia(c) : ""));
+    const modo = pagaLaPersona(c) ? c.pago || modoPago(c, E.palabrasAuto || []) : null;
+    if (modo) partes.push(T(modo === "automatico" ? "se paga solo" : "lo pagas tú y te aviso"));
+    return partes.join(" · ");
+  }
+  const botonesChat = (ref, opciones) => `<div class="acciones-chat">${opciones.map(([que, texto, principal]) =>
+    `<button class="boton ${principal ? "principal" : que === "no" ? "sutil" : ""}" data-sin-traducir data-chat="${que}" data-msg="${esc(ref.id)}" data-i="${ref.i}" ${ref.j != null ? `data-j="${ref.j}"` : ""}>${texto}</button>`).join("")}</div>`;
+  const hechoChat = (estado) => `<p class="accion-estado ${estado === "hecha" ? "hecha" : ""}">${estado === "hecha" ? "✓ Listo" : "Descartado"}</p>`;
+  /** Una propuesta de compromiso (crear o una del plan): «Agregar», «Cambiar» (abre el editor) o «No». */
+  function tarjetaPropuesta(m, a, i, c, j = null) {
+    const estado = estadoAccion(m, i, j), ref = { id: m.id, i, j };
+    const titulo = esc(c.nombre || (c.con ? T("Préstamo de {p}", { p: esc(c.con) }) : tr("Un pago nuevo")));
+    const pie = estado ? hechoChat(estado) : a.incompleto ? botonesChat(ref, [["cambiar", tr("Completar"), true], ["no", tr("No")]])
+      : botonesChat(ref, [["hacer", tr("Agregar"), true], ["cambiar", tr("Cambiar")], ["no", tr("No")]]);
+    return `<div class="propuesta ${estado ? "resuelta" : ""}"><span class="emoji" aria-hidden="true">${iconoComp(c)}</span>
+      <div class="txt"><b data-sin-traducir>${titulo}</b><small data-sin-traducir>${a.incompleto ? T("Me faltó algo: complétalo y lo guardo.") : lineaPropuesta(c)}</small></div>${pie}</div>`;
+  }
+  /** Lo que la IA propone, ya resuelto con código: nada se aplica solo, la persona confirma cada cosa. */
+  function tarjetaAccion(m, a, i) {
+    const ref = { id: m.id, i, j: null }, estado = estadoAccion(m, i), x = (v) => `<span class="monto-chat">${esc(dinero(v))}</span>`;
+    const caja = (html, botones) => `<div class="accion-chat ${estado ? "resuelta" : ""}"><p data-sin-traducir>${html}</p>${estado ? hechoChat(estado) : botonesChat(ref, botones)}</div>`;
+    const no = ["no", tr("No")];
+    if (a.tipo === "crear_compromiso") return `<div class="accion-chat sin-caja">${tarjetaPropuesta(m, a, i, a.compromiso)}</div>`;
+    if (a.tipo === "plan_prestamos") {
+      const p = a.plan, n = p.meses;
+      const intro = p.alcanza === null ? T("Aún no tengo meses completos para saber cuánto te queda libre, así que te propongo {n} meses. Cuando tenga más datos, lo ajustamos.", { n })
+        : p.alcanza ? T("Te quedan libres cerca de {m} al mes. Uso como máximo {d} ({u}) y el resto te queda de colchón. Así terminas en {n} meses:", { m: x(p.margen), d: x(p.disponible), u: `<span class="monto-chat">${p.uso}${E.idioma === "es" ? "\u00a0%" : "%"}</span>`, n })
+          : p.margen <= 0 ? T("Hoy lo que gastas y tus compromisos ya suman más de lo que entra (te faltan {m} al mes). Te dejo la cuota más chica posible, pero para pagarla tendrías que recortar en otra parte:", { m: x(-p.margen) })
+            : T("Con lo que te queda libre (cerca de {m} al mes) no alcanza sin apretarte: aun en {n} meses serían {t} al mes, {f} más de lo que te recomiendo. Te dejo la propuesta más liviana; si puedes, conversa un plazo más largo:", { m: x(p.margen), n, t: x(p.al_mes), f: x(p.falta) });
+      const base = p.base && p.base.ingreso != null && p.base.gasto != null ? `<small class="base-plan" data-sin-traducir>${T("Entra {i} · gastas {g} · compromisos {c}", { i: x(p.base.ingreso), g: x(p.base.gasto), c: x(p.base.compromisos) })}</small>` : "";
+      const pendientes = (a.propuestas || []).filter((c, j) => !estadoAccion(m, i, j)).length;
+      return `<div class="accion-chat plan"><p data-sin-traducir>${intro}</p>${base}
+        ${(a.propuestas || []).map((c, j) => tarjetaPropuesta(m, a, i, c, j)).join("")}
+        ${pendientes > 1 ? botonesChat(ref, [["todos", T("Agregar los {n}", { n: pendientes }), true]]) : ""}</div>`;
     }
-    return `<div class="contar"><h2 id="t-agregar"><label for="comp-texto">Cuéntale a Alcancía</label></h2>
-      <p class="texto-suave">${frase("Escríbelo como se lo dirías a alguien: «el arriendo vence el 5 de cada mes, son 450.000» o «me quedan 24 cuotas del crédito del auto, 189.000 los días 20».", {})}</p>
-      <textarea id="comp-texto" class="texto" rows="3" data-comp-texto data-sin-traducir aria-label="${esc(tr("Cuéntale a Alcancía"))}" ${k.pidiendo ? "disabled" : ""} placeholder="${esc(tr("¿Qué pagas, cuánto y cuándo?"))}">${esc(E.compTexto)}</textarea>
-      ${k.pidiendo ? `<div class="progreso">${frase("{ia} está leyendo lo que escribiste…", { ia }, "p")}<div class="barra indef"><i></i></div></div>` : ""}
-      ${k.error ? `<p class="error-txt" data-sin-traducir>${esc(k.error)}</p>` : ""}
-      <p class="nota-mcp">${frase("{ia} solo ve lo que escribes aquí, la fecha de hoy y tus categorías. Antes de guardar, te muestro cómo quedó.", { ia })}</p>
-      <div class="pie-dialogo">${atras}<button class="boton" data-accion="comp-nuevo">Agregar a mano</button>
-        <button class="boton principal" data-accion="comp-entender" ${k.pidiendo ? "disabled" : ""}>✦ <span>Entender</span></button></div></div>`;
+    const nombre = esc(a.nombre), f = (v) => esc(fechaCorta(v));
+    if (a.tipo === "reasignar_pago") return caja(T("«{c}»: el pago del {f} ({x}) era del vencimiento del {a}. Lo paso ahí y el del {d} queda pendiente.",
+      { c: nombre, f: f(a.pago.fecha), x: x(a.pago.monto), a: f(a.a.vence), d: f(a.de.vence) }), [["hacer", tr("Sí, corrígelo"), true], no]);
+    if (a.tipo === "marcar_pagado") return caja(T(a.signo === "ingreso" ? "«{c}» (del {f}): ¿lo marco como recibido?" : "«{c}» (vence el {f}): ¿lo marco como pagado?",
+      { c: nombre, f: f(a.vence) }), [["hacer", tr("Sí, márcalo"), true], no]);
+    if (a.tipo === "marcar_pendiente") return caja(T("«{c}»: quito el pago del {f} y queda pendiente (vence el {v}).", { c: nombre, f: f(a.pago.fecha), v: f(a.vence) }),
+      [["hacer", tr("Sí, déjalo pendiente"), true], no]);
+    if (a.tipo === "editar_compromiso") {
+      const valor = (k, v) => (v == null || v === "" ? "—" : k === "monto" ? x(v) : k === "pago" ? esc(tr(v === "automatico" ? "Se paga solo" : "Lo pago yo")) : k === "fecha_fin" ? f(v) : esc(v));
+      const etiqueta = { monto: tr("Monto"), dia: tr("Día"), pago: tr("Cómo se paga"), fecha_fin: tr("Termina") };
+      const cambios = Object.keys(a.cambios).map((k) => `${esc(etiqueta[k])}: ${valor(k, a.antes[k])} → <b>${valor(k, a.cambios[k])}</b>`).join(" · ");
+      return caja(T("«{c}»: {x}", { c: nombre, x: cambios }), [["hacer", tr("Sí, cámbialo"), true], ["cambiar", tr("Cambiar")], no]);
+    }
+    return "";
+  }
+  const avatarChat = () => `<span class="avatar" aria-hidden="true">${LOGO}</span>`;
+  function mensajeChat(m) {
+    if (m.rol === "persona") return `<div class="msg persona"><div class="globo" data-sin-traducir>${textoChat(m.texto)}</div></div>`;
+    const notas = (m.notas || []).filter((n) => NOTAS_CHAT[n]).map((n) => `<p class="nota-chat" data-sin-traducir>${esc(tr(NOTAS_CHAT[n]))}</p>`).join("");
+    const extra = m.sin_ia ? `<div class="acciones-chat"><button class="boton" data-accion="chat-ajustes">Abrir Ajustes</button></div>` : "";
+    return `<div class="msg alcancia ${m.error ? "error" : ""}">${avatarChat()}<div class="cuerpo-msg"><div class="globo" data-sin-traducir>${textoChat(m.texto)}</div>
+      ${(m.acciones || []).map((a, i) => tarjetaAccion(m, a, i)).join("")}${notas}${extra}</div></div>`;
+  }
+  /** «Cuéntale a Alcancía»: el chat con el chanchito. En celular ocupa toda la pantalla; el campo queda abajo, en la zona del pulgar. */
+  function dialogoChat() {
+    const k = E.chat, ia = esc(nombreIA()), msgs = k.mensajes || [], conIA = hayIA();
+    const borrar = !msgs.length ? "" : k.confirmarBorrar
+      ? `<span class="confirmar-borrar"><button class="boton sutil" data-accion="chat-no-borrar">Cancelar</button><button class="boton" data-accion="chat-borrar-si">Borrar la conversación</button></span>`
+      : `<button class="boton sutil" data-accion="chat-borrar">Borrar</button>`;
+    const cabeza = `<header class="chat-cabeza">${avatarChat()}<div class="txt"><h2 id="t-chat">Alcancía</h2><small>${frase("Con {ia}, en tu computador", { ia })}</small></div>
+      ${borrar}<button class="icono" data-accion="cerrar-agregar" aria-label="Cerrar" title="Cerrar">✕</button></header>`;
+    const hola = `<div class="msg alcancia">${avatarChat()}<div class="cuerpo-msg"><div class="globo">${frase(conIA
+      ? "¡Hola! Soy tu alcancía. Cuéntame si te atrasaste con un pago o si un pago era del mes pasado, pregúntame cuánto puedes pagar al mes, o dime algo que pagas seguido y lo anoto."
+      : "¡Hola! Soy tu alcancía. Para conversar necesito tu IA (Claude, ChatGPT o Gemini, con tu cuenta). Elígela en Ajustes: es una vez. Mientras, puedes agregar tus pagos a mano.", {})}</div>
+      ${conIA ? `<p class="nota-chat">${frase("{ia} ve tus totales y tus pagos, nunca tu cartola. Nada cambia sin que lo confirmes.", { ia })}
+        <button class="enlace" data-accion="comp-nuevo">Prefiero agregarlo a mano</button></p>` : ""}</div></div>`;
+    const sugerencias = conIA && !msgs.length && !k.pensando ? `<div class="sugerencias-chat" role="group" aria-label="Para empezar">${SUGERENCIAS_CHAT.map(([t], n) =>
+      `<button class="chip-sugerencia" data-sin-traducir data-chat-sugerencia="${n}">${esc(tr(t))}</button>`).join("")}</div>` : "";
+    const pensando = k.pensando ? `<div class="msg alcancia pensando" role="status">${avatarChat()}<div class="cuerpo-msg"><div class="globo"><span class="puntos" aria-hidden="true"><i></i><i></i><i></i></span>
+      ${frase("{ia} está pensando. Puede tardar un poco.", { ia })}</div></div></div>` : "";
+    const pie = conIA ? `<form class="chat-pie" data-chat-form><label class="oculto-accesible" for="chat-texto">Escríbele a Alcancía</label>
+        <textarea id="chat-texto" class="texto" rows="1" maxlength="500" data-chat-texto data-sin-traducir placeholder="${esc(tr("Escríbele a Alcancía…"))}" ${k.pensando ? "disabled" : ""}>${esc(k.texto)}</textarea>
+        <button class="boton principal enviar" type="button" data-accion="chat-enviar" aria-label="Enviar" title="Enviar" ${k.pensando ? "disabled" : ""}>${icono("enviar")}</button></form>`
+      : `<div class="chat-pie sin-ia"><button class="boton" data-accion="comp-nuevo">Agregar a mano</button><button class="boton principal" data-accion="chat-ajustes">Abrir Ajustes</button></div>`;
+    return `${cabeza}<div class="chat-cuerpo" role="log" aria-live="polite">${hola}${sugerencias}${msgs.map(mensajeChat).join("")}${pensando}</div>${pie}`;
   }
   /** «+ Agregar»: lo único que se agrega en Alcancía, en un solo lugar (una cartola, un pago que se repite o una cuenta conectada). */
   function dialogoAgregar() {
-    if (E.agregar === "contar") return dialogoContar();
     const op = (accion, ico, titulo, detalle, extra = "") => `<button class="opcion-agregar" ${accion} ${extra}><span class="ico">${icono(ico)}</span>
       <span class="txt"><b>${titulo}</b><small>${detalle}</small></span><span class="cf-flecha" aria-hidden="true">›</span></button>`;
     return `<h2 id="t-agregar">Agregar</h2>
@@ -1830,7 +2004,8 @@
       fecha: E.hoy, categoria: "", buscar: [], tolerancia: 5, activo: true, desde: E.hoy, origen: "manual", ...c,
       buscarTexto: (c.buscar || []).join(", "), aproxActivo: !!c.aproximado, aproxModo: c.aproximado && c.aproximado.min != null ? "rango" : "variacion",
       aproxVariacion: (c.aproximado && c.aproximado.variacion) || 3, aproxMin: c.aproximado ? c.aproximado.min || 0 : 0, aproxMax: c.aproximado ? c.aproximado.max || 0 : 0,
-      con: c.con || "", prestamoTotal: c.prestamo ? c.prestamo.total : 0, prestamoInteres: c.prestamo ? c.prestamo.interes || 0 : 0 };
+      con: c.con || "", prestamoTotal: c.prestamo ? c.prestamo.total : 0, prestamoInteres: c.prestamo ? c.prestamo.interes || 0 : 0,
+      prestamoCuota: c.prestamo ? c.prestamo.cuota || 0 : 0 };
   }
   const DECIMALES_UF = ["monto", "saldo", "aproxMin", "aproxMax"];
   /** En UF, el monto, el saldo y el rango llevan decimales («12,75»); el resto, números enteros. */
@@ -1886,7 +2061,7 @@
   function calculoPrestamo(c) {
     const total = Number(c.prestamoTotal) || 0, n = Number(c.cuotas_total) || 0, interes = Number(c.prestamoInteres) || 0;
     if (!(total > 0 && n >= 1 && n <= 1200 && interes >= 0 && interes <= 100)) return null;
-    const calc = calcularPrestamo(total, n, interes, c.moneda);
+    const calc = calcularPrestamo(total, n, interes, c.moneda, Number(c.prestamoCuota) || null);
     const borr = { ...c, monto: calc.cuota, desde: c.desde || E.hoy, fecha_fin: null, cuotas_total: n, cuotas_pagadas: Math.min(Number(c.cuotas_pagadas) || 0, n), dia: Number(c.dia) || 25 };
     const vs = c.frecuencia === "una_vez" ? [] : vencimientos(borr, "2299-12-31").filter((o) => o.n);
     return { ...calc, cuotas: n, primera: vs[0] ? vs[0].vence : null, ultimaFecha: vs.length ? vs[vs.length - 1].vence : null };
@@ -1955,7 +2130,8 @@
       if (!(Number.isInteger(n) && n >= 1 && n <= 1200)) return (k.error = tr("Falta en cuántas cuotas se paga."), null);
       const interes = Number(c.prestamoInteres) || 0;
       if (interes < 0 || interes > 100) return (k.error = tr("El interés tiene que ser un porcentaje entre 0 y 100."), null);
-      const calc = calcularPrestamo(Number(c.prestamoTotal), n, interes, limpio.moneda);
+      // Una cuota fija (la del plan de préstamos) se mantiene mientras calce con el total y las cuotas; si no, se calcula.
+      const calc = calcularPrestamo(Number(c.prestamoTotal), n, interes, limpio.moneda, Number(c.prestamoCuota) || null);
       Object.assign(limpio, { monto: calc.cuota, cuotas_total: n, cuotas_pagadas: Math.min(Number(c.cuotas_pagadas) || 0, n),
         prestamo: { total: calc.total, interes, cuota: calc.cuota, ultima: calc.ultima } });
       if (!limpio.nombre) limpio.nombre = (limpio.signo === "ingreso" ? tr("Préstamo a {p}") : tr("Préstamo de {p}")).replace("{p}", limpio.con).slice(0, 60);
@@ -2006,6 +2182,7 @@
     const k = E.compEdit;
     if (k.sugerencia) E.sugerencias = (E.sugerencias || []).filter((s) => s.clave !== k.sugerencia);
     if (E.importar && k.detectado != null) { E.importar.hechos = { ...(E.importar.hechos || {}), [k.detectado]: "agregado" }; E.importar.paso = "listo"; }
+    if (k.chat) marcarAccionChat(k.chat, "hecha", true);
     E.compEdit = null;
     toast(i >= 0 ? "Compromiso guardado" : "Listo: lo voy a reconocer en tu cartola y te recuerdo si falta");
     render();
@@ -2229,6 +2406,7 @@
     if (E.bv !== null) return capa("t-bv", bienvenida());
     if (E.ajustes) return capa("t-ajustes", dialogoAjustes());
     if (E.compEdit) return capa("t-comp", `<div class="editor-comp" id="editor-comp">${editorCompromiso()}</div>`);
+    if (E.agregar === "contar") return `<div class="capa capa-chat"><div class="dialogo dialogo-chat" role="dialog" aria-modal="true" aria-labelledby="t-chat">${dialogoChat()}</div></div>`;
     if (E.agregar) return capa("t-agregar", dialogoAgregar());
     return "";
   }
@@ -2236,9 +2414,17 @@
   // ───────────── Eventos ─────────────
   const ocupadoImportando = () => ["leyendo", "aprendiendo", "guardando"].includes(E.importar?.paso);
   document.addEventListener("click", (ev) => {
-    const el = ev.target.closest("[data-accion],[data-vista],[data-mes],[data-probar],[data-bv],[data-idioma-bv],[data-enlace],[data-respaldo],[data-consejo],[data-conectar],[data-sincronizar],[data-desconectar],[data-mcp],[data-mcp-quitar],[data-historia],[data-comp-pagado],[data-comp-noes],[data-comp-desmarcar],[data-comp-editar],[data-sug-agregar],[data-sug-no],[data-det-agregar],[data-det-no],[data-cifra],[data-cifra-abrir],[data-ir-cat],[data-elegir],[data-pick],[data-nueva-cat],[data-nueva-emoji],[data-nueva-cancelar],[data-nueva-guardar],[data-cerrar-picker],[data-saldo-editar],[data-saldo-cancelar],[data-regla-si],[data-regla-no],[data-grupo-mov],[data-sueldo],[data-mov-ver]");
+    const el = ev.target.closest("[data-accion],[data-vista],[data-mes],[data-probar],[data-bv],[data-idioma-bv],[data-enlace],[data-respaldo],[data-consejo],[data-conectar],[data-sincronizar],[data-desconectar],[data-mcp],[data-mcp-quitar],[data-historia],[data-comp-pagado],[data-comp-noes],[data-comp-desmarcar],[data-comp-editar],[data-sug-agregar],[data-sug-no],[data-det-agregar],[data-det-no],[data-cifra],[data-cifra-abrir],[data-ir-cat],[data-elegir],[data-pick],[data-nueva-cat],[data-nueva-emoji],[data-nueva-cancelar],[data-nueva-guardar],[data-cerrar-picker],[data-saldo-editar],[data-saldo-cancelar],[data-regla-si],[data-regla-no],[data-grupo-mov],[data-sueldo],[data-mov-ver],[data-chat],[data-chat-sugerencia]");
     if (!el) return;
     const d = el.dataset;
+    if (d.chat) return accionChat(d);
+    if (d.chatSugerencia != null) {
+      const s = SUGERENCIAS_CHAT[Number(d.chatSugerencia)];
+      if (!s) return;
+      E.chat.texto = tr(s[1]); render();
+      const t = $("#chat-texto"); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); }
+      return;
+    }
     if (d.movVer) { E.movVer = E.movVer === d.movVer ? null : d.movVer; render(); return $(`[data-mov-ver="${CSS.escape(d.movVer)}"]`)?.focus(); }
     if (d.grupoMov != null) { E.grupoMov = E.grupoMov === d.grupoMov ? null : d.grupoMov; render(); return $(`[data-grupo-mov="${CSS.escape(d.grupoMov)}"]`)?.focus(); }
     if (d.enlace) { ev.preventDefault(); return host.enviar("abrirEnlace", { url: d.enlace }); }
@@ -2316,7 +2502,12 @@
     switch (d.accion) {
       case "ajustes": E.ajustes = true; E.agregar = null; return render();
       case "agregar": E.agregar = "menu"; render(); return $(".opcion-agregar")?.focus();
-      case "agregar-contar": E.agregar = "contar"; E.compIA = { pidiendo: false, error: "" }; render(); return ($("#comp-texto") || $('.dialogo [data-accion="comp-nuevo"]'))?.focus();
+      case "agregar-contar": case "abrir-chat": E.agregar = "contar"; E.chat.bajar = true; E.chat.confirmarBorrar = false; render(); return ($("#chat-texto") || $('.dialogo [data-accion="chat-ajustes"]'))?.focus();
+      case "chat-enviar": return enviarChat();
+      case "chat-ajustes": E.agregar = null; E.ajustes = true; return render();
+      case "chat-borrar": E.chat.confirmarBorrar = true; render(); return $('[data-accion="chat-borrar-si"]')?.focus();
+      case "chat-no-borrar": E.chat.confirmarBorrar = false; return render();
+      case "chat-borrar-si": E.chat = { ...E.chat, mensajes: [], confirmarBorrar: false }; host.enviar("chat", { accion: "borrar" }); toast("Conversación borrada"); render(); return $("#chat-texto")?.focus();
       case "cerrar-agregar": E.agregar = null; render(); return $(".nav-agregar")?.focus();
       case "filtro-ordenar": E.filtro = { ...E.filtro, categoria: E.filtro.categoria === "__sin" ? "" : "__sin" }; render(); return $('[data-accion="filtro-ordenar"]')?.focus();
       case "ajustes-mes": E.ajustes = true; render(); return $("#inicio-modo")?.focus();
@@ -2366,11 +2557,6 @@
       case "act-despues": E.actOculto = true; return render();
       case "buscar-act": E.buscando = "buscando"; host.enviar("buscarActualizacion"); return render();
       case "comp-nuevo": E.agregar = null; E.compEdit = { c: borradorDe(), origen: "manual", error: "" }; render(); return enfocarEditor();
-      case "comp-entender": {
-        const texto = String(E.compTexto || "").trim();
-        if (texto.length < 4) { E.compIA = { pidiendo: false, error: tr("Cuéntame qué pagas, cuánto y cuándo.") }; return render(); }
-        E.compIA = { pidiendo: true, error: "" }; host.enviar("compromisoIA", { texto, hoy: E.hoy }); return render();
-      }
       case "comp-guardar": return guardarCompromiso(false);
       case "comp-despues": return guardarCompromiso(true);
       case "comp-cancelar":
@@ -2398,7 +2584,7 @@
     if (ds.buscarCat) { estadoElegidor(ds.buscarCat).buscar = ev.target.value; return render(); }
     if (ds.nuevaNombre) { const k = estadoElegidor(ds.nuevaNombre); k.nueva = { ...k.nueva, nombre: ev.target.value, error: "" }; return render(); }
     if (ds.saldoInput) { E.saldoEdit = { cuenta: ds.saldoInput, texto: ev.target.value.replace(/[^\d\-]/g, "").replace(/(?!^)-/g, "") }; ev.target.value = E.saldoEdit.texto ? (E.saldoEdit.texto.startsWith("-") ? "-" : "") + numeroPlano(Math.abs(Number(E.saldoEdit.texto)) || 0) : ""; return; }
-    if (ds.compTexto != null) { E.compTexto = ev.target.value; return; }
+    if (ds.chatTexto != null) { E.chat.texto = ev.target.value; return; }
     if (ds.ce && E.compEdit && ev.target.tagName === "INPUT") {
       const numerico = ["monto", "cuotas_total", "cuotas_pagadas", "saldo", "aproxMin", "aproxMax", "prestamoTotal"].includes(ds.ce);
       E.compEdit.c[ds.ce] = conDecimales(ds.ce) || ds.ce === "aproxVariacion" || ds.ce === "prestamoInteres" ? numeroDecimal(ev.target.value)
@@ -2490,6 +2676,8 @@
   });
   document.addEventListener("keydown", (ev) => {
     const t = ev.target, ds = t?.dataset || {};
+    // En el chat, Enter manda y Mayúscula + Enter hace un salto de línea.
+    if (ev.key === "Enter" && ds.chatTexto != null && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); return enviarChat(); }
     if (ev.key === "Enter" && (ds.buscarCat || ds.nuevaNombre)) {
       ev.preventDefault();
       const lugar = ds.buscarCat || ds.nuevaNombre, k = estadoElegidor(lugar), m = movDe(lugar);
@@ -2518,6 +2706,7 @@
     if (E.aprender) { E.aprender = null; return render(); }
   });
   document.addEventListener("submit", (ev) => {
+    if (ev.target.dataset?.chatForm != null) { ev.preventDefault(); return enviarChat(); }
     const cuenta = ev.target.dataset?.saldoForm;
     if (cuenta == null) return;
     ev.preventDefault();
@@ -2552,6 +2741,68 @@
     $("#t-bv")?.focus();
   }
   function enfocarEditor() { const el = $("#editor-comp"); if (el) { el.scrollIntoView?.({ block: "start" }); $("#ce-nombre")?.focus(); } }
+  /** Manda lo que escribió la persona (con los últimos mensajes, para que la IA tenga el hilo). La respuesta llega a chatRespuesta. */
+  function enviarChat() {
+    const k = E.chat, texto = String(k.texto || "").trim().slice(0, 500);
+    if (k.pensando || texto.length < 2) return $("#chat-texto")?.focus();
+    k.mensajes = [...k.mensajes, { id: "local-" + Date.now(), rol: "persona", texto, fecha: E.hoy, local: true }];
+    Object.assign(k, { texto: "", pensando: true, bajar: true, confirmarBorrar: false });
+    host.enviar("chat", { accion: "enviar", hoy: E.hoy, mensajes: k.mensajes.filter((m) => !m.error).slice(-10).map((m) => ({ rol: m.rol, texto: m.texto })) });
+    render();
+  }
+  /** Se recuerda lo que la persona hizo con cada acción (en .alcancia/chat.json), para no volver a ofrecerla. */
+  function marcarAccionChat(ref, estado, sinPintar = false) {
+    const m = E.chat.mensajes.find((x) => x.id === ref.id);
+    if (!m) return;
+    m.estados = { ...(m.estados || {}), [ref.j == null ? String(ref.i) : `${ref.i}.${ref.j}`]: estado };
+    if (!String(m.id).startsWith("local")) host.enviar("chat", { accion: "marcar", id: m.id, i: ref.i, ...(ref.j == null ? {} : { j: ref.j }), estado });
+    if (!sinPintar) render();
+  }
+  function agregarCompromisoChat(c) {
+    const lista = listaCompromisos();
+    if (lista.some((x) => x.id === c.id)) return;
+    E.compromisos.compromisos = [...lista, { ...c, pagos: {} }];
+    host.enviar("compromiso", { accion: "guardar", hoy: E.hoy, compromiso: { ...c } });
+  }
+  /** «Agregar», «Sí, corrígelo», «Cambiar» (abre el editor con la propuesta) o «No». Se pinta al tiro y se guarda por el puente de siempre. */
+  function accionChat(d) {
+    const m = E.chat.mensajes.find((x) => x.id === d.msg), i = Number(d.i), j = d.j != null && d.j !== "" ? Number(d.j) : null;
+    const a = m && (m.acciones || [])[i];
+    if (!a) return;
+    const ref = { id: m.id, i, j };
+    if (d.chat === "no") return marcarAccionChat(ref, "no");
+    if (d.chat === "todos") {
+      (a.propuestas || []).forEach((c, jj) => { if (!estadoAccion(m, i, jj)) { agregarCompromisoChat(c); marcarAccionChat({ id: m.id, i, j: jj }, "hecha", true); } });
+      toast("Listo: te aviso antes de cada cuota"); return render();
+    }
+    const c = a.tipo === "plan_prestamos" ? (a.propuestas || [])[j] : a.compromiso;
+    if (d.chat === "cambiar") {
+      E.compEdit = { c: borradorDe(c), origen: "ia", error: a.incompleto ? a.error || tr("Me faltó algo: complétalo y lo guardo.") : "", chat: ref };
+      render(); return enfocarEditor();
+    }
+    if (a.tipo === "crear_compromiso" || a.tipo === "plan_prestamos") { agregarCompromisoChat(c); toast(c.tipo === "prestamo" ? "Listo: te aviso antes de cada cuota" : "Listo: lo voy a reconocer en tu cartola y te recuerdo si falta"); }
+    else if (a.tipo === "reasignar_pago") {
+      const comp = listaCompromisos().find((x) => x.id === a.id), mov = a.pago.movimiento ? E.movimientos.find((x) => x.id === a.pago.movimiento) : null;
+      const problema = comp ? reasignarPago(comp, a.de.periodo, a.a.periodo, mov || null) : tr("No encontré ese pago entre los tuyos.");
+      if (problema) { toast(problema); return; }
+      host.enviar("compromiso", { accion: "reasignar", id: a.id, de: a.de.periodo, a: a.a.periodo, movimiento: a.pago.movimiento || "", hoy: E.hoy });
+      toast("Corregido: ese pago quedó en el mes pasado");
+    } else if (a.tipo === "marcar_pagado") marcarCompromiso({ compPagado: `${a.id}|${a.periodo}` });
+    else if (a.tipo === "marcar_pendiente") marcarCompromiso(a.pago.como === "automatico" && a.pago.movimiento ? { compNoes: `${a.id}|${a.periodo}|${a.pago.movimiento}` } : { compDesmarcar: `${a.id}|${a.periodo}` });
+    else if (a.tipo === "editar_compromiso") {
+      const lista = listaCompromisos(), k = lista.findIndex((x) => x.id === a.id);
+      if (k < 0) return;
+      lista[k] = { ...a.compromiso, pagos: lista[k].pagos || {}, desde: lista[k].desde };
+      host.enviar("compromiso", { accion: "guardar", hoy: E.hoy, compromiso: { ...a.compromiso } });
+      toast("Compromiso guardado");
+    }
+    marcarAccionChat(ref, "hecha");
+  }
+  /** La conversación guardada (estado.py) manda, pero lo que la persona acaba de confirmar en esta pantalla no se pierde. */
+  function mezclarChat(guardados, actuales) {
+    const porId = new Map(actuales.map((m) => [m.id, m]));
+    return guardados.map((m) => (porId.get(m.id)?.estados ? { ...m, estados: { ...(m.estados || {}), ...porId.get(m.id).estados } } : m));
+  }
   /** «Ya lo pagué», «Desmarcar» y «No es este»: se pinta al tiro y se guarda en compromisos.json por guardar.py. */
   function marcarCompromiso(d) {
     const [id, periodo, mov] = (d.compPagado || d.compDesmarcar || d.compNoes).split("|");
@@ -2611,6 +2862,7 @@
         cuentas: e.cuentas || [], version: e.version || "", carpeta: e.carpeta || "", actualizacion: e.actualizacion || { hay: false },
         conectores: e.conectores || [], conexiones: e.conexiones || {}, vigilar: e.vigilar || { activo: false, recientes: [] }, iaExterna: e.ia_externa || [],
         compromisos: e.compromisos || { compromisos: [], descartados: [] }, sugerencias: e.sugerencias || [], feriados: e.feriados || [], palabrasMora: e.palabras_mora || [], palabrasAuto: e.palabras_automatico || [] });
+      if (!E.chat.pensando) E.chat.mensajes = mezclarChat(Array.isArray(e.chat) ? e.chat : [], E.chat.mensajes);
       if (!E.presupuesto.moneda) E.presupuesto.moneda = E.config.moneda || "CLP";
       sueldoSolo();
       E._per = undefined;
@@ -2624,14 +2876,14 @@
       if (e.aviso) toast(e.aviso);
       render();
     },
-    /** Lo que entendió tu IA. Si algo falló, igual se abre la tarjeta con lo que sí entendió y el error en simple, para corregirlo. */
-    compromisoEntendido(r) {
-      E.compIA = { pidiendo: false, error: "" }; E.agregar = null;
-      const c = r.ok && r.compromiso ? r.compromiso : { ...(r.parcial || {}), origen: "ia" };
-      E.compEdit = { c: borradorDe(c), origen: "ia", error: r.ok ? "" : r.error || tr("No pude entenderlo del todo: complétalo aquí y guárdalo.") };
-      if (r.ok) E.compTexto = "";
+    /** La respuesta de Alcancía (bin/chat.py). Si la IA falló, igual llega un mensaje honesto: nunca queda sin respuesta. */
+    chatRespuesta(r) {
+      const k = E.chat, i = k.mensajes.map((m) => !!m.local).lastIndexOf(true);
+      k.pensando = false; k.bajar = true;
+      if (i >= 0) k.mensajes[i] = r.persona || { ...k.mensajes[i], local: false };
+      k.mensajes = [...k.mensajes, r.mensaje || { id: "local-e" + Date.now(), rol: "alcancia", texto: r.error || tr("No pude responder. Inténtalo de nuevo."), error: true, sin_ia: !!r.sin_ia }];
       render();
-      enfocarEditor();
+      if (E.agregar === "contar") $("#chat-texto")?.focus();
     },
     iaProbada(r) { delete E.probando[r.id]; E.resultadoIA[r.id] = r; if (r.ok) { E.config.ia = r.id; toast("Lista para usar"); } render(); },
     cartolaElegida(r) {
@@ -2694,7 +2946,8 @@
       if ((r.sin_receta || []).length) toast(T("Descargaste «{x}», pero todavía no sé leerla. Agrégala a mano y tu IA aprende.", { x: r.sin_receta[0] }));
     },
     _probar(f) { f(E); render(); },
-    _pruebas: { calcularPrestamo, resumen, historia, redondearArriba, presupuestoSugerido, reglaPara, estadoCompromisos, gastoMaximo, rango, periodoDe, periodoConfig, detectarSueldo, reglaHabil, proximoSueldo, correrHabil, moraDelAnio, loQueTienes, loQueDebes, cargos, modoPago },
+    _pruebas: { calcularPrestamo, resumen, historia, redondearArriba, presupuestoSugerido, reglaPara, estadoCompromisos, gastoMaximo, rango, periodoDe, periodoConfig, detectarSueldo, reglaHabil, proximoSueldo, correrHabil, moraDelAnio, loQueTienes, loQueDebes, cargos, modoPago,
+      margenMensual, planPrestamos, inicioPlan, pagoReasignable, reasignarPago },
   };
 
   // ───────────── Vista previa en el navegador (datos ficticios de demo.json) ─────────────
@@ -2743,7 +2996,12 @@
       case "desconectar": delete DEMO.conexiones[d.conector]; return;
       case "vigilar": DEMO.vigilar.activo = d.activo; return;
       case "avisos": DEMO.config.avisos = d.activo; return;
-      case "compromisoIA": return luego(900, () => A.compromisoEntendido(entenderSimulado(d.texto)));
+      case "chat": {
+        DEMO.chat = DEMO.chat || [];
+        if (d.accion === "borrar") { DEMO.chat = []; return; }
+        if (d.accion === "marcar") { const m = DEMO.chat.find((x) => x.id === d.id); if (m) m.estados = { ...(m.estados || {}), [d.j == null ? String(d.i) : `${d.i}.${d.j}`]: d.estado }; return; }
+        return luego(1400, () => { const r = chatSimulado(d); if (r.ok) DEMO.chat.push(r.persona, r.mensaje); A.chatRespuesta(r); });
+      }
       case "compromiso": {
         const lista = DEMO.compromisos.compromisos, c = lista.find((x) => x.id === d.id);
         if (d.accion === "guardar") { const i = lista.findIndex((x) => x.id === d.compromiso.id); const n = { pagos: {}, ...(i >= 0 ? lista[i] : {}), ...d.compromiso }; if (i >= 0) lista[i] = n; else lista.push(n); }
@@ -2757,6 +3015,49 @@
       case "buscarActualizacion": return luego(500, () => A.actualizacionRevisada({ hay: false }));
       case "actualizar": { let n = 1; const iv = setInterval(() => { A.actualizacionProgreso({ paso: String(n), texto: ["", "Descargando la versión nueva…", "Preparando la versión nueva…", "Instalando: Alcancía se cerrará y volverá a abrirse sola"][n], pct: n * 33 }); if (++n > 3) clearInterval(iv); }, 700); return; }
     }
+  }
+
+  /** En la vista previa: responde como lo haría bin/chat.py con una IA, con la misma lógica (margen, plan, pago del mes pasado). */
+  function chatSimulado(d) {
+    const ms = d.mensajes || [], texto = String((ms[ms.length - 1] || {}).texto || ""), n = normalizar(texto), hoy = E.hoy, moneda = monedaPrincipal();
+    const idChat = () => "m-" + nuevoIdComp().slice(2);
+    const persona = { id: idChat(), rol: "persona", texto, fecha: hoy };
+    const responder = (respuesta, acciones = [], notas = []) => ({ ok: true, persona, mensaje: { id: idChat(), rol: "alcancia", texto: respuesta, acciones, notas, estados: {}, fecha: hoy } });
+    const lista = listaCompromisos(), activos = lista.filter((c) => c.activo !== false);
+    // ¿De qué compromiso habla? Por su nombre o sus palabras, con sinónimos simples (hipoteca = dividendo).
+    let nn = n;
+    for (const [a, b] of [["HIPOTECA", "DIVIDENDO"], ["HIPOTECARIO", "DIVIDENDO"], ["ALQUILER", "ARRIENDO"], ["ELECTRICIDAD", "LUZ"]]) nn = nn.replace(new RegExp(`\\b${a}\\b`, "g"), b);
+    const delQue = activos.find((c) => [c.nombre, ...(c.buscar || [])].some((p) => normalizar(p).split(/\s+/).some((w) => w.length > 3 && nn.includes(w))));
+    if (/PREST/.test(n) && !/\bEN \d+ (MESES|CUOTAS)\b/.test(n)) {
+      const deudas = [...texto.matchAll(/(?<!\p{L})(?:mi|el|la)\s+((?:t[ií][oa]\s+)?\p{L}+)\s+(?:me\s+prest[oó]\s+)?(\d+(?:[.,]\d+)?)\s*(m|millones?|palos?|lucas?|mil)\b/giu)]
+        .map((x) => ({ con: x[1].split(/\s+/).map((w) => primeraMayuscula(w.toLowerCase())).join(" "), total: Number(x[2].replace(",", ".")) * (/^(m|millon|palo)/i.test(x[3]) ? 1e6 : 1e3), interes: 0 }));
+      if (!deudas.length) return responder(tr("¿Quién te prestó y cuánto? Por ejemplo: «mi mamá me prestó 1,5 millones»."));
+      const mg = margenMensual(lista, E.movimientos, hoy, E.categorias, moneda, per(), ufCfg(), E.palabrasAuto || []);
+      const plan = { ...planPrestamos(deudas.slice(0, 4), mg.margen, moneda), base: { ingreso: mg.ingreso, fuente: mg.fuente, gasto: mg.gasto, meses: mg.meses, compromisos: mg.compromisos } };
+      const ini = inicioPlan(per(), hoy, E.feriados || []);
+      const propuestas = plan.deudas.map((x) => {
+        const c = { id: nuevoIdComp(), nombre: tr("Préstamo de {p}").replace("{p}", x.con), con: x.con, tipo: "prestamo", signo: "gasto", moneda, monto: x.cuota, frecuencia: "mensual", dia: ini.dia,
+          categoria: "", buscar: [], tolerancia: TOLERANCIA, cuotas_total: x.cuotas, cuotas_pagadas: 0, prestamo: { total: x.total, interes: x.interes, cuota: x.cuota, ultima: x.ultima },
+          pago: "manual", activo: true, desde: ini.desde, origen: "ia" };
+        const o = vencimientos(c, "2299-12-31").filter((v) => v.n);
+        return { ...c, fecha_fin: o[o.length - 1].vence };
+      });
+      return responder(tr("Veamos cuánto te cabe al mes sin salirte de tus gastos."), [{ tipo: "plan_prestamos", plan, propuestas }]);
+    }
+    if (/\b(AUN NO|TODAVIA NO|NO HE PAGADO|NO LO HE PAGADO|MES PASADO)\b/.test(n)) {
+      if (!delQue) return responder(tr("¿De cuál pago me hablas? No lo encontré entre los tuyos."));
+      const r = pagoReasignable(lista, E.movimientos, delQue.id, hoy, moneda, per(), ufCfg(), E.palabrasMora || []);
+      if (r) return responder(tr("Entonces ese pago era del mes pasado y el de este mes sigue pendiente. ¿Lo corrijo?"), [{ tipo: "reasignar_pago", ...r }]);
+      return responder(tr("Lo tengo pendiente: te aviso antes de que venza."), [], ["sin_pago_para_mover"]);
+    }
+    if (/\bYA (LO |LA )?PAGUE\b/.test(n) && delQue) {
+      const i = estadoDelMes(periodoHoy()).items.find((x) => x.id === delQue.id && x.estado !== "pagado");
+      if (!i) return responder(tr("Eso ya aparece pagado."));
+      return responder(tr("¡Bien! ¿Lo marco como pagado?"), [{ tipo: "marcar_pagado", id: i.id, nombre: i.nombre, periodo: i.periodo, vence: i.vence, signo: i.signo }]);
+    }
+    const r = entenderSimulado(texto);
+    if (r.ok) return responder(tr("Lo anoto para recordártelo. Revísalo y agrégalo."), [{ tipo: "crear_compromiso", compromiso: { ...r.compromiso, id: nuevoIdComp() } }]);
+    return responder(tr("Casi: me faltó algo para anotarlo."), [{ tipo: "crear_compromiso", compromiso: { ...r.parcial, origen: "ia" }, incompleto: true, error: r.error }]);
   }
 
   /** En la vista previa: entiende lo básico del texto (monto, día, cuotas) para mostrar la tarjeta, como haría tu IA. */

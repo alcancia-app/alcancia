@@ -8,6 +8,8 @@ Reconocer el pago, el estado del mes, el avance de las deudas, los montos aproxi
 igual en ui/app.js (`vencimientos`, `coincide`, `asignar`, `valoresUF`, `enMoneda`, `modoPago`, `estadoCompromisos`, `gastoMaximo`) y se
 prueban juntos con pruebas/casos.json.
 Si cambias una regla, cambia los dos lados y el caso. Validar y sugerir (detectar en la cartola) solo viven aquí.
+Lo que usa la conversación con Alcancía (bin/chat.py) también vive en los dos lados: `margen_mensual`, `plan_prestamos`,
+`inicio_plan`, `pago_reasignable` y `reasignar_pago` (casos en «chat»).
 
   compromisos.py avisos <hoy AAAA-MM-DD> <salida.json>   lo que hay que avisar hoy (la app de Mac manda el aviso del sistema)
 """
@@ -24,6 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import categorizar  # noqa: E402
 import datos  # noqa: E402
 from resumen import cargos, cuotas_de, dias_del_mes, inicio_nominal, periodo_de, periodos_con_datos, rango, redondear_arriba, sumar_mes, valor_cuota  # noqa: E402
+from resumen import resumen as resumen_periodo  # noqa: E402
 
 RUTA = os.path.join(datos.BASE, "compromisos.json")
 RUTA_AVISOS = os.path.join(datos.INTERNO, "avisos.json")
@@ -157,12 +160,16 @@ def limpiar_con(t):
     return re.sub(r"\s+", " ", re.sub(r"\d", " ", limpiar_nombre(t))).strip()[:30].strip()
 
 
-def calcular_prestamo(total, cuotas, interes=0, moneda="CLP"):
+def calcular_prestamo(total, cuotas, interes=0, moneda="CLP", cuota=None):
     """Un préstamo entre personas: lo que se paga en total (con interés simple opcional, % sobre el total), la cuota de cada mes
-    y la última, que ajusta el redondeo. Igual que calcularPrestamo en ui/app.js. 1.000.000 en 3 → 333.333, 333.333 y 333.334."""
+    y la última, que ajusta el redondeo. Igual que calcularPrestamo en ui/app.js. 1.000.000 en 3 → 333.333, 333.333 y 333.334.
+    `cuota`: una cuota fija y redonda (la que propone el plan de préstamos, p. ej. 170.000) si calza con las cuotas: al menos lo
+    justo (total ÷ cuotas, hacia abajo), no más que el total y sin que las cuotas anteriores a la última ya lo paguen todo. Entonces
+    la última es lo que falta (1.500.000 en 12 de 130.000 → la última de 70.000). Si no calza, se calcula como siempre."""
     escala = 10000 if moneda == UF else 1
     pagar = redondear(total * (1 + interes / 100) * escala)
-    cuota = pagar // cuotas
+    fija = redondear(cuota * escala) if isinstance(cuota, (int, float)) and not isinstance(cuota, bool) and cuota > 0 else None
+    cuota = fija if fija is not None and pagar // cuotas <= fija <= pagar and fija * (cuotas - 1) < pagar else pagar // cuotas
     ultima = pagar - cuota * (cuotas - 1)
     a = (lambda x: x / escala) if escala > 1 else (lambda x: int(x))
     return {"total": total, "interes": interes, "pagar": a(pagar), "cuota": a(cuota), "ultima": a(ultima)}
@@ -290,7 +297,7 @@ def validar(c, ids_categorias, hoy, moneda="CLP", estricto=False):
         if interes is None:
             errores.append("El interés tiene que ser un porcentaje entre 0 y 100.")
         if total is not None and r.get("cuotas_total") and interes is not None:
-            calc = calcular_prestamo(total, r["cuotas_total"], interes, r["moneda"])
+            calc = calcular_prestamo(total, r["cuotas_total"], interes, r["moneda"], _numero(pr.get("cuota"), 0, 1e12, decimales))
             r["prestamo"] = {k: calc[k] for k in ("total", "interes", "cuota", "ultima")}
             r["monto"] = calc["cuota"]
     if c.get("fecha_fin") is not None and not prestamo:
@@ -1306,6 +1313,154 @@ def mora_del_anio(compromisos, movimientos, hoy, moneda, uf=None, mora=None):
     activos = [c for c in compromisos if c.get("activo", True)]
     _, pagos, _ = asignar(activos, movimientos, hoy, moneda, (uf or {}).get("valor"), mora)
     return redondear(sum(p["mora"]["monto"] for p in pagos.values() if p.get("mora") and p["fecha"][:4] == hoy[:4] and p["fecha"] <= hoy))
+
+
+# ───────────── Para conversar con Alcancía: margen, plan de préstamos y «ese pago era del mes pasado» (igual que ui/app.js) ─────────────
+#: El plan de préstamos usa como máximo este % del margen mensual: el resto queda de colchón para imprevistos.
+USO_MARGEN = 75
+#: Ningún plan pasa de estos meses; sin datos para calcular el margen, se propone a MESES_SIN_DATOS.
+MESES_MAX, MESES_SIN_DATOS = 60, 12
+
+
+def _vigente(r, hoy):
+    """Un compromiso (de estado_mes()["compromisos"]) que sigue pagándose cada mes: no es de una sola vez ni terminó."""
+    if r["frecuencia"] == "una_vez" or (r.get("cuotas") and r["cuotas"]["quedan"] == 0):
+        return False
+    return not r.get("termina") or r["termina"] >= hoy
+
+
+def margen_mensual(compromisos, movimientos, hoy, categorias, moneda, per=None, uf=None, auto=None):
+    """Cuánto queda libre en un mes normal: margen = ingreso típico − gasto típico − compromisos al mes. Igual que margenMensual.
+    - Ingreso típico: los compromisos de tipo `ingreso` (el sueldo anotado o detectado) al mes, por su mínimo si varían; si no hay,
+      el promedio de lo que entró en los últimos 3 periodos completos (sin lo de «Entre mis cuentas»). Lo que te deben no cuenta.
+    - Gasto típico: el promedio de «Lo que gastaste» en esos mismos periodos, sin los movimientos que son pagos de un compromiso
+      (los que calzan con alguno: `coincide`), para no contarlos dos veces.
+    - Compromisos al mes: los gastos que siguen vigentes (no los de una vez ni los ya terminados), por su máximo si varían; en UF
+      con el valor estimado (los que aún no se pueden estimar no entran y se cuentan en `sin_valor`).
+    Sin periodos completos o sin ingreso conocido, `margen` es None."""
+    mes = periodo_de(hoy, per)
+    en_moneda_ = [m for m in movimientos if (m.get("moneda") or moneda) == moneda]
+    completos = [x for x in periodos_con_datos(en_moneda_, per) if x < mes][-3:]
+    e = estado_mes(compromisos, movimientos, mes, hoy, moneda, per, uf, None, auto)
+    vig = [r for r in e["compromisos"] if r["moneda"] == moneda and _vigente(r, hoy)]
+    pres = {"moneda": moneda, "mensual": {}}
+    ingreso, fuente = sum(_mensual(r, _minimo(r)) for r in vig if r["signo"] == "ingreso" and r["tipo"] == "ingreso"), "compromisos"
+    if ingreso <= 0:
+        ingreso, fuente = None, ""
+        if completos:
+            v = redondear(sum(resumen_periodo(en_moneda_, x, hoy, pres, categorias, per)["ingresos"] for x in completos) / len(completos))
+            ingreso, fuente = (v, "promedio") if v > 0 else (None, "")
+    activos = [c for c in compromisos if c.get("activo", True)]
+    uv = (uf or {}).get("valor")
+    propios = [m for m in en_moneda_ if not any(coincide(m, c, moneda, uv) for c in activos)]
+    gasto = redondear(sum(resumen_periodo(propios, x, hoy, pres, categorias, per)["gastado"] for x in completos) / len(completos)) if completos else None
+    comp = sum(_mensual(r, _maximo(r)) for r in vig if r["signo"] == "gasto")
+    margen = ingreso - gasto - comp if ingreso is not None and gasto is not None else None
+    return {"ingreso": ingreso, "fuente": fuente, "gasto": gasto, "meses": len(completos), "compromisos": comp,
+            "sin_valor": sum(1 for r in e["compromisos"] if r["original"] and r["original"]["sin_valor"]), "margen": margen}
+
+
+def paso_cuota(v):
+    """Una cuota fácil de recordar: a 10.000 desde 500.000, a 5.000 desde 50.000, a 1.000 desde 5.000 (y a 100, 10 o 1 más abajo)."""
+    for tope, paso in ((500000, 10000), (50000, 5000), (5000, 1000), (500, 100), (50, 10)):
+        if v >= tope:
+            return paso
+    return 1
+
+
+def plan_prestamos(deudas, margen, moneda="CLP"):
+    """Cuánto pagar al mes, y en cuántos meses, a cada persona que te prestó (igual que planPrestamos en ui/app.js).
+    `deudas`: [{"con", "total", "interes"?}]. Se usa como máximo USO_MARGEN % del margen mensual (`disponible`; el resto es colchón).
+    Se busca el menor número de meses N (hasta MESES_MAX) en que las cuotas, cada una redondeada hacia arriba (paso_cuota) desde
+    lo que se debe ÷ N, caben en lo disponible: así todas terminan más o menos juntas y cada una pesa según lo que se debe.
+    Cada deuda va en ⌈lo que se debe ÷ su cuota⌉ meses, con la última más chica (calcular_prestamo con la cuota fija).
+    Si no cabe ni en MESES_MAX meses (o el margen no alcanza), `alcanza` es False, se propone a MESES_MAX meses (la cuota más chica)
+    y `falta` dice cuánto se pasa al mes. Sin margen conocido, `alcanza` es None y se propone a MESES_SIN_DATOS meses."""
+    pagar = [calcular_prestamo(d["total"], 1, d.get("interes") or 0, moneda)["pagar"] for d in deudas]
+    disponible = None if margen is None else max(0, margen * USO_MARGEN // 100)
+
+    def cuotas(n):
+        return [math.ceil(p / (n * paso_cuota(p / n))) * paso_cuota(p / n) for p in pagar]
+    elegido = None
+    if disponible:
+        elegido = next((n for n in range(1, MESES_MAX + 1) if sum(cuotas(n)) <= disponible), None)
+    alcanza = None if margen is None else elegido is not None
+    cs = cuotas(elegido or (MESES_SIN_DATOS if margen is None else MESES_MAX))
+    detalle = []
+    for d, p, c in zip(deudas, pagar, cs):
+        n = max(1, math.ceil(p / c))
+        k = calcular_prestamo(d["total"], n, d.get("interes") or 0, moneda, c)
+        detalle.append({"con": d["con"], "total": d["total"], "interes": d.get("interes") or 0, "pagar": k["pagar"], "cuota": k["cuota"],
+                        "ultima": k["ultima"], "cuotas": n})
+    al_mes = sum(x["cuota"] for x in detalle)
+    return {"margen": margen, "uso": USO_MARGEN, "disponible": disponible, "alcanza": alcanza, "al_mes": al_mes,
+            "meses": max(x["cuotas"] for x in detalle), "falta": max(0, al_mes - (disponible or 0)) if alcanza is False else 0, "deudas": detalle}
+
+
+def inicio_plan(per, hoy, feriados_):
+    """Desde cuándo y qué día se pagan las cuotas de un plan: el día después del próximo sueldo (si el mes va de sueldo a sueldo);
+    si no, el 1 del mes que viene. {"desde": "AAAA-MM-DD", "dia": 1–31}. Igual que inicioPlan en ui/app.js."""
+    ps = proximo_sueldo(per, hoy, feriados_)
+    if ps:
+        return {"desde": _fecha(_num(ps["fecha"]) + 1), "dia": per["dia"] % 31 + 1}
+    return {"desde": sumar_mes(hoy[:7], 1) + "-01", "dia": 1}
+
+
+def pago_reasignable(compromisos, movimientos, cid, hoy, moneda, per=None, uf=None, mora=None):
+    """«La hipoteca de este mes aún no la pago», pero aparece pagada: ese pago era del vencimiento anterior. Devuelve qué mover si
+    el último vencimiento de este periodo tiene pago y el anterior no; si no, None. Igual que pagoReasignable en ui/app.js.
+    {"id", "nombre", "de": {"periodo", "vence"}, "a": {"periodo", "vence"}, "pago": {"como", "fecha", "monto", "movimiento"?}}"""
+    activos = [c for c in compromisos if c.get("activo", True)]
+    c = next((x for x in activos if x["id"] == cid), None)
+    if not c:
+        return None
+    inicio, fin = rango(periodo_de(hoy, per), per)
+    ocs, pagos, _ = asignar(activos, movimientos, fin, moneda, (uf or {}).get("valor"), mora)
+    mios = [o for cc, o in ocs if cc is c]
+    pagados = [i for i, o in enumerate(mios) if inicio <= o["vence"] <= fin and f"{cid}|{o['periodo']}" in pagos]
+    if not pagados or pagados[-1] == 0:
+        return None
+    de, a = mios[pagados[-1]], mios[pagados[-1] - 1]
+    if f"{cid}|{a['periodo']}" in pagos:
+        return None
+    p = pagos[f"{cid}|{de['periodo']}"]
+    return {"id": cid, "nombre": c["nombre"], "de": {"periodo": de["periodo"], "vence": de["vence"]},
+            "a": {"periodo": a["periodo"], "vence": a["vence"]},
+            "pago": {"como": p["como"], "fecha": p["fecha"], "monto": p["monto"], **({"movimiento": p["movimiento"]} if p.get("movimiento") else {})}}
+
+
+def reasignar_pago(c, de, a, mov=None):
+    """Mueve el pago del vencimiento `de` al anterior `a` en un compromiso tal como está en el archivo (lo cambia ahí mismo).
+    Con un movimiento (`mov`, el de la cartola): `a` queda pagado con ese movimiento y `de` sin pago, con el movimiento en `no_es`
+    (así no se vuelve a reconocer ahí). Sin movimiento, lo marcado a mano («ya lo pagué») pasa a `a`. Usa el formato de siempre
+    de `pagos` (README): lo marcado así manda sobre lo que se reconoce solo. Devuelve "" o el problema. Igual que reasignarPago."""
+    pagos = c.get("pagos") if isinstance(c.get("pagos"), dict) else {}
+    d, x = dict(pagos.get(de) or {}), dict(pagos.get(a) or {})
+    if not a < de:
+        return "Solo se puede mover a un vencimiento anterior."
+    if x.get("como"):
+        return "Ese vencimiento ya tiene un pago."
+    if mov:
+        x["no_es"] = [i for i in x.get("no_es") or [] if i != mov["id"]]
+        x.update({"como": "automatico", "fecha": mov["fecha"], "movimiento": mov["id"], "monto": abs(mov["monto"])})
+        for k in ("como", "fecha", "movimiento", "monto", "mora"):
+            d.pop(k, None)
+        d["no_es"] = ([i for i in d.get("no_es") or [] if i != mov["id"]] + [mov["id"]])[-20:]
+    elif d.get("como") == "manual":
+        x.update({"como": "manual", **({"fecha": d["fecha"]} if d.get("fecha") else {})})
+        for k in ("como", "fecha", "movimiento", "monto", "mora"):
+            d.pop(k, None)
+    else:
+        return "No hay un pago que mover."
+    for clave, v in ((a, x), (de, d)):
+        if not v.get("no_es"):
+            v.pop("no_es", None)
+        if v:
+            pagos[clave] = v
+        else:
+            pagos.pop(clave, None)
+    c["pagos"] = pagos
+    return ""
 
 
 # ───────────── Avisos (la app de Mac los muestra como notificaciones del sistema) ─────────────

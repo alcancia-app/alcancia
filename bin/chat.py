@@ -1,0 +1,392 @@
+"""Conversar con Alcancía: un chat con la alcancía (la IA de la persona) para contarle lo que pasa con sus pagos y pedirle consejos.
+Solo biblioteca estándar.
+
+  chat.py enviar <entrada.json> <salida.json>   entrada: {"hoy": "AAAA-MM-DD", "mensajes": [{"rol": "persona"|"alcancia", "texto"}]}
+  chat.py borrar <entrada.json> <salida.json>   borra la conversación guardada
+  chat.py marcar <entrada.json> <salida.json>   {"id": "<mensaje>", "i": <n° de acción>, "j"?: <propuesta>, "estado": "hecha"|"no"}
+
+Lo que escribe la persona llega en un archivo de entrada, nunca como argumento (los argumentos de un proceso los puede ver
+cualquier programa del computador). Los últimos 10 mensajes pasan por `limpiar_texto` (sin RUT ni números de cuenta).
+
+**Lo que ve la IA** (lo arma `contexto`, calculado por código, nunca la cartola): el periodo y los días que quedan, el ingreso típico,
+el gasto típico sin compromisos, el total de compromisos al mes y el margen (`compromisos.margen_mensual`), las tres cifras en totales,
+y por cada compromiso: una referencia opaca (C1, C2…), su nombre, tipo, monto o rango, frecuencia y día, si se paga solo, sus
+palabras para reconocerlo, cuotas, el estado de este periodo y sus últimos 3 pagos (fecha, monto y a qué vencimiento se asignaron).
+Nunca descripciones de movimientos, ids internos ni números de cuenta.
+
+La IA responde {"respuesta", "acciones"}; se valida estricto y cada acción se resuelve con código (lista blanca): crear_compromiso,
+plan_prestamos (cuotas y meses los calcula compromisos.plan_prestamos), reasignar_pago, marcar_pagado, marcar_pendiente y
+editar_compromiso. **Nada se aplica solo:** la interfaz muestra cada acción para que la persona la confirme.
+
+La conversación se guarda solo en el computador: ~/Alcancia/.alcancia/chat.json (los últimos 50 mensajes, ya limpios).
+"""
+import json
+import os
+import re
+import sys
+import uuid
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import compromiso_ia  # noqa: E402
+import compromisos as K  # noqa: E402
+import consejos  # noqa: E402
+import datos  # noqa: E402
+import ia  # noqa: E402
+import resumen  # noqa: E402
+
+RUTA = os.path.join(datos.INTERNO, "chat.json")
+#: Mensajes que se guardan, turnos que ve la IA y largos máximos.
+GUARDADOS, TURNOS, LARGO_PERSONA, LARGO_RESPUESTA = 50, 10, 500, 1200
+#: Acciones que puede proponer la IA y los campos de cada una (cualquier otro campo hace que esa acción no sirva).
+ACCIONES = {"crear_compromiso": {"tipo", "compromiso"}, "plan_prestamos": {"tipo", "deudas"}, "reasignar_pago": {"tipo", "compromiso"},
+            "marcar_pagado": {"tipo", "compromiso"}, "marcar_pendiente": {"tipo", "compromiso"},
+            "editar_compromiso": {"tipo", "compromiso", "cambios"}}
+MAX_ACCIONES, MAX_DEUDAS, MAX_COMPROMISOS = 4, 4, 30
+CAMBIOS = ("monto", "dia", "pago", "fecha_fin")
+
+
+# ───────────── Conversación guardada (solo en este computador) ─────────────
+def historial():
+    h = datos.leer_json(RUTA, {})
+    lista = h.get("mensajes") if isinstance(h, dict) else None
+    return [m for m in lista if isinstance(m, dict) and m.get("rol") in ("persona", "alcancia")][-GUARDADOS:] if isinstance(lista, list) else []
+
+
+def guardar(lista):
+    datos.escribir_json(RUTA, {"formato": 1, "mensajes": lista[-GUARDADOS:]})
+
+
+def nuevo_id():
+    return "m-" + uuid.uuid4().hex[:10]
+
+
+# ───────────── Lo que ve la IA ─────────────
+def _n(x):
+    """Un monto para la IA: con punto de miles («450.000»); con decimales, con coma («12,75»)."""
+    if isinstance(x, float) and x != int(x):
+        return f"{x:.4f}".rstrip("0").replace(".", ",")
+    return f"{int(round(x)):,}".replace(",", ".")
+
+
+def _monto(r):
+    if r.get("original") and r["original"]["sin_valor"]:
+        return f"{_n(r['original']['monto'])} UF (aún sin valor en pesos)"
+    texto = _n(r["monto"])
+    if r.get("rango"):
+        texto = f"cerca de {texto} (entre {_n(r['rango']['min'])} y {_n(r['rango']['max'])})"
+    if r.get("original"):
+        texto = f"{_n(r['original']['monto'])} UF ≈ {texto}"
+    return texto
+
+
+def _frecuencia(c):
+    f = c["frecuencia"]
+    return {"mensual": f"cada mes, el día {c.get('dia')}", "semanal": f"cada semana (día {c.get('dia')}, 1 = lunes)",
+            "anual": f"cada año, el {str(c.get('fecha'))[5:]}", "una_vez": f"una vez, el {c.get('fecha')}"}[f]
+
+
+def _estado(i):
+    if i["estado"] == "pagado":
+        return f"pagado el {i['pago']['fecha']} ({_n(i['pago']['monto'])})"
+    if i["estado"] == "pendiente":
+        return f"pendiente (faltan {i['dias']} días)"
+    if i["estado"] == "hoy":
+        return "vence hoy, sin pago"
+    if i["estado"] == "esperando":
+        return "se paga solo; aún no aparece el cargo"
+    return f"atrasado {i['dias']} días, sin pago"
+
+
+class Ctx:
+    """Todo lo que se calcula una vez por mensaje: sirve para armar el contexto y para resolver las acciones."""
+
+    def __init__(self, hoy):
+        self.hoy = hoy
+        self.cfg = datos.config()
+        pais = self.cfg.get("pais") or "CL"
+        self.moneda = datos.presupuesto().get("moneda") or self.cfg["moneda"]
+        self.movs = datos.leer_todos()
+        self.categorias = datos.categorias()
+        self.ids_cat = {c["id"] for c in self.categorias}
+        self.lista = K.validos(None, hoy, self.moneda)
+        self.activos = [c for c in self.lista if c.get("activo", True)][:MAX_COMPROMISOS]
+        self.per, self.mes = K.periodo_actual(hoy, self.movs, self.lista)
+        self.desde, self.hasta = resumen.rango(self.mes, self.per)
+        self.uf, self.auto, self.mora = K.uf_config(self.cfg), K.palabras_automatico(pais), K.palabras_mora(pais)
+        self.feriados = K.feriados(pais)
+        self.estado = K.estado_mes(self.lista, self.movs, self.mes, hoy, self.moneda, self.per, self.uf, self.mora, self.auto)
+        self.ocs, self.pagos, _ = K.asignar(self.activos, self.movs, self.hasta, self.moneda, (self.uf or {}).get("valor"), self.mora)
+        self.margen = K.margen_mensual(self.lista, self.movs, hoy, self.categorias, self.moneda, self.per, self.uf, self.auto)
+        self.refs = {f"C{n + 1}": c["id"] for n, c in enumerate(self.activos)}
+
+    def reasignable(self, cid):
+        return K.pago_reasignable(self.lista, self.movs, cid, self.hoy, self.moneda, self.per, self.uf, self.mora)
+
+
+def contexto(x):
+    """El texto con lo mínimo que la IA necesita para conversar (ver el docstring del módulo). Solo totales y compromisos."""
+    m = x.margen
+    quedan = max(0, resumen._dias(x.hoy, x.hasta) + 1) if x.desde <= x.hoy <= x.hasta else 0
+    lineas = [f"Hoy es {x.hoy}. Moneda: {x.moneda} (montos con punto de miles).",
+              f"Su mes va del {x.desde} al {x.hasta}" + (" (de sueldo a sueldo)" if x.per else " (mes calendario)") + f"; quedan {quedan} días."]
+    ps = K.proximo_sueldo(x.per, x.hoy, x.feriados)
+    if ps:
+        lineas.append(f"Próximo sueldo: cerca del {ps['fecha']}.")
+    lineas.append(f"Ingreso típico al mes: {_n(m['ingreso'])} ({'lo que tiene anotado como ingresos' if m['fuente'] == 'compromisos' else 'promedio de lo que entró'})."
+                  if m["ingreso"] is not None else "Ingreso típico al mes: aún no lo sé (no hay sueldo anotado ni meses completos).")
+    lineas.append(f"Gasto típico al mes, sin contar sus compromisos: {_n(m['gasto'])} (promedio de {m['meses']} meses)."
+                  if m["gasto"] is not None else "Gasto típico al mes: aún no lo sé (no hay meses completos).")
+    lineas.append(f"Compromisos al mes (lo que paga seguido, lo más que podría ser): {_n(m['compromisos'])}."
+                  + (f" Hay {m['sin_valor']} en UF sin valor en pesos (no están sumados)." if m["sin_valor"] else ""))
+    lineas.append(f"Margen mensual (ingreso típico − gasto típico − compromisos): {_n(m['margen'])}." if m["margen"] is not None
+                  else "Margen mensual: aún no se puede calcular.")
+    r = resumen.resumen(x.movs, x.mes, x.hoy, {"moneda": x.moneda, "mensual": {}}, x.categorias, x.per)
+    lineas.append(consejos.linea_tres_cifras(x.hoy, x.movs, {"moneda": x.moneda}, x.lista, x.per)
+                  + f" En este mes lleva gastado {_n(r['gastado'])}.")
+    nombres_cat = {c["id"]: c["nombre"] for c in x.categorias}
+    resumenes = {r_["id"]: r_ for r_ in x.estado["compromisos"]}
+    comp = []
+    for ref, cid in x.refs.items():
+        c = next(cc for cc in x.activos if cc["id"] == cid)
+        r_ = resumenes.get(cid) or {"monto": c["monto"], "rango": None, "original": None, "cuotas": None}
+        modo = K.modo_pago(c, x.auto)
+        partes = [f"{ref} · «{c['nombre']}»", c["tipo"] + (" (le pagan)" if c["signo"] == "ingreso" else ""), _monto(r_), _frecuencia(c)]
+        if modo:
+            partes.append("se paga solo" if modo == "automatico" else "lo paga la persona")
+        if c.get("con"):
+            partes.append(f"le debe a {c['con']}" if c["signo"] == "gasto" else f"{c['con']} le debe")
+        if r_.get("cuotas"):
+            partes.append(f"quedan {r_['cuotas']['quedan']} de {r_['cuotas']['total']} cuotas")
+        if c.get("buscar"):
+            partes.append("en la cartola dice: " + ", ".join(c["buscar"][:3]))
+        if c.get("categoria") in nombres_cat:
+            partes.append(f"categoría {nombres_cat[c['categoria']]}")
+        comp.append(" · ".join(partes))
+        for i in x.estado["items"]:
+            if i["id"] == cid:
+                comp.append(f"   {'mes anterior' if i['anterior'] else 'este mes'}: vence {i['vence']}, {_estado(i)}")
+        venc = {o["periodo"]: o["vence"] for cc, o in x.ocs if cc["id"] == cid}
+        pagos = sorted(((p["fecha"], venc.get(k.split("|", 1)[1], ""), p["monto"]) for k, p in x.pagos.items() if k.split("|", 1)[0] == cid), reverse=True)[:3]
+        if pagos:
+            comp.append("   últimos pagos: " + "; ".join(f"{f} ({_n(mo)}) → vencimiento del {v}" for f, v, mo in pagos))
+        mover = x.reasignable(cid)
+        if mover:
+            comp.append(f"   ojo: si dice que el de este mes aún no lo paga, el pago del {mover['pago']['fecha']} era del vencimiento del "
+                        f"{mover['a']['vence']} (que no tiene pago): propone reasignar_pago.")
+    lineas += ["", "Sus compromisos (pagos que se repiten):"] + (comp or ["- (no ha anotado ninguno)"])
+    return "\n".join(lineas)
+
+
+def prompt(x, mensajes):
+    conversacion = "\n".join(("Persona" if m["rol"] == "persona" else "Alcancía") + f": «{m['texto']}»" for m in mensajes[:-1])
+    return f"""Eres Alcancía, la alcancía (un chanchito) de una app de finanzas personales. Conversas con la persona dueña de la app:
+cercana, cálida, honesta y práctica, con frases cortas y sin sermones. Responde en el idioma en que te escribe. No inventes datos:
+usa solo lo de abajo y, si algo no está, dilo. No recomiendes productos financieros, bancos ni inversiones.
+
+Lo que sé de sus finanzas (lo calculó la app):
+{contexto(x)}
+
+Conversación anterior:
+{conversacion or '(es el primer mensaje)'}
+
+Último mensaje de la persona: «{mensajes[-1]['texto']}»
+
+Responde SOLO con un objeto JSON, sin nada antes ni después: {{"respuesta": "...", "acciones": [...]}}
+- respuesta: de 1 a 4 frases cortas para la persona.
+- acciones: de 0 a 3 de esta lista. Nada se aplica solo: la app le muestra cada una para que la confirme. Para referirte a un
+  compromiso usa su referencia (C1, C2…), nunca otra cosa.
+  1. {{"tipo": "crear_compromiso", "compromiso": {{...}}}}: cuando cuenta algo que paga o recibe seguido y no está en la lista.
+     Campos del compromiso (usa solo estos; los que no sepas, déjalos fuera):
+{compromiso_ia.campos(x.categorias, x.moneda)}
+  2. {{"tipo": "plan_prestamos", "deudas": [{{"con": "Mamá", "total": 1500000, "interes": 0}}]}}: cuando le prestaron plata
+     personas (familia, amigos) y pregunta cuánto puede pagar al mes o en cuántos meses. Una deuda por persona; «interes» solo si lo
+     dice. No calcules cuotas ni meses ni los pongas en la respuesta: la app los calcula con su margen y le muestra la propuesta.
+     Si una deuda ya está en sus compromisos, no la repitas.
+  3. {{"tipo": "reasignar_pago", "compromiso": "C1"}}: cuando dice que algo de este mes aún no lo paga (o que un pago era del mes
+     pasado) y ese compromiso aparece pagado este mes. Entiende sinónimos: dividendo = hipoteca = crédito hipotecario; luz =
+     electricidad; arriendo = alquiler.
+  4. {{"tipo": "marcar_pagado", "compromiso": "C1"}}: cuando dice que ya pagó algo que aparece pendiente o atrasado.
+  5. {{"tipo": "marcar_pendiente", "compromiso": "C1"}}: cuando algo aparece pagado y dice que no lo ha pagado, y no hay un
+     vencimiento anterior sin pago (si lo hay, usa reasignar_pago).
+  6. {{"tipo": "editar_compromiso", "compromiso": "C1", "cambios": {{"monto": 0, "dia": 0, "pago": "manual", "fecha_fin": "AAAA-MM-DD"}}}}:
+     cuando cambia algo de un compromiso (solo los campos que cambian).
+  Si se atrasó con algo, dile con calma qué falta y cuándo vence; si hay interés por mora, menciónalo."""
+
+
+# ───────────── Validar lo que responde la IA y resolver las acciones con código ─────────────
+def validar_respuesta(texto):
+    """(respuesta o None si no sirve, acciones válidas, cuántas se descartaron). Estricto: un objeto con «respuesta» (texto) y
+    «acciones» (lista, opcional), nada más. Las acciones que no están en la lista blanca o traen campos de más se descartan."""
+    j = compromiso_ia.leer_json(texto)
+    if j is None or set(j) - {"respuesta", "acciones"} or not isinstance(j.get("respuesta"), str):
+        return None, [], 0
+    respuesta = re.sub(r"[\x00-\x08\x0b-\x1f\x7f]", " ", j["respuesta"]).strip()[:LARGO_RESPUESTA]
+    if not respuesta:
+        return None, [], 0
+    crudas = j.get("acciones", [])
+    if not isinstance(crudas, list):
+        return None, [], 0
+    buenas, malas = [], 0
+    for a in crudas[:MAX_ACCIONES]:
+        if isinstance(a, dict) and a.get("tipo") in ACCIONES and set(a) == ACCIONES[a["tipo"]]:
+            buenas.append(a)
+        else:
+            malas += 1
+    return respuesta, buenas, malas + max(0, len(crudas) - MAX_ACCIONES)
+
+
+def _sin_pagos(c):
+    return {k: v for k, v in c.items() if k != "pagos"}
+
+
+def resolver(a, x):
+    """(acción para la interfaz, nota). La nota es un código que la interfaz explica («no_aplica», «sin_pago_para_mover»…)."""
+    t = a["tipo"]
+    if t == "crear_compromiso":
+        if not isinstance(a["compromiso"], dict):
+            return None, "no_aplica"
+        p = K.completar_prestamo(a["compromiso"], x.cfg)
+        limpio, problemas = K.validar(p, x.ids_cat, x.hoy, x.moneda, estricto=True)
+        if limpio:
+            return {"tipo": t, "compromiso": {**_sin_pagos(limpio), "origen": "ia"}}, None
+        # Nunca sin salida: lo que sí se entendió va a la tarjeta, para completarlo en el editor.
+        return {"tipo": t, "compromiso": {**K.parcial(p, x.ids_cat, x.moneda, x.cfg), "origen": "ia"}, "incompleto": True,
+                "error": " ".join(problemas[:3])}, None
+    if t == "plan_prestamos":
+        deudas = []
+        for d in a["deudas"] if isinstance(a["deudas"], list) else []:
+            if not isinstance(d, dict) or set(d) - {"con", "total", "interes"}:
+                continue
+            con, total = K.limpiar_con(d.get("con")), K._numero(d.get("total"), 0, 1e12)
+            interes = K._numero(d.get("interes", 0) or 0, -0.01, 100.01)
+            if con and total and interes is not None:
+                deudas.append({"con": con, "total": total, "interes": interes})
+        if not deudas:
+            return None, "no_aplica"
+        plan = K.plan_prestamos(deudas[:MAX_DEUDAS], x.margen["margen"], x.moneda)
+        ini = K.inicio_plan(x.per, x.hoy, x.feriados)
+        propuestas = []
+        for d in plan["deudas"]:
+            c, _ = K.validar({"tipo": "prestamo", "con": d["con"], "signo": "gasto", "prestamo": {"total": d["total"], "interes": d["interes"], "cuota": d["cuota"]},
+                              "cuotas_total": d["cuotas"], "frecuencia": "mensual", "dia": ini["dia"], "desde": ini["desde"], "pago": "manual",
+                              "origen": "ia"}, x.ids_cat, x.hoy, x.moneda)
+            if c:
+                propuestas.append(_sin_pagos(c))
+        plan["base"] = {k: x.margen[k] for k in ("ingreso", "fuente", "gasto", "meses", "compromisos")}
+        return {"tipo": t, "plan": plan, "propuestas": propuestas}, None
+    cid = x.refs.get(str(a["compromiso"]).strip().upper())
+    c = next((cc for cc in x.activos if cc["id"] == cid), None)
+    if not c:
+        return None, "no_encontre"
+    mover = x.reasignable(cid) if t in ("reasignar_pago", "marcar_pendiente") else None
+    if mover:  # «aún no la pago» con un pago este mes y el anterior sin pago: era del mes pasado (aunque la IA dijera otra cosa)
+        return {"tipo": "reasignar_pago", **mover}, None
+    if t == "reasignar_pago":
+        t = "marcar_pendiente"  # no hay un vencimiento anterior sin pago: lo que queda es dejar este pendiente (si está pagado)
+    items = [i for i in x.estado["items"] if i["id"] == cid]
+    if t == "marcar_pagado":
+        i = next((i for i in items if i["estado"] != "pagado"), None)
+        if not i:
+            return None, "ya_pagado"
+        return {"tipo": t, "id": cid, "nombre": c["nombre"], "periodo": i["periodo"], "vence": i["vence"], "signo": c["signo"]}, None
+    if t == "marcar_pendiente":
+        i = next((i for i in reversed(items) if i["estado"] == "pagado" and not i["anterior"]), None)
+        if not i:
+            return None, "sin_pago_para_mover" if a["tipo"] == "reasignar_pago" else "ya_pendiente"
+        return {"tipo": t, "id": cid, "nombre": c["nombre"], "periodo": i["periodo"], "vence": i["vence"],
+                "pago": {k: i["pago"][k] for k in ("como", "fecha", "monto", "movimiento") if k in i["pago"]}}, None
+    # editar_compromiso: cambios acotados sobre lo guardado (sus pagos y desde se mantienen al guardar).
+    cambios = a["cambios"] if isinstance(a["cambios"], dict) else {}
+    cambios = {k: v for k, v in cambios.items() if k in CAMBIOS and not (k == "monto" and c["tipo"] == "prestamo")}
+    if not cambios:
+        return None, "no_aplica"
+    limpio, _ = K.validar({**c, **cambios}, x.ids_cat, x.hoy, x.moneda)
+    if not limpio:
+        return None, "no_aplica"
+    antes = {k: c.get(k) for k in cambios}
+    nuevos = {k: limpio.get(k) for k in cambios}
+    if antes == nuevos:
+        return None, "sin_cambios"
+    return {"tipo": t, "id": cid, "nombre": c["nombre"], "antes": antes, "cambios": nuevos, "compromiso": _sin_pagos(limpio)}, None
+
+
+def enviar(entrada):
+    """Un mensaje de la persona → la respuesta de Alcancía. Nunca deja a la persona sin respuesta: si la IA falla o responde mal,
+    devuelve un mensaje honesto (y lo guarda) en vez de nada."""
+    hoy = str(entrada.get("hoy") or "")
+    if not K._fecha_valida(hoy):
+        return {"ok": False, "error": "Fecha inválida."}
+    crudos = entrada.get("mensajes") if isinstance(entrada.get("mensajes"), list) else []
+    mensajes = []
+    for m in crudos[-TURNOS:]:
+        if isinstance(m, dict) and m.get("rol") in ("persona", "alcancia") and isinstance(m.get("texto"), str):
+            largo = LARGO_PERSONA if m["rol"] == "persona" else LARGO_RESPUESTA
+            texto = compromiso_ia.limpiar_texto(m["texto"], largo)
+            if texto:
+                mensajes.append({"rol": m["rol"], "texto": texto})
+    if not mensajes or mensajes[-1]["rol"] != "persona" or len(mensajes[-1]["texto"]) < 2:
+        return {"ok": False, "error": "Escríbeme algo y te respondo."}
+    if not ia.instalada():
+        return {"ok": False, "sin_ia": True, "error": f"Para conversar necesito tu IA y no encontré {ia.nombre()} en este computador. "
+                                                       "Revisa en Ajustes → Tu IA."}
+    lista = historial()
+    persona = {"id": nuevo_id(), "rol": "persona", "texto": mensajes[-1]["texto"], "fecha": hoy}
+    x = Ctx(hoy)
+    respuesta, error = ia.preguntar(prompt(x, mensajes), timeout=240)
+    acciones, notas = [], []
+    if not error:
+        texto, crudas, descartadas = validar_respuesta(respuesta)
+        if texto is None:
+            error = f"{ia.nombre()} no respondió como esperaba. Inténtalo de nuevo con otras palabras."
+        else:
+            for a in crudas:
+                r, nota = resolver(a, x)
+                if r:
+                    acciones.append(r)
+                if nota and nota not in notas:
+                    notas.append(nota)
+            if descartadas:
+                notas.append("descartadas")
+    if error:
+        mensaje = {"id": nuevo_id(), "rol": "alcancia", "texto": error, "error": True, "fecha": hoy}
+        guardar(lista + [persona, mensaje])
+        return {"ok": False, "error": error, "persona": persona, "mensaje": mensaje}
+    mensaje = {"id": nuevo_id(), "rol": "alcancia", "texto": texto, "acciones": acciones, "notas": notas, "estados": {}, "fecha": hoy}
+    guardar(lista + [persona, mensaje])
+    return {"ok": True, "persona": persona, "mensaje": mensaje}
+
+
+def marcar(entrada):
+    """La persona confirmó («hecha») o descartó («no») una acción (`i`; en un plan, también la propuesta `j`): se recuerda para no
+    volver a ofrecerla."""
+    lista = historial()
+    m = next((m for m in lista if m.get("id") == entrada.get("id") and m.get("rol") == "alcancia"), None)
+    acciones = (m.get("acciones") or []) if m else []
+    i, j = entrada.get("i"), entrada.get("j")
+    entero = lambda v, n: not isinstance(v, bool) and isinstance(v, int) and 0 <= v < n
+    if not entero(i, len(acciones)) or entrada.get("estado") not in ("hecha", "no"):
+        return {"ok": False, "error": "No encontré esa acción."}
+    if j is not None and not entero(j, len(acciones[i].get("propuestas") or [])):
+        return {"ok": False, "error": "No encontré esa acción."}
+    m["estados"] = {**(m.get("estados") if isinstance(m.get("estados"), dict) else {}), (f"{i}.{j}" if j is not None else str(i)): entrada["estado"]}
+    guardar(lista)
+    return {"ok": True}
+
+
+def borrar(_entrada=None):
+    try:
+        os.remove(RUTA)
+    except FileNotFoundError:
+        pass
+    return {"ok": True}
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 4 or sys.argv[1] not in ("enviar", "borrar", "marcar"):
+        print(__doc__)
+        sys.exit(2)
+    e = datos.leer_json(sys.argv[2], {})
+    e = e if isinstance(e, dict) else {}
+    r = {"enviar": enviar, "borrar": borrar, "marcar": marcar}[sys.argv[1]](e)
+    datos.escribir_json(sys.argv[3], r)
+    print(json.dumps(r, ensure_ascii=False)[:400])

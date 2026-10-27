@@ -5713,7 +5713,121 @@
      }
     ]
    }
-  }
+  },
+  "calcular_cuota": [
+   [
+    1500000,
+    12,
+    0,
+    "CLP",
+    130000,
+    {
+     "total": 1500000,
+     "interes": 0,
+     "pagar": 1500000,
+     "cuota": 130000,
+     "ultima": 70000
+    }
+   ],
+   [
+    4000000,
+    17,
+    0,
+    "CLP",
+    240000,
+    {
+     "total": 4000000,
+     "interes": 0,
+     "pagar": 4000000,
+     "cuota": 240000,
+     "ultima": 160000
+    }
+   ],
+   [
+    1500000,
+    12,
+    0,
+    "CLP",
+    120000,
+    {
+     "total": 1500000,
+     "interes": 0,
+     "pagar": 1500000,
+     "cuota": 125000,
+     "ultima": 125000
+    }
+   ],
+   [
+    1500000,
+    12,
+    0,
+    "CLP",
+    140000,
+    {
+     "total": 1500000,
+     "interes": 0,
+     "pagar": 1500000,
+     "cuota": 125000,
+     "ultima": 125000
+    }
+   ],
+   [
+    1500000,
+    1,
+    0,
+    "CLP",
+    1500000,
+    {
+     "total": 1500000,
+     "interes": 0,
+     "pagar": 1500000,
+     "cuota": 1500000,
+     "ultima": 1500000
+    }
+   ],
+   [
+    1500000,
+    11,
+    10,
+    "CLP",
+    150000,
+    {
+     "total": 1500000,
+     "interes": 10,
+     "pagar": 1650000,
+     "cuota": 150000,
+     "ultima": 150000
+    }
+   ],
+   [
+    30,
+    7,
+    0,
+    "UF",
+    4.5,
+    {
+     "total": 30,
+     "interes": 0,
+     "pagar": 30.0,
+     "cuota": 4.5,
+     "ultima": 3.0
+    }
+   ],
+   [
+    1000000,
+    3,
+    0,
+    "CLP",
+    333333,
+    {
+     "total": 1000000,
+     "interes": 0,
+     "pagar": 1000000,
+     "cuota": 333333,
+     "ultima": 333334
+    }
+   ]
+  ]
  },
  "sueldo": {
   "_nota": "Detectar el sueldo, días hábiles y el próximo sueldo (compromisos.detectar_sueldo / regla_habil / proximo_sueldo ↔ detectarSueldo / reglaHabil / proximoSueldo; resumen.rango con `hoy` = esperando el sueldo). Feriados de bin/feriados.json.",
@@ -8755,5 +8869,1468 @@
     }
    }
   ]
+ },
+ "chat": {
+  "_nota": "Conversar con Alcancía (bin/chat.py ↔ ui/app.js): margen mensual (compromisos.margen_mensual ↔ margenMensual), plan de préstamos (plan_prestamos ↔ planPrestamos, usa como máximo el 75 % del margen), desde cuándo se pagan (inicio_plan ↔ inicioPlan), «ese pago era del mes pasado» (pago_reasignable ↔ pagoReasignable, reasignar_pago ↔ reasignarPago) y el estado del mes después de moverlo. Datos ficticios.",
+  "categorias": [
+   {
+    "id": "supermercado",
+    "nombre": "Supermercado",
+    "emoji": "🛒",
+    "tipo": "gasto"
+   },
+   {
+    "id": "comida",
+    "nombre": "Comida fuera y delivery",
+    "emoji": "🍔",
+    "tipo": "gasto"
+   },
+   {
+    "id": "transporte",
+    "nombre": "Transporte",
+    "emoji": "🚌",
+    "tipo": "gasto"
+   },
+   {
+    "id": "auto",
+    "nombre": "Auto y bencina",
+    "emoji": "⛽",
+    "tipo": "gasto"
+   },
+   {
+    "id": "casa",
+    "nombre": "Casa",
+    "emoji": "🏠",
+    "tipo": "gasto",
+    "fijo": true
+   },
+   {
+    "id": "cuentas",
+    "nombre": "Cuentas básicas",
+    "emoji": "💡",
+    "tipo": "gasto",
+    "fijo": true
+   },
+   {
+    "id": "salud",
+    "nombre": "Salud",
+    "emoji": "💊",
+    "tipo": "gasto"
+   },
+   {
+    "id": "educacion",
+    "nombre": "Educación",
+    "emoji": "📚",
+    "tipo": "gasto",
+    "fijo": true
+   },
+   {
+    "id": "suscripciones",
+    "nombre": "Suscripciones",
+    "emoji": "📺",
+    "tipo": "gasto",
+    "fijo": true
+   },
+   {
+    "id": "compras",
+    "nombre": "Compras",
+    "emoji": "🛍️",
+    "tipo": "gasto"
+   },
+   {
+    "id": "ocio",
+    "nombre": "Panoramas",
+    "emoji": "🎉",
+    "tipo": "gasto"
+   },
+   {
+    "id": "mascotas",
+    "nombre": "Mascotas",
+    "emoji": "🐾",
+    "tipo": "gasto"
+   },
+   {
+    "id": "intereses",
+    "nombre": "Intereses y cargos",
+    "emoji": "🧾",
+    "tipo": "gasto"
+   },
+   {
+    "id": "otros",
+    "nombre": "Otros gastos",
+    "emoji": "📦",
+    "tipo": "gasto"
+   },
+   {
+    "id": "sueldo",
+    "nombre": "Sueldo",
+    "emoji": "💼",
+    "tipo": "ingreso"
+   },
+   {
+    "id": "otros_ingresos",
+    "nombre": "Otros ingresos",
+    "emoji": "💰",
+    "tipo": "ingreso"
+   },
+   {
+    "id": "transferencia",
+    "nombre": "Entre mis cuentas",
+    "emoji": "🔁",
+    "tipo": "neutro"
+   }
+  ],
+  "compromisos": [
+   {
+    "id": "c-sueldo0001",
+    "nombre": "Sueldo",
+    "tipo": "ingreso",
+    "signo": "ingreso",
+    "moneda": "CLP",
+    "monto": 1500000,
+    "frecuencia": "mensual",
+    "dia": 25,
+    "categoria": "sueldo",
+    "buscar": [
+     "REMUNERACION"
+    ],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-07-25",
+    "origen": "manual",
+    "pagos": {}
+   },
+   {
+    "id": "c-dividend01",
+    "nombre": "Dividendo",
+    "tipo": "deuda",
+    "signo": "gasto",
+    "moneda": "CLP",
+    "monto": 450000,
+    "frecuencia": "mensual",
+    "dia": 5,
+    "categoria": "casa",
+    "buscar": [
+     "DIVIDENDO"
+    ],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-08-01",
+    "origen": "manual",
+    "pagos": {}
+   },
+   {
+    "id": "c-agua000001",
+    "nombre": "Agua",
+    "tipo": "cuenta",
+    "signo": "gasto",
+    "moneda": "CLP",
+    "monto": 15000,
+    "aproximado": {
+     "variacion": 10
+    },
+    "frecuencia": "mensual",
+    "dia": 3,
+    "categoria": "cuentas",
+    "buscar": [
+     "AGUA"
+    ],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-08-01",
+    "origen": "manual",
+    "pagos": {}
+   },
+   {
+    "id": "c-gimnasio01",
+    "nombre": "Gimnasio",
+    "tipo": "suscripcion",
+    "signo": "gasto",
+    "moneda": "CLP",
+    "monto": 25000,
+    "frecuencia": "mensual",
+    "dia": 3,
+    "categoria": "",
+    "buscar": [],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-08-01",
+    "origen": "manual",
+    "pagos": {
+     "2026-10": {
+      "como": "manual",
+      "fecha": "2026-10-04"
+     }
+    }
+   },
+   {
+    "id": "c-viaje00001",
+    "nombre": "Pasaje",
+    "tipo": "otro",
+    "signo": "gasto",
+    "moneda": "CLP",
+    "monto": 300000,
+    "frecuencia": "una_vez",
+    "fecha": "2026-12-10",
+    "categoria": "",
+    "buscar": [],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-10-01",
+    "origen": "manual",
+    "pagos": {}
+   }
+  ],
+  "movimientos": [
+   {
+    "id": "m001",
+    "fecha": "2026-07-25",
+    "descripcion": "REMUNERACION EMPRESA EJEMPLO",
+    "monto": 1500000,
+    "moneda": "CLP",
+    "categoria": "sueldo",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m002",
+    "fecha": "2026-08-25",
+    "descripcion": "REMUNERACION EMPRESA EJEMPLO",
+    "monto": 1500000,
+    "moneda": "CLP",
+    "categoria": "sueldo",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m003",
+    "fecha": "2026-08-02",
+    "descripcion": "SUPERMERCADO DEL BARRIO",
+    "monto": -75000,
+    "moneda": "CLP",
+    "categoria": "supermercado",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m004",
+    "fecha": "2026-08-03",
+    "descripcion": "DELIVERY RAPIDITO",
+    "monto": -24990,
+    "moneda": "CLP",
+    "categoria": "comida",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m005",
+    "fecha": "2026-08-09",
+    "descripcion": "SUPERMERCADO DEL BARRIO",
+    "monto": -75000,
+    "moneda": "CLP",
+    "categoria": "supermercado",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m006",
+    "fecha": "2026-08-10",
+    "descripcion": "DELIVERY RAPIDITO",
+    "monto": -24990,
+    "moneda": "CLP",
+    "categoria": "comida",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m007",
+    "fecha": "2026-08-16",
+    "descripcion": "SUPERMERCADO DEL BARRIO",
+    "monto": -75000,
+    "moneda": "CLP",
+    "categoria": "supermercado",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m008",
+    "fecha": "2026-08-17",
+    "descripcion": "DELIVERY RAPIDITO",
+    "monto": -24990,
+    "moneda": "CLP",
+    "categoria": "comida",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m009",
+    "fecha": "2026-08-23",
+    "descripcion": "SUPERMERCADO DEL BARRIO",
+    "monto": -75000,
+    "moneda": "CLP",
+    "categoria": "supermercado",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m010",
+    "fecha": "2026-08-24",
+    "descripcion": "DELIVERY RAPIDITO",
+    "monto": -24990,
+    "moneda": "CLP",
+    "categoria": "comida",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m011",
+    "fecha": "2026-09-25",
+    "descripcion": "REMUNERACION EMPRESA EJEMPLO",
+    "monto": 1500000,
+    "moneda": "CLP",
+    "categoria": "sueldo",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m012",
+    "fecha": "2026-09-02",
+    "descripcion": "SUPERMERCADO DEL BARRIO",
+    "monto": -75000,
+    "moneda": "CLP",
+    "categoria": "supermercado",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m013",
+    "fecha": "2026-09-03",
+    "descripcion": "DELIVERY RAPIDITO",
+    "monto": -24990,
+    "moneda": "CLP",
+    "categoria": "comida",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m014",
+    "fecha": "2026-09-09",
+    "descripcion": "SUPERMERCADO DEL BARRIO",
+    "monto": -75000,
+    "moneda": "CLP",
+    "categoria": "supermercado",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m015",
+    "fecha": "2026-09-10",
+    "descripcion": "DELIVERY RAPIDITO",
+    "monto": -24990,
+    "moneda": "CLP",
+    "categoria": "comida",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m016",
+    "fecha": "2026-09-16",
+    "descripcion": "SUPERMERCADO DEL BARRIO",
+    "monto": -75000,
+    "moneda": "CLP",
+    "categoria": "supermercado",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m017",
+    "fecha": "2026-09-17",
+    "descripcion": "DELIVERY RAPIDITO",
+    "monto": -24990,
+    "moneda": "CLP",
+    "categoria": "comida",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m018",
+    "fecha": "2026-09-23",
+    "descripcion": "SUPERMERCADO DEL BARRIO",
+    "monto": -75000,
+    "moneda": "CLP",
+    "categoria": "supermercado",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m019",
+    "fecha": "2026-09-24",
+    "descripcion": "DELIVERY RAPIDITO",
+    "monto": -24990,
+    "moneda": "CLP",
+    "categoria": "comida",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m020",
+    "fecha": "2026-10-25",
+    "descripcion": "REMUNERACION EMPRESA EJEMPLO",
+    "monto": 1500000,
+    "moneda": "CLP",
+    "categoria": "sueldo",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m021",
+    "fecha": "2026-10-02",
+    "descripcion": "SUPERMERCADO DEL BARRIO",
+    "monto": -75000,
+    "moneda": "CLP",
+    "categoria": "supermercado",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m022",
+    "fecha": "2026-10-03",
+    "descripcion": "DELIVERY RAPIDITO",
+    "monto": -24990,
+    "moneda": "CLP",
+    "categoria": "comida",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m023",
+    "fecha": "2026-10-09",
+    "descripcion": "SUPERMERCADO DEL BARRIO",
+    "monto": -75000,
+    "moneda": "CLP",
+    "categoria": "supermercado",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m024",
+    "fecha": "2026-10-10",
+    "descripcion": "DELIVERY RAPIDITO",
+    "monto": -24990,
+    "moneda": "CLP",
+    "categoria": "comida",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m025",
+    "fecha": "2026-10-16",
+    "descripcion": "SUPERMERCADO DEL BARRIO",
+    "monto": -75000,
+    "moneda": "CLP",
+    "categoria": "supermercado",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m026",
+    "fecha": "2026-10-17",
+    "descripcion": "DELIVERY RAPIDITO",
+    "monto": -24990,
+    "moneda": "CLP",
+    "categoria": "comida",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m027",
+    "fecha": "2026-10-23",
+    "descripcion": "SUPERMERCADO DEL BARRIO",
+    "monto": -75000,
+    "moneda": "CLP",
+    "categoria": "supermercado",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m028",
+    "fecha": "2026-10-24",
+    "descripcion": "DELIVERY RAPIDITO",
+    "monto": -24990,
+    "moneda": "CLP",
+    "categoria": "comida",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m029",
+    "fecha": "2026-08-05",
+    "descripcion": "DIVIDENDO HIPOTECARIO",
+    "monto": -450000,
+    "moneda": "CLP",
+    "categoria": "casa",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m030",
+    "fecha": "2026-09-05",
+    "descripcion": "DIVIDENDO HIPOTECARIO",
+    "monto": -450000,
+    "moneda": "CLP",
+    "categoria": "casa",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m031",
+    "fecha": "2026-10-28",
+    "descripcion": "DIVIDENDO HIPOTECARIO",
+    "monto": -450000,
+    "moneda": "CLP",
+    "categoria": "casa",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m032",
+    "fecha": "2026-10-27",
+    "descripcion": "SUPERMERCADO DEL BARRIO",
+    "monto": -75000,
+    "moneda": "CLP",
+    "categoria": "supermercado",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m033",
+    "fecha": "2026-10-03",
+    "descripcion": "AGUA POTABLE",
+    "monto": -14500,
+    "moneda": "CLP",
+    "categoria": "cuentas",
+    "cuenta": "banco-ejemplo"
+   },
+   {
+    "id": "m034",
+    "fecha": "2026-09-03",
+    "descripcion": "AGUA POTABLE",
+    "monto": -15200,
+    "moneda": "CLP",
+    "categoria": "cuentas",
+    "cuenta": "banco-ejemplo"
+   }
+  ],
+  "feriados": [
+   "2025-01-01",
+   "2025-04-18",
+   "2025-04-19",
+   "2025-05-01",
+   "2025-05-21",
+   "2025-06-20",
+   "2025-06-29",
+   "2025-07-16",
+   "2025-08-15",
+   "2025-09-18",
+   "2025-09-19",
+   "2025-10-12",
+   "2025-10-31",
+   "2025-11-01",
+   "2025-11-16",
+   "2025-12-08",
+   "2025-12-14",
+   "2025-12-25",
+   "2026-01-01",
+   "2026-04-03",
+   "2026-04-04",
+   "2026-05-01",
+   "2026-05-21",
+   "2026-06-21",
+   "2026-06-29",
+   "2026-07-16",
+   "2026-08-15",
+   "2026-09-18",
+   "2026-09-19",
+   "2026-10-12",
+   "2026-10-31",
+   "2026-11-01",
+   "2026-12-08",
+   "2026-12-25",
+   "2027-01-01",
+   "2027-03-26",
+   "2027-03-27",
+   "2027-05-01",
+   "2027-05-21",
+   "2027-06-21",
+   "2027-06-28",
+   "2027-07-16",
+   "2027-08-15",
+   "2027-09-18",
+   "2027-09-19",
+   "2027-10-11",
+   "2027-10-31",
+   "2027-11-01",
+   "2027-12-08",
+   "2027-12-25",
+   "2028-01-01",
+   "2028-04-14",
+   "2028-04-15",
+   "2028-05-01",
+   "2028-05-21",
+   "2028-06-20",
+   "2028-06-26",
+   "2028-07-16",
+   "2028-08-15",
+   "2028-09-18",
+   "2028-09-19",
+   "2028-10-09",
+   "2028-10-27",
+   "2028-11-01",
+   "2028-12-08",
+   "2028-12-25"
+  ],
+  "margen": [
+   {
+    "nombre": "de sueldo a sueldo, con sueldo anotado",
+    "hoy": "2026-10-30",
+    "per": {
+     "modo": "sueldo",
+     "dia": 25,
+     "llegadas": [
+      "2026-07-25",
+      "2026-08-25",
+      "2026-09-25",
+      "2026-10-25"
+     ],
+     "hoy": "2026-10-30"
+    },
+    "compromisos_ids": null,
+    "esperado": {
+     "ingreso": 1500000,
+     "fuente": "compromisos",
+     "gasto": 399960,
+     "meses": 3,
+     "compromisos": 491500,
+     "sin_valor": 0,
+     "margen": 608540
+    }
+   },
+   {
+    "nombre": "mes calendario, sin sueldo anotado: promedio de lo que entró",
+    "hoy": "2026-10-30",
+    "per": null,
+    "compromisos_ids": [
+     "c-dividend01",
+     "c-agua000001",
+     "c-gimnasio01",
+     "c-viaje00001"
+    ],
+    "esperado": {
+     "ingreso": 1500000,
+     "fuente": "promedio",
+     "gasto": 266640,
+     "meses": 3,
+     "compromisos": 491500,
+     "sin_valor": 0,
+     "margen": 741860
+    }
+   },
+   {
+    "nombre": "sin meses completos: no se puede calcular",
+    "hoy": "2026-07-28",
+    "per": null,
+    "compromisos_ids": null,
+    "esperado": {
+     "ingreso": 1500000,
+     "fuente": "compromisos",
+     "gasto": null,
+     "meses": 0,
+     "compromisos": 491500,
+     "sin_valor": 0,
+     "margen": null
+    }
+   }
+  ],
+  "plan": [
+   {
+    "nombre": "alcanza en 12 meses",
+    "deudas": [
+     {
+      "con": "Mamá",
+      "total": 1500000
+     },
+     {
+      "con": "Tío Matías",
+      "total": 4000000
+     }
+    ],
+    "margen": 650000,
+    "esperado": {
+     "margen": 650000,
+     "uso": 75,
+     "disponible": 487500,
+     "alcanza": true,
+     "al_mes": 460000,
+     "meses": 12,
+     "falta": 0,
+     "deudas": [
+      {
+       "con": "Mamá",
+       "total": 1500000,
+       "interes": 0,
+       "pagar": 1500000,
+       "cuota": 125000,
+       "ultima": 125000,
+       "cuotas": 12
+      },
+      {
+       "con": "Tío Matías",
+       "total": 4000000,
+       "interes": 0,
+       "pagar": 4000000,
+       "cuota": 335000,
+       "ultima": 315000,
+       "cuotas": 12
+      }
+     ]
+    }
+   },
+   {
+    "nombre": "con interés y un margen holgado",
+    "deudas": [
+     {
+      "con": "Mamá",
+      "total": 1500000,
+      "interes": 10
+     }
+    ],
+    "margen": 3000000,
+    "esperado": {
+     "margen": 3000000,
+     "uso": 75,
+     "disponible": 2250000,
+     "alcanza": true,
+     "al_mes": 1650000,
+     "meses": 1,
+     "falta": 0,
+     "deudas": [
+      {
+       "con": "Mamá",
+       "total": 1500000,
+       "interes": 10,
+       "pagar": 1650000,
+       "cuota": 1650000,
+       "ultima": 1650000,
+       "cuotas": 1
+      }
+     ]
+    }
+   },
+   {
+    "nombre": "no alcanza ni en 60 meses",
+    "deudas": [
+     {
+      "con": "Mamá",
+      "total": 1500000
+     },
+     {
+      "con": "Tío Matías",
+      "total": 4000000
+     }
+    ],
+    "margen": 90000,
+    "esperado": {
+     "margen": 90000,
+     "uso": 75,
+     "disponible": 67500,
+     "alcanza": false,
+     "al_mes": 95000,
+     "meses": 60,
+     "falta": 27500,
+     "deudas": [
+      {
+       "con": "Mamá",
+       "total": 1500000,
+       "interes": 0,
+       "pagar": 1500000,
+       "cuota": 25000,
+       "ultima": 25000,
+       "cuotas": 60
+      },
+      {
+       "con": "Tío Matías",
+       "total": 4000000,
+       "interes": 0,
+       "pagar": 4000000,
+       "cuota": 70000,
+       "ultima": 10000,
+       "cuotas": 58
+      }
+     ]
+    }
+   },
+   {
+    "nombre": "margen negativo",
+    "deudas": [
+     {
+      "con": "Mamá",
+      "total": 1500000
+     }
+    ],
+    "margen": -50000,
+    "esperado": {
+     "margen": -50000,
+     "uso": 75,
+     "disponible": 0,
+     "alcanza": false,
+     "al_mes": 25000,
+     "meses": 60,
+     "falta": 25000,
+     "deudas": [
+      {
+       "con": "Mamá",
+       "total": 1500000,
+       "interes": 0,
+       "pagar": 1500000,
+       "cuota": 25000,
+       "ultima": 25000,
+       "cuotas": 60
+      }
+     ]
+    }
+   },
+   {
+    "nombre": "sin margen conocido: 12 meses",
+    "deudas": [
+     {
+      "con": "Mamá",
+      "total": 1500000
+     },
+     {
+      "con": "Tío Matías",
+      "total": 850000
+     }
+    ],
+    "margen": null,
+    "esperado": {
+     "margen": null,
+     "uso": 75,
+     "disponible": null,
+     "alcanza": null,
+     "al_mes": 200000,
+     "meses": 12,
+     "falta": 0,
+     "deudas": [
+      {
+       "con": "Mamá",
+       "total": 1500000,
+       "interes": 0,
+       "pagar": 1500000,
+       "cuota": 125000,
+       "ultima": 125000,
+       "cuotas": 12
+      },
+      {
+       "con": "Tío Matías",
+       "total": 850000,
+       "interes": 0,
+       "pagar": 850000,
+       "cuota": 75000,
+       "ultima": 25000,
+       "cuotas": 12
+      }
+     ]
+    }
+   },
+   {
+    "nombre": "montos chicos",
+    "deudas": [
+     {
+      "con": "Ana",
+      "total": 1234
+     }
+    ],
+    "margen": 100000,
+    "esperado": {
+     "margen": 100000,
+     "uso": 75,
+     "disponible": 75000,
+     "alcanza": true,
+     "al_mes": 1234,
+     "meses": 1,
+     "falta": 0,
+     "deudas": [
+      {
+       "con": "Ana",
+       "total": 1234,
+       "interes": 0,
+       "pagar": 1234,
+       "cuota": 1234,
+       "ultima": 1234,
+       "cuotas": 1
+      }
+     ]
+    }
+   }
+  ],
+  "inicio": [
+   {
+    "nombre": "día después del próximo sueldo",
+    "per": {
+     "modo": "sueldo",
+     "dia": 25,
+     "llegadas": [
+      "2026-07-25",
+      "2026-08-25",
+      "2026-09-25",
+      "2026-10-25"
+     ],
+     "hoy": "2026-10-30"
+    },
+    "hoy": "2026-10-30",
+    "esperado": {
+     "desde": "2026-11-26",
+     "dia": 26
+    }
+   },
+   {
+    "nombre": "sueldo el 30 de un mes de 30",
+    "per": {
+     "modo": "sueldo",
+     "dia": 31,
+     "llegadas": []
+    },
+    "hoy": "2026-11-10",
+    "esperado": {
+     "desde": "2026-12-01",
+     "dia": 1
+    }
+   },
+   {
+    "nombre": "mes calendario: el 1 del mes que viene",
+    "per": null,
+    "hoy": "2026-12-15",
+    "esperado": {
+     "desde": "2027-01-01",
+     "dia": 1
+    }
+   }
+  ],
+  "reasignable": [
+   {
+    "nombre": "pagado este mes y el anterior no: era del mes pasado",
+    "id": "c-dividend01",
+    "hoy": "2026-10-30",
+    "per": {
+     "modo": "sueldo",
+     "dia": 25,
+     "llegadas": [
+      "2026-07-25",
+      "2026-08-25",
+      "2026-09-25",
+      "2026-10-25"
+     ],
+     "hoy": "2026-10-30"
+    },
+    "esperado": {
+     "id": "c-dividend01",
+     "nombre": "Dividendo",
+     "de": {
+      "periodo": "2026-11",
+      "vence": "2026-11-05"
+     },
+     "a": {
+      "periodo": "2026-10",
+      "vence": "2026-10-05"
+     },
+     "pago": {
+      "como": "automatico",
+      "fecha": "2026-10-28",
+      "monto": 450000,
+      "movimiento": "m031"
+     }
+    }
+   },
+   {
+    "nombre": "marcado a mano este mes y el anterior sin pago",
+    "id": "c-gimnasio01",
+    "hoy": "2026-10-20",
+    "per": null,
+    "esperado": {
+     "id": "c-gimnasio01",
+     "nombre": "Gimnasio",
+     "de": {
+      "periodo": "2026-10",
+      "vence": "2026-10-03"
+     },
+     "a": {
+      "periodo": "2026-09",
+      "vence": "2026-09-03"
+     },
+     "pago": {
+      "como": "manual",
+      "fecha": "2026-10-04",
+      "monto": 25000
+     }
+    }
+   },
+   {
+    "nombre": "el de este mes sin pago: nada que mover",
+    "id": "c-agua000001",
+    "hoy": "2026-11-04",
+    "per": null,
+    "esperado": null
+   },
+   {
+    "nombre": "los dos pagados: nada que mover",
+    "id": "c-sueldo0001",
+    "hoy": "2026-10-30",
+    "per": {
+     "modo": "sueldo",
+     "dia": 25,
+     "llegadas": [
+      "2026-07-25",
+      "2026-08-25",
+      "2026-09-25",
+      "2026-10-25"
+     ],
+     "hoy": "2026-10-30"
+    },
+    "esperado": null
+   },
+   {
+    "nombre": "no existe",
+    "id": "c-noexiste01",
+    "hoy": "2026-10-30",
+    "per": {
+     "modo": "sueldo",
+     "dia": 25,
+     "llegadas": [
+      "2026-07-25",
+      "2026-08-25",
+      "2026-09-25",
+      "2026-10-25"
+     ],
+     "hoy": "2026-10-30"
+    },
+    "esperado": null
+   }
+  ],
+  "mover": [
+   {
+    "nombre": "con el movimiento de la cartola",
+    "compromiso": {
+     "id": "c-dividend01",
+     "nombre": "Dividendo",
+     "tipo": "deuda",
+     "signo": "gasto",
+     "moneda": "CLP",
+     "monto": 450000,
+     "frecuencia": "mensual",
+     "dia": 5,
+     "categoria": "casa",
+     "buscar": [
+      "DIVIDENDO"
+     ],
+     "tolerancia": 5,
+     "activo": true,
+     "desde": "2026-08-01",
+     "origen": "manual",
+     "pagos": {
+      "2026-11": {
+       "como": "automatico",
+       "fecha": "2026-10-28",
+       "movimiento": "m031",
+       "monto": 450000
+      }
+     }
+    },
+    "de": "2026-11",
+    "a": "2026-10",
+    "movimiento": {
+     "id": "m031",
+     "fecha": "2026-10-28",
+     "descripcion": "DIVIDENDO HIPOTECARIO",
+     "monto": -450000,
+     "moneda": "CLP",
+     "categoria": "casa",
+     "cuenta": "banco-ejemplo"
+    },
+    "error": "",
+    "pagos": {
+     "2026-11": {
+      "no_es": [
+       "m031"
+      ]
+     },
+     "2026-10": {
+      "como": "automatico",
+      "fecha": "2026-10-28",
+      "movimiento": "m031",
+      "monto": 450000
+     }
+    }
+   },
+   {
+    "nombre": "lo marcado a mano",
+    "compromiso": {
+     "id": "c-gimnasio01",
+     "nombre": "Gimnasio",
+     "tipo": "suscripcion",
+     "signo": "gasto",
+     "moneda": "CLP",
+     "monto": 25000,
+     "frecuencia": "mensual",
+     "dia": 3,
+     "categoria": "",
+     "buscar": [],
+     "tolerancia": 5,
+     "activo": true,
+     "desde": "2026-08-01",
+     "origen": "manual",
+     "pagos": {
+      "2026-10": {
+       "como": "manual",
+       "fecha": "2026-10-04"
+      }
+     }
+    },
+    "de": "2026-10",
+    "a": "2026-09",
+    "movimiento": null,
+    "error": "",
+    "pagos": {
+     "2026-09": {
+      "como": "manual",
+      "fecha": "2026-10-04"
+     }
+    }
+   },
+   {
+    "nombre": "a un vencimiento posterior: no",
+    "compromiso": {
+     "id": "c-dividend01",
+     "nombre": "Dividendo",
+     "tipo": "deuda",
+     "signo": "gasto",
+     "moneda": "CLP",
+     "monto": 450000,
+     "frecuencia": "mensual",
+     "dia": 5,
+     "categoria": "casa",
+     "buscar": [
+      "DIVIDENDO"
+     ],
+     "tolerancia": 5,
+     "activo": true,
+     "desde": "2026-08-01",
+     "origen": "manual",
+     "pagos": {}
+    },
+    "de": "2026-10",
+    "a": "2026-11",
+    "movimiento": {
+     "id": "m031",
+     "fecha": "2026-10-28",
+     "descripcion": "DIVIDENDO HIPOTECARIO",
+     "monto": -450000,
+     "moneda": "CLP",
+     "categoria": "casa",
+     "cuenta": "banco-ejemplo"
+    },
+    "error": "Solo se puede mover a un vencimiento anterior.",
+    "pagos": {}
+   },
+   {
+    "nombre": "el anterior ya tiene pago: no",
+    "compromiso": {
+     "id": "c-dividend01",
+     "nombre": "Dividendo",
+     "tipo": "deuda",
+     "signo": "gasto",
+     "moneda": "CLP",
+     "monto": 450000,
+     "frecuencia": "mensual",
+     "dia": 5,
+     "categoria": "casa",
+     "buscar": [
+      "DIVIDENDO"
+     ],
+     "tolerancia": 5,
+     "activo": true,
+     "desde": "2026-08-01",
+     "origen": "manual",
+     "pagos": {
+      "2026-10": {
+       "como": "manual",
+       "fecha": "2026-10-06"
+      }
+     }
+    },
+    "de": "2026-11",
+    "a": "2026-10",
+    "movimiento": {
+     "id": "m031",
+     "fecha": "2026-10-28",
+     "descripcion": "DIVIDENDO HIPOTECARIO",
+     "monto": -450000,
+     "moneda": "CLP",
+     "categoria": "casa",
+     "cuenta": "banco-ejemplo"
+    },
+    "error": "Ese vencimiento ya tiene un pago.",
+    "pagos": {
+     "2026-10": {
+      "como": "manual",
+      "fecha": "2026-10-06"
+     }
+    }
+   },
+   {
+    "nombre": "sin pago que mover",
+    "compromiso": {
+     "id": "c-dividend01",
+     "nombre": "Dividendo",
+     "tipo": "deuda",
+     "signo": "gasto",
+     "moneda": "CLP",
+     "monto": 450000,
+     "frecuencia": "mensual",
+     "dia": 5,
+     "categoria": "casa",
+     "buscar": [
+      "DIVIDENDO"
+     ],
+     "tolerancia": 5,
+     "activo": true,
+     "desde": "2026-08-01",
+     "origen": "manual",
+     "pagos": {}
+    },
+    "de": "2026-11",
+    "a": "2026-10",
+    "movimiento": null,
+    "error": "No hay un pago que mover.",
+    "pagos": {}
+   }
+  ],
+  "despues": {
+   "hoy": "2026-10-30",
+   "per": {
+    "modo": "sueldo",
+    "dia": 25,
+    "llegadas": [
+     "2026-07-25",
+     "2026-08-25",
+     "2026-09-25",
+     "2026-10-25"
+    ],
+    "hoy": "2026-10-30"
+   },
+   "mes": "2026-11",
+   "esperado": {
+    "mes": "2026-11",
+    "moneda": "CLP",
+    "items": [
+     {
+      "id": "c-sueldo0001",
+      "nombre": "Sueldo",
+      "tipo": "ingreso",
+      "signo": "ingreso",
+      "monto": 1500000,
+      "moneda": "CLP",
+      "rango": null,
+      "original": null,
+      "categoria": "sueldo",
+      "periodo": "2026-10",
+      "vence": "2026-10-25",
+      "estado": "pagado",
+      "dias": 0,
+      "pago": {
+       "como": "automatico",
+       "fecha": "2026-10-25",
+       "monto": 1500000,
+       "movimiento": "m020",
+       "descripcion": "REMUNERACION EMPRESA EJEMPLO"
+      },
+      "cuota": null,
+      "anterior": false,
+      "modo_pago": null
+     },
+     {
+      "id": "c-agua000001",
+      "nombre": "Agua",
+      "tipo": "cuenta",
+      "signo": "gasto",
+      "monto": 15000,
+      "moneda": "CLP",
+      "rango": {
+       "min": 13500,
+       "max": 16500
+      },
+      "original": null,
+      "categoria": "cuentas",
+      "periodo": "2026-11",
+      "vence": "2026-11-03",
+      "estado": "pendiente",
+      "dias": 4,
+      "pago": null,
+      "cuota": null,
+      "anterior": false,
+      "modo_pago": "manual"
+     },
+     {
+      "id": "c-gimnasio01",
+      "nombre": "Gimnasio",
+      "tipo": "suscripcion",
+      "signo": "gasto",
+      "monto": 25000,
+      "moneda": "CLP",
+      "rango": null,
+      "original": null,
+      "categoria": "",
+      "periodo": "2026-11",
+      "vence": "2026-11-03",
+      "estado": "pendiente",
+      "dias": 4,
+      "pago": null,
+      "cuota": null,
+      "anterior": false,
+      "modo_pago": "manual"
+     },
+     {
+      "id": "c-dividend01",
+      "nombre": "Dividendo",
+      "tipo": "deuda",
+      "signo": "gasto",
+      "monto": 450000,
+      "moneda": "CLP",
+      "rango": null,
+      "original": null,
+      "categoria": "casa",
+      "periodo": "2026-11",
+      "vence": "2026-11-05",
+      "estado": "pendiente",
+      "dias": 6,
+      "pago": null,
+      "cuota": null,
+      "anterior": false,
+      "modo_pago": "manual"
+     }
+    ],
+    "total": 490000,
+    "pagado": 0,
+    "pendiente": 490000,
+    "atrasado": 0,
+    "arrastre": 0,
+    "ingresos_esperados": 1500000,
+    "ingresos_recibidos": 1500000,
+    "total_max": 491500,
+    "pendiente_max": 491500,
+    "arrastre_max": 0,
+    "ingresos_esperados_min": 1500000,
+    "aprox": true,
+    "sin_valor": 0,
+    "compromisos": [
+     {
+      "id": "c-sueldo0001",
+      "nombre": "Sueldo",
+      "tipo": "ingreso",
+      "signo": "ingreso",
+      "monto": 1500000,
+      "moneda": "CLP",
+      "rango": null,
+      "original": null,
+      "frecuencia": "mensual",
+      "categoria": "sueldo",
+      "mensual": 1500000,
+      "cuotas": null,
+      "saldo": null,
+      "por_pagar": null,
+      "termina": null,
+      "con": null,
+      "modo_pago": null
+     },
+     {
+      "id": "c-dividend01",
+      "nombre": "Dividendo",
+      "tipo": "deuda",
+      "signo": "gasto",
+      "monto": 450000,
+      "moneda": "CLP",
+      "rango": null,
+      "original": null,
+      "frecuencia": "mensual",
+      "categoria": "casa",
+      "mensual": 450000,
+      "cuotas": null,
+      "saldo": null,
+      "por_pagar": null,
+      "termina": null,
+      "con": null,
+      "modo_pago": "manual"
+     },
+     {
+      "id": "c-agua000001",
+      "nombre": "Agua",
+      "tipo": "cuenta",
+      "signo": "gasto",
+      "monto": 15000,
+      "moneda": "CLP",
+      "rango": {
+       "min": 13500,
+       "max": 16500
+      },
+      "original": null,
+      "frecuencia": "mensual",
+      "categoria": "cuentas",
+      "mensual": 15000,
+      "cuotas": null,
+      "saldo": null,
+      "por_pagar": null,
+      "termina": null,
+      "con": null,
+      "modo_pago": "manual"
+     },
+     {
+      "id": "c-gimnasio01",
+      "nombre": "Gimnasio",
+      "tipo": "suscripcion",
+      "signo": "gasto",
+      "monto": 25000,
+      "moneda": "CLP",
+      "rango": null,
+      "original": null,
+      "frecuencia": "mensual",
+      "categoria": "",
+      "mensual": 25000,
+      "cuotas": null,
+      "saldo": null,
+      "por_pagar": null,
+      "termina": null,
+      "con": null,
+      "modo_pago": "manual"
+     },
+     {
+      "id": "c-viaje00001",
+      "nombre": "Pasaje",
+      "tipo": "otro",
+      "signo": "gasto",
+      "monto": 300000,
+      "moneda": "CLP",
+      "rango": null,
+      "original": null,
+      "frecuencia": "una_vez",
+      "categoria": "",
+      "mensual": 0,
+      "cuotas": null,
+      "saldo": null,
+      "por_pagar": null,
+      "termina": null,
+      "con": null,
+      "modo_pago": null
+     }
+    ]
+   },
+   "compromiso": {
+    "id": "c-dividend01",
+    "nombre": "Dividendo",
+    "tipo": "deuda",
+    "signo": "gasto",
+    "moneda": "CLP",
+    "monto": 450000,
+    "frecuencia": "mensual",
+    "dia": 5,
+    "categoria": "casa",
+    "buscar": [
+     "DIVIDENDO"
+    ],
+    "tolerancia": 5,
+    "activo": true,
+    "desde": "2026-08-01",
+    "origen": "manual",
+    "pagos": {
+     "2026-10": {
+      "como": "automatico",
+      "fecha": "2026-10-28",
+      "movimiento": "m031",
+      "monto": 450000
+     },
+     "2026-11": {
+      "no_es": [
+       "m031"
+      ]
+     }
+    }
+   }
+  }
  }
 }

@@ -380,11 +380,67 @@ input.texto:focus, select:focus, textarea.texto:focus { outline: 2px solid var(-
 .por-pagar .comp-fila:nth-last-child(2) { border-bottom: 0; }
 .desglose .por-pagar .comp-fila:last-child { border-bottom: 1px solid var(--linea); }
 .pie-vista { display: flex; justify-content: center; margin-top: 8px; }
-.invita-uf h2, .contar h2, .editor-comp h2 { font-size: 20px; margin-bottom: 8px; }
+.invita-uf h2, .editor-comp h2 { font-size: 20px; margin-bottom: 8px; }
 .invita-uf > .texto-suave { margin: 0 0 12px; }
-.contar > .texto-suave, .editor-comp > p { margin: 0 0 12px; color: var(--suave); line-height: 1.55; }
-.contar textarea { width: 100%; resize: vertical; min-height: 88px; line-height: 1.5; background: var(--fondo); }
-.contar .progreso { margin-top: 12px; }
+.editor-comp > p { margin: 0 0 12px; color: var(--suave); line-height: 1.55; }
+
+/* Conversar con Alcancía: en celular, pantalla completa con el campo abajo (zona del pulgar); en escritorio, un diálogo alto. */
+.fila-chat { margin-bottom: 8px; }
+.fila-chat .chanchito { display: grid; }
+.fila-chat .chanchito .logo { width: 24px; height: 24px; border-radius: 6px; }
+.capa-chat { place-items: stretch; }
+.dialogo.dialogo-chat { display: flex; flex-direction: column; height: 100vh; height: 100dvh; max-height: none; border-radius: 0; padding: 0; overflow: hidden; }
+.chat-cabeza { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 16px; padding-top: max(8px, env(safe-area-inset-top)); border-bottom: 1px solid var(--linea); }
+.chat-cabeza .txt { flex: 1; min-width: 0; line-height: 1.25; }
+.chat-cabeza h2 { font-size: 17px; margin: 0; }
+.chat-cabeza small { display: block; color: var(--suave); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.confirmar-borrar { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.chat-cuerpo { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+.msg { display: flex; gap: 8px; align-items: flex-start; max-width: 100%; }
+.msg .avatar { display: grid; flex: none; }
+.msg .avatar .logo { width: 28px; height: 28px; border-radius: 8px; }
+.cuerpo-msg { min-width: 0; flex: 1; display: grid; gap: 8px; }
+.globo { line-height: 1.5; overflow-wrap: anywhere; max-width: 62ch; }
+.msg.alcancia .globo { padding: 4px 0 0; }
+.msg.persona { justify-content: flex-end; }
+.msg.persona .globo { background: var(--lateral); border-radius: 16px 16px 4px 16px; padding: 8px 12px; max-width: 85%; }
+.msg.error .globo { color: var(--suave); }
+.nota-chat { margin: 0; font-size: 13px; color: var(--suave); line-height: 1.5; }
+.nota-chat .enlace { display: block; padding: 10px 0 0; min-height: 44px; font-size: 14px; color: var(--texto); }
+.sugerencias-chat { display: flex; flex-wrap: wrap; gap: 8px; padding-left: 36px; }
+.chip-sugerencia { min-height: 44px; padding: 8px 14px; border-radius: 22px; border: 1px solid var(--linea); background: var(--panel); text-align: left; line-height: 1.3; font-weight: 500; }
+.chip-sugerencia:hover { border-color: var(--tenue); }
+.accion-chat { border: 1px solid var(--linea); border-radius: var(--radio); padding: 12px; display: grid; gap: 8px; background: var(--panel); }
+.accion-chat.sin-caja { border: 0; padding: 0; }
+.accion-chat > p { margin: 0; line-height: 1.5; }
+.monto-chat { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.accion-chat .base-plan { color: var(--suave); font-size: 13px; font-variant-numeric: tabular-nums; }
+.propuesta { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 4px 8px; padding: 12px; border: 1px solid var(--linea); border-radius: var(--radio); }
+.propuesta .emoji { font-size: 18px; text-align: center; }
+.propuesta .txt { line-height: 1.45; min-width: 0; }
+.propuesta .txt small { display: block; color: var(--suave); font-size: 13px; font-variant-numeric: tabular-nums; }
+.propuesta .acciones-chat { grid-column: 1 / -1; margin-top: 4px; }
+.propuesta .accion-estado { grid-column: 2; }
+.acciones-chat { display: flex; flex-wrap: wrap; gap: 8px; }
+.acciones-chat .boton { min-height: 44px; padding: 0 14px; font-size: 14px; }
+.accion-estado { margin: 0; font-size: 13px; color: var(--suave); font-weight: 600; }
+.accion-estado.hecha { color: var(--texto); }
+.resuelta .txt b, .accion-chat.resuelta > p { color: var(--suave); }
+.pensando .globo { color: var(--suave); display: flex; gap: 8px; align-items: center; }
+.puntos { display: inline-flex; gap: 3px; }
+.puntos i { width: 6px; height: 6px; border-radius: 50%; background: var(--suave); animation: punto 1.2s infinite ease-in-out; }
+.puntos i:nth-child(2) { animation-delay: .15s; } .puntos i:nth-child(3) { animation-delay: .3s; }
+@keyframes punto { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+.chat-pie { display: flex; gap: 8px; align-items: flex-end; padding: 8px 16px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid var(--linea); background: var(--panel); }
+.chat-pie textarea { flex: 1; min-width: 0; resize: none; max-height: 132px; line-height: 1.4; background: var(--fondo); }
+.chat-pie .enviar { width: 44px; padding: 0; border-radius: 50%; flex: none; }
+.chat-pie.sin-ia { justify-content: flex-end; flex-wrap: wrap; }
+@media (min-width: 640px) {
+  .capa-chat { place-items: center; }
+  .dialogo.dialogo-chat { width: min(640px, 100%); height: min(760px, 90vh); border-radius: 16px; padding: 0; }
+  .chat-cabeza { padding-top: 8px; }
+  .chat-pie { padding-bottom: 12px; }
+}
 .campos-comp { display: grid; gap: 12px; margin-bottom: 4px; }
 .campos-comp input.texto, .campos-comp select { width: 100%; }
 .pista-campo { margin: -4px 0 0; font-size: 13px; color: var(--suave); line-height: 1.5; }

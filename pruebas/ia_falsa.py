@@ -16,6 +16,32 @@ elif "Necesito una «receta»" in pedido:
         "columnas": {"fecha": "Fecha", "descripcion": "Descripción", "cargo": "Cargos", "abono": "Abonos"},
         "fecha": "%d/%m/%Y", "numeros": {"decimal": ",", "miles": "."}, "signo": "normal", "ignorar_si_contiene": ["SALDO INICIAL"],
     }, ensure_ascii=False) + "\n```")
+elif "Eres Alcancía, la alcancía" in pedido:  # la conversación con Alcancía (bin/chat.py)
+    ultimo = pedido.split("Último mensaje de la persona: «", 1)[-1].split("»\n", 1)[0]
+    lineas = re.findall(r"^(C\d+) · (.*)$", pedido, re.M)
+    ref = lambda *p: next((r for r, l in lineas if any(x in l.upper() for x in p)), "C99")
+    responder = lambda texto, acciones: print("```json\n" + json.dumps({"respuesta": texto, "acciones": acciones}, ensure_ascii=False) + "\n```")
+    if "INVALIDA" in ultimo:
+        print("Claro, te ayudo con eso.")  # sin JSON: no sirve
+    elif "RARA" in ultimo:  # una acción que no existe, otra con un campo de más y una buena: solo pasa la buena
+        responder("Te dejo lo que entendí.", [{"tipo": "borrar_todo"}, {"tipo": "marcar_pagado", "compromiso": "C1", "comando": "rm"},
+                                               {"tipo": "crear_compromiso", "compromiso": {"nombre": "Gimnasio", "tipo": "suscripcion", "monto": 25000,
+                                                                                          "frecuencia": "mensual", "dia": 3}}])
+    elif "prest" in ultimo.lower():
+        responder("Veamos cuánto te cabe al mes sin salirte de tus gastos.", [{"tipo": "plan_prestamos", "deudas": [
+            {"con": "Mamá", "total": 1500000}, {"con": "Tío Matías", "total": 4000000, "interes": 0}]}])
+    elif "aún no" in ultimo.lower() or "aun no" in ultimo.lower():
+        responder("Entonces ese pago era del mes pasado. ¿Lo corrijo?", [{"tipo": "reasignar_pago", "compromiso": ref("DIVIDENDO", "HIPOTEC")}])
+    elif "ya pagué" in ultimo.lower():
+        responder("¡Bien! Lo marco como pagado.", [{"tipo": "marcar_pagado", "compromiso": ref("ARRIENDO")}])
+    elif "subió" in ultimo.lower():
+        responder("Anotado el monto nuevo.", [{"tipo": "editar_compromiso", "compromiso": ref("ARRIENDO"), "cambios": {"monto": 470000}}])
+    elif "SINMONTO" in ultimo:
+        responder("Casi: me falta el monto.", [{"tipo": "crear_compromiso", "compromiso": {"nombre": "Gimnasio", "tipo": "suscripcion",
+                                                                                           "frecuencia": "mensual", "dia": 3}}])
+    else:
+        responder("Lo anoto para recordártelo.", [{"tipo": "crear_compromiso", "compromiso": {
+            "nombre": "Arriendo bodega", "tipo": "cuenta", "monto": 85000, "frecuencia": "mensual", "dia": 5, "pago": "manual"}}])
 elif "Conviértelo en UN objeto JSON" in pedido:
     texto = pedido.split("Texto de la persona: «", 1)[-1].split("»", 1)[0]
     if "ROMPER" in texto:

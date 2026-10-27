@@ -37,6 +37,10 @@ Gratis, de código abierto y con tus datos en tu computador.</p>
 - **Préstamos entre personas:** «mi tía me prestó 1.800.000 en 12 cuotas» o «le presté 850 lucas a Matías en 5»: Alcancía calcula
   la cuota (la última ajusta el redondeo), cuándo terminas y lo que te queda. Lo que te deben se muestra aparte («Te deben») y no se
   resta de lo que debes. Si tu IA no entiende algo, se abre el editor con lo que sí entendió para que lo completes.
+- **Conversa con tu alcancía:** un chat con el chanchito (tu IA, con tu cuenta) para decirle «me atrasé con el arriendo», «la
+  hipoteca de este mes aún no la pago» (si ve un pago este mes y ninguno el mes pasado, entiende que era del mes pasado y te
+  ofrece corregirlo) o preguntarle «mi mamá me prestó 1,5 millones y mi tío Matías 4, ¿cuánto puedo pagar al mes?»: calcula tu margen y te
+  propone dos pagos con cuota redonda, meses y aviso. **Nada cambia sin que lo confirmes.** Ver [Conversar con Alcancía](#chat).
 - **Todo más ordenado:** compromisos y sugerencias agrupados por tipo con su subtotal mensual, y en Movimientos puedes agrupar por
   comercio (total y cuántas veces, con el detalle al abrirlo).
 - **Gasto máximo sugerido:** lo que entra − tus compromisos − tus otros gastos fijos = lo que puedes gastar en lo variable,
@@ -49,7 +53,8 @@ Gratis, de código abierto y con tus datos en tu computador.</p>
 - Todo queda en tu computador, en una carpeta con archivos abiertos (CSV y JSON) que puedes abrir con Excel o llevarte adonde quieras.
 - **No hay servidores de Alcancía**, ni cuentas, ni publicidad, ni telemetría.
 - La IA es **la tuya** (Claude Code, Codex o Gemini), con tu propia cuenta, y solo ve lo necesario: descripciones y montos para
-  categorizar, y totales por categoría para los consejos. Nunca tus claves ni tus números de cuenta.
+  categorizar, totales por categoría para los consejos y, en la conversación, tus totales y tus compromisos (nunca la cartola).
+  Nunca tus claves ni tus números de cuenta.
 - Alcancía **nunca te pide la clave de tu banco**. Las cartolas las descargas tú.
 - *Muy pronto:* respaldo **con candado** en tu nube (iCloud Drive, Google Drive, OneDrive, Dropbox) o en tu GitHub/GitLab: cifrado
   en tu computador, con una llave que solo tú tienes.
@@ -79,7 +84,7 @@ Todo vive en `~/Alcancia/` (en Windows, `C:\Users\<tú>\Alcancia`). Es un format
 | `compromisos.json` | Lo que pagas o recibes seguido. Ver [Compromisos](#compromisos-formato). |
 | `cuentas.json` (cont.) | Las cuentas que vienen de una conexión llevan `"conector"` en vez de `"receta"`. |
 | `.alcancia/config.json` | Ajustes. Entre ellos `inicio_mes`: `{"modo": "dia" \| "sueldo", "dia": 25}` (tu mes parte el día 1 o cuando llega tu sueldo; con `"auto": true` lo puso Alcancía al detectar tu sueldo y lo sigue ajustando, hasta que elijas otra cosa), `avisos` (`true` si quieres avisos de tus compromisos) y `uf`: `{"valor": 39500, "fecha": "AAAA-MM-DD", "variacion_mensual": 1.5}` (el valor de la UF que escribiste y cuánto puede variar al mes). |
-| `.alcancia/` | Ajustes de la app, `avisos.json` (qué avisos ya se mostraron), recetas descargadas o creadas por ti, `conexiones.json` (estado de cada conexión, sin llaves) y `vigilar.json` (cartolas ya revisadas en Descargas). Las llaves de las conexiones viven en el Llavero de tu sistema, nunca en esta carpeta. |
+| `.alcancia/` | Ajustes de la app, `avisos.json` (qué avisos ya se mostraron), recetas descargadas o creadas por ti, `conexiones.json` (estado de cada conexión, sin llaves), `vigilar.json` (cartolas ya revisadas en Descargas) y `chat.json` (la conversación con Alcancía: los últimos 50 mensajes, ya sin RUT ni números de cuenta; «Borrar» la borra). Las llaves de las conexiones viven en el Llavero de tu sistema, nunca en esta carpeta. |
 
 ### Las tres cifras del Resumen
 <a id="tres-cifras"></a>
@@ -122,7 +127,7 @@ devolución y con la categoría de la compra (si ya la tenía); su id sale de «
 | `activo` | `false` = en pausa (ni se recuerda ni se busca). |
 | `desde` | Desde qué día cuenta (AAAA-MM-DD). Un vencimiento anterior solo se da por pagado si ya estaba pagado. |
 | `origen` | `manual`, `detectado` (salió de tu cartola) o `ia` (lo entendió tu IA). |
-| `pagos` | Por periodo (`AAAA-MM` en mensual, `AAAA` en anual, la fecha en semanal y una vez): `{"como": "automatico", "fecha", "movimiento", "monto", "mora"?}` cuando se reconoció en la cartola (`mora`: `{"monto", "dias", "movimiento"?}` si se pagó atrasado con interés por mora), `{"como": "manual", "fecha"}` cuando marcaste «ya lo pagué», y `"no_es": ["<id de movimiento>"]` cuando dijiste «no es este». |
+| `pagos` | Por periodo (`AAAA-MM` en mensual, `AAAA` en anual, la fecha en semanal y una vez): `{"como": "automatico", "fecha", "movimiento", "monto", "mora"?}` cuando se reconoció en la cartola (`mora`: `{"monto", "dias", "movimiento"?}` si se pagó atrasado con interés por mora), `{"como": "manual", "fecha"}` cuando marcaste «ya lo pagué», y `"no_es": ["<id de movimiento>"]` cuando dijiste «no es este». Cuando confirmas en la conversación que un pago «era del mes pasado», se usa este mismo formato: el periodo anterior queda con ese pago (`como`, `fecha`, `movimiento`, `monto`) y el de este mes con el movimiento en `no_es`. |
 
 **Interés por mora.** Un pago mensual o anual se reconoce hasta 20 días después del vencimiento; si llegó atrasado y más alto
 que lo esperado (más allá de la tolerancia o del rango, hasta +30 % y con sus palabras), la diferencia es interés por mora. Si
@@ -145,7 +150,8 @@ siempre. «Lo que debes» y «Te quedan» cuentan los dos: la plata sale igual.
 
 ### Préstamos
 Con `total` y `cuotas_total`, la cuota es `total × (1 + interes/100) ÷ cuotas` redondeada hacia abajo y la última se lleva la
-diferencia, así la suma da justo. Si no dices el día, el primer pago cae el día de tu sueldo (`inicio_mes` en modo sueldo) o el 25.
+diferencia, así la suma da justo. Si `prestamo.cuota` trae una cuota fija que calza (al menos lo justo, no más que el total y sin
+pagarlo todo antes de la última; p. ej. 1.500.000 en 12 cuotas de 130.000), se respeta y la última es lo que falta (70.000). Si no dices el día, el primer pago cae el día de tu sueldo (`inicio_mes` en modo sueldo) o el 25.
 Lo que queda se calcula con las cuotas pagadas. Los préstamos que hiciste suman en «Te deben», aparte de «Lo que debes».
 
 ### Montos aproximados y en UF
@@ -179,6 +185,27 @@ corre al día hábil anterior (lo común en Chile) o al siguiente si eso es lo q
 después de esa fecha sin llegada, el mes anterior sigue (hasta 7 días) y el Resumen pregunta «¿Aún no te pagan?». Los feriados
 nacionales de Chile están en [`bin/feriados.json`](bin/feriados.json) (solo datos, 2025–2028, incluidos los que se corren a lunes
 y los irrenunciables) y **se actualizan cada año** con el decreto oficial; para otros países se usan solo los fines de semana.
+
+### Conversar con Alcancía
+<a id="chat"></a>
+«Cuéntale a Alcancía» (en «+» y en el Inicio, «Pregúntale a Alcancía») es un chat con tu alcancía. Responde tu IA, con tu cuenta,
+y **nada se aplica solo**: lo que propone aparece como una tarjeta («Agregar», «Sí, corrígelo», «Cambiar», «No»).
+- **Lo que ve tu IA:** tu periodo y los días que quedan, tu ingreso típico, tu gasto típico sin compromisos, lo comprometido al mes
+  y tu margen, las tres cifras del Inicio (solo totales) y, por cada compromiso, una referencia (C1, C2…), su nombre, tipo, monto,
+  día, si se paga solo, sus palabras para reconocerlo, el estado de este mes y sus últimos 3 pagos (fecha, monto y a qué vencimiento
+  se asignaron). Nunca descripciones de movimientos, ids ni números de cuenta. Tus últimos 10 mensajes van sin RUT ni números largos.
+- **Margen mensual** = ingreso típico − gasto típico − compromisos al mes. Ingreso típico: tus ingresos anotados (el sueldo, por su
+  mínimo si varía) o, si no hay, el promedio de lo que entró en los últimos 3 meses completos. Gasto típico: el promedio de «Lo que
+  gastaste» en esos meses, sin los movimientos que son pagos de un compromiso. Compromisos: los gastos vigentes al mes, por su máximo.
+- **Plan de préstamos** («mi mamá me prestó 1,5 millones y mi tío Matías 4»): tu IA solo dice quién y cuánto; las cuentas las hace
+  Alcancía. Usa como máximo el 75 % del margen (el resto queda de colchón), busca los menos meses en que las cuotas caben (cada una
+  redondeada hacia arriba a 1.000, 5.000 o 10.000, según su tamaño, y en proporción a lo que debes) y propone un préstamo por persona,
+  «lo pago yo» y con aviso, desde el día después de tu próximo sueldo (o el 1 del mes que viene). Si no alcanza ni en 60 meses, te
+  lo dice y te deja la cuota más chica.
+- **«Ese pago era del mes pasado»:** si dices que algo de este mes aún no lo pagas y aparece pagado este mes, mientras el
+  vencimiento anterior no tiene pago, Alcancía propone mover ese pago al anterior (queda pagado con atraso) y dejar este pendiente.
+- También puede proponer anotar un compromiso nuevo, marcar algo como pagado o pendiente, o cambiar el monto, el día, cómo se paga o
+  cuándo termina uno. Si tu IA no responde o responde algo que no sirve, el chat te lo dice; nunca queda en blanco.
 
 ## Cartolas en PDF
 Algunos bancos solo entregan la cartola en PDF. Alcancía lee los PDF **con texto** (los que genera el banco, no los escaneados) sin
@@ -256,7 +283,8 @@ statements from any bank or wallet in the world (CSV, Excel or text-based PDF); 
 Codex or Gemini, with your account) fills in categories and gives you concrete tips, and you see in time when a category is running
 over budget. Commitments (rent, loans, bills, subscriptions, salary) can be added in your own words; Alcancía spots each payment in
 your statements, shows what's still due (overdue first), tracks loan installments, suggests a spending limit for day-to-day
-expenses and, on Mac, reminds you before things are due. Your month can run from payday to payday. Your data stays on your computer in open files: no servers, no accounts, no ads, and it never asks for your bank
+expenses and, on Mac, reminds you before things are due. You can also chat with your piggy bank: tell it you fell behind, that a
+payment was last month's, or ask how much you can pay each month on money family lent you; it proposes, you confirm. Your month can run from payday to payday. Your data stays on your computer in open files: no servers, no accounts, no ads, and it never asks for your bank
 password. Each bank is supported through a data-only *recipe* (plus OFX, QIF and CAMT.053 out of the box); if yours is missing, your AI
 learns it and you can share just the recipe with the community. Transactions can also arrive automatically: official APIs with a key
 you create (Mercado Pago, PayPal, Stripe, Buda.com, SimpleFIN for US/Canada banks, Up, Akahu) and a watched Downloads folder. A

@@ -12,7 +12,8 @@
   saldo        {"cuenta", "monto", "fecha"}         lo que la persona tiene hoy en una cuenta (cuentas.json, origen «persona»)
   compromiso   {"accion", ...}                      compromisos.json: guardar {"compromiso"}, borrar {"id"},
                                                     pagado / desmarcar {"id", "periodo"}, no_es {"id", "periodo", "movimiento"},
-                                                    descartar {"clave"} (una sugerencia que no es compromiso)
+                                                    descartar {"clave"} (una sugerencia que no es compromiso),
+                                                    reasignar {"id", "de", "a", "movimiento"?} (ese pago era del vencimiento anterior)
 
 Todo lo que llega se valida: categorías que existen, montos positivos, recetas con recetas.validar.
 """
@@ -136,7 +137,8 @@ def desconectar(e):
 
 
 def compromiso(e):
-    """Compromisos: guardar (validado), borrar, marcar «ya lo pagué», desmarcar, «no es este» y descartar una sugerencia."""
+    """Compromisos: guardar (validado), borrar, marcar «ya lo pagué», desmarcar, «no es este», «ese pago era del mes pasado»
+    (reasignar) y descartar una sugerencia."""
     import re
     from datetime import date
     import compromisos as K
@@ -176,6 +178,20 @@ def compromiso(e):
         return {"ok": False, "error": "No encontré ese compromiso."}
     if accion == "borrar":
         lista.remove(actual)
+        K.escribir(raw)
+        return {"ok": True}
+    if accion == "reasignar":
+        # «Ese pago era del mes pasado» (lo propone la conversación con Alcancía y la persona lo confirma): el pago del vencimiento
+        # `de` pasa al anterior `a`. El movimiento se busca en los movimientos guardados (nada se inventa).
+        de, a, mov = str(e.get("de") or ""), str(e.get("a") or ""), str(e.get("movimiento") or "")
+        if not K.PERIODO.fullmatch(de) or not K.PERIODO.fullmatch(a) or (mov and not re.fullmatch(r"[A-Za-z0-9_\-]{1,64}", mov)):
+            return {"ok": False, "error": "Acción inválida."}
+        m = next((x for x in datos.leer_todos() if x["id"] == mov), None) if mov else None
+        if mov and not m:
+            return {"ok": False, "error": "No encontré ese pago en tus movimientos."}
+        problema = K.reasignar_pago(actual, de, a, m)
+        if problema:
+            return {"ok": False, "error": problema}
         K.escribir(raw)
         return {"ok": True}
     periodo = str(e.get("periodo") or "")

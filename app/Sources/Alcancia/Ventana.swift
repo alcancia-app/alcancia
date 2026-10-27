@@ -174,11 +174,26 @@ final class Ventana: NSObject, NSWindowDelegate, WKScriptMessageHandler {
             Procesador.conEntrada("guardar.py", accion, d) { r in
                 if r["ok"] as? Bool != true { Ventana.shared.enviarEstado(aviso: r["error"] as? String) }
             }
-        case "compromisoIA":
-            // El texto va en un archivo de entrada, nunca como argumento (se vería en la lista de procesos). Lo limpia y valida bin/compromiso_ia.py.
-            let texto = String((d["texto"] as? String ?? "").prefix(500))
-            let hoy = (d["hoy"] as? String ?? "").filter { $0.isNumber || $0 == "-" }
-            Procesador.conEntrada("compromiso_ia.py", "entender", ["texto": texto, "hoy": hoy]) { Ventana.shared.llamar("compromisoEntendido", $0) }
+        case "chat":
+            // Conversar con Alcancía (bin/chat.py). Los mensajes van en un archivo de entrada, nunca como argumento (se verían en la
+            // lista de procesos); chat.py los limpia (sin RUT ni números de cuenta) y valida lo que responde la IA.
+            switch d["accion"] as? String ?? "" {
+            case "enviar":
+                let hoy = (d["hoy"] as? String ?? "").filter { $0.isNumber || $0 == "-" }
+                let mensajes: [[String: Any]] = (d["mensajes"] as? [[String: Any]] ?? []).suffix(10).map { m in
+                    ["rol": (m["rol"] as? String) == "persona" ? "persona" : "alcancia", "texto": String((m["texto"] as? String ?? "").prefix(1500))]
+                }
+                Procesador.conEntrada("chat.py", "enviar", ["hoy": hoy, "mensajes": mensajes]) { Ventana.shared.llamar("chatRespuesta", $0) }
+            case "marcar":
+                let id = (d["id"] as? String ?? "").filter { $0.isLetter || $0.isNumber || $0 == "-" }
+                var datos: [String: Any] = ["id": id, "i": d["i"] as? Int ?? -1, "estado": (d["estado"] as? String) == "hecha" ? "hecha" : "no"]
+                if let j = d["j"] as? Int { datos["j"] = j }
+                Procesador.conEntrada("chat.py", "marcar", datos) { _ in }
+            case "borrar":
+                Procesador.conEntrada("chat.py", "borrar", [:]) { _ in }
+            default:
+                break
+            }
         case "compromiso":
             Procesador.conEntrada("guardar.py", "compromiso", d) { r in
                 guard r["ok"] as? Bool == true else { return Ventana.shared.enviarEstado(aviso: r["error"] as? String) }

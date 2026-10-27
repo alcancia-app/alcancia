@@ -28,6 +28,22 @@ const casos = JSON.parse(fs.readFileSync(path.join(RAIZ, "pruebas", "casos.json"
 const esDato = (t) => demo.includes(t) || /^(Alcancía|Claude|ChatGPT \(Codex\)|Gemini|English|Español|CLP|USD)$/.test(t);
 
 const EDITOR = "{nombre:'Crédito hipotecario',tipo:'deuda',signo:'gasto',monto:500000,moneda:'CLP',frecuencia:'mensual',dia:15,fecha:'2026-10-18',categoria:'casa',buscar:['DIVIDENDO'],buscarTexto:'DIVIDENDO',cuotas_total:240,cuotas_pagadas:53,desde:'2026-10-18',activo:true,origen:'ia'}";
+// Una conversación con Alcancía con todas las acciones que puede proponer (para pintarlas en las vistas, en los dos idiomas).
+const PRESTAMO = (id, con, cuota, n, ultima) => `{id:'${id}',nombre:'Préstamo de ${con}',con:'${con}',tipo:'prestamo',signo:'gasto',moneda:'CLP',monto:${cuota},frecuencia:'mensual',dia:26,categoria:'',buscar:[],tolerancia:5,cuotas_total:${n},cuotas_pagadas:0,prestamo:{total:${cuota * (n - 1) + ultima},interes:0,cuota:${cuota},ultima:${ultima}},pago:'manual',activo:true,desde:'2026-11-26',origen:'ia'}`;
+const PLAN = (alcanza, margen) => `{tipo:'plan_prestamos',plan:{margen:${margen},uso:75,disponible:${Math.max(0, Math.floor(margen * 0.75))},alcanza:${alcanza},al_mes:460000,meses:12,falta:${alcanza === false ? 120000 : 0},deudas:[],base:{ingreso:1500000,fuente:'compromisos',gasto:400000,meses:3,compromisos:450000}},propuestas:[${PRESTAMO("c-planmama01", "Mamá", 125000, 12, 125000)},${PRESTAMO("c-plantio001", "Tío Matías", 335000, 12, 315000)}]}`;
+const CHAT = `[{id:'m-p1',rol:'persona',texto:'mi mamá me prestó 1,5 millones y mi tío Matías 4 millones'},
+  {id:'m-a1',rol:'alcancia',texto:'Veamos cuánto te cabe al mes.',acciones:[${PLAN(true, 650000)}],notas:[],estados:{'0.1':'hecha'}},
+  {id:'m-a2',rol:'alcancia',texto:'Otra forma.',acciones:[${PLAN(false, 200000)},${PLAN(false, -50000)},${PLAN(null, 0)}],notas:['descartadas'],estados:{}},
+  {id:'m-p2',rol:'persona',texto:'aún no pago el dividendo de este mes'},
+  {id:'m-a3',rol:'alcancia',texto:'Entonces ese pago era del mes pasado.',acciones:[{tipo:'reasignar_pago',id:'c-arriendo01',nombre:'Arriendo',de:{periodo:'2026-10',vence:'2026-10-01'},a:{periodo:'2026-09',vence:'2026-09-01'},pago:{como:'automatico',fecha:'2026-10-01',monto:420000,movimiento:'x'}},
+    {tipo:'marcar_pagado',id:'c-celular001',nombre:'Plan de celular',periodo:'2026-10',vence:'2026-10-10',signo:'gasto'},{tipo:'marcar_pagado',id:'c-sueldo0001',nombre:'Sueldo',periodo:'2026-10',vence:'2026-10-05',signo:'ingreso'},
+    {tipo:'marcar_pendiente',id:'c-arriendo01',nombre:'Arriendo',periodo:'2026-10',vence:'2026-10-01',pago:{como:'manual',fecha:'2026-10-02',monto:420000}},
+    {tipo:'editar_compromiso',id:'c-arriendo01',nombre:'Arriendo',antes:{monto:420000,dia:1,pago:null,fecha_fin:null},cambios:{monto:470000,dia:5,pago:'automatico',fecha_fin:'2027-12-31'},compromiso:{}}],
+    notas:['no_encontre','sin_pago_para_mover','ya_pagado','ya_pendiente','sin_cambios','no_aplica'],estados:{'1':'no'}},
+  {id:'m-a4',rol:'alcancia',texto:'Lo anoto.',acciones:[{tipo:'crear_compromiso',compromiso:{id:'c-bodega0001',nombre:'Arriendo bodega',tipo:'cuenta',signo:'gasto',monto:85000,moneda:'CLP',frecuencia:'mensual',dia:5,categoria:'casa',buscar:[],pago:'manual',desde:'2026-10-18',origen:'ia'}},
+    {tipo:'crear_compromiso',compromiso:{nombre:'Gimnasio',tipo:'suscripcion',frecuencia:'mensual',dia:3,origen:'ia'},incompleto:true,error:'Falta el monto.'},
+    {tipo:'crear_compromiso',compromiso:{id:'c-luz0000001',nombre:'Luz',tipo:'cuenta',signo:'gasto',monto:32000,aproximado:{variacion:5},moneda:'CLP',frecuencia:'mensual',dia:8,categoria:'cuentas',buscar:['LUZ'],pago:'automatico',desde:'2026-10-18',origen:'ia'}}],notas:[],estados:{'2':'hecha'}},
+  {id:'m-e1',rol:'alcancia',texto:'x',error:true,sin_ia:true}]`;
 const CONECTORES = JSON.parse(fs.readFileSync(path.join(RAIZ, "ui", "demo.json"), "utf8")).conectores || [];
 const VISTAS = [
   ["resumen", "E=>{E.vista='resumen'}"],
@@ -69,9 +85,13 @@ const VISTAS = [
   ["compromisos-editor-anual", "E=>{E.compEdit.error='';E.compEdit.c.frecuencia='anual';E.compEdit.c.fecha='2026-03-31';E.compEdit.c.tipo='suscripcion'}"],
   ["compromisos-editar-existente", "E=>{const c=E.compromisos.compromisos[1];E.compEdit={c:{...c,buscarTexto:c.buscar.join(', ')},origen:'manual',error:''}}"],
   ["agregar", "E=>{E.compEdit=null;E.agregar='menu'}"],
-  ["compromisos-ia-pidiendo", "E=>{E.agregar='contar';E.compTexto='el arriendo vence el 5, son 450.000';E.compIA={pidiendo:true,error:''}}"],
-  ["compromisos-ia-error", "E=>{E.compIA={pidiendo:false,error:'x'}}"],
-  ["compromisos-sin-ia", "E=>{E.compIA={pidiendo:false,error:''};E.config.ia=''}"],
+  ["chat-vacio", "E=>{E.agregar='contar';E.chat={mensajes:[],texto:'',pensando:false,bajar:true,confirmarBorrar:false}}"],
+  ["chat-pensando", "E=>{E.chat.mensajes=[{id:'local-1',rol:'persona',texto:'el arriendo vence el 5, son 450.000',local:true}];E.chat.pensando=true}"],
+  ["chat-acciones", `E=>{E.chat.pensando=false;E.chat.mensajes=${CHAT}}`],
+  ["chat-acciones-arriba", "E=>{document.querySelector('.chat-cuerpo').scrollTop=0}"],
+  ["chat-borrar", "E=>{E.chat.confirmarBorrar=true}"],
+  ["chat-editor", "E=>{E.chat.confirmarBorrar=false;E.compEdit={c:{nombre:'Préstamo de Mamá',con:'Mamá',tipo:'prestamo',signo:'gasto',moneda:'CLP',monto:125000,frecuencia:'mensual',dia:26,categoria:'',buscar:[],buscarTexto:'',cuotas_total:12,cuotas_pagadas:0,prestamoTotal:1500000,prestamoInteres:0,prestamoCuota:125000,pago:'manual',activo:true,desde:'2026-11-26',origen:'ia'},origen:'ia',error:'',chat:{id:'m-a1',i:0,j:0}}}"],
+  ["compromisos-sin-ia", "E=>{E.compEdit=null;E.chat.mensajes=[];E.config.ia=''}"],
   ["compromisos-mes-pasado", "E=>{E.agregar=null;E.config.ia='claude';E.mes='2026-09';E.sugTodas=false}"],
   ["compromisos-con-pausado-y-cuotas", "E=>{E.mes='2026-10';E.compromisos.compromisos.push({id:'c-pausa00001',nombre:'Gimnasio',tipo:'otro',signo:'gasto',monto:25000,moneda:'CLP',frecuencia:'semanal',dia:2,categoria:'ocio',buscar:[],tolerancia:5,activo:false,desde:'2026-10-01',origen:'manual',pagos:{}},{id:'c-deuda00001',nombre:'Crédito de consumo',tipo:'deuda',signo:'gasto',monto:64500,moneda:'CLP',frecuencia:'mensual',dia:9,categoria:'',buscar:['CREDITO CONSUMO'],tolerancia:5,activo:true,desde:'2026-10-01',origen:'detectado',pagos:{},saldo:1200000})}"],
   ["compromisos-aprox-y-uf", "E=>{E.compEdit=null;E.vista='compromisos';E.mes='2026-10'}"],
@@ -130,6 +150,15 @@ const VISTAS = [
   ["vacio", "E=>{E.conectar=null;E.vista='resumen';E.movimientos=[]}"],
 ];
 const navegador = await chromium.launch();
+/** «Cuéntale a Alcancía» (el chat): escribe, manda, espera lo que entendió y abre la última tarjeta en el editor («Cambiar» o «Completar»). */
+async function contarle(p, texto) {
+  await p.fill("#chat-texto", texto);
+  await p.click('[data-accion="chat-enviar"]');
+  await p.waitForFunction(() => !document.querySelector(".msg.pensando"), null, { timeout: 8000 });
+  const botones = await p.$$('.dialogo-chat [data-chat="cambiar"]');
+  await botones[botones.length - 1].click();
+}
+const cerrarChat = (p) => p.click('.dialogo-chat [data-accion="cerrar-agregar"]');
 
 // Lógica compartida con Python (pruebas/casos.json).
 {
@@ -197,6 +226,7 @@ const navegador = await chromium.launch();
     // Préstamos entre personas.
     const pr = c.prestamos;
     for (const [t, n, i, m, esp] of pr.calcular) if (canon(P.calcularPrestamo(t, n, i, m)) !== canon(esp)) malos.push(`calcularPrestamo(${t}, ${n}, ${i}, ${m}) = ${canon(P.calcularPrestamo(t, n, i, m))}`);
+    for (const [t, n, i, m, cu, esp] of pr.calcular_cuota) if (canon(P.calcularPrestamo(t, n, i, m, cu)) !== canon(esp)) malos.push(`calcularPrestamo(${t}, ${n}, ${i}, ${m}, ${cu}) = ${canon(P.calcularPrestamo(t, n, i, m, cu))}`);
     if (canon(P.estadoCompromisos(pr.compromisos, pr.movimientos, pr.estado.mes, pr.estado.hoy, "CLP")) !== canon(pr.estado.esperado)) malos.push("préstamos: estado distinto");
     if (canon(P.loQueDebes(pr.compromisos, pr.movimientos, pr.debes.hoy, "CLP")) !== canon(pr.debes.esperado)) malos.push(`préstamos: lo que debes = ${canon(P.loQueDebes(pr.compromisos, pr.movimientos, pr.debes.hoy, "CLP")).slice(0, 500)}`);
     // Montos aproximados y en UF.
@@ -225,6 +255,18 @@ const navegador = await chromium.launch();
       const r = P.loQueDebes(pg.compromisos, pg.movimientos, k.hoy, "CLP", null, null, pg.palabras);
       if (canon(r) !== canon(k.esperado)) malos.push(`se paga solo «${k.nombre}» = ${canon(r).slice(0, 700)}`);
     }
+    // Conversar con Alcancía: margen, plan de préstamos, desde cuándo y «ese pago era del mes pasado».
+    const ch = c.chat, de = (ids) => ch.compromisos.filter((x) => !ids || ids.includes(x.id));
+    for (const k of ch.margen) { const r = P.margenMensual(de(k.compromisos_ids), ch.movimientos, k.hoy, ch.categorias, "CLP", k.per); if (canon(r) !== canon(k.esperado)) malos.push(`margen «${k.nombre}» = ${canon(r)}`); }
+    for (const k of ch.plan) { const r = P.planPrestamos(k.deudas, k.margen, "CLP"); if (canon(r) !== canon(k.esperado)) malos.push(`plan «${k.nombre}» = ${canon(r)}`); }
+    for (const k of ch.inicio) { const r = P.inicioPlan(k.per, k.hoy, ch.feriados); if (canon(r) !== canon(k.esperado)) malos.push(`inicioPlan «${k.nombre}» = ${canon(r)}`); }
+    for (const k of ch.reasignable) { const r = P.pagoReasignable(ch.compromisos, ch.movimientos, k.id, k.hoy, "CLP", k.per); if (canon(r) !== canon(k.esperado)) malos.push(`pagoReasignable «${k.nombre}» = ${canon(r)}`); }
+    for (const k of ch.mover) {
+      const x = JSON.parse(JSON.stringify(k.compromiso)), err = P.reasignarPago(x, k.de, k.a, k.movimiento);
+      if (err !== k.error || canon(x.pagos || {}) !== canon(k.pagos)) malos.push(`reasignarPago «${k.nombre}» = ${err} ${canon(x.pagos)}`);
+    }
+    const dp = ch.despues, lista = ch.compromisos.map((x) => (x.id === dp.compromiso.id ? dp.compromiso : x));
+    if (canon(P.estadoCompromisos(lista, ch.movimientos, dp.mes, dp.hoy, "CLP", dp.per)) !== canon(dp.esperado)) malos.push("estado después de mover el pago: distinto");
     return malos;
   }, casos);
   r.forEach((m) => falla("lógica distinta a Python: " + m));
@@ -347,8 +389,7 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     if ((await p.$$(".dialogo .opcion-agregar")).length !== 3) falla(`«+» ofrece cartola, pago que se repite y conectar ${donde}`);
     await ancho("agregar");
     await p.click('.dialogo .opcion-agregar[data-accion="agregar-contar"]');
-    await p.fill("#comp-texto", "el arriendo de la bodega vence el 5 de cada mes, son 85.000");
-    await p.click('[data-accion="comp-entender"]');
+    await contarle(p, "el arriendo de la bodega vence el 5 de cada mes, son 85.000");
     await p.waitForSelector("#editor-comp #ce-nombre");
     const editor = await p.evaluate(() => ({ monto: document.querySelector("#ce-monto").value.replace(/\D/g, ""), dia: document.querySelector("#ce-dia").value,
       nombre: document.querySelector("#ce-nombre").value }));
@@ -357,6 +398,8 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     await p.fill("#ce-nombre", "Bodega");
     await p.click('[data-accion="comp-guardar"]');
     await p.waitForFunction(() => !document.querySelector("#editor-comp"));
+    if (!(await p.$('.dialogo-chat .accion-estado.hecha'))) falla(`después de guardar, la tarjeta del chat queda lista ${donde}`);
+    await cerrarChat(p);
     if (!(await texto(".contenido")).includes("Bodega")) falla(`el compromiso nuevo debe aparecer en la lista ${donde}`);
     await ancho("compromisos");
     // Gasto máximo en Presupuesto.
@@ -502,7 +545,7 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     await ancho("compromisos con UF");
     // A mano: «El monto varía (aprox.)» con un porcentaje.
     await p.click('.pie-vista [data-accion="agregar-contar"]');
-    await p.click('.dialogo [data-accion="comp-nuevo"]');
+    await p.click('.dialogo-chat [data-accion="comp-nuevo"]');
     if (!(await p.$$eval("#ce-moneda option", (l) => l.map((o) => o.value))).includes("UF")) falla(`la moneda ofrece «UF» ${donde}`);
     await p.fill("#ce-nombre", "Luz");
     await p.fill("#ce-monto", "32500");  // 32.000 justo es una entrada de concierto de la demo: sin palabras calzaría por monto exacto
@@ -518,14 +561,14 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     // Cuéntale con UF (la simulación hace de IA).
     await p.click(".nav-agregar");
     await p.click('.dialogo [data-accion="agregar-contar"]');
-    await p.fill("#comp-texto", "el dividendo son 12,75 UF los 25");
-    await p.click('[data-accion="comp-entender"]');
+    await contarle(p, "el dividendo son 12,75 UF los 25");
     await p.waitForSelector("#editor-comp #ce-monto");
     const ed = await p.evaluate(() => ({ moneda: document.querySelector("#ce-moneda").value, monto: document.querySelector("#ce-monto").value }));
     if (ed.moneda !== "UF" || ed.monto !== "12,75") falla(`Cuéntale entiende «12,75 UF» ${donde}: ${JSON.stringify(ed)}`);
     if (!(await texto("#editor-comp")).includes("UF")) falla(`el editor muestra la estimación en UF ${donde}`);
     await ancho("editor UF");
     await p.click('[data-accion="comp-cancelar"]');
+    await cerrarChat(p);
     // «Valor de la UF hoy» en Ajustes.
     await p.click('.nav [data-vista="mas"]');
     await p.click('.lista-mas [data-accion="ajustes"]');
@@ -561,8 +604,7 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     await p.click('.nav [data-vista="compromisos"]');
     await p.click(".nav-agregar");
     await p.click('.dialogo [data-accion="agregar-contar"]');
-    await p.fill("#comp-texto", "mi tia me prestó 1,8 millones en 12 meses");
-    await p.click('[data-accion="comp-entender"]');
+    await contarle(p, "mi tia me prestó 1,8 millones en 12 meses");
     await p.waitForSelector("#editor-comp #ce-con");
     const ed = await p.evaluate(() => ({ tipo: document.querySelector("#ce-tipo").value, con: document.querySelector("#ce-con").value }));
     if (ed.tipo !== "prestamo" || ed.con !== "Tia") falla(`Cuéntale entiende el préstamo ${donde}: ${JSON.stringify(ed)}`);
@@ -570,16 +612,17 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     await ancho("editor de préstamo");
     await p.click('[data-accion="comp-guardar"]');
     await p.waitForFunction(() => !document.querySelector("#editor-comp"));
+    await cerrarChat(p);
     if (!(await texto(".contenido")).includes(t.debes)) falla(`«Lo que estás pagando» dice cuánto le debes y a quién ${donde}`);
     if (!(await p.$$eval("h3.grupo.con-total", (l) => l.map((x) => x.textContent))).some((x) => x.includes(t.grupo))) falla(`compromisos agrupados con subtotal ${donde}`);
     await ancho("préstamo guardado");
     // Nunca sin salida: sin monto, igual se abre la tarjeta con lo que se entendió y el error en simple.
     await p.click('.pie-vista [data-accion="agregar-contar"]');
-    await p.fill("#comp-texto", "el gimnasio los 3");
-    await p.click('[data-accion="comp-entender"]');
+    await contarle(p, "el gimnasio los 3");
     await p.waitForSelector("#editor-comp .error-txt");
     if (!(await p.$eval("#ce-nombre", (el) => el.value)).toLowerCase().includes("gimnasio")) falla(`la tarjeta trae lo que sí se entendió ${donde}`);
     await p.click('[data-accion="comp-cancelar"]');
+    await cerrarChat(p);
     // Movimientos agrupados por comercio, con total y cantidad, que se despliegan.
     await p.click('.nav [data-vista="movimientos"]');
     const filas = await p.$$eval(".mov", (l) => l.length);
@@ -739,6 +782,81 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
   }
 }
 console.log("  ✓ Se paga solo: sin «Ya lo pagué» ni recordatorio, «No vimos el cargo» pasada la gracia y el editor con las dos opciones");
+
+// Conversar con Alcancía: se abre desde el Inicio, sugerencias para empezar, el plan de dos préstamos (con margen y cuotas de
+// la misma lógica que Python), «ese pago era del mes pasado» que se corrige al confirmar, borrar la conversación y sin IA.
+const TEXTOS_CHAT = {
+  español: { sugerencia: "¿Cuánto puedo pagar al mes? Me prestaron", corregir: "Sí, corrígelo", atrasado: "Atrasado 13 días", ajustes: "Ajustes" },
+  inglés: { sugerencia: "How much can I pay per month? I was lent", corregir: "Yes, fix it", atrasado: "13 days overdue", ajustes: "Settings" },
+};
+for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma=en"]]) {
+  for (const [modo, opciones] of [["escritorio", { viewport: { width: 1200, height: 820 } }], ["celular", { viewport: { width: 390, height: 844 }, colorScheme: "dark" }]]) {
+    const t = TEXTOS_CHAT[idioma], donde = `(${idioma}, ${modo})`;
+    const p = await navegador.newPage(opciones);
+    p.on("pageerror", (e) => falla(`error de JavaScript en el chat ${donde}: ${e.message}`));
+    const ancho = async (paso) => { if (modo === "celular" && (await p.evaluate(() => document.documentElement.scrollWidth)) > 392) falla(`se sale de la pantalla en «${paso}» ${donde}`); };
+    const texto = (sel) => p.$eval(sel, (el) => el.textContent.replace(/\s+/g, " "));
+    await p.goto(BASE + "?" + consulta);
+    await p.waitForSelector(".app");
+    // Un dividendo con el pago de septiembre que faltó: el del 6 de octubre quedó como el de octubre.
+    await p.evaluate(() => window.Alcancia._probar((E) => {
+      E.compromisos.compromisos.push({ id: "c-dividendo1", nombre: "Dividendo", tipo: "deuda", signo: "gasto", monto: 520000, moneda: "CLP", frecuencia: "mensual", dia: 5, categoria: "casa",
+        buscar: ["DIVIDENDO"], tolerancia: 5, activo: true, desde: "2026-08-01", origen: "manual", pagos: {} });
+      for (const f of ["2026-08-05", "2026-10-06"]) E.movimientos.push({ id: "div-" + f, fecha: f, descripcion: "DIVIDENDO BANCO EJEMPLO", monto: -520000, moneda: "CLP", categoria: "casa", cuenta: "banco-ejemplo" });
+    }));
+    await p.click('[data-accion="abrir-chat"]');
+    await p.waitForSelector(".dialogo-chat #chat-texto");
+    if ((await p.$$(".chip-sugerencia")).length < 3) falla(`el chat ofrece sugerencias para empezar ${donde}`);
+    if (modo === "celular") {
+      const caja = await p.$eval(".dialogo-chat", (el) => { const r = el.getBoundingClientRect(); return [r.top, r.height]; });
+      if (caja[0] !== 0 || caja[1] !== 844) falla(`en celular el chat ocupa toda la pantalla ${donde}: ${caja}`);
+      const campo = await p.$eval("#chat-texto", (el) => el.getBoundingClientRect().bottom);
+      if (campo < 760) falla(`en celular el campo va abajo, en la zona del pulgar ${donde}: ${campo}`);
+    }
+    await ancho("chat vacío");
+    await p.click('[data-chat-sugerencia="2"]');
+    if (!(await p.$eval("#chat-texto", (el) => el.value)).startsWith(t.sugerencia)) falla(`tocar una sugerencia la escribe en el campo ${donde}`);
+    await p.fill("#chat-texto", "mi abuela me prestó 1,5 millones y mi tío Matías 4 millones, ¿cuánto puedo pagar al mes?");
+    await p.press("#chat-texto", "Enter");
+    if (!(await p.$(".msg.pensando"))) falla(`mientras responde se ve «pensando…» ${donde}`);
+    await p.waitForSelector(".accion-chat.plan .propuesta", { timeout: 8000 });
+    const propuestas = await p.$$eval(".accion-chat.plan .propuesta", (l) => l.map((x) => x.textContent.replace(/\s+/g, " ")));
+    if (propuestas.length !== 2 || !propuestas[0].includes("Abuela") || !propuestas[1].includes("Tío Matías")) falla(`el plan propone dos pagos ${donde}: ${propuestas}`);
+    const esperado = await p.evaluate(() => { let r; window.Alcancia._probar((E) => {
+      const P = window.Alcancia._pruebas, mg = P.margenMensual(E.compromisos.compromisos, E.movimientos, E.hoy, E.categorias, "CLP", null, null, E.palabrasAuto);
+      r = P.planPrestamos([{ con: "Abuela", total: 1500000 }, { con: "Tío Matías", total: 4000000 }], mg.margen, "CLP"); }); return r; });
+    if (!propuestas[0].replace(/\D/g, "").includes(String(esperado.deudas[0].cuota))) falla(`la cuota sale de planPrestamos ${donde}: ${propuestas[0]}`);
+    await ancho("plan de préstamos");
+    await p.click('.accion-chat.plan .propuesta [data-chat="hacer"]');
+    if (!(await p.$(".accion-chat.plan .propuesta .accion-estado.hecha"))) falla(`«Agregar» deja la propuesta lista ${donde}`);
+    // «Aún no pago la hipoteca de este mes»: el pago de octubre era de septiembre.
+    await p.fill("#chat-texto", "Aún no pago la hipoteca de este mes");
+    await p.click('[data-accion="chat-enviar"]');
+    await p.waitForSelector(".accion-chat:not(.plan) [data-chat='hacer']", { timeout: 8000 });
+    const carta = await texto(".accion-chat:not(.plan):not(.sin-caja)");
+    if (!carta.includes("Dividendo") || !carta.includes(t.corregir)) falla(`la tarjeta propone corregir el dividendo ${donde}: ${carta}`);
+    await ancho("reasignar");
+    await p.click(".accion-chat:not(.plan) [data-chat='hacer']");
+    await cerrarChat(p);
+    await p.click('.nav [data-vista="compromisos"]');
+    const filas = await p.$$eval(".comp-fila", (l) => l.map((x) => x.textContent.replace(/\s+/g, " ")));
+    const div = filas.find((x) => x.includes("Dividendo")) || "";
+    if (!div.includes(t.atrasado)) falla(`después de corregir, el dividendo de octubre queda pendiente (atrasado) ${donde}: ${div}`);
+    if (!(await texto(".contenido")).includes("Abuela")) falla(`el préstamo agregado desde el chat está en Pagos ${donde}`);
+    // Borrar la conversación (con confirmación) y sin IA: lo dice y lleva a Ajustes.
+    await p.click('.nav-agregar');
+    await p.click('.dialogo [data-accion="agregar-contar"]');
+    await p.click('[data-accion="chat-borrar"]');
+    await p.click('[data-accion="chat-borrar-si"]');
+    if ((await p.$$(".msg.persona")).length) falla(`«Borrar la conversación» la deja vacía ${donde}`);
+    await p.evaluate(() => window.Alcancia._probar((E) => { E.config.ia = ""; }));
+    if (await p.$("#chat-texto")) falla(`sin IA no hay campo para escribir ${donde}`);
+    await p.click('.chat-pie [data-accion="chat-ajustes"]');
+    if (!(await p.$(".dialogo #t-ajustes"))) falla(`sin IA, «Abrir Ajustes» lleva a Ajustes ${donde}`);
+    await p.close();
+  }
+}
+console.log("  ✓ Chat: desde el Inicio, sugerencias, plan de dos préstamos, «ese pago era del mes pasado», borrar y sin IA");
 
 // Contraste (WCAG AA: 4.5) en modo claro y oscuro: la acción principal («+ Agregar», el único color de acción), el texto suave sobre
 // el fondo y el rojo de lo atrasado sobre el panel.
