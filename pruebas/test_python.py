@@ -124,6 +124,46 @@ class Recetas(unittest.TestCase):
         movs, _ = recetas.aplicar(ruta, receta, "x")
         self.assertEqual([(m["fecha"], m["monto"]) for m in movs], [("2026-10-02", -15000), ("2026-10-03", 900000)])
 
+    def test_xlsx_que_se_infla_al_descomprimir(self):
+        """Una «bomba zip»: el .xlsx pesa poco, pero por dentro diría gigas. Se rechaza antes de descomprimir."""
+        ruta = os.path.join(TMP, "bomba.xlsx")
+        xlsx(ruta, [["Fecha", "Detalle", "Monto"], [46297, "x" * 5000, -1]])
+        antes = recetas.MAXIMO_XLSX_PARTE
+        recetas.MAXIMO_XLSX_PARTE = 1000
+        try:
+            with self.assertRaises(recetas.ArchivoNoValido):
+                recetas.leer_tabla(ruta)
+        finally:
+            recetas.MAXIMO_XLSX_PARTE = antes
+
+    def test_xml_con_entidades_no_se_lee(self):
+        """«Billion laughs» o XXE en un .xlsx o un CAMT.053: ni siquiera se intenta."""
+        ns = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
+        ruta = os.path.join(TMP, "entidades.xlsx")
+        with zipfile.ZipFile(ruta, "w") as z:
+            z.writestr("xl/worksheets/sheet1.xml", '<?xml version="1.0"?><!DOCTYPE w [<!ENTITY a "aaaa"><!ENTITY b "&a;&a;&a;">]>'
+                                                   f'<worksheet {ns}><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>&b;</t></is></c></row>'
+                                                   '</sheetData></worksheet>')
+        with self.assertRaises(recetas.ArchivoNoValido):
+            recetas.leer_tabla(ruta)
+        camt = os.path.join(TMP, "camt.xml")
+        with open(camt, "w", encoding="utf-8") as f:
+            f.write('<?xml version="1.0"?><!DOCTYPE Document [<!ENTITY x SYSTEM "file:///etc/passwd">]>'
+                    '<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02"><BkToCstmrStmt><Stmt><Ntry>'
+                    '<Amt Ccy="EUR">1.00</Amt><CdtDbtInd>DBIT</CdtDbtInd><BookgDt><Dt>2026-10-02</Dt></BookgDt>'
+                    '<AddtlNtryInf>&x;</AddtlNtryInf></Ntry></Stmt></BkToCstmrStmt></Document>')
+        r = correr("importar.py", "vista", camt)
+        self.assertFalse(r["ok"])
+        self.assertIn("definiciones XML", r["error"])
+
+    def test_archivo_enorme(self):
+        ruta = os.path.join(TMP, "enorme.csv")
+        with open(ruta, "wb") as f:
+            f.truncate(recetas.MAXIMO_ARCHIVO + 1)
+        with self.assertRaises(recetas.ArchivoNoValido):
+            recetas.leer_tabla(ruta)
+        os.remove(ruta)
+
     def test_leer_receta_de_la_ia(self):
         self.assertEqual(recetas.leer_receta_texto("Aquí va:\n```json\n{\"a\": 1}\n```")["a"], 1)
         self.assertIsNone(recetas.leer_receta_texto("no sé"))
@@ -194,6 +234,16 @@ class Flujo(unittest.TestCase):
     def setUp(self):
         limpiar()
         datos.escribir_json(os.path.join(datos.INTERNO, "recetas", "cl-banco-ejemplo.json"), RECETA)
+
+    @unittest.skipIf(os.name == "nt", "permisos POSIX")
+    def test_carpeta_de_datos_solo_para_la_persona(self):
+        os.makedirs(datos.BASE, exist_ok=True)
+        os.chmod(datos.BASE, 0o755)
+        correr("importar.py", "guardar", CARTOLA, "cl-banco-ejemplo", "0")
+        self.assertEqual(os.stat(datos.BASE).st_mode & 0o777, 0o700)
+        for raiz, _, archivos in os.walk(datos.BASE):
+            for a in archivos:
+                self.assertEqual(os.stat(os.path.join(raiz, a)).st_mode & 0o077, 0, a)
 
     def test_vista_guardar_y_no_duplicar(self):
         v = correr("importar.py", "vista", CARTOLA)
@@ -788,6 +838,15 @@ class IaSinArgumentos(unittest.TestCase):
         with open(ruta, "w", encoding="utf-8") as f:
             f.write("#!" + sys.executable + "\nimport json, os, sys\n" + codigo)
         os.chmod(ruta, 0o755)
+
+    def test_claude_responde_sin_herramientas_ni_mcp(self):
+        """Lo que va a la IA trae texto de afuera (descripciones de la cartola): Claude Code corre sin herramientas ni MCP."""
+        import ia
+        datos.escribir_json(os.path.join(datos.INTERNO, "config.json"), {"ia": "claude"})
+        r = ia.ejecutar_ia("Clasifica cada movimiento\nMovimientos (número|descripción|monto):\n1|X|-1", timeout=30)
+        i = r.args.index("--disallowedTools")
+        self.assertEqual(r.args[i + 1], "*")
+        self.assertIn("--strict-mcp-config", r.args)
 
     def test_ningun_proveedor_pone_el_pedido_en_argv(self):
         import ia

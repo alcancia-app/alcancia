@@ -52,7 +52,7 @@ Responde SOLO con el JSON de la receta, sin explicaciones."""
 def main(archivo, pais, salida):
     try:
         muestra = recetas.muestra(archivo)
-    except pdf.PdfError as e:
+    except (pdf.PdfError, recetas.ArchivoNoValido) as e:
         return {"ok": False, "error": str(e)}
     except (OSError, ValueError) as e:
         return {"ok": False, "error": f"No pude leer el archivo: {e}"}

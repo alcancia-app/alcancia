@@ -1387,7 +1387,7 @@
       const c = cat(id), g = r.por_categoria[id], tope = mensual[id] || 0;
       const alerta = r.alertas.find((a) => a.categoria === id);
       const clase = !id ? "falta" : alerta?.tipo === "pasado" ? "pasado" : alerta ? "ojo" : "";
-      return `<button type="button" class="cat ${clase}" data-ir-cat="${esc(id)}"><span class="emoji" aria-hidden="true">${c.emoji}</span><span class="nombre" data-sin-traducir>${esc(nombreCat(c))}</span>
+      return `<button type="button" class="cat ${clase}" data-ir-cat="${esc(id)}"><span class="emoji" aria-hidden="true">${esc(c.emoji)}</span><span class="nombre" data-sin-traducir>${esc(nombreCat(c))}</span>
         <span class="monto" data-sin-traducir>${esc(dinero(g))}${tope ? ` <small>${T("de {x}", { x: esc(dinero(tope)) })}</small>` : ""}</span>
         <span class="barra ${clase}"><i style="width:${(tope ? Math.min(100, g / tope * 100) : g / max * 100).toFixed(1)}%"></i></span></button>`;
     }).join("");
@@ -1424,7 +1424,7 @@
     const comp = [...d.partes.filter((p) => p.tipo === "compromiso"),
       ...d.partes.filter((p) => p.tipo === "deuda").flatMap((p) => (p.pendientes || []).map((i) => ({ ...i, nombre: p.nombre, categoria: p.categoria })))]
       .sort((a, b) => ORDEN_ESTADO[a.estado] - ORDEN_ESTADO[b.estado] || cmp(a.vence, b.vence));
-    const filaComp = (p) => `<div class="comp-fila ${esc(p.estado)}"><span class="emoji" aria-hidden="true">${p.categoria && cat(p.categoria).id ? cat(p.categoria).emoji : "🧾"}</span>
+    const filaComp = (p) => `<div class="comp-fila ${esc(p.estado)}"><span class="emoji" aria-hidden="true">${esc(p.categoria && cat(p.categoria).id ? cat(p.categoria).emoji : "🧾")}</span>
       <div class="txt"><b data-sin-traducir>${esc(p.nombre)}</b><small data-sin-traducir><span class="punto" aria-hidden="true"></span>${textoEstado({ ...p, signo: "gasto", pago: null })}</small></div>
       <span class="valor" data-sin-traducir>${p.max != null && p.max !== p.monto ? "≈ " : ""}${esc(dinero(p.monto))}</span>${seCobraSolo({ ...p, signo: "gasto" }) ? "" : `<div class="acciones"><button class="boton" data-comp-pagado="${esc(p.clave)}">Ya lo pagué</button></div>`}</div>`;
     const fila = (ico, nombre, detalle, monto) => `<div class="debe-fila"><span class="emoji" aria-hidden="true">${ico}</span>
@@ -1435,7 +1435,7 @@
       if (p.tipo === "deuda") return fila("🏦", esc(p.nombre), [p.cuotas ? T("Te quedan {q} de {t} cuotas", { q: p.cuotas.quedan, t: p.cuotas.total }) : T("Saldo que anotaste"),
         p.original ? T("en UF: es una estimación") : p.max !== p.monto ? T("hasta {x}", { x: esc(dinero(p.max)) }) : "",
         p.este_mes ? T("este mes {x}", { x: esc(dinero(p.este_mes)) }) : ""].filter(Boolean).join(" · "), p.monto);
-      return fila(p.categoria && cat(p.categoria).id ? cat(p.categoria).emoji : "🧾", esc(nombreComercio(p.nombre)), T(p.quedan === 1 ? "Te queda 1 cuota de {c}" : "Te quedan {q} cuotas de {c}", { q: p.quedan, c: esc(dinero(p.cuota)) }), p.monto);
+      return fila(esc(p.categoria && cat(p.categoria).id ? cat(p.categoria).emoji : "🧾"), esc(nombreComercio(p.nombre)), T(p.quedan === 1 ? "Te queda 1 cuota de {c}" : "Te quedan {q} cuotas de {c}", { q: p.quedan, c: esc(dinero(p.cuota)) }), p.monto);
     }).join("");
     return `<h2 class="desglose-titulo">Lo que debes</h2>
       ${comp.length ? `<div class="por-pagar"><h3 class="grupo">Por pagar este mes</h3>${comp.map(filaComp).join("")}</div>` : ""}
@@ -1470,7 +1470,7 @@
     const sug = (E.sugerencias || []).filter((s) => !(E.compromisos.descartados || []).includes(s.clave));
     const filas = [...reglas.map((r) => {
       const c = cat(r.categoria);
-      return `<div class="aprendi-fila"><span class="emoji" aria-hidden="true">${c.emoji}</span><div class="txt">${frase(r.n === 1 ? "«{r}» siempre fue **{c}**. ¿Se lo pongo al que no tiene categoría y a los que vengan?" : "«{r}» siempre fue **{c}**. ¿Se lo pongo a los {n} que no tienen categoría y a los que vengan?", { r: esc(r.contiene), c: esc(nombreCat(c)), n: r.n })}</div>
+      return `<div class="aprendi-fila"><span class="emoji" aria-hidden="true">${esc(c.emoji)}</span><div class="txt">${frase(r.n === 1 ? "«{r}» siempre fue **{c}**. ¿Se lo pongo al que no tiene categoría y a los que vengan?" : "«{r}» siempre fue **{c}**. ¿Se lo pongo a los {n} que no tienen categoría y a los que vengan?", { r: esc(r.contiene), c: esc(nombreCat(c)), n: r.n })}</div>
         <div class="acciones"><button class="boton sutil" data-regla-no="${esc(r.contiene)}">No</button><button class="boton" data-regla-si="${esc(r.contiene)}" data-regla-cat="${esc(r.categoria)}">Sí, siempre</button></div></div>`;
     }), ...sug.slice(0, reglas.length ? 1 : 2).map((s) => `<div class="aprendi-fila"><span class="emoji" aria-hidden="true">${iconoComp(s)}</span><div class="txt">${textoSugerencia(s)}</div>
         <div class="acciones"><button class="boton sutil" data-sug-no="${esc(s.clave)}">No es</button><button class="boton" data-sug-agregar="${esc(s.clave)}">¿Lo agrego?</button></div></div>`)];
@@ -1496,7 +1496,7 @@
 
   function opcionesCategoria(elegida) {
     return [`<option value="" ${!elegida ? "selected" : ""}>🏷️ ${esc(tr("Sin categoría"))}</option>`,
-      ...E.categorias.map((c) => `<option value="${esc(c.id)}" ${c.id === elegida ? "selected" : ""}>${c.emoji} ${esc(c.nombre)}</option>`)].join("");
+      ...E.categorias.map((c) => `<option value="${esc(c.id)}" ${c.id === elegida ? "selected" : ""}>${esc(c.emoji)} ${esc(c.nombre)}</option>`)].join("");
   }
 
   // ───────────── Categorizar en uno o dos toques ─────────────
@@ -1511,7 +1511,7 @@
     const c = cat(m.categoria), falta = !m.categoria;
     return `<button type="button" class="chip-cat ${falta ? "falta" : ""}" id="chip-${esc(m.id)}" data-elegir="${esc(m.id)}" aria-haspopup="dialog"
       aria-label="${falta ? esc(tr("Ponle categoría")) : T("Categoría: {c}. Cambiar", { c: esc(nombreCat(c)) })}" ${falta ? `title="${esc(tr("Ponle categoría"))}"` : ""} data-sin-traducir>${falta
-        ? `<span class="mas-cat" aria-hidden="true">+</span>` : `<span aria-hidden="true">${c.emoji}</span><span class="n">${esc(nombreCat(c))}</span>`}</button>`;
+        ? `<span class="mas-cat" aria-hidden="true">+</span>` : `<span aria-hidden="true">${esc(c.emoji)}</span><span class="n">${esc(nombreCat(c))}</span>`}</button>`;
   }
   /** Una fila de movimiento: el comercio legible a la izquierda (tocarlo muestra la descripción original), la categoría en gris
    *  debajo y el monto a la derecha con cifras tabulares. */
@@ -1564,7 +1564,7 @@
     const atajos = lugar === "ordenar";
     const sug = categoriaSugerida(m);
     const botones = ops.map((c, i) => `<button type="button" class="op-cat ${c.id === m.categoria ? "actual" : ""} ${c.id === sug && !m.categoria ? "sugerida" : ""}" data-pick="${esc(c.id)}" data-lugar="${lugar}" ${c.id === sug && !m.categoria ? `title="La que sueles usar para este comercio"` : ""}>
-        ${atajos && i < 9 ? `<kbd aria-hidden="true">${i + 1}</kbd>` : ""}<span class="e" aria-hidden="true">${c.emoji}</span><span class="n" data-sin-traducir>${esc(nombreCat(c))}</span></button>`).join("");
+        ${atajos && i < 9 ? `<kbd aria-hidden="true">${i + 1}</kbd>` : ""}<span class="e" aria-hidden="true">${esc(c.emoji)}</span><span class="n" data-sin-traducir>${esc(nombreCat(c))}</span></button>`).join("");
     const crear = q && !exacta ? `<button type="button" class="op-cat crear" data-nueva-cat="${lugar}" data-con-nombre="1"><span class="e" aria-hidden="true">＋ ${sugerirEmoji(q)}</span><span class="n" data-sin-traducir>${T("Crear «{x}»", { x: esc(q) })}</span></button>`
       : `<button type="button" class="op-cat nueva" data-nueva-cat="${lugar}"><span class="e" aria-hidden="true">＋</span><span class="n">Nueva</span></button>`;
     const nueva = k.nueva ? `<div class="nueva-cat" role="group" aria-label="Nueva categoría">
@@ -1673,7 +1673,7 @@
       const total = (l) => l.reduce((a, m) => a + (m.moneda && m.moneda !== monedaPrincipal() ? 0 : m.monto), 0);
       html = [...grupos.entries()].sort((a, b) => Math.abs(total(b[1])) - Math.abs(total(a[1])) || cmp(a[0], b[0])).map(([k, l]) => {
         const abierto = E.grupoMov === k, t = total(l);
-        return `<button type="button" class="grupo-mov" data-grupo-mov="${esc(k)}" aria-expanded="${abierto}"><span class="emoji" aria-hidden="true">${cat(l[0].categoria).emoji}</span>
+        return `<button type="button" class="grupo-mov" data-grupo-mov="${esc(k)}" aria-expanded="${abierto}"><span class="emoji" aria-hidden="true">${esc(cat(l[0].categoria).emoji)}</span>
           <span class="txt"><b data-sin-traducir>${esc(nombreComercio(k))}</b><small data-sin-traducir>${T(l.length === 1 ? "1 movimiento" : "{n} movimientos", { n: l.length })}</small></span>
           <span class="valor ${t > 0 ? "ingreso" : ""}" data-sin-traducir>${esc(dinero(t, monedaPrincipal(), true))}</span><span class="cf-flecha" aria-hidden="true">›</span></button>
           ${abierto ? `<div class="grupo-mov-lista">${l.map((m) => filaMov(m, cuentas)).join("")}</div>` : ""}`;
@@ -1696,7 +1696,7 @@
         <div class="chips" role="group" aria-label="Filtros">
           ${sinCat || soloSin ? `<button class="chip-filtro" data-accion="filtro-ordenar" aria-pressed="${soloSin}"><span>Por ordenar</span> <span class="n" data-sin-traducir>${sinCat}</span></button>` : ""}
           <label class="chip-filtro select ${c ? "activo" : ""}"><span class="oculto-accesible">Filtrar por categoría</span><select data-filtro="categoria" aria-label="${esc(tr("Filtrar por categoría"))}" data-sin-traducir><option value="">${esc(tr("Todas las categorías"))}</option>
-            ${E.categorias.map((x) => `<option value="${esc(x.id)}" ${f.categoria === x.id ? "selected" : ""} data-sin-traducir>${x.emoji} ${esc(x.nombre)}</option>`).join("")}</select></label>
+            ${E.categorias.map((x) => `<option value="${esc(x.id)}" ${f.categoria === x.id ? "selected" : ""} data-sin-traducir>${esc(x.emoji)} ${esc(x.nombre)}</option>`).join("")}</select></label>
           <button class="chip-filtro" data-accion="agrupar-mov" aria-pressed="${!!E.agruparMov}">Agrupar por comercio</button></div></div>
       ${soloSin && lista.length ? `<div class="barra-ordenar"><p>${frase(lista.length === 1 ? "**1** sin categoría este mes." : "**{n}** sin categoría este mes.", { n: lista.length })}</p><button class="boton principal" data-vista="ordenar">Ordenar uno a uno</button></div>` : ""}
       ${hist}
@@ -1719,7 +1719,7 @@
     const r = resumen(E.movimientos, E.mes, E.hoy, E.presupuesto, E.categorias, per());
     const completos = mesesCompletos();
     const promedio = presupuestoSugerido(E.movimientos, completos, E.categorias, E.presupuesto.moneda, per());
-    const filas = E.categorias.filter((c) => c.tipo === "gasto").map((c) => `<div class="fila-pres"><span class="emoji" aria-hidden="true">${c.emoji}</span>
+    const filas = E.categorias.filter((c) => c.tipo === "gasto").map((c) => `<div class="fila-pres"><span class="emoji" aria-hidden="true">${esc(c.emoji)}</span>
       <div style="min-width:0"><b data-sin-traducir>${esc(c.nombre)}</b>
         <small>${frase("Este mes: {x}", { x: esc(dinero(r.por_categoria[c.id] || 0)) })}${promedio[c.id] ? " · " + frase("Lo normal: {x}", { x: esc(dinero(promedio[c.id])) }) : ""}</small></div>
       <input class="texto" inputmode="numeric" data-pres="${esc(c.id)}" value="${esc(numeroPlano(E.presEdit[c.id]))}" placeholder="${esc(tr("Sin tope"))}" aria-label="${T("Tope para {c}", { c: esc(c.nombre) })}" data-sin-traducir></div>`).join("");
@@ -1782,7 +1782,7 @@
   const monedaPrincipal = () => E.presupuesto.moneda || E.config.moneda || "CLP";
   const listaCompromisos = () => (E.compromisos && E.compromisos.compromisos) || [];
   const estadoDelMes = (mes = E.mes) => estadoCompromisos(listaCompromisos(), E.movimientos, mes, E.hoy, monedaPrincipal(), per(), ufCfg(), E.palabrasMora || [], E.palabrasAuto || []);
-  const iconoComp = (c) => (c.categoria && cat(c.categoria).id ? cat(c.categoria).emoji : (TIPOS_COMP.find((t) => t[0] === c.tipo) || TIPOS_COMP[TIPOS_COMP.length - 1])[2]);
+  const iconoComp = (c) => esc(c.categoria && cat(c.categoria).id ? cat(c.categoria).emoji : (TIPOS_COMP.find((t) => t[0] === c.tipo) || TIPOS_COMP[TIPOS_COMP.length - 1])[2]);
   /** «viernes 24 de noviembre» / «Friday, November 24». */
   function fechaLarga(f) {
     const [a, m, d] = f.split("-").map(Number), t = new Date(a, m - 1, d).toLocaleDateString(locFechas(), { weekday: "long", day: "numeric", month: "long" });
@@ -2337,7 +2337,7 @@
     }
     const filas = g.por_categoria.filter((x) => x.maximo > 0 || x.gastado > 0).map((x) => {
       const c = cat(x.categoria), pct = x.maximo ? Math.min(100, x.gastado / x.maximo * 100) : 100;
-      return `<div class="cat"><span class="emoji" aria-hidden="true">${c.emoji}</span><span class="nombre" data-sin-traducir>${esc(nombreCat(c))}</span>
+      return `<div class="cat"><span class="emoji" aria-hidden="true">${esc(c.emoji)}</span><span class="nombre" data-sin-traducir>${esc(nombreCat(c))}</span>
         <span class="monto" data-sin-traducir>${esc(dinero(x.gastado))} <small>/ ${esc(dinero(x.maximo))}</small></span>
         <span class="barra ${x.gastado > x.maximo ? "pasado" : x.gastado > x.maximo * 0.85 ? "ojo" : ""}"><i style="width:${pct.toFixed(1)}%"></i></span></div>`;
     }).join("");

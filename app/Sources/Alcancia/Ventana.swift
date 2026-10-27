@@ -5,7 +5,7 @@ import WebKit
 /// Ventana principal: la interfaz web (ui/) dentro de un WKWebView. La interfaz llama `host.enviar(accion, datos)`
 /// y la app responde con `window.Alcancia.<funcion>(json)`. El contrato lo revisa pruebas/contrato.py.
 @MainActor
-final class Ventana: NSObject, NSWindowDelegate, WKScriptMessageHandler {
+final class Ventana: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNavigationDelegate {
     static let shared = Ventana()
     private var ventana: NSWindow?
     private var web: WKWebView?
@@ -28,6 +28,7 @@ final class Ventana: NSObject, NSWindowDelegate, WKScriptMessageHandler {
         // La interfaz lee sus traducciones (ui/idiomas/*.json) con fetch desde los mismos archivos locales.
         conf.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
         let w = WKWebView(frame: NSRect(x: 0, y: 0, width: 1180, height: 780), configuration: conf)
+        w.navigationDelegate = self
         let v = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1180, height: 780),
                          styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
         v.titlebarAppearsTransparent = true
@@ -111,9 +112,26 @@ final class Ventana: NSObject, NSWindowDelegate, WKScriptMessageHandler {
         }
     }
 
+    // MARK: Navegación: la ventana solo muestra la interfaz que viene dentro de la app
+
+    /// Carpeta ui/ dentro de la app (sin enlaces simbólicos), para comparar rutas.
+    private var carpetaUI: String { Rutas.recursos.appendingPathComponent("ui").resolvingSymlinksInPath().path + "/" }
+
+    /// Un enlace o una redirección nunca carga una página de internet dentro de la ventana (esa página tendría el puente con la app):
+    /// solo se permiten los archivos de ui/. Un enlace https que la persona toca se abre en su navegador.
+    func webView(_ webView: WKWebView, decidePolicyFor accion: WKNavigationAction) async -> WKNavigationActionPolicy {
+        guard let u = accion.request.url else { return .cancel }
+        if u.isFileURL, u.resolvingSymlinksInPath().path.hasPrefix(carpetaUI) { return .allow }
+        if u.scheme == "https", accion.navigationType == .linkActivated { NSWorkspace.shared.open(u) }
+        return .cancel
+    }
+
     // MARK: Desde la interfaz
 
     func userContentController(_ c: WKUserContentController, didReceive mensaje: WKScriptMessage) {
+        // Solo la interfaz local (el marco principal, un archivo de ui/: la navegación de arriba no deja cargar otra cosa) puede
+        // pedirle cosas a la app; una página de internet o un iframe, nunca.
+        guard mensaje.frameInfo.isMainFrame, mensaje.frameInfo.securityOrigin.protocol == "file" else { return }
         guard let m = mensaje.body as? [String: Any], let accion = m["accion"] as? String else { return }
         let d = m["datos"] as? [String: Any] ?? [:]
         let ruta = d["ruta"] as? String ?? ""

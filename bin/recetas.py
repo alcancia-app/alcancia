@@ -23,6 +23,29 @@ CLAVES = {"formato", "id", "nombre", "institucion", "pais", "moneda", "tipo", "a
           "numeros", "signo", "ignorar_si_contiene", "autor", "notas"}
 COLUMNAS = {"fecha", "descripcion", "monto", "cargo", "abono", "moneda", "detalle", "saldo"}
 
+#: Límites para leer archivos que llegan de afuera (una cartola real pesa mucho menos): protegen contra archivos armados para
+#: colgar la app o llenar la memoria, como un .xlsx que se descomprime a gigas («bomba zip») o un XML con entidades.
+MAXIMO_ARCHIVO = 30 * 1024 * 1024
+MAXIMO_XLSX_PARTE = 60 * 1024 * 1024   # cada XML de adentro, ya descomprimido
+MAXIMO_XLSX_TOTAL = 200 * 1024 * 1024
+
+
+class ArchivoNoValido(ValueError):
+    """El archivo es demasiado grande o trae algo que una cartola nunca trae. El mensaje es para la persona."""
+
+
+def _revisar_tamano(ruta):
+    if os.path.getsize(ruta) > MAXIMO_ARCHIVO:
+        raise ArchivoNoValido("El archivo es demasiado grande para ser una cartola (más de 30 MB).")
+
+
+def _xml(texto):
+    """XML de afuera, sin DTD ni entidades (las cartolas y los .xlsx nunca las traen): así no hay «billion laughs» ni XXE,
+    aunque el lector de Python ya no resuelve entidades externas. En el texto de una celda, «<» siempre viene como «&lt;»."""
+    if re.search(rb"<!(DOCTYPE|ENTITY)", texto, re.I):
+        raise ArchivoNoValido("El archivo trae definiciones XML que una cartola no usa; no lo leo por seguridad.")
+    return ElementTree.fromstring(texto)
+
 
 # ───────────── Validar ─────────────
 def validar(r):
@@ -91,15 +114,20 @@ def disponibles():
 def _celdas_xlsx(ruta, hoja=None):
     """Lee un .xlsx con zipfile + XML (sin librerías). Devuelve filas de textos; las fechas de Excel quedan como número."""
     ns = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    _revisar_tamano(ruta)
     with zipfile.ZipFile(ruta) as z:
+        partes = z.infolist()
+        if len(partes) > 5000 or sum(p.file_size for p in partes) > MAXIMO_XLSX_TOTAL \
+                or any(p.file_size > MAXIMO_XLSX_PARTE for p in partes):
+            raise ArchivoNoValido("El Excel es demasiado grande por dentro para ser una cartola; no lo leo por seguridad.")
         compartidos = []
         if "xl/sharedStrings.xml" in z.namelist():
-            for si in ElementTree.fromstring(z.read("xl/sharedStrings.xml")).findall("m:si", ns):
+            for si in _xml(z.read("xl/sharedStrings.xml")).findall("m:si", ns):
                 compartidos.append("".join(t.text or "" for t in si.iter(f"{{{ns['m']}}}t")))
         hojas = sorted(n for n in z.namelist() if re.fullmatch(r"xl/worksheets/sheet\d+\.xml", n))
         elegida = f"xl/worksheets/sheet{hoja}.xml" if hoja else (hojas[0] if hojas else "")
         filas = []
-        for fila in ElementTree.fromstring(z.read(elegida)).iter(f"{{{ns['m']}}}row"):
+        for fila in _xml(z.read(elegida)).iter(f"{{{ns['m']}}}row"):
             valores = {}
             for c in fila.findall("m:c", ns):
                 ref = re.match(r"([A-Z]+)", c.get("r", "A"))
@@ -127,6 +155,7 @@ def leer_tabla(ruta, archivo=None, encabezados=None):
         return _celdas_xlsx(ruta, archivo.get("hoja"))
     if ruta.lower().endswith(".pdf"):
         return pdf.tabla(ruta, encabezados)
+    _revisar_tamano(ruta)
     with open(ruta, "rb") as f:
         crudo = f.read()
     for cod in [archivo.get("codificacion"), "utf-8-sig", "cp1252", "latin-1"]:
@@ -268,7 +297,9 @@ def es_camt(ruta):
 
 def leer_camt(ruta, cuenta):
     """Ntry: Amt (siempre positivo) + CdtDbtInd (CRDT/DBIT), BookgDt, Sts BOOK; texto en RmtInf/Ustrd o la contraparte."""
-    raiz = _sin_ns(ElementTree.parse(ruta).getroot())
+    _revisar_tamano(ruta)
+    with open(ruta, "rb") as f:
+        raiz = _sin_ns(_xml(f.read()))
     movimientos, avisos, vistos = [], [], {}
     for st in raiz.iter("Stmt"):
         moneda_cta = (st.findtext("Acct/Ccy") or "").upper()[:3]

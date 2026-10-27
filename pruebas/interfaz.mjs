@@ -969,6 +969,41 @@ for (const [modo, opciones] of [["escritorio", { viewport: { width: 1280, height
 }
 console.log("  ✓ Navegación: 4 secciones, «+» único, barra inferior en celular y lateral en escritorio");
 
+{
+  // Seguridad: lo que viene de afuera (la descripción de una transferencia, el nombre o emoji de una categoría, lo que responde la IA)
+  // nunca se ejecuta, y la política de contenido (CSP) no bloquea nada de la propia interfaz.
+  const p = await navegador.newPage({ viewport: { width: 1200, height: 820 } });
+  const csp = [];
+  p.on("console", (m) => { if (/Content Security Policy/i.test(m.text())) csp.push(m.text()); });
+  p.on("pageerror", (e) => falla(`error de JavaScript en seguridad: ${e.message}`));
+  await p.goto(BASE + "?idioma=es"); await p.waitForSelector(".nav");
+  const malo = `<img src=x onerror="window.__xss=1">"'><svg onload="window.__xss=2">`;
+  await p.evaluate(`window.Alcancia._probar(E => {
+    const delMes = E.movimientos.filter((x) => x.fecha.startsWith(E.mes) && x.monto < 0);
+    delMes[0].descripcion = ${JSON.stringify(malo)}; delMes[0].categoria = "";
+    E.categorias.push({ id: "mala", nombre: ${JSON.stringify(malo)}, emoji: ${JSON.stringify(malo)}, tipo: "gasto" });
+    for (const x of delMes.slice(1)) x.categoria = "mala";
+    E.chat.mensajes = [{ id: "m-x", rol: "alcancia", texto: ${JSON.stringify(malo)}, acciones: [], notas: [], estados: {} }];
+  })`);
+  const revisar = () => p.evaluate((malo) => {
+    const malos = document.querySelectorAll("img[src='x'], svg[onload]");
+    if (malos.length && !window.__donde) window.__donde = malos[0].parentElement.outerHTML.slice(0, 300);
+    window.__imgs = (window.__imgs || 0) + malos.length;
+    if (document.body.textContent.includes(malo.slice(0, 20))) window.__visto = (window.__visto || 0) + 1;
+  }, malo);
+  for (const f of [...VISTAS.map(([, f]) => f), "E=>{E.vista='resumen'; E.cifra=null}", "E=>{E.vista='movimientos'}", "E=>{E.vista='ordenar'}",
+    "E=>{E.vista='resumen'; E.agregar='contar'}"]) {
+    await p.evaluate(`window.Alcancia._probar(${f})`); await p.waitForTimeout(30); await revisar();
+  }
+  // Cada vista se revisa al pintarla (después de la siguiente ya no estaría en pantalla).
+  const r = await p.evaluate(() => ({ xss: window.__xss, img: window.__imgs || 0, visto: window.__visto || 0, donde: window.__donde }));
+  if (!r.visto) falla("la prueba de seguridad no llegó a pintar el texto malicioso (revisa los datos de la prueba)");
+  if (r.xss || r.img) falla(`un texto de afuera se ejecutó o quedó como HTML (${JSON.stringify(r)})`);
+  if (csp.length) falla(`la política de contenido bloqueó algo de la interfaz: ${csp[0]}`);
+  await p.close();
+}
+console.log("  ✓ Seguridad: descripciones, categorías y respuestas de la IA no se ejecutan, y la CSP no bloquea nada propio");
+
 await navegador.close();
 servidor.close();
 if (errores.length) { console.log(`\n✗ ${errores.length} problemas`); process.exit(1); }

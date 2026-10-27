@@ -230,7 +230,8 @@ con datos ficticios. Acciones: `listo, config, probarIA, elegirCartola, vistaCar
 categoria, categoriaNueva, saldo, regla, presupuesto, pedirConsejos, abrirEnlace, abrirCarpeta, conectar, sincronizar, desconectar, vigilar, mcpConectar,
 buscarActualizacion, actualizar, chat, compromiso, avisos`. Respuestas: `estado, iaProbada, cartolaElegida, vistaLista,
 recetaAprendida, importarProgreso, importado, consejosListos, conectado, sincronizado, importadoSolo, mcpListo, actualizacionRevisada,
-actualizacionProgreso, chatRespuesta`. `pruebas/contrato.py` revisa que cada acción exista en `Ventana.swift` (y en Windows/Linux cuando exista), que cada
+actualizacionProgreso, chatRespuesta`. Solo el marco principal cargado desde `ui/` puede usar el puente (`Ventana.swift`
+revisa el origen) y la ventana nunca navega fuera de `ui/` (un enlace https se abre en el navegador). `pruebas/contrato.py` revisa que cada acción exista en `Ventana.swift` (y en Windows/Linux cuando exista), que cada
 función que llama la app exista en `window.Alcancia` y que los scripts que llama existan. Una acción nueva va en `ui/app.js`, en `Ventana.swift`
 y simulada en `simular()`.
 
@@ -253,6 +254,13 @@ y simulada en `simular()`.
 - No cambies el formato de los datos (README, "Formato de los datos") sin compatibilidad. Hay gente con scripts que dependen de él.
 - Antes de cerrar un cambio: `bash pruebas/correr.sh` y mirar la interfaz (`cd ui && python3 -m http.server 8765`, `?idioma=en`,
   `?bienvenida`, `?vacio`, `window.Alcancia._probar(E => …)`), también a ancho de celular.
+- Seguridad (detalle en `SECURITY.md`): lo que viene de afuera se escapa con `esc()` (también emojis e ids de categorías), sin
+  scripts ni manejadores en línea (la CSP de `ui/index.html` los bloquea: `script-src 'self'`). Archivos importados con límites
+  (`recetas.MAXIMO_ARCHIVO`, partes de un .xlsx, XML sin DTD ni entidades → `recetas.ArchivoNoValido`). La IA corre sin
+  herramientas ni MCP (`claude --disallowedTools "*" --strict-mcp-config`, `codex -s read-only`). `~/Alcancia` queda 0700 y
+  los archivos 0600 (`datos.carpeta_privada`, `mkstemp`). En los guiones que arma Swift, todo lo variable va con `comillas()`.
+  Workflows: actions fijadas por SHA con su versión en un comentario (Dependabot con `cooldown`), `permissions` mínimos,
+  `persist-credentials: false`, nunca `pull_request_target` ni `${{ github.event.* }}` dentro de `run:` (va por `env:`).
 - Privacidad: `bash herramientas/revisar_privacidad.sh` antes de cada commit (usa `.terminos-privados`, local y nunca versionado).
   Jamás subas una cartola real, ni siquiera "para probar": las pruebas usan `pruebas/datos/cartola_ejemplo.csv`.
 - Commits con autor `@users.noreply.github.com`. El repo es público: cada commit se ve al tiro.

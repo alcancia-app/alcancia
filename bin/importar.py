@@ -123,7 +123,7 @@ if __name__ == "__main__":
         else:
             print(__doc__)
             sys.exit(2)
-    except pdf.PdfError as e:  # PDF cifrado, escaneado o dañado: el mensaje ya está escrito para la persona
+    except (pdf.PdfError, recetas.ArchivoNoValido) as e:  # PDF cifrado o dañado, archivo enorme o con XML raro: el mensaje ya está escrito para la persona
         salir(a[-1], {"ok": False, "error": str(e)})
     except (OSError, ValueError) as e:
         salir(a[-1], {"ok": False, "error": f"No pude leer el archivo: {e}"})

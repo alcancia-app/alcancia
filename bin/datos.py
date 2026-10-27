@@ -66,8 +66,28 @@ def leer_json(ruta, defecto):
         return defecto
 
 
+_PRIVADA = False
+
+
+def carpeta_privada():
+    """~/Alcancia solo para la persona (0700): en un Mac, la carpeta de usuario deja entrar al grupo «staff», que son todas las
+    cuentas del equipo. Los archivos ya se escriben 0600 (mkstemp). Una vez por proceso; en Windows no aplica."""
+    global _PRIVADA
+    if _PRIVADA or os.name == "nt":
+        return
+    _PRIVADA = True
+    try:
+        os.makedirs(BASE, mode=0o700, exist_ok=True)
+        if os.stat(BASE).st_mode & 0o077:
+            os.chmod(BASE, 0o700)
+    except OSError:
+        pass
+
+
 def escribir_atomico(ruta, texto):
     """Escribe en un temporal y lo renombra: si algo se corta a la mitad, el archivo anterior queda intacto."""
+    if os.path.abspath(ruta).startswith(os.path.abspath(BASE) + os.sep):
+        carpeta_privada()
     os.makedirs(os.path.dirname(ruta), exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=os.path.dirname(ruta), prefix=".tmp-")
     with os.fdopen(fd, "w", encoding="utf-8", newline="") as f:

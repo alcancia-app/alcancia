@@ -79,7 +79,10 @@ def ejecutar_ia(prompt, timeout=600):
         if ia == "gemini":
             cmd = [comando, "-p", "Responde a las instrucciones de arriba. Entrega solo el resultado pedido.", "-o", "text"]
         else:
-            cmd = [comando, "-p", "--output-format", "text"]
+            # Claude Code sin herramientas ni servidores MCP: lo que le mandamos trae texto de afuera (descripciones de la cartola,
+            # filas de un archivo) y una instrucción escondida ahí no debe poder correr comandos, leer archivos ni usar otras
+            # conexiones de la persona, aunque su configuración permita todo. Solo tiene que responder texto.
+            cmd = [comando, "-p", "--output-format", "text", "--disallowedTools", "*", "--strict-mcp-config"]
         return subprocess.run(cmd, input=prompt, text=True, encoding="utf-8", capture_output=True, timeout=timeout, cwd=tmp, env=_entorno_ia())
 
 

@@ -879,6 +879,9 @@
     "Guardar los {n}": "Save all {n}",
     "Listo: actualicé tu préstamo": "Done: I updated your loan",
     "Veamos cuánto te cabe al mes. Ojo: ya tienes anotado «{n}». Dime si es el mismo y no lo cuento dos veces.": "Let's see how much fits each month. Heads up: you already have “{n}”. Tell me if it's the same one and I won't count it twice.",
-    "Ya tienes anotado «{n}». ¿Es el mismo?": "You already have “{n}”. Is it the same one?"
+    "Ya tienes anotado «{n}». ¿Es el mismo?": "You already have “{n}”. Is it the same one?",
+    "El archivo es demasiado grande para ser una cartola (más de 30 MB).": "The file is too big to be a bank statement (over 30 MB).",
+    "El Excel es demasiado grande por dentro para ser una cartola; no lo leo por seguridad.": "This Excel file is too big inside to be a bank statement; I won't read it, for safety.",
+    "El archivo trae definiciones XML que una cartola no usa; no lo leo por seguridad.": "The file has XML definitions a bank statement never uses; I won't read it, for safety."
   }
 }
