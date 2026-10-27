@@ -118,6 +118,7 @@ devolución y con la categoría de la compra (si ya la tenía); su id sale de «
 | `tolerancia` | Cuánto puede variar el monto, en % (por defecto 5). |
 | `cuotas_total`, `cuotas_pagadas` | Opcionales. Las pagadas son las de antes de `desde`; cada pago reconocido después suma una. |
 | `fecha_fin`, `saldo` | Opcionales: cuándo termina y lo que te queda por pagar (como lo anotaste). |
+| `pago` | Opcional, solo en gastos: `"automatico"` (se cobra solo: PAC, PAT, una suscripción con tarjeta) o `"manual"` (lo pagas tú). Sin el campo, Alcancía lo deduce: «se paga solo» si el nombre o `buscar` traen una palabra de `compromisos_conocidos.json` (`automatico`: PAC, PAT, cargo automático, Netflix, Spotify, Meli+…); si no, deudas, préstamos, cuentas, suscripciones y transferencias se pagan a mano, y un `otro` queda sin etiqueta (se recuerda igual). No confundir con `pagos[…].como`, que dice cómo se reconoció cada pago. |
 | `activo` | `false` = en pausa (ni se recuerda ni se busca). |
 | `desde` | Desde qué día cuenta (AAAA-MM-DD). Un vencimiento anterior solo se da por pagado si ya estaba pagado. |
 | `origen` | `manual`, `detectado` (salió de tu cartola) o `ia` (lo entendió tu IA). |
@@ -136,6 +137,11 @@ mejor (más cerca de la fecha, luego del monto). La lista de palabras que delata
 seguro, arriendo, colegio, plan celular…) es solo datos: [`bin/compromisos_conocidos.json`](bin/compromisos_conocidos.json), por país.
 
 Un movimiento con categoría `transferencia` (entre tus cuentas) solo puede pagar un compromiso de tipo `transferencia`.
+
+**Se paga solo o lo pagas tú.** Lo que se paga solo no se te cobra: en Pagos dice «Se paga solo el 25 oct» (y «Pagado» cuando
+aparece el cargo), sin «Ya lo pagué» ni avisos de «por vencer». Si pasaron 3 días del vencimiento y el cargo no aparece, dice «No
+vimos el cargo» (puede que el cobro haya fallado) y, con los avisos activados, avisa una vez. Lo que pagas tú se recuerda como
+siempre. «Lo que debes» y «Te quedan» cuentan los dos: la plata sale igual.
 
 ### Préstamos
 Con `total` y `cuotas_total`, la cuota es `total × (1 + interes/100) ÷ cuotas` redondeada hacia abajo y la última se lleva la

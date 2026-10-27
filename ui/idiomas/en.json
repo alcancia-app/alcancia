@@ -469,7 +469,7 @@
     "Nada que pagar este mes.": "Nothing to pay this month.",
     "🔔 Avisarme antes de que venza": "🔔 Remind me before it's due",
     "Avisarme antes de que venza": "Remind me before it's due",
-    "Un aviso 3 días antes, el día que vence y si se atrasa. Como máximo uno por compromiso al día.": "One reminder 3 days before, one on the due date and one if it's overdue. At most one per commitment per day.",
+    "Un aviso 3 días antes, el día que vence y si se atrasa. Como máximo uno por compromiso al día. De lo que se paga solo, solo si no veo el cargo.": "One reminder 3 days before, one on the due date and one if it's overdue. At most one per commitment per day. For what pays automatically, only if I don't see the charge.",
     "Listo: te aviso antes de que venzan": "Done: I'll remind you before they're due",
     "Ya no te aviso de tus compromisos": "I won't remind you about your commitments anymore",
     "Gasto máximo sugerido": "Suggested spending limit",
@@ -780,6 +780,22 @@
     "Lo que {ia} ve en tus números": "What {ia} sees in your numbers",
     "Cuánto quieres gastar como máximo en cada cosa.": "The most you want to spend on each thing.",
     "Tu IA, país, tu mes, respaldo e idioma.": "Your AI, country, your month, backup and language.",
-    "**Tus datos son tuyos.** Todo queda en tu computador.": "**Your data is yours.** Everything stays on your computer."
+    "**Tus datos son tuyos.** Todo queda en tu computador.": "**Your data is yours.** Everything stays on your computer.",
+    "No vimos el cargo: venció ayer": "We didn't see the charge: it was due yesterday",
+    "No vimos el cargo: venció hace {n} días": "We didn't see the charge: it was due {n} days ago",
+    "Se paga solo · aún no aparece el cargo": "Pays automatically · the charge hasn't shown up yet",
+    "Se paga solo el {f}": "Pays automatically on {f}",
+    "**Estás al día.** Lo que queda se paga solo.": "**You're up to date.** What's left pays automatically.",
+    "No vimos el cargo de **{c}**: {x}, venció ayer.": "We didn't see the charge for **{c}**: {x}, due yesterday.",
+    "No vimos el cargo de **{c}**: {x}, venció hace {n} días.": "We didn't see the charge for **{c}**: {x}, due {n} days ago.",
+    "Se paga solo": "Pays automatically",
+    "Pagas tú": "You pay it",
+    "¿Cómo se paga?": "How is it paid?",
+    "PAC o cargo a tu tarjeta. Solo te aviso si no veo el cargo.": "Automatic debit or charged to your card. I only let you know if I don't see the charge.",
+    "Lo pago yo": "I pay it",
+    "Te recuerdo antes de que venza.": "I'll remind you before it's due.",
+    "Revisa un pago automático": "Check an automatic payment",
+    "No vimos el cargo de {c}.": "We didn't see the charge for {c}.",
+    "Puede que el cobro haya fallado: revísalo en Alcancía.": "The charge may have failed: check it in Alcancía."
   }
 }

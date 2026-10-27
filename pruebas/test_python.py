@@ -1667,6 +1667,97 @@ class Mora(unittest.TestCase):
         self.assertEqual(next(c for c in datos.categorias() if c["id"] == "intereses")["emoji"], "🧾")
 
 
+class SePagaSolo(unittest.TestCase):
+    """Lo que se paga solo (PAC, suscripciones digitales) y lo que pagas tú (casos «pago»)."""
+
+    def setUp(self):
+        limpiar()
+
+    def test_casos_compartidos(self):
+        k = CASOS["pago"]
+        auto = compromisos.palabras_automatico("CL")
+        self.assertTrue(set(k["palabras"]) <= set(auto), "las palabras del caso salen de compromisos_conocidos.json")
+        for c, esperado in k["modo"]:
+            self.assertEqual(compromisos.modo_pago(c, k["palabras"]), esperado, c["nombre"])
+        for e in k["estado"]:
+            self.assertEqual(compromisos.estado_mes(k["compromisos"], k["movimientos"], e["mes"], e["hoy"], "CLP", None, None, None, k["palabras"]),
+                             e["esperado"], e["nombre"])
+        for e in k["debes"]:
+            self.assertEqual(compromisos.lo_que_debes(k["compromisos"], k["movimientos"], e["hoy"], "CLP", None, None, k["palabras"]), e["esperado"])
+        # En palabras: Netflix y Meli+ se pagan solos; un plan funerario y una asesoría de deudores (suscripciones) los pagas tú.
+        est = {i["nombre"]: i for i in k["estado"][0]["esperado"]["items"]}
+        self.assertEqual((est["Meli+"]["modo_pago"], est["Meli+"]["estado"]), ("automatico", "esperando"))
+        self.assertEqual((est["Plan funerario Parque Ejemplo"]["modo_pago"], est["Plan funerario Parque Ejemplo"]["estado"]), ("manual", "atrasado"))
+        self.assertEqual(est["Asesoría deudores Ejemplo"]["modo_pago"], "manual")
+        self.assertEqual({i["nombre"]: i["estado"] for i in k["estado"][1]["esperado"]["items"]}["Meli+"], "atrasado", "pasada la gracia: no vimos el cargo")
+        # Lo que falta pagar sigue contando los dos (la plata sale igual).
+        self.assertIn("Meli+", [p["nombre"] for p in k["debes"][0]["esperado"]["partes"]])
+
+    def test_palabras_son_datos(self):
+        j = datos.leer_json(os.path.join(RAIZ, "bin", "compromisos_conocidos.json"), {})
+        for pais, lista in j["automatico"].items():
+            self.assertTrue(lista and all(p == datos.normalizar(p) for p in lista), pais)
+        auto = compromisos.palabras_automatico("CL")
+        for p in ("PAC", "NETFLIX", "MELI+", "SPOTIFY"):
+            self.assertIn(p, auto)
+        self.assertNotIn("MELI+", compromisos.palabras_automatico("US"))
+
+    def test_validar(self):
+        hoy = "2026-10-26"
+        base = {"nombre": "Streaming", "tipo": "suscripcion", "monto": 7990, "dia": 12}
+        c, e = compromisos.validar({**base, "pago": "automatico"}, None, hoy, estricto=True)
+        self.assertEqual((e, c["pago"]), ([], "automatico"))
+        c, e = compromisos.validar({**base, "pago": "a veces"}, None, hoy, estricto=True)
+        self.assertIsNone(c)
+        self.assertTrue(any("forma de pago" in x for x in e), e)
+        c, e = compromisos.validar({**base, "pago": "a veces"}, None, hoy)
+        self.assertEqual(e, [], "al leer el archivo, un valor raro se ignora")
+        self.assertNotIn("pago", c)
+        c, e = compromisos.validar(base, None, hoy)
+        self.assertNotIn("pago", c, "sin el campo, se guarda sin el campo (se infiere al usarlo)")
+        self.assertEqual(compromisos.parcial({**base, "pago": "manual"}, None)["pago"], "manual")
+        self.assertNotIn("pago", compromisos.parcial({**base, "pago": "x"}, None))
+
+    def test_avisos(self):
+        k = CASOS["pago"]
+        datos.agregar([dict(m) for m in k["movimientos"]])
+        compromisos.escribir({"formato": 1, "compromisos": k["compromisos"], "descartados": []})
+        datos.escribir_json(os.path.join(datos.INTERNO, "config.json"), {"avisos": True, "pais": "CL"})
+        tipos = lambda hoy: [(a["nombre"], a["tipo"]) for a in compromisos.avisos(hoy)["avisos"]]
+        # Meli+ e iCloud se pagan solos: nunca «por vencer» ni «vence hoy»; los que pagas tú, igual que siempre.
+        self.assertEqual(tipos("2026-10-18"), [("Gimnasio", "atrasado"), ("Plan funerario Parque Ejemplo", "pronto")])
+        self.assertEqual(tipos("2026-10-20"), [("Plan funerario Parque Ejemplo", "hoy")], "Meli+ vence hoy, pero se cobra solo")
+        self.assertEqual(tipos("2026-10-22"), [("Plan funerario Parque Ejemplo", "atrasado"), ("Spotify", "pronto")], "Meli+ aún en la gracia")
+        a = compromisos.avisos("2026-10-24")["avisos"]
+        self.assertEqual([(x["nombre"], x["tipo"]) for x in a], [("Meli+", "sin_cargo"), ("Spotify", "hoy")])
+        self.assertNotIn("monto", a[0], "sin montos")
+        self.assertNotIn("Meli+", [n for n, _ in tipos("2026-10-25")], "«no vimos el cargo» se avisa una vez por vencimiento")
+
+    def test_sugerir_trae_pago(self):
+        hoy, cats = "2026-10-26", datos.CATEGORIAS_BASE
+        movs = [{"id": "a1", "fecha": "2026-10-10", "descripcion": "PAC SEGURO EJEMPLO", "monto": -12500, "moneda": "CLP", "categoria": ""},
+                {"id": "a2", "fecha": "2026-10-12", "descripcion": "ARRIENDO DEPTO EJEMPLO", "monto": -450000, "moneda": "CLP", "categoria": ""}]
+        r = {s["clave"]: s for s in compromisos.sugerir(movs, [], hoy, cats, "CLP")}
+        self.assertEqual(r["PAC SEGURO EJEMPLO"]["pago"], "automatico")
+        self.assertEqual(r["ARRIENDO DEPTO EJEMPLO"]["pago"], "manual")
+
+    def entender(self, texto):
+        ruta = os.path.join(TMP, "entrada-ia.json")
+        with open(ruta, "w", encoding="utf-8") as f:
+            json.dump({"texto": texto, "hoy": "2026-10-26"}, f)
+        return correr("compromiso_ia.py", "entender", ruta)
+
+    def test_cuentale(self):
+        self.assertIn("pago", compromiso_ia.prompt("x", "2026-10-26", [], "CLP"))
+        r = self.entender("el streaming se cobra solo los 12, son 7.990")
+        self.assertTrue(r["ok"], r)
+        self.assertEqual(r["compromiso"]["pago"], "automatico")
+        malo = self.entender("PAGORARO el plan funerario")
+        self.assertFalse(malo["ok"])
+        self.assertIn("forma de pago", malo["error"])
+        self.assertNotIn("pago", malo["parcial"])
+
+
 if __name__ == "__main__":
     try:
         unittest.main(verbosity=1)

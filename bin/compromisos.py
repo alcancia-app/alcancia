@@ -5,7 +5,7 @@ Solo biblioteca estándar.
   {"formato": 1, "compromisos": [{...}], "descartados": ["CLAVE", ...]}
 
 Reconocer el pago, el estado del mes, el avance de las deudas, los montos aproximados y en UF, y el gasto máximo sugerido viven
-igual en ui/app.js (`vencimientos`, `coincide`, `asignar`, `valoresUF`, `enMoneda`, `estadoCompromisos`, `gastoMaximo`) y se
+igual en ui/app.js (`vencimientos`, `coincide`, `asignar`, `valoresUF`, `enMoneda`, `modoPago`, `estadoCompromisos`, `gastoMaximo`) y se
 prueban juntos con pruebas/casos.json.
 Si cambias una regla, cambia los dos lados y el caso. Validar y sugerir (detectar en la cartola) solo viven aquí.
 
@@ -38,9 +38,15 @@ ANTES, DESPUES, TOLERANCIA = 10, 7, 5
 VARIACION, UF, UF_MENSUAL = 3, "UF", 1.5
 #: Un pago en UF se reconoce por sus palabras y, si hay un valor de la UF escrito en Ajustes, con el monto dentro de ±15 %.
 MARGEN_UF = 15
+#: Cómo se paga: «automatico» (se cobra solo: PAC, PAT, una suscripción digital con tarjeta) o «manual» (lo pagas tú).
+PAGOS = ("automatico", "manual")
+#: Sin `pago` ni palabras de algo automático, estos tipos se pagan a mano (los «otro» quedan sin saber: se recuerdan igual).
+MANUAL_POR_TIPO = ("deuda", "prestamo", "cuenta", "suscripcion", "transferencia")
+#: Un pago automático no se recuerda: solo se avisa si pasaron estos días desde el vencimiento y el cargo no aparece.
+GRACIA_AUTO = 3
 #: Lo que puede venir de la IA (cualquier otro campo hace que la respuesta no sirva).
 CAMPOS_IA = {"nombre", "tipo", "signo", "monto", "moneda", "frecuencia", "dia", "fecha", "categoria", "buscar", "cuotas_total",
-             "cuotas_pagadas", "cuotas_restantes", "fecha_fin", "saldo", "aproximado", "con", "prestamo"}
+             "cuotas_pagadas", "cuotas_restantes", "fecha_fin", "saldo", "aproximado", "con", "prestamo", "pago"}
 CAMPOS = CAMPOS_IA | {"id", "tolerancia", "activo", "desde", "origen", "pagos"}
 ID_MOV = re.compile(r"[A-Za-z0-9_\-]{1,64}")
 PERIODO = re.compile(r"\d{4}(-\d{2}(-\d{2})?)?")
@@ -297,6 +303,10 @@ def validar(c, ids_categorias, hoy, moneda="CLP", estricto=False):
         if r["saldo"] is None:
             errores.append("El saldo tiene que ser un número mayor que cero.")
             del r["saldo"]
+    if c.get("pago") in PAGOS:
+        r["pago"] = c["pago"]
+    elif c.get("pago") is not None and estricto:
+        errores.append("La forma de pago no es válida (se paga solo o lo pagas tú).")
     r["activo"] = c.get("activo", True) is not False
     r["desde"] = c["desde"] if _fecha_valida(c.get("desde")) else hoy
     if r.get("fecha") and r["frecuencia"] == "una_vez" and r["fecha"] < r["desde"]:
@@ -320,7 +330,7 @@ def parcial(p, ids_categorias, moneda="CLP", cfg=None):
     r = {}
     if limpiar_nombre(p.get("nombre")):
         r["nombre"] = limpiar_nombre(p.get("nombre"))
-    for k, ok in (("tipo", TIPOS), ("signo", ("gasto", "ingreso")), ("frecuencia", FRECUENCIAS)):
+    for k, ok in (("tipo", TIPOS), ("signo", ("gasto", "ingreso")), ("frecuencia", FRECUENCIAS), ("pago", PAGOS)):
         if p.get(k) in ok:
             r[k] = p[k]
     if p.get("moneda") == UF or re.fullmatch(r"[A-Z]{3}", str(p.get("moneda") or "")):
@@ -381,6 +391,31 @@ def validos(raw=None, hoy=None, moneda=None):
         if limpio and not errores and not any(x["id"] == limpio["id"] for x in r):
             r.append(limpio)
     return r
+
+
+# ───────────── Se paga solo o lo pagas tú (igual que ui/app.js) ─────────────
+def palabras_automatico(pais="*"):
+    """Las palabras de algo que se cobra solo (bin/compromisos_conocidos.json, «automatico»): las de todos y las del país."""
+    j = datos.leer_json(CONOCIDOS, {}).get("automatico", {})
+    j = j if isinstance(j, dict) else {}
+    return [p for p in (j.get("*", []) + (j.get(pais, []) if pais != "*" else [])) if isinstance(p, str) and p.strip()]
+
+
+def modo_pago(c, palabras=()):
+    """«automatico», «manual» o None (no se sabe: se recuerda igual que uno manual, sin etiqueta). Igual que modoPago en ui/app.js.
+    Lo que dijo la persona (`pago`) manda. Si no lo dijo: «automatico» si el nombre o las palabras para reconocerlo traen una de
+    `palabras` (PAC, PAT, cargo automático, Netflix, Spotify…, como palabras completas); si no, «manual» para deudas, préstamos,
+    cuentas, suscripciones y transferencias (más vale recordar de más que dejar pasar un pago). Los ingresos no tienen."""
+    if c.get("signo") == "ingreso" or c.get("tipo") == "ingreso":
+        return None
+    if c.get("pago") in PAGOS:
+        return c["pago"]
+    texto = " | ".join(datos.normalizar(x) for x in [c.get("nombre") or ""] + [str(b) for b in c.get("buscar") or []])
+    for p in palabras:
+        p = datos.normalizar(p)
+        if p and re.search(r"(?<![A-Z0-9])" + re.escape(p) + r"(?![A-Z0-9])", texto):
+            return "automatico"
+    return "manual" if c.get("tipo") in MANUAL_POR_TIPO else None
 
 
 # ───────────── Vencimientos y reconocer el pago (igual que ui/app.js) ─────────────
@@ -675,9 +710,10 @@ def _minimo(x):
     return x["rango"]["min"] if x.get("rango") else x["monto"]
 
 
-def estado_mes(compromisos, movimientos, mes, hoy, moneda, per=None, uf=None, mora=None):
+def estado_mes(compromisos, movimientos, mes, hoy, moneda, per=None, uf=None, mora=None, auto=None):
     """Estado de cada compromiso activo en el periodo `mes` (ver resumen.rango): pagado (con fecha), pendiente (vence en N días),
-    hoy o atrasado (N días). En el periodo en curso también trae lo del anterior que quedó sin pagar (`anterior`). Totales solo
+    hoy o atrasado (N días). Uno que se paga solo (`modo_pago`, con las palabras `auto`) y ya venció queda «esperando» los primeros
+    GRACIA_AUTO días (el cargo puede tardar en aparecer) y recién después «atrasado» (no vimos el cargo). En el periodo en curso también trae lo del anterior que quedó sin pagar (`anterior`). Totales solo
     en `moneda`. `compromisos` trae el avance de cada uno (cuotas, término, cuánto falta) para «Lo que estás pagando».
     `uf`: el ajuste de la UF (uf_config). Los montos aproximados o en UF traen `rango`; los totales `_max` usan su máximo."""
     activos = [c for c in compromisos if c.get("activo", True)]
@@ -695,8 +731,10 @@ def estado_mes(compromisos, movimientos, mes, hoy, moneda, per=None, uf=None, mo
         if not p and o["vence"] < c["desde"]:
             continue
         d = _num(o["vence"]) - h
-        estado = "pagado" if p else "pendiente" if d > 0 else "hoy" if d == 0 else "atrasado"
-        if not en_mes and estado != "atrasado":
+        modo = modo_pago(c, auto or ())
+        estado = ("pagado" if p else "pendiente" if d > 0 else "hoy" if d == 0
+                  else "esperando" if modo == "automatico" and -d <= GRACIA_AUTO else "atrasado")
+        if not en_mes and estado not in ("atrasado", "esperando"):
             continue
         cuota = {"numero": c.get("cuotas_pagadas", 0) + o["n"], "total": c["cuotas_total"]} if c.get("cuotas_total") and o["n"] else None
         en = en_moneda(c, o["vence"], valores, moneda, uf_mes)
@@ -704,7 +742,8 @@ def estado_mes(compromisos, movimientos, mes, hoy, moneda, per=None, uf=None, mo
             en["monto"] = c["prestamo"]["ultima"]  # la última cuota de un préstamo ajusta el redondeo
         items.append({"id": c["id"], "nombre": c["nombre"], "tipo": c["tipo"], "signo": c["signo"],
                       **en, "categoria": c["categoria"], "periodo": o["periodo"],
-                      "vence": o["vence"], "estado": estado, "dias": 0 if p else abs(d), "pago": p, "cuota": cuota, "anterior": not en_mes})
+                      "vence": o["vence"], "estado": estado, "dias": 0 if p else abs(d), "pago": p, "cuota": cuota, "anterior": not en_mes,
+                      "modo_pago": modo})
     items.sort(key=lambda i: (i["vence"], i["id"]))
     g = [i for i in items if i["signo"] == "gasto" and i["moneda"] == moneda]
     ing = [i for i in items if i["signo"] == "ingreso" and i["moneda"] == moneda and not i["anterior"]]
@@ -718,7 +757,7 @@ def estado_mes(compromisos, movimientos, mes, hoy, moneda, per=None, uf=None, mo
         r = {"id": c["id"], "nombre": c["nombre"], "tipo": c["tipo"], "signo": c["signo"], **en, "frecuencia": c["frecuencia"],
              "categoria": c["categoria"], "mensual": _mensual(c, en["monto"]), "cuotas": None, "saldo": saldo,
              "por_pagar": (redondear(saldo * factor) if factor != 1 else saldo) if saldo is not None else None, "termina": c.get("fecha_fin"),
-             "con": c.get("con")}
+             "con": c.get("con"), "modo_pago": modo_pago(c, auto or ())}
         if c.get("cuotas_total"):
             pagadas = c.get("cuotas_pagadas", 0) + sum(1 for o in mios if o["n"] and f"{c['id']}|{o['periodo']}" in pagos)
             quedan = max(0, c["cuotas_total"] - pagadas)
@@ -810,10 +849,10 @@ def es_pago_tarjeta(m):
     return m["monto"] < 0 and m.get("medio") != "credito" and any(p in d for p in PAGO_TARJETA)
 
 
-_ORDEN_ESTADO = {"atrasado": 0, "hoy": 1, "pendiente": 2}
+_ORDEN_ESTADO = {"atrasado": 0, "hoy": 1, "esperando": 2, "pendiente": 3}
 
 
-def lo_que_debes(compromisos, movimientos, hoy, moneda, per=None, uf=None):
+def lo_que_debes(compromisos, movimientos, hoy, moneda, per=None, uf=None, auto=None):
     """Lo que debes hoy, en palabras simples. Partes:
     - `compromiso`: cuentas, suscripciones y deudas sin saldo conocido que faltan pagar este mes (y lo atrasado de antes);
     - `deuda`: créditos con lo que te queda por pagar (cuotas que faltan × cuota, o el saldo que anotaste), con lo de este mes aparte;
@@ -824,7 +863,7 @@ def lo_que_debes(compromisos, movimientos, hoy, moneda, per=None, uf=None):
     Cada parte trae `max` (lo más que podría ser, si es aproximado o en UF) y `original` (lo anotado en UF); los totales `_max`."""
     mes = periodo_de(hoy, per)
     inicio, fin = rango(mes, per)
-    e = estado_mes(compromisos, movimientos, mes, hoy, moneda, per, uf)
+    e = estado_mes(compromisos, movimientos, mes, hoy, moneda, per, uf, None, auto)
     con_saldo = {c["id"]: c for c in e["compromisos"] if c["signo"] == "gasto" and c["tipo"] in ("deuda", "prestamo") and c["moneda"] == moneda
                  and c.get("por_pagar")}
     pendientes = [i for i in e["items"] if i["signo"] == "gasto" and i["moneda"] == moneda and i["estado"] != "pagado"]
@@ -834,7 +873,8 @@ def lo_que_debes(compromisos, movimientos, hoy, moneda, per=None, uf=None):
         if i["id"] not in con_saldo:
             partes.append({"tipo": "compromiso", "nombre": i["nombre"], "monto": redondear(i["monto"]), "este_mes": redondear(i["monto"]),
                            "max": redondear(_maximo(i)), "original": i["original"], "estado": i["estado"], "vence": i["vence"],
-                           "dias": i["dias"], "categoria": i["categoria"], "clave": f"{i['id']}|{i['periodo']}"})
+                           "dias": i["dias"], "categoria": i["categoria"], "clave": f"{i['id']}|{i['periodo']}",
+                           "modo_pago": i["modo_pago"]})
     pagos = sorted(m["fecha"] for m in movimientos if m["fecha"] <= hoy and (m.get("moneda") or moneda) == moneda and es_pago_tarjeta(m))
     ultimo = pagos[-1] if pagos else None
     desde = rango(sumar_mes(mes, -1), per)[0]
@@ -863,7 +903,7 @@ def lo_que_debes(compromisos, movimientos, hoy, moneda, per=None, uf=None):
                        "max": redondear(c["por_pagar"] * c["rango"]["max"] / c["monto"]) if c["rango"] else redondear(c["por_pagar"] + extra),
                        "original": c["original"], "con": c["con"], "cuotas": c["cuotas"], "categoria": c["categoria"], "termina": c["termina"],
                        "pendientes": [{"estado": i["estado"], "vence": i["vence"], "dias": i["dias"], "monto": redondear(i["monto"]),
-                                       "clave": f"{i['id']}|{i['periodo']}"} for i in mias]})
+                                       "clave": f"{i['id']}|{i['periodo']}", "modo_pago": i["modo_pago"]} for i in mias]})
     partes += sorted(cuotas, key=lambda x: (-x["monto"], x["nombre"]))
     este_mes_max = sum(p["max"] if p["tipo"] == "compromiso" else p["este_mes"] for p in partes if p["tipo"] != "deuda") + \
         sum(_maximo(i) for i in pendientes if i["id"] in con_saldo)
@@ -1122,14 +1162,16 @@ def _del_medio(valores):
     return v[(len(v) - 1) // 2]
 
 
-def sugerir(movimientos, compromisos, hoy, categorias, moneda, pais="CL", descartados=(), solo_ids=None, uf=None):
+def sugerir(movimientos, compromisos, hoy, categorias, moneda, pais="CL", descartados=(), solo_ids=None, uf=None, auto=None):
     """Pagos (o ingresos) que parecen compromisos y todavía no lo son. Dos señales:
     - se repite: la misma descripción (sin números) una vez al mes en 3 de los últimos 4 meses, monto ±10 % y día ±4;
     - la descripción lo delata (dividendo, crédito, cuota, PAC, seguro, arriendo…: bin/compromisos_conocidos.json), aunque
       aparezca una sola vez en los últimos 4 meses o en este.
     Si se repite con montos distintos (dentro de ±10 %), va como aproximado con la variación observada; si la descripción dice UF
     o es un dividendo o crédito hipotecario, trae `preguntar_uf` (la interfaz pregunta «¿Se paga en UF?», opcional).
-    Nunca se agregan solos: la interfaz pregunta. `solo_ids`: solo los que incluyen alguno de estos movimientos (lo recién importado)."""
+    Nunca se agregan solos: la interfaz pregunta. `solo_ids`: solo los que incluyen alguno de estos movimientos (lo recién importado).
+    Cada gasto trae `pago` («automatico» o «manual», ver modo_pago con las palabras `auto`; por defecto las del país)."""
+    auto = palabras_automatico(pais) if auto is None else auto
     mes = hoy[:7]
     meses4 = [sumar_mes(mes, -i) for i in (4, 3, 2, 1)]
     ventana = set(meses4 + [mes])
@@ -1190,6 +1232,9 @@ def sugerir(movimientos, compromisos, hoy, categorias, moneda, pais="CL", descar
             s["aproximado"] = {"variacion": max(1, math.ceil(max(abs(x - medio) for x in montos) / medio * 100 - 1e-9))}
         if re.search(r"(?<![A-Z0-9])UF(?![A-Z0-9])", d) or (conocida or {}).get("uf"):
             s["preguntar_uf"] = True
+        modo = modo_pago({"nombre": ultimo["descripcion"], "buscar": [clave], "tipo": tipo, "signo": signo}, auto)
+        if modo:
+            s["pago"] = modo
         r.append(s)
     r.sort(key=lambda s: (s["motivo"] != "palabra" or s["tipo"] != "deuda", -s["monto"], s["clave"]))
     return r
@@ -1266,14 +1311,15 @@ def mora_del_anio(compromisos, movimientos, hoy, moneda, uf=None, mora=None):
 # ───────────── Avisos (la app de Mac los muestra como notificaciones del sistema) ─────────────
 def avisos(hoy):
     """Lo que hay que avisar hoy: 3 días antes (o menos, si la app no estaba abierta), el día del vencimiento y si quedó
-    atrasado. Una vez cada cosa por vencimiento y como máximo un aviso por compromiso al día. Solo gastos."""
+    atrasado. Una vez cada cosa por vencimiento y como máximo un aviso por compromiso al día. Solo gastos.
+    Lo que se paga solo (modo_pago) no se recuerda: solo avisa `sin_cargo` si pasaron GRACIA_AUTO días y el cargo no aparece."""
     cfg = datos.config()
     if not cfg.get("avisos"):
         return {"ok": True, "avisos": []}
     moneda = datos.presupuesto().get("moneda") or cfg["moneda"]
     lista, movs = validos(None, hoy, moneda), datos.leer_todos()
     per, mes = periodo_actual(hoy, movs, lista)
-    e = estado_mes(lista, movs, mes, hoy, moneda, per, uf_config(cfg))
+    e = estado_mes(lista, movs, mes, hoy, moneda, per, uf_config(cfg), None, palabras_automatico(cfg.get("pais") or "CL"))
     reg = datos.leer_json(RUTA_AVISOS, {})
     enviados = reg.get("enviados", {}) if isinstance(reg.get("enviados"), dict) else {}
     por_dia = reg.get("por_dia", {}) if isinstance(reg.get("por_dia"), dict) else {}
@@ -1281,7 +1327,11 @@ def avisos(hoy):
     for i in e["items"]:
         if i["signo"] != "gasto" or i["estado"] == "pagado":
             continue
-        tipo = "atrasado" if i["estado"] == "atrasado" else "hoy" if i["estado"] == "hoy" else "pronto" if i["dias"] <= 3 else None
+        if i["modo_pago"] == "automatico":
+            tipo = "sin_cargo" if i["estado"] == "atrasado" else None  # «atrasado» ya trae los días de gracia
+        else:
+            tipo = ("atrasado" if i["estado"] == "atrasado" else "hoy" if i["estado"] == "hoy"
+                    else "pronto" if i["estado"] == "pendiente" and i["dias"] <= 3 else None)
         k = f"{i['id']}|{i['periodo']}|{tipo}"
         if not tipo or k in enviados or por_dia.get(i["id"]) == hoy:
             continue

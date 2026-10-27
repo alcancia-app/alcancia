@@ -27,6 +27,11 @@ elif "Conviértelo en UN objeto JSON" in pedido:
                           "frecuencia": "mensual", "categoria": "otros"}))
     elif "le presté" in texto:
         print(json.dumps({"tipo": "prestamo", "con": "Matías", "signo": "ingreso", "prestamo": {"total": 850000}, "cuotas_total": 5}))
+    elif "se cobra solo" in texto:  # una suscripción que se paga sola
+        print(json.dumps({"nombre": "Streaming Ejemplo", "tipo": "suscripcion", "monto": 7990, "frecuencia": "mensual", "dia": 12,
+                          "categoria": "suscripciones", "buscar": ["STREAMING EJEMPLO"], "pago": "automatico"}))
+    elif "PAGORARO" in texto:  # una forma de pago que no existe: no pasa la validación
+        print(json.dumps({"nombre": "Plan funerario", "tipo": "suscripcion", "monto": 25000, "dia": 5, "pago": "a veces"}))
     elif "SINMONTO" in texto:  # la IA entendió casi todo, pero no el monto: igual se abre la tarjeta con lo demás
         print(json.dumps({"nombre": "Gimnasio", "tipo": "suscripcion", "monto": 0, "frecuencia": "mensual", "dia": 3, "buscar": ["GIMNASIO"]}))
     elif "MALAPROX" in texto:  # un rango al revés: no pasa la validación

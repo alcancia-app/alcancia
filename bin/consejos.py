@@ -34,7 +34,7 @@ def linea_compromisos(hoy, movimientos, presupuesto, categorias, compromisos, pe
         return "- (no ha anotado compromisos)"
     mes, moneda = resumen.periodo_de(hoy, per), presupuesto.get("moneda", "CLP")
     uf = K.uf_config()
-    e = K.estado_mes(compromisos, movimientos, mes, hoy, moneda, per, uf)
+    e = K.estado_mes(compromisos, movimientos, mes, hoy, moneda, per, uf, None, K.palabras_automatico(datos.config().get("pais") or "CL"))
     completos = [x for x in resumen.periodos_con_datos(movimientos, per) if x < mes][-3:]
     g = K.gasto_maximo(movimientos, compromisos, mes, hoy, categorias, completos, moneda, per, uf)
     # Montos aproximados o en UF: se dice «cerca de X (hasta Y)»; solo totales.
@@ -58,7 +58,7 @@ def linea_tres_cifras(hoy, movimientos, presupuesto, compromisos=None, per=None)
     """Las tres cifras del Resumen, solo totales: lo que tiene hoy, lo que debe (y lo de este mes) y lo atrasado."""
     moneda = presupuesto.get("moneda", "CLP")
     t = resumen.lo_que_tienes(datos.leer_json(os.path.join(datos.BASE, "cuentas.json"), []), movimientos, moneda)
-    d = K.lo_que_debes(compromisos or [], movimientos, hoy, moneda, per, K.uf_config())
+    d = K.lo_que_debes(compromisos or [], movimientos, hoy, moneda, per, K.uf_config(), K.palabras_automatico(datos.config().get("pais") or "CL"))
     atrasado = sum(p["monto"] for p in d["partes"] if p.get("estado") == "atrasado")
     tiene = f"tiene {t['total']} en sus cuentas" if t["total"] is not None else "no ha anotado cuánto tiene en sus cuentas"
     deben = f" Le deben {d['te_deben_total']} (préstamos que hizo; no se resta de lo que debe)." if d["te_deben_total"] else ""

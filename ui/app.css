@@ -391,6 +391,17 @@ input.texto:focus, select:focus, textarea.texto:focus { outline: 2px solid var(-
 .preguntas { border: 1px solid var(--linea); border-radius: 12px; padding: 12px 16px 16px; margin: 4px 0 0; display: grid; gap: 12px; }
 .preguntas legend { font-weight: 650; padding: 0 4px; }
 .preguntas legend small { color: var(--suave); font-weight: 500; }
+/* «¿Cómo se paga?»: dos opciones; la elegida con el color de acción (es lo seleccionado). */
+.pago-modo { border: 0; padding: 0; margin: 4px 0 0; min-width: 0; }
+.pago-modo legend { font-size: 13px; font-weight: 600; color: var(--suave); padding: 0; margin-bottom: 6px; }
+.opciones-pago { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.opcion-pago { display: flex; gap: 10px; align-items: flex-start; min-height: 44px; padding: 10px 12px; border: 1px solid var(--linea); border-radius: 12px; cursor: pointer; line-height: 1.4; }
+.opcion-pago input { margin-top: 2px; accent-color: var(--acento); width: 18px; height: 18px; flex: none; }
+.opcion-pago b { display: block; font-weight: 600; }
+.opcion-pago small { display: block; color: var(--suave); font-size: 12px; }
+.opcion-pago:has(input:checked) { border-color: var(--acento); background: var(--acento-suave); }
+.opcion-pago:has(input:focus-visible) { outline: 2px solid var(--acento); outline-offset: 2px; }
+.etiqueta-pago { display: inline-block; margin-right: 4px; vertical-align: 1px; font-size: 11px; padding: 0 7px; line-height: 18px; }
 .calculo-vivo { padding: 12px 0; border-top: 1px solid var(--linea); border-bottom: 1px solid var(--linea); line-height: 1.5; }
 .aprox-campos { display: grid; gap: 12px; margin: -2px 0 4px; }
 .monto-moneda { display: grid; grid-template-columns: minmax(0, 1fr) 7.5em; gap: 8px; }

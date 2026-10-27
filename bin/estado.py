@@ -100,7 +100,7 @@ def estado():
             "reglas": datos.reglas(), "cuentas": datos.leer_json(os.path.join(datos.BASE, "cuentas.json"), []), "consejos": consejos(),
             "conectores": conectores.info_publica(), "conexiones": conexiones(), "vigilar": vigilar(cfg), "ia_externa": ia_externa(),
             "compromisos": comp, "sugerencias": sugerencias, "feriados": K.feriados(cfg.get("pais")),
-            "palabras_mora": K.palabras_mora(cfg.get("pais") or "CL")}
+            "palabras_mora": K.palabras_mora(cfg.get("pais") or "CL"), "palabras_automatico": K.palabras_automatico(cfg.get("pais") or "CL")}
 
 
 if __name__ == "__main__":

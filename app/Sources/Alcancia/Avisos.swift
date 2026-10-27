@@ -1,7 +1,8 @@
 import AppKit
 import UserNotifications
 
-// MARK: - Avisos de compromisos: notificaciones del sistema 3 días antes, el día que vence y si quedó atrasado
+// MARK: - Avisos de compromisos: notificaciones del sistema 3 días antes, el día que vence y si quedó atrasado (lo que se paga
+// solo, únicamente si no apareció el cargo)
 
 /// bin/compromisos.py decide qué avisar hoy (una vez cada cosa por vencimiento y como máximo un aviso por compromiso al día);
 /// aquí solo se arma el texto en el idioma elegido y se muestra. Con la pantalla bloqueada no se ve nada propio: el título es
@@ -87,6 +88,9 @@ enum Avisos {
         case "atrasado":
             c.title = poner("Tienes un pago atrasado")
             c.body = poner("{c} está atrasado.") + " " + poner("Si ya lo pagaste, márcalo en Alcancía.")
+        case "sin_cargo":  // se paga solo, pasaron los días de gracia y el cargo no aparece
+            c.title = poner("Revisa un pago automático")
+            c.body = poner("No vimos el cargo de {c}.") + " " + poner("Puede que el cobro haya fallado: revísalo en Alcancía.")
         default:
             c.title = poner("Pago por vencer")
             c.body = dias == 1 ? poner("{c} vence mañana.") : poner("{c} vence en {n} días.")

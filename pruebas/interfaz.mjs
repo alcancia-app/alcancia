@@ -214,6 +214,17 @@ const navegador = await chromium.launch();
       const r = P.loQueDebes(ap.compromisos, ap.movimientos, k.hoy, k.moneda, null, k.uf);
       if (canon(r) !== canon(k.esperado)) malos.push(`aproximados «${k.nombre}» = ${canon(r).slice(0, 700)}`);
     }
+    // Se paga solo o lo pagas tú.
+    const pg = c.pago;
+    for (const [x, esp] of pg.modo) if (P.modoPago(x, pg.palabras) !== esp) malos.push(`modoPago(${x.nombre}) = ${P.modoPago(x, pg.palabras)}`);
+    for (const k of pg.estado) {
+      const r = P.estadoCompromisos(pg.compromisos, pg.movimientos, k.mes, k.hoy, "CLP", null, null, [], pg.palabras);
+      if (canon(r) !== canon(k.esperado)) malos.push(`se paga solo «${k.nombre}» = ${canon(r).slice(0, 700)}`);
+    }
+    for (const k of pg.debes) {
+      const r = P.loQueDebes(pg.compromisos, pg.movimientos, k.hoy, "CLP", null, null, pg.palabras);
+      if (canon(r) !== canon(k.esperado)) malos.push(`se paga solo «${k.nombre}» = ${canon(r).slice(0, 700)}`);
+    }
     return malos;
   }, casos);
   r.forEach((m) => falla("lógica distinta a Python: " + m));
@@ -678,6 +689,56 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
   }
 }
 console.log("  ✓ Mora: el pago atrasado dice los días y el interés, y el resumen lo pagado este año");
+
+// Se paga solo o lo pagas tú: lo automático no lleva «Ya lo pagué» ni se recuerda; si pasa la gracia sin cargo, «No vimos el cargo».
+const TEXTOS_PG = {
+  español: { grupo: "Se paga solo", solo: "Se paga solo el", sin: "No vimos el cargo", pagas: "Pagas tú", aldia: "Lo que queda se paga solo" },
+  inglés: { grupo: "Pays automatically", solo: "Pays automatically on", sin: "We didn't see the charge", pagas: "You pay it", aldia: "What's left pays automatically" },
+};
+for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma=en"]]) {
+  for (const [modo, opciones] of [["escritorio", { viewport: { width: 1200, height: 820 } }], ["celular", { viewport: { width: 390, height: 844 }, colorScheme: "dark" }]]) {
+    const t = TEXTOS_PG[idioma], donde = `(${idioma}, ${modo})`;
+    const p = await navegador.newPage(opciones);
+    p.on("pageerror", (e) => falla(`error de JavaScript en «se paga solo» ${donde}: ${e.message}`));
+    await p.goto(BASE + "?" + consulta);
+    await p.waitForSelector(".app");
+    const d = JSON.parse(fs.readFileSync(path.join(RAIZ, "ui", "demo.json"), "utf8"));
+    d.config.bienvenida = true;
+    const base = { signo: "gasto", moneda: "CLP", frecuencia: "mensual", categoria: "suscripciones", tolerancia: 5, activo: true, desde: "2026-10-01", origen: "manual", pagos: {} };
+    // Una nube de fotos que se cobra el 25 (sin `pago`: lo delata «ICLOUD») y una revista con PAC que debía cobrarse el 10.
+    d.compromisos.compromisos.push({ ...base, id: "c-nube000001", nombre: "Nube de fotos", tipo: "suscripcion", monto: 2990, dia: 25, buscar: ["ICLOUD"] },
+      { ...base, id: "c-revista001", nombre: "Revista Ejemplo", tipo: "suscripcion", monto: 4990, dia: 10, buscar: ["REVISTA EJEMPLO"], pago: "automatico" });
+    await p.evaluate((x) => window.Alcancia.estado(x), d);
+    await p.click('.nav [data-vista="compromisos"]');
+    const fila = (n) => p.$$eval(".seccion-pagos .comp-fila", (l, n) => { const f = l.find((x) => x.textContent.includes(n)); return f ? { t: f.textContent.replace(/\s+/g, " "), boton: !!f.querySelector("[data-comp-pagado]"), clase: f.className } : null; }, n);
+    const nube = await fila("Nube de fotos"), revista = await fila("Revista Ejemplo");
+    if (!nube || !nube.t.includes(t.solo)) falla(`lo que se paga solo dice cuándo se cobra ${donde}: ${nube && nube.t}`);
+    if (!nube || nube.boton) falla(`lo que se paga solo no lleva «Ya lo pagué» ${donde}`);
+    if (!(await p.$$eval(".seccion-pagos h3.grupo", (l) => l.map((x) => x.textContent))).some((x) => x.includes(t.grupo))) falla(`lo que se paga solo va aparte ${donde}`);
+    if (!revista || !revista.t.includes(t.sin) || !revista.clase.includes("atrasado")) falla(`sin cargo pasada la gracia: «No vimos el cargo» ${donde}: ${revista && revista.t}`);
+    const etiquetas = await p.$$eval(".pagando", (l) => l.map((x) => [x.querySelector("b").textContent, x.querySelector(".etiqueta-pago")?.textContent || ""]));
+    const de = Object.fromEntries(etiquetas);
+    if (de["Streaming de películas"] !== t.grupo || de["Arriendo"] !== t.pagas || de["Sueldo"] !== "") falla(`la etiqueta de cómo se paga ${donde}: ${JSON.stringify(etiquetas)}`);
+    // En el Inicio, lo que se paga solo no se cobra a la persona: no es «Te falta pagar».
+    await p.click('.nav [data-vista="resumen"]');
+    if ((await p.$eval(".contenido", (el) => el.textContent)).includes("Nube de fotos")) falla(`el Inicio no recuerda lo que se paga solo ${donde}`);
+    // El editor: prellenado con lo que se infiere; al escribir «Netflix» en uno nuevo, pasa solo a «Se paga solo».
+    await p.click('.nav [data-vista="compromisos"]');
+    await p.click('[data-comp-editar="c-nube000001"]');
+    if (!(await p.$eval('[data-ce-pago][value="automatico"]', (x) => x.checked))) falla(`el editor parte con lo que se infiere ${donde}`);
+    await p.check('[data-ce-pago][value="manual"]');
+    await p.click('[data-accion="comp-guardar"]');
+    if (!(await fila("Nube de fotos"))?.boton) falla(`cambiado a «Lo pago yo», vuelve «Ya lo pagué» ${donde}`);
+    await p.evaluate(() => window.Alcancia._probar((E) => { E.compEdit = null; E.agregar = null; }));
+    await p.evaluate(() => window.Alcancia._probar((E) => { E.compEdit = { c: { nombre: "", tipo: "suscripcion", monto: 0, moneda: "CLP", frecuencia: "mensual", dia: 5, categoria: "", buscar: [], buscarTexto: "", desde: E.hoy, activo: true, origen: "manual" }, origen: "manual", error: "" }; }));
+    if (!(await p.$eval('[data-ce-pago][value="manual"]', (x) => x.checked))) falla(`una suscripción sin pistas parte en «Lo pago yo» ${donde}`);
+    await p.fill("#ce-nombre", "Netflix");
+    if (!(await p.$eval('[data-ce-pago][value="automatico"]', (x) => x.checked))) falla(`«Netflix» la pasa a «Se paga solo» ${donde}`);
+    if (modo === "celular" && (await p.evaluate(() => document.documentElement.scrollWidth)) > 392) falla(`se sale de la pantalla con el editor ${donde}`);
+    await p.close();
+  }
+}
+console.log("  ✓ Se paga solo: sin «Ya lo pagué» ni recordatorio, «No vimos el cargo» pasada la gracia y el editor con las dos opciones");
 
 // Contraste (WCAG AA: 4.5) en modo claro y oscuro: la acción principal («+ Agregar», el único color de acción), el texto suave sobre
 // el fondo y el rojo de lo atrasado sobre el panel.

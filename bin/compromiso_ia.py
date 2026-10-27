@@ -95,6 +95,10 @@ Campos (usa solo estos; los que no sepas, déjalos fuera):
 - cuotas_total, cuotas_pagadas o cuotas_restantes: números enteros, solo si la persona los dice.
 - fecha_fin: AAAA-MM-DD, si dice cuándo termina.
 - saldo: número, si dice cuánto le queda por pagar en total.
+- pago (solo en gastos): «automatico» si se cobra solo, sin que la persona haga nada (dice «se cobra solo», «se paga solo»,
+  «PAC», «PAT», «cargo automático», «débito automático», o es una suscripción digital con tarjeta como Netflix, Spotify o
+  iCloud); «manual» si la persona lo paga (dice «lo pago yo», «transfiero», «pago en la caja», «tengo que pagar», «voy al
+  banco»). Si no se sabe, déjalo fuera.
 
 Texto de la persona: «{texto}»
 

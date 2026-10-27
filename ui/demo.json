@@ -103,6 +103,58 @@
   "INTEREST CHARGE",
   "FINANCE CHARGE"
  ],
+ "palabras_automatico": [
+  "PAC",
+  "PAT",
+  "CARGO AUTOMATICO",
+  "PAGO AUTOMATICO",
+  "DEBITO AUTOMATICO",
+  "DIRECT DEBIT",
+  "AUTOPAY",
+  "STANDING ORDER",
+  "NETFLIX",
+  "SPOTIFY",
+  "DISNEY",
+  "DISNEY+",
+  "STAR+",
+  "HBO",
+  "HBO MAX",
+  "PARAMOUNT",
+  "PARAMOUNT+",
+  "YOUTUBE",
+  "YOUTUBE PREMIUM",
+  "APPLE.COM",
+  "APPLE.COM/BILL",
+  "ICLOUD",
+  "APPLE MUSIC",
+  "APPLE TV",
+  "APPLE ONE",
+  "GOOGLE ONE",
+  "GOOGLE PLAY",
+  "GOOGLE STORAGE",
+  "AMAZON PRIME",
+  "PRIME VIDEO",
+  "CHATGPT",
+  "OPENAI",
+  "CLAUDE.AI",
+  "CLAUDE PRO",
+  "CLAUDE MAX",
+  "ANTHROPIC",
+  "MICROSOFT 365",
+  "OFFICE 365",
+  "XBOX GAME PASS",
+  "PLAYSTATION PLUS",
+  "CRUNCHYROLL",
+  "DEEZER",
+  "TIDAL",
+  "DROPBOX",
+  "ADOBE",
+  "CANVA",
+  "DUOLINGO",
+  "MELI+",
+  "MELI PLUS",
+  "NIVEL MERCADO"
+ ],
  "ias": [
   {
    "id": "claude",
@@ -4319,6 +4371,46 @@
     "origen": "manual",
     "pagos": {},
     "fecha_fin": "2026-11-05"
+   },
+   {
+    "id": "c-pelis00001",
+    "nombre": "Streaming de películas",
+    "tipo": "suscripcion",
+    "signo": "gasto",
+    "moneda": "CLP",
+    "monto": 9990,
+    "frecuencia": "mensual",
+    "dia": 6,
+    "categoria": "suscripciones",
+    "buscar": [
+     "STREAMING PELIS"
+    ],
+    "tolerancia": 5,
+    "pago": "automatico",
+    "activo": true,
+    "desde": "2026-07-01",
+    "origen": "manual",
+    "pagos": {}
+   },
+   {
+    "id": "c-musica0001",
+    "nombre": "Música premium",
+    "tipo": "suscripcion",
+    "signo": "gasto",
+    "moneda": "CLP",
+    "monto": 5490,
+    "frecuencia": "mensual",
+    "dia": 6,
+    "categoria": "suscripciones",
+    "buscar": [
+     "MUSICA PREMIUM"
+    ],
+    "tolerancia": 5,
+    "pago": "automatico",
+    "activo": true,
+    "desde": "2026-07-01",
+    "origen": "manual",
+    "pagos": {}
    }
   ],
   "descartados": [],
@@ -4343,7 +4435,8 @@
    "meses": 1,
    "preguntar": "saldo",
    "cuotas_pagadas": 4,
-   "cuotas_total": 24
+   "cuotas_total": 24,
+   "pago": "manual"
   },
   {
    "clave": "JARDIN INFANTIL",
@@ -4361,7 +4454,8 @@
    "origen": "detectado",
    "motivo": "repite",
    "meses": 4,
-   "preguntar": "frecuencia"
+   "preguntar": "frecuencia",
+   "pago": "manual"
   },
   {
    "clave": "LUZ DEL SUR",
@@ -4382,7 +4476,8 @@
    "preguntar": "frecuencia",
    "aproximado": {
     "variacion": 7
-   }
+   },
+   "pago": "manual"
   },
   {
    "clave": "INTERNET CELULAR",
@@ -4400,7 +4495,8 @@
    "origen": "detectado",
    "motivo": "repite",
    "meses": 4,
-   "preguntar": "frecuencia"
+   "preguntar": "frecuencia",
+   "pago": "manual"
   },
   {
    "clave": "AGUA POTABLE",
@@ -4418,25 +4514,8 @@
    "origen": "detectado",
    "motivo": "repite",
    "meses": 4,
-   "preguntar": "frecuencia"
-  },
-  {
-   "clave": "STREAMING PELIS",
-   "nombre": "Streaming pelis",
-   "tipo": "suscripcion",
-   "signo": "gasto",
-   "monto": 9990,
-   "moneda": "CLP",
-   "frecuencia": "mensual",
-   "dia": 6,
-   "categoria": "suscripciones",
-   "buscar": [
-    "STREAMING PELIS"
-   ],
-   "origen": "detectado",
-   "motivo": "repite",
-   "meses": 4,
-   "preguntar": "frecuencia"
+   "preguntar": "frecuencia",
+   "pago": "manual"
   },
   {
    "clave": "SEGURO HOGAR EJEMPLO",
@@ -4454,25 +4533,8 @@
    "origen": "detectado",
    "motivo": "palabra",
    "meses": 1,
-   "preguntar": "frecuencia"
-  },
-  {
-   "clave": "MUSICA PREMIUM",
-   "nombre": "Musica premium",
-   "tipo": "suscripcion",
-   "signo": "gasto",
-   "monto": 5490,
-   "moneda": "CLP",
-   "frecuencia": "mensual",
-   "dia": 6,
-   "categoria": "suscripciones",
-   "buscar": [
-    "MUSICA PREMIUM"
-   ],
-   "origen": "detectado",
-   "motivo": "repite",
-   "meses": 4,
-   "preguntar": "frecuencia"
+   "preguntar": "frecuencia",
+   "pago": "manual"
   }
  ],
  "vigilar": {

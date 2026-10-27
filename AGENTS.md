@@ -84,7 +84,13 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
   categorías, y valida estricto (`validar(..., estricto=True)`); no guarda nada. Si la IA falla o su respuesta no pasa, devuelve
   `{"ok": false, "error", "parcial"}` (`parcial`: solo los campos válidos) y la interfaz abre el editor con eso: nunca sin salida.
   Un movimiento con categoría `transferencia` solo paga compromisos de tipo `transferencia`.
-  Avisos (Mac): `compromisos.py avisos <hoy>` decide (3 días antes, el día, atrasado; uno por compromiso al día, registro en
+  **Se paga solo:** `pago` (`automatico`/`manual`, opcional) y `modo_pago`/`modoPago`: lo dicho manda; si no, palabras de
+  `compromisos_conocidos.json` (`automatico`, llegan a la interfaz en el estado, `palabras_automatico`) en el nombre o `buscar` →
+  automático; deuda, préstamo, cuenta, suscripción y transferencia → manual; `otro` e ingresos → null (se recuerda, sin etiqueta).
+  `estado_mes` da a cada ítem `modo_pago` y, a un automático vencido, `esperando` los primeros `GRACIA_AUTO` (3) días y después
+  `atrasado` («No vimos el cargo»). Los automáticos no llevan «Ya lo pagué» (`seCobraSolo`) ni avisos salvo `sin_cargo`; los totales
+  los cuentan igual. `sugerir` y `compromiso_ia.py` traen `pago`. Casos en `pruebas/casos.json` (sección `pago`).
+  Avisos (Mac): `compromisos.py avisos <hoy>` decide (3 días antes, el día, atrasado; lo automático solo `sin_cargo`; uno por compromiso al día, registro en
   `.alcancia/avisos.json`) y `Avisos.swift` muestra, sin montos y con título genérico (con la pantalla bloqueada solo «Tienes un pago por vencer»). El permiso se pide al agregar el primer compromiso o al activar los avisos.
 - **Aproximados y UF:** `aproximado` ({variacion} o {min, max}) y `moneda: "UF"`. `en_moneda`/`enMoneda` da a cada ítem `monto` y
   `moneda` para sumar (en UF, pasado a la moneda principal), `rango` y `original` (lo anotado en UF, el valor usado y de dónde salió,

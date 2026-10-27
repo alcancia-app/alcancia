@@ -487,8 +487,25 @@
     return { total, interes, pagar: a(pagar), cuota: a(cuota), ultima: a(ultima) };
   }
   const maximoDe = (x) => (x.rango ? x.rango.max : x.monto), minimoDe = (x) => (x.rango ? x.rango.min : x.monto);
-  /** Estado de cada compromiso en el mes (igual que compromisos.estado_mes en Python). */
-  function estadoCompromisos(compromisos, movimientos, mes, hoy, moneda, per = null, uf = null, mora = []) {
+  // Se paga solo o lo pagas tú (igual que compromisos.modo_pago en Python).
+  const PAGOS = ["automatico", "manual"], MANUAL_POR_TIPO = ["deuda", "prestamo", "cuenta", "suscripcion", "transferencia"], GRACIA_AUTO = 3;
+  const escRegex = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  /** «automatico», «manual» o null (no se sabe: se recuerda como uno manual, sin etiqueta). Lo que dijo la persona manda; si no,
+   *  «automatico» si el nombre o sus palabras traen una de `palabras` (PAC, Netflix…), y «manual» para deudas, préstamos,
+   *  cuentas, suscripciones y transferencias. Los ingresos no tienen. */
+  function modoPago(c, palabras = []) {
+    if (c.signo === "ingreso" || c.tipo === "ingreso") return null;
+    if (PAGOS.includes(c.pago)) return c.pago;
+    const texto = [c.nombre || "", ...(c.buscar || []).map(String)].map(normalizar).join(" | ");
+    for (const p of palabras) {
+      const n = normalizar(p);
+      if (n && new RegExp(`(?<![A-Z0-9])${escRegex(n)}(?![A-Z0-9])`).test(texto)) return "automatico";
+    }
+    return MANUAL_POR_TIPO.includes(c.tipo) ? "manual" : null;
+  }
+  /** Estado de cada compromiso en el mes (igual que compromisos.estado_mes en Python). Uno que se paga solo y ya venció queda
+   *  «esperando» los primeros GRACIA_AUTO días y después «atrasado» (no vimos el cargo). */
+  function estadoCompromisos(compromisos, movimientos, mes, hoy, moneda, per = null, uf = null, mora = [], auto = []) {
     const activos = compromisos.filter((c) => c.activo !== false);
     const [inicio, fin] = rango(mes, per);
     const { ocs, pagos } = asignar(activos, movimientos, fin, moneda, uf ? uf.valor ?? null : null, mora);
@@ -500,14 +517,14 @@
       if (!enMes && !(antes && antes[0] <= o.vence && o.vence <= antes[1])) continue;
       const p = pagos[`${c.id}|${o.periodo}`];
       if (!p && o.vence < c.desde) continue;
-      const d = dnum(o.vence) - h;
-      const estado = p ? "pagado" : d > 0 ? "pendiente" : d === 0 ? "hoy" : "atrasado";
-      if (!enMes && estado !== "atrasado") continue;
+      const d = dnum(o.vence) - h, modo = modoPago(c, auto || []);
+      const estado = p ? "pagado" : d > 0 ? "pendiente" : d === 0 ? "hoy" : modo === "automatico" && -d <= GRACIA_AUTO ? "esperando" : "atrasado";
+      if (!enMes && estado !== "atrasado" && estado !== "esperando") continue;
       const cuota = c.cuotas_total && o.n ? { numero: (c.cuotas_pagadas || 0) + o.n, total: c.cuotas_total } : null;
       const en = enMoneda(c, o.vence, valores, moneda, ufMes);
       if (c.prestamo && cuota && cuota.numero === c.cuotas_total && c.moneda !== UF) en.monto = c.prestamo.ultima; // la última cuota ajusta el redondeo
       items.push({ id: c.id, nombre: c.nombre, tipo: c.tipo, signo: c.signo, ...en, categoria: c.categoria,
-        periodo: o.periodo, vence: o.vence, estado, dias: p ? 0 : Math.abs(d), pago: p || null, cuota, anterior: !enMes });
+        periodo: o.periodo, vence: o.vence, estado, dias: p ? 0 : Math.abs(d), pago: p || null, cuota, anterior: !enMes, modo_pago: modo });
     }
     items.sort((a, b) => (a.vence !== b.vence ? (a.vence < b.vence ? -1 : 1) : a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
     const suma = (l) => Math.round(l.reduce((a, i) => a + i.monto, 0));
@@ -518,7 +535,8 @@
       const factor = c.moneda === UF && !en.original.sin_valor ? en.monto / c.monto : 1;
       const r = { id: c.id, nombre: c.nombre, tipo: c.tipo, signo: c.signo, ...en, frecuencia: c.frecuencia,
         categoria: c.categoria, mensual: mensualDe(c, en.monto), cuotas: null, saldo,
-        por_pagar: saldo != null ? (factor !== 1 ? Math.round(saldo * factor) : saldo) : null, termina: c.fecha_fin ?? null, con: c.con ?? null };
+        por_pagar: saldo != null ? (factor !== 1 ? Math.round(saldo * factor) : saldo) : null, termina: c.fecha_fin ?? null, con: c.con ?? null,
+        modo_pago: modoPago(c, auto || []) };
       if (c.cuotas_total) {
         const pagadas = (c.cuotas_pagadas || 0) + ocs.filter(([cc, o]) => cc === c && o.n && pagos[`${c.id}|${o.periodo}`]).length;
         const quedan = Math.max(0, c.cuotas_total - pagadas);
@@ -682,17 +700,17 @@
   // Lo que debes (igual que compromisos.lo_que_debes en Python).
   const PAGO_TARJETA = ["PAGO TARJETA", "PAGO DE TARJETA", "PAGO TC", "PAGO T C", "PAGO TARJ", "TARJETA DE CREDITO", "PAGO DE RESUMEN", "CREDIT CARD PAYMENT", "PAYMENT THANK YOU"];
   const esPagoTarjeta = (m) => { const d = normalizar(String(m.descripcion || "").replace(/[.\-_/]/g, " ")); return m.monto < 0 && m.medio !== "credito" && PAGO_TARJETA.some((p) => d.includes(p)); };
-  const ORDEN_ESTADO = { atrasado: 0, hoy: 1, pendiente: 2 };
+  const ORDEN_ESTADO = { atrasado: 0, hoy: 1, esperando: 2, pendiente: 3 };
   const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
-  function loQueDebes(compromisos, movimientos, hoy, moneda, per = null, uf = null) {
+  function loQueDebes(compromisos, movimientos, hoy, moneda, per = null, uf = null, auto = []) {
     const mes = periodoDe(hoy, per), [, fin] = rango(mes, per);
-    const e = estadoCompromisos(compromisos, movimientos, mes, hoy, moneda, per, uf);
+    const e = estadoCompromisos(compromisos, movimientos, mes, hoy, moneda, per, uf, [], auto);
     const conSaldo = new Map(e.compromisos.filter((c) => c.signo === "gasto" && (c.tipo === "deuda" || c.tipo === "prestamo") && c.moneda === moneda && c.por_pagar).map((c) => [c.id, c]));
     const pendientes = e.items.filter((i) => i.signo === "gasto" && i.moneda === moneda && i.estado !== "pagado")
       .sort((a, b) => ORDEN_ESTADO[a.estado] - ORDEN_ESTADO[b.estado] || cmp(a.vence, b.vence) || cmp(a.id, b.id));
     const partes = [];
     for (const i of pendientes) if (!conSaldo.has(i.id)) partes.push({ tipo: "compromiso", nombre: i.nombre, monto: Math.round(i.monto), este_mes: Math.round(i.monto),
-      max: Math.round(maximoDe(i)), original: i.original, estado: i.estado, vence: i.vence, dias: i.dias, categoria: i.categoria, clave: `${i.id}|${i.periodo}` });
+      max: Math.round(maximoDe(i)), original: i.original, estado: i.estado, vence: i.vence, dias: i.dias, categoria: i.categoria, clave: `${i.id}|${i.periodo}`, modo_pago: i.modo_pago });
     const pagos = movimientos.filter((m) => m.fecha <= hoy && (m.moneda || moneda) === moneda && esPagoTarjeta(m)).map((m) => m.fecha).sort();
     const ultimo = pagos.length ? pagos[pagos.length - 1] : null, desde = rango(sumarMes(mes, -1), per)[0];
     let tarjeta = 0, compras = 0;
@@ -710,7 +728,7 @@
       const extra = mias.reduce((a, i) => a + maximoDe(i) - i.monto, 0);
       partes.push({ tipo: "deuda", nombre: c.nombre, monto: Math.round(c.por_pagar), este_mes: Math.round(mias.reduce((a, i) => a + i.monto, 0)),
         max: c.rango ? Math.round(c.por_pagar * c.rango.max / c.monto) : Math.round(c.por_pagar + extra), original: c.original, con: c.con, cuotas: c.cuotas, categoria: c.categoria, termina: c.termina,
-        pendientes: mias.map((i) => ({ estado: i.estado, vence: i.vence, dias: i.dias, monto: Math.round(i.monto), clave: `${i.id}|${i.periodo}` })) });
+        pendientes: mias.map((i) => ({ estado: i.estado, vence: i.vence, dias: i.dias, monto: Math.round(i.monto), clave: `${i.id}|${i.periodo}`, modo_pago: i.modo_pago })) });
     }
     partes.push(...cuotas.sort((a, b) => b.monto - a.monto || cmp(a.nombre, b.nombre)));
     const esteMesMax = partes.filter((p) => p.tipo !== "deuda").reduce((a, p) => a + (p.tipo === "compromiso" ? p.max : p.este_mes), 0)
@@ -992,13 +1010,15 @@
   /** Lo que falta pagar, en una sola línea bajo la cifra protagonista: rojo solo si está atrasado; verde si estás al día. */
   function lineaAlDia() {
     if (!listaCompromisos().length) return "";
-    const orden = { atrasado: 0, hoy: 1, pendiente: 2 };
-    const pend = estadoDelMes(periodoHoy()).items.filter((i) => i.signo === "gasto" && i.estado !== "pagado")
-      .sort((a, b) => orden[a.estado] - orden[b.estado] || cmp(a.vence, b.vence));
-    if (!pend.length) return `<div class="al-dia ok" role="status"><span class="punto" aria-hidden="true"></span><p>${frase("**Estás al día.** Pagaste todo lo de este mes.", {})}</p></div>`;
+    // Lo que se paga solo no se recuerda: solo aparece si pasaron los días de gracia y no vimos el cargo.
+    const todos = estadoDelMes(periodoHoy()).items.filter((i) => i.signo === "gasto" && i.estado !== "pagado");
+    const pend = todos.filter((i) => !seCobraSolo(i)).sort((a, b) => ORDEN_ESTADO[a.estado] - ORDEN_ESTADO[b.estado] || cmp(a.vence, b.vence));
+    if (!pend.length) return `<div class="al-dia ok" role="status"><span class="punto" aria-hidden="true"></span><p>${todos.length ? frase("**Estás al día.** Lo que queda se paga solo.", {})
+      : frase("**Estás al día.** Pagaste todo lo de este mes.", {})}</p></div>`;
     const p = pend[0], c = esc(p.nombre), x = montoCorto(p);
     let texto;
-    if (p.estado === "atrasado") texto = p.dias === 1 ? T("Te falta pagar **{c}**: {x}, venció ayer.", { c, x }) : T("Te falta pagar **{c}**: {x}, vencido hace {n} días.", { c, x, n: p.dias });
+    if (p.estado === "atrasado" && p.modo_pago === "automatico") texto = p.dias === 1 ? T("No vimos el cargo de **{c}**: {x}, venció ayer.", { c, x }) : T("No vimos el cargo de **{c}**: {x}, venció hace {n} días.", { c, x, n: p.dias });
+    else if (p.estado === "atrasado") texto = p.dias === 1 ? T("Te falta pagar **{c}**: {x}, venció ayer.", { c, x }) : T("Te falta pagar **{c}**: {x}, vencido hace {n} días.", { c, x, n: p.dias });
     else if (p.estado === "hoy") texto = T("Te falta pagar **{c}**: {x}, vence hoy.", { c, x });
     else texto = p.dias === 1 ? T("Te falta pagar **{c}**: {x}, vence mañana.", { c, x }) : T("Te falta pagar **{c}**: {x}, vence en {n} días.", { c, x, n: p.dias });
     const sumables = pend.filter((i) => i.moneda === monedaPrincipal());
@@ -1160,7 +1180,7 @@
     const r = resumen(E.movimientos, E.mes, E.hoy, E.presupuesto, E.categorias, per());
     const enCurso = E.mes === periodoHoy() && r.dia > 0 && r.dia <= r.dias_mes;
     const t = loQueTienes(E.cuentas, E.movimientos, moneda);
-    const d = loQueDebes(listaCompromisos(), E.movimientos, E.hoy, moneda, per(), ufCfg());
+    const d = loQueDebes(listaCompromisos(), E.movimientos, E.hoy, moneda, per(), ufCfg(), E.palabrasAuto || []);
     const numTienes = t.total == null ? `<span class="cf-invita">Anotar</span>` : cifraGrande(t.total, moneda);
     const atrasados = d.partes.filter((p) => p.estado === "atrasado").length;
     const subDebes = atrasados ? `<span class="rojo-txt">${frase(atrasados === 1 ? "1 atrasado" : "{n} atrasados", { n: atrasados })}</span>` : "";
@@ -1255,7 +1275,7 @@
       .sort((a, b) => ORDEN_ESTADO[a.estado] - ORDEN_ESTADO[b.estado] || cmp(a.vence, b.vence));
     const filaComp = (p) => `<div class="comp-fila ${esc(p.estado)}"><span class="emoji" aria-hidden="true">${p.categoria && cat(p.categoria).id ? cat(p.categoria).emoji : "🧾"}</span>
       <div class="txt"><b data-sin-traducir>${esc(p.nombre)}</b><small data-sin-traducir><span class="punto" aria-hidden="true"></span>${textoEstado({ ...p, signo: "gasto", pago: null })}</small></div>
-      <span class="valor" data-sin-traducir>${p.max != null && p.max !== p.monto ? "≈ " : ""}${esc(dinero(p.monto))}</span><div class="acciones"><button class="boton" data-comp-pagado="${esc(p.clave)}">Ya lo pagué</button></div></div>`;
+      <span class="valor" data-sin-traducir>${p.max != null && p.max !== p.monto ? "≈ " : ""}${esc(dinero(p.monto))}</span>${seCobraSolo({ ...p, signo: "gasto" }) ? "" : `<div class="acciones"><button class="boton" data-comp-pagado="${esc(p.clave)}">Ya lo pagué</button></div>`}</div>`;
     const fila = (ico, nombre, detalle, monto) => `<div class="debe-fila"><span class="emoji" aria-hidden="true">${ico}</span>
       <div class="txt"><b data-sin-traducir>${nombre}</b><small data-sin-traducir>${detalle}</small></div><span class="valor" data-sin-traducir>${esc(dinero(monto))}</span></div>`;
     const otras = d.partes.filter((p) => p.tipo !== "compromiso").map((p) => {
@@ -1610,7 +1630,7 @@
   const DIAS_SEMANA = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
   const monedaPrincipal = () => E.presupuesto.moneda || E.config.moneda || "CLP";
   const listaCompromisos = () => (E.compromisos && E.compromisos.compromisos) || [];
-  const estadoDelMes = (mes = E.mes) => estadoCompromisos(listaCompromisos(), E.movimientos, mes, E.hoy, monedaPrincipal(), per(), ufCfg(), E.palabrasMora || []);
+  const estadoDelMes = (mes = E.mes) => estadoCompromisos(listaCompromisos(), E.movimientos, mes, E.hoy, monedaPrincipal(), per(), ufCfg(), E.palabrasMora || [], E.palabrasAuto || []);
   const iconoComp = (c) => (c.categoria && cat(c.categoria).id ? cat(c.categoria).emoji : (TIPOS_COMP.find((t) => t[0] === c.tipo) || TIPOS_COMP[TIPOS_COMP.length - 1])[2]);
   /** «viernes 24 de noviembre» / «Friday, November 24». */
   function fechaLarga(f) {
@@ -1625,12 +1645,19 @@
     const [a, m] = f.split("-").map(Number);
     return new Date(a, m - 1, 1).toLocaleDateString(locFechas(), { month: "long", year: "numeric" });
   }
-  /** «Vence en 3 días», «Atrasado 8 días», «Pagado el 30 sept»… (para ingresos: «Llega…», «Llegó…»). */
+  /** «Vence en 3 días», «Atrasado 8 días», «Pagado el 30 sept»… (para ingresos: «Llega…», «Llegó…»; lo que se paga solo:
+   *  «Se paga solo el 25 oct» o «No vimos el cargo…»). */
   function textoEstado(i) {
     const ing = i.signo === "ingreso";
     if (i.estado === "pagado" && !ing && i.pago.mora) return T(i.pago.mora.dias === 1 ? "Pagado el {f} con 1 día de atraso · {x} de interés por mora" : "Pagado el {f} con {n} días de atraso · {x} de interés por mora",
       { f: esc(fechaCorta(i.pago.fecha)), n: i.pago.mora.dias, x: esc(dinero(i.pago.mora.monto, i.moneda)) });
     if (i.estado === "pagado") return T(ing ? "Llegó el {f}" : "Pagado el {f}", { f: esc(fechaCorta(i.pago.fecha)) });
+    if (i.modo_pago === "automatico" && !ing) {
+      // Se cobra solo: no se le pide nada a la persona, salvo si pasaron los días de gracia y el cargo no aparece.
+      if (i.estado === "atrasado") return i.dias === 1 ? T("No vimos el cargo: venció ayer") : T("No vimos el cargo: venció hace {n} días", { n: i.dias });
+      if (i.estado === "esperando") return T("Se paga solo · aún no aparece el cargo");
+      return T("Se paga solo el {f}", { f: esc(fechaCorta(i.vence)) });
+    }
     if (i.estado === "hoy") return T(ing ? "Llega hoy" : "Vence hoy");
     if (i.estado === "pendiente") return i.dias === 1 ? T(ing ? "Llega mañana" : "Vence mañana") : T(ing ? "Llega en {n} días" : "Vence en {n} días", { n: i.dias });
     return i.dias === 1 ? T(ing ? "No ha llegado: 1 día de atraso" : "Atrasado 1 día") : T(ing ? "No ha llegado: {n} días de atraso" : "Atrasado {n} días", { n: i.dias });
@@ -1679,10 +1706,13 @@
   }
   const hayUF = () => listaCompromisos().some((c) => c.moneda === UF);
 
+  /** Lo que se paga solo y todavía no pide nada a la persona (sin «Ya lo pagué»): hasta que pasan los días de gracia sin cargo. */
+  const seCobraSolo = (i) => i.modo_pago === "automatico" && i.signo !== "ingreso" && i.estado !== "pagado" && i.estado !== "atrasado";
   function filaCompromiso(i, completa) {
     const clave = esc(`${i.id}|${i.periodo}`);
     let acciones = "";
-    if (i.estado !== "pagado") acciones = `<button class="boton" data-comp-pagado="${clave}">${i.signo === "ingreso" ? "Ya llegó" : "Ya lo pagué"}</button>`;
+    if (seCobraSolo(i)) acciones = "";
+    else if (i.estado !== "pagado") acciones = `<button class="boton" data-comp-pagado="${clave}">${i.signo === "ingreso" ? "Ya llegó" : "Ya lo pagué"}</button>`;
     else if (completa && i.pago.como === "automatico") acciones = `<button class="boton sutil" data-comp-noes="${clave}|${esc(i.pago.movimiento)}" title="Ese movimiento no es el pago de este compromiso">No es este</button>`;
     else if (completa) acciones = `<button class="boton sutil" data-comp-desmarcar="${clave}">Desmarcar</button>`;
     const detalle = [textoEstado(i)];
@@ -1729,8 +1759,10 @@
       } else if (r.tipo === "deuda") {
         extra = `<div class="avance-deuda"><small data-sin-traducir>${r.termina ? T("termina en {m}", { m: esc(mesLargo(r.termina)) }) + " · " : ""}${r.saldo ? T("saldo que anotaste: {x}", { x: esc(dinero(r.saldo, r.moneda)) }) + " · " : ""}<button class="enlace" data-comp-editar="${esc(r.id)}">${esc(tr("Anotar cuántas cuotas faltan"))}</button></small></div>`;
       }
+      const modo = r.modo_pago !== undefined ? r.modo_pago : modoPago(c, E.palabrasAuto || []);
+      const etiqueta = modo ? `<span class="chip etiqueta-pago">${esc(tr(modo === "automatico" ? "Se paga solo" : "Pagas tú"))}</span> ` : "";
       return `<div class="pagando"><span class="emoji" aria-hidden="true">${iconoComp(r)}</span>
-        <div class="txt"><b data-sin-traducir>${esc(r.nombre)}</b><small data-sin-traducir>${r.rango !== undefined ? montoLargo(r) : esc(r.moneda === UF ? textoUF(r.monto) : dinero(r.monto, r.moneda))} ${textoFrecuencia(c)}</small>${extra}</div>
+        <div class="txt"><b data-sin-traducir>${esc(r.nombre)}</b><small data-sin-traducir>${etiqueta}${r.rango !== undefined ? montoLargo(r) : esc(r.moneda === UF ? textoUF(r.monto) : dinero(r.monto, r.moneda))} ${textoFrecuencia(c)}</small>${extra}</div>
         <button class="icono" data-comp-editar="${esc(r.id)}" data-sin-traducir title="${esc(tr("Editar"))}" aria-label="${T("Editar {c}", { c: esc(r.nombre) })}">✎</button></div>`;
     };
     const pausados = listaCompromisos().filter((c) => c.activo === false);
@@ -1824,6 +1856,7 @@
         <div class="dos"><label class="campo"><span>Tipo</span><select id="ce-tipo" data-ce="tipo" data-sin-traducir>${opc(TIPOS_COMP, c.tipo)}</select></label>
           ${c.tipo === "prestamo" ? selMoneda(c) : `<div class="monto-moneda">${campoNum("monto", c.monto, c.moneda === UF ? tr("Monto en UF") : tr("Monto"))}${selMoneda(c)}</div>`}</div>
         ${c.tipo === "prestamo" ? camposPrestamo(c) : `${preguntaUF(k)}${estimacionUF(c)}${camposAprox(c)}`}
+        ${campoPago(c)}
         <div class="dos"><label class="campo"><span>Se repite</span><select id="ce-frecuencia" data-ce="frecuencia" data-sin-traducir>${opc(FRECUENCIAS, c.frecuencia)}</select></label>${cuando}</div>
         <div class="dos"><label class="campo"><span>Categoría</span><select id="ce-categoria" data-ce="categoria" data-sin-traducir>${opcionesCategoria(c.categoria)}</select></label>
           <label class="campo"><span>Palabras para reconocerlo</span><input class="texto" id="ce-buscar" data-ce="buscarTexto" value="${esc(c.buscarTexto)}" placeholder="${esc(tr("p. ej. DIVIDENDO"))}" data-sin-traducir></label></div>
@@ -1836,6 +1869,17 @@
         <button class="boton" data-accion="comp-cancelar">Cancelar</button>
         ${c.tipo === "deuda" && !existe ? `<button class="boton" data-accion="comp-despues">Lo completo después</button>` : ""}
         <button class="boton principal" data-accion="comp-guardar">Guardar</button></div>`;
+  }
+  /** Lo que muestra (y guarda) «¿Cómo se paga?»: lo que eligió la persona o, si no, lo que se infiere (modoPago); si no se sabe, «Lo pago yo». */
+  const pagoDelEditor = (c) => c.pago || modoPago({ ...c, buscar: String(c.buscarTexto || "").split(",") }, E.palabrasAuto || []) || "manual";
+  const pagaLaPersona = (c) => !(c.tipo === "ingreso" || (c.signo === "ingreso" && (c.tipo === "prestamo" || c.tipo === "transferencia")));
+  /** «¿Cómo se paga?»: dos opciones. Lo que se paga solo no se recuerda; solo aviso si no veo el cargo. */
+  function campoPago(c) {
+    if (!pagaLaPersona(c)) return "";
+    const v = pagoDelEditor(c);
+    const op = (id, titulo, detalle) => `<label class="opcion-pago"><input type="radio" name="ce-pago" value="${id}" data-ce-pago ${v === id ? "checked" : ""}><span><b>${titulo}</b><small>${detalle}</small></span></label>`;
+    return `<fieldset class="pago-modo"><legend>¿Cómo se paga?</legend><div class="opciones-pago">
+      ${op("automatico", "Se paga solo", "PAC o cargo a tu tarjeta. Solo te aviso si no veo el cargo.")}${op("manual", "Lo pago yo", "Te recuerdo antes de que venza.")}</div></fieldset>`;
   }
   const selMoneda = (c) => `<label class="campo"><span>Moneda</span><select id="ce-moneda" data-ce="moneda" data-sin-traducir>${[MONEDAS[0], UF, ...MONEDAS.slice(1)].concat(MONEDAS.includes(c.moneda) || c.moneda === UF ? [] : [c.moneda]).filter(Boolean).map((m) => `<option ${m === c.moneda ? "selected" : ""}>${esc(m)}</option>`).join("")}</select></label>`;
   /** Lo que se calcula de un préstamo mientras se escribe: la cuota, la primera fecha y cuándo termina. */
@@ -1901,6 +1945,7 @@
       monto: c.moneda === UF ? Math.round((Number(c.monto) || 0) * 10000) / 10000 : Number(c.monto) || 0, moneda: c.moneda || monedaPrincipal(), frecuencia: c.frecuencia, categoria: c.categoria || "",
       buscar: [...new Set(String(c.buscarTexto || "").split(",").map((p) => normalizar(p.replace(/\d(?:[\s.\-/]?\d){5,}/g, " "))).filter((p) => p.length >= 2 && p.length <= 40))].slice(0, 6),
       tolerancia: c.tolerancia ?? 5, activo: c.activo !== false, desde: c.desde || E.hoy, origen: c.origen || "manual", pagos: c.pagos || {} };
+    if (pagaLaPersona({ ...c, signo: limpio.signo })) limpio.pago = pagoDelEditor(c);
     if (limpio.tipo === "prestamo") {
       // Préstamo entre personas: la cuota, la última y cuándo termina se calculan (igual que compromisos.validar en Python).
       limpio.con = String(c.con || "").replace(/\d/g, " ").replace(/\s+/g, " ").trim().slice(0, 30).trim();
@@ -1973,7 +2018,7 @@
   function vistaCompromisos() {
     const e = estadoDelMes(), enCurso = E.mes === periodoHoy();
     const gastos = e.items.filter((i) => i.signo === "gasto"), ingresos = e.items.filter((i) => i.signo === "ingreso");
-    const orden = { atrasado: 0, hoy: 1, pendiente: 2, pagado: 3 };
+    const orden = { atrasado: 0, hoy: 1, esperando: 2, pendiente: 3, pagado: 4 };
     const ordenar = (l) => [...l].sort((a, b) => orden[a.estado] - orden[b.estado] || (a.vence < b.vence ? -1 : a.vence > b.vence ? 1 : 0));
     const g = gastoMaximo(E.movimientos, listaCompromisos(), E.mes, E.hoy, E.categorias, mesesCompletos(), monedaPrincipal(), per(), ufCfg());
     const hay = listaCompromisos().length;
@@ -1983,18 +2028,21 @@
         <section class="vacio corto"><p>${frase("Lo que pagas o recibes seguido: deudas, cuentas, suscripciones, transferencias y tu sueldo. Alcancía **reconoce el pago en tu cartola** y te recuerda lo que falta, para que no se te olvide nada.", {})}</p>
           <button class="boton principal" data-accion="agregar-contar">＋ <span>Anotar un pago</span></button></section></div>`;
     }
-    const falta = ordenar(gastos.filter((i) => i.estado !== "pagado")), pagados = ordenar(gastos.filter((i) => i.estado === "pagado"));
+    // Lo que pagas tú (y lo automático sin cargo pasada la gracia) arriba; lo que se paga solo, aparte y sin «Ya lo pagué».
+    const falta = ordenar(gastos.filter((i) => i.estado !== "pagado" && !seCobraSolo(i))), solos = ordenar(gastos.filter(seCobraSolo));
+    const pagados = ordenar(gastos.filter((i) => i.estado === "pagado"));
     const aprox = e.total_max !== e.total || e.arrastre_max !== e.arrastre;
     const resumenLinea = hay ? `<p class="linea-total" data-sin-traducir>${T("Este mes: {t} en pagos · pagado {p} · falta {f}", { t: (aprox ? "≈ " : "") + esc(dinero(e.total + e.arrastre)), p: esc(dinero(e.pagado)),
         f: `<b>${e.aprox ? "≈ " : ""}${esc(dinero(e.pendiente))}</b>` })}${e.atrasado ? " · " + `<span class="rojo-txt">${T("{x} atrasado", { x: esc(dinero(e.atrasado)) })}</span>` : ""}</p>
       ${enCurso && g.disponible != null ? `<p class="linea-maximo">${g.alcanza ? frase("Después de tus compromisos, este mes puedes gastar hasta **{x}** en lo variable.", { x: esc(dinero(g.disponible)) })
         : frase("Este mes tus compromisos y gastos fijos suman más de lo que entra.", {})} <button class="enlace" data-vista="presupuesto">Ver el detalle</button></p>` : ""}` : "";
     const listaMes = hay ? `<section class="seccion-pagos"><h2 class="titulo-seccion" data-sin-traducir>${falta.length ? T("Falta pagar en {m}", { m: esc(nombreMes(E.mes)) }) : T("En {m}", { m: esc(nombreMes(E.mes)) })}</h2>
-        ${falta.length ? falta.map((i) => filaCompromiso(i, true)).join("") : `<p class="al-dia ok"><span class="punto" aria-hidden="true"></span><span>${frase("**Estás al día.** Pagaste todo lo de este mes.", {})}</span></p>`}
+        ${falta.length ? falta.map((i) => filaCompromiso(i, true)).join("") : `<p class="al-dia ok"><span class="punto" aria-hidden="true"></span><span>${solos.length ? frase("**Estás al día.** Lo que queda se paga solo.", {}) : frase("**Estás al día.** Pagaste todo lo de este mes.", {})}</span></p>`}
+        ${solos.length ? `<h3 class="grupo">Se paga solo</h3>${solos.map((i) => filaCompromiso(i, true)).join("")}` : ""}
         ${pagados.length ? `<h3 class="grupo">Pagado</h3>${pagados.map((i) => filaCompromiso(i, true)).join("")}` : ""}
         ${ingresos.length ? `<h3 class="grupo">Ingresos</h3>${ordenar(ingresos).map((i) => filaCompromiso(i, true)).join("")}` : ""}</section>` : "";
     const avisos = `<section class="tarjeta"><div class="fila sin-borde"><div class="txt"><b>Avisarme antes de que venza</b>
-        <small>Un aviso 3 días antes, el día que vence y si se atrasa. Como máximo uno por compromiso al día.</small></div>
+        <small>Un aviso 3 días antes, el día que vence y si se atrasa. Como máximo uno por compromiso al día. De lo que se paga solo, solo si no veo el cargo.</small></div>
         <label class="interruptor"><input type="checkbox" data-avisos ${E.config.avisos ? "checked" : ""}><span class="visual" aria-hidden="true"></span><span class="oculto-accesible">Avisarme antes de que venza</span></label></div></section>`;
     const sinValor = e.compromisos.some((c) => c.original && c.original.sin_valor);
     const invitaUF = sinValor ? `<section class="tarjeta invita-uf"><h2>¿Cuánto vale la UF hoy?</h2>
@@ -2355,6 +2403,11 @@
       const numerico = ["monto", "cuotas_total", "cuotas_pagadas", "saldo", "aproxMin", "aproxMax", "prestamoTotal"].includes(ds.ce);
       E.compEdit.c[ds.ce] = conDecimales(ds.ce) || ds.ce === "aproxVariacion" || ds.ce === "prestamoInteres" ? numeroDecimal(ev.target.value)
         : numerico ? Number(ev.target.value.replace(/\D/g, "")) || 0 : ds.ce === "dia" ? Number(ev.target.value) || 0 : ev.target.value;
+      // Mientras la persona no elige cómo se paga, «Netflix» o «PAC» en el nombre o las palabras lo cambian a «Se paga solo».
+      if ((ds.ce === "nombre" || ds.ce === "buscarTexto") && !E.compEdit.c.pago) {
+        const r = $(`[data-ce-pago][value="${pagoDelEditor(E.compEdit.c)}"]`);
+        if (r) r.checked = true;
+      }
       return;
     }
     if (ds.campo && E.conectar) { E.conectar.campos[ds.campo] = ev.target.value; return; }
@@ -2392,6 +2445,7 @@
       return;
     }
     if (ds.ceActivo != null && E.compEdit) { E.compEdit.c.activo = ev.target.checked; return; }
+    if (ds.cePago != null && E.compEdit) { E.compEdit.c.pago = ev.target.value; return; }
     if (ds.ceAprox != null && E.compEdit) { E.compEdit.c.aproxActivo = ev.target.checked; render(); return $("[data-ce-aprox]")?.focus(); }
     if (ds.ceUf != null && E.compEdit) {
       const c = E.compEdit.c;
@@ -2556,7 +2610,7 @@
         presupuesto: e.presupuesto || { mensual: {} }, reglas: e.reglas || [], consejos: (e.consejos || []).slice().sort((a, b) => b.fecha.localeCompare(a.fecha)),
         cuentas: e.cuentas || [], version: e.version || "", carpeta: e.carpeta || "", actualizacion: e.actualizacion || { hay: false },
         conectores: e.conectores || [], conexiones: e.conexiones || {}, vigilar: e.vigilar || { activo: false, recientes: [] }, iaExterna: e.ia_externa || [],
-        compromisos: e.compromisos || { compromisos: [], descartados: [] }, sugerencias: e.sugerencias || [], feriados: e.feriados || [], palabrasMora: e.palabras_mora || [] });
+        compromisos: e.compromisos || { compromisos: [], descartados: [] }, sugerencias: e.sugerencias || [], feriados: e.feriados || [], palabrasMora: e.palabras_mora || [], palabrasAuto: e.palabras_automatico || [] });
       if (!E.presupuesto.moneda) E.presupuesto.moneda = E.config.moneda || "CLP";
       sueldoSolo();
       E._per = undefined;
@@ -2640,7 +2694,7 @@
       if ((r.sin_receta || []).length) toast(T("Descargaste «{x}», pero todavía no sé leerla. Agrégala a mano y tu IA aprende.", { x: r.sin_receta[0] }));
     },
     _probar(f) { f(E); render(); },
-    _pruebas: { calcularPrestamo, resumen, historia, redondearArriba, presupuestoSugerido, reglaPara, estadoCompromisos, gastoMaximo, rango, periodoDe, periodoConfig, detectarSueldo, reglaHabil, proximoSueldo, correrHabil, moraDelAnio, loQueTienes, loQueDebes, cargos },
+    _pruebas: { calcularPrestamo, resumen, historia, redondearArriba, presupuestoSugerido, reglaPara, estadoCompromisos, gastoMaximo, rango, periodoDe, periodoConfig, detectarSueldo, reglaHabil, proximoSueldo, correrHabil, moraDelAnio, loQueTienes, loQueDebes, cargos, modoPago },
   };
 
   // ───────────── Vista previa en el navegador (datos ficticios de demo.json) ─────────────

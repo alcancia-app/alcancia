@@ -143,6 +143,13 @@ COMPROMISOS += [
     compromiso(id="c-matias0001", tipo="prestamo", signo="ingreso", con="Matías", prestamo={"total": 300000}, cuotas_total=3, dia=5,
                buscar=["MATIAS SOTO"], desde="2026-09-01"),
 ]
+# Dos suscripciones que se cobran solas con la tarjeta (`pago: "automatico"`); en octubre ya se cobraron.
+COMPROMISOS += [
+    compromiso(id="c-pelis00001", nombre="Streaming de películas", tipo="suscripcion", monto=9990, dia=6, categoria="suscripciones",
+               buscar=["STREAMING PELIS"], pago="automatico", desde="2026-07-01"),
+    compromiso(id="c-musica0001", nombre="Música premium", tipo="suscripcion", monto=5490, dia=6, categoria="suscripciones",
+               buscar=["MUSICA PREMIUM"], pago="automatico", desde="2026-07-01"),
+]
 SUGERENCIAS = compromisos.sugerir(salida, COMPROMISOS, HOY, datos.CATEGORIAS_BASE, "CLP")
 
 demo = {
@@ -153,6 +160,7 @@ demo = {
     "config": {"ia": "claude", "pais": "CL", "moneda": "CLP", "idioma_ui": "", "respaldo": "local", "inicio_mes": {"modo": "dia", "dia": 1}},
     "feriados": compromisos.feriados("CL"),
     "palabras_mora": compromisos.palabras_mora("CL"),
+    "palabras_automatico": compromisos.palabras_automatico("CL"),
     "ias": [{"id": "claude", "nombre": "Claude", "instalada": True}, {"id": "codex", "nombre": "ChatGPT (Codex)", "instalada": True},
             {"id": "gemini", "nombre": "Gemini", "instalada": False}],
     # Ana anotó cuánto tenía en el banco el 30 de septiembre; la billetera informa su saldo (como Mercado Pago).
