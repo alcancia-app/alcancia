@@ -57,11 +57,16 @@ Todo entra por pull request y lo junta alguien que mantiene el proyecto: nadie p
 - **Recetas:** que sea válida (`recetas.validar`), que no traiga datos de la cartola (solo nombres de columnas y formatos) y, para
   incluirla en la app, que alguien la haya probado con una cartola real de ese banco.
 - **Traducciones:** que una persona que hable el idioma revise el texto.
+- **Workflows y herramientas:** cualquier cambio en `.github/`, `build.sh`, `herramientas/` o algo que descargue o instale lo revisa
+  quien mantiene el proyecto línea por línea. Las actions van fijadas por SHA completo, con permisos mínimos y sin
+  `pull_request_target`.
 
 Si algo falta te lo pedimos con un comentario; casi nunca cerramos un aporte sin conversar.
 
 ¿Buscas por dónde empezar? Mira los issues con la etiqueta
 [`good first issue`](https://github.com/alcancia-app/alcancia/labels/good%20first%20issue) o pregunta en Discussions.
+
+¿Encontraste un problema de seguridad? No abras un issue: avísanos en privado como dice [`SECURITY.md`](SECURITY.md).
 
 Al participar aceptas el [código de conducta](CODE_OF_CONDUCT.md).
 
@@ -78,3 +83,4 @@ Al participar aceptas el [código de conducta](CODE_OF_CONDUCT.md).
 - **Code (with or without AI):** read [`AGENTS.md`](AGENTS.md), fork, branch, run `bash pruebas/correr.sh` and open a pull request.
   Code and comments are in Spanish; UI text needs its English entry in `ui/idiomas/en.json`; never commit real statements or personal data.
 - **Review:** everything goes through a pull request and a maintainer merges it. Contributions are licensed under AGPL-3.0.
+- **Security issues:** never in a public issue; report privately as described in [`SECURITY.md`](SECURITY.md).

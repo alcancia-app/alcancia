@@ -1,0 +1,18 @@
+# Dependabot: mantiene al día las actions de GitHub (fijadas por SHA, con la versión en un comentario).
+# `cooldown`: espera unos días antes de proponer una versión nueva; si una versión sale comprometida, casi siempre se descubre y
+# se retira en ese plazo. Las actualizaciones de seguridad no esperan. Cada propuesta llega como pull request y se revisa a mano.
+# (Alcancía no tiene dependencias de Python ni de npm: solo biblioteca estándar.)
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "Actions"

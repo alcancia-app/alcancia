@@ -277,6 +277,10 @@ bash pruebas/correr.sh                      # todas las pruebas
 ```
 Lee [`AGENTS.md`](AGENTS.md) antes de cambiar algo: sirve igual para personas y para tu IA.
 
+## Seguridad
+¿Encontraste un problema de seguridad? Avísanos **en privado**, nunca en un issue público: cómo hacerlo y qué cubre está en
+[`SECURITY.md`](SECURITY.md). *(Security issues: please report privately, see [`SECURITY.md`](SECURITY.md).)*
+
 ## Licencia
 [AGPL-3.0](LICENSE). Puedes usar, estudiar, cambiar y compartir Alcancía. Si la ofreces como servicio o la distribuyes modificada,
 tienes que publicar tu código con la misma licencia: así nadie puede tomarla y venderla cerrada.

@@ -5,26 +5,31 @@ on:
     branches: [main]
     paths: [docs/**, ui/**, .github/workflows/pagina.yml]
   workflow_dispatch:
+# Por defecto, solo leer; publicar en Pages (pages + id-token) solo en el trabajo que publica. Actions fijadas por SHA.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 concurrency:
   group: pagina
   cancel-in-progress: true
 jobs:
   publicar:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment: { name: github-pages, url: "${{ steps.despliegue.outputs.page_url }}" }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with: { persist-credentials: false }
       - name: Armar el sitio
         run: |
           mkdir -p _sitio
           cp -R docs/. _sitio/
           mkdir -p _sitio/demo && cp -R ui/. _sitio/demo/
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with: { path: _sitio }
       - id: despliegue
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
