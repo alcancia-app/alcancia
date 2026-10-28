@@ -880,6 +880,13 @@
     "Listo: actualicé tu préstamo": "Done: I updated your loan",
     "Veamos cuánto te cabe al mes. Ojo: ya tienes anotado «{n}». Dime si es el mismo y no lo cuento dos veces.": "Let's see how much fits each month. Heads up: you already have “{n}”. Tell me if it's the same one and I won't count it twice.",
     "Ya tienes anotado «{n}». ¿Es el mismo?": "You already have “{n}”. Is it the same one?",
+    "No lo vi en tus movimientos de los últimos 12 meses.": "I didn't see it in your transactions from the last 12 months.",
+    "Lo encontré en tus movimientos: {x} cada mes, el día ~{d} (últimas: {f})": "I found it in your transactions: {x} every month, around day {d} (latest: {f})",
+    "El último pago que vi: {f} ({x}).": "The last payment I saw: {f} ({x}).",
+    "Aún no veo un pago reconocido.": "I haven't matched a payment yet.",
+    "Lo encontré en tus movimientos: {n}, {x} el día {d}. ¿Lo agrego?": "I found it in your transactions: {n}, {x} on day {d}. Shall I add it?",
+    "Ya lo tienes anotado: «{n}».": "You already have it: “{n}”.",
+    "No lo vi en tus movimientos de los últimos 12 meses. Si me dices cuánto es y qué día, lo anoto.": "I didn't see it in your transactions from the last 12 months. Tell me how much it is and on what day, and I'll add it.",
     "El archivo es demasiado grande para ser una cartola (más de 30 MB).": "The file is too big to be a bank statement (over 30 MB).",
     "El Excel es demasiado grande por dentro para ser una cartola; no lo leo por seguridad.": "This Excel file is too big inside to be a bank statement; I won't read it, for safety.",
     "El archivo trae definiciones XML que una cartola no usa; no lo leo por seguridad.": "The file has XML definitions a bank statement never uses; I won't read it, for safety."

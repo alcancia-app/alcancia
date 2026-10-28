@@ -43,6 +43,10 @@ const CHAT = `[{id:'m-p1',rol:'persona',texto:'mi mamá me prestó 1,5 millones 
   {id:'m-a4',rol:'alcancia',texto:'Lo anoto.',acciones:[{tipo:'crear_compromiso',compromiso:{id:'c-bodega0001',nombre:'Arriendo bodega',tipo:'cuenta',signo:'gasto',monto:85000,moneda:'CLP',frecuencia:'mensual',dia:5,categoria:'casa',buscar:[],pago:'manual',desde:'2026-10-18',origen:'ia'}},
     {tipo:'crear_compromiso',compromiso:{nombre:'Gimnasio',tipo:'suscripcion',frecuencia:'mensual',dia:3,origen:'ia'},incompleto:true,error:'Falta el monto.'},
     {tipo:'crear_compromiso',compromiso:{id:'c-luz0000001',nombre:'Luz',tipo:'cuenta',signo:'gasto',monto:32000,aproximado:{variacion:5},moneda:'CLP',frecuencia:'mensual',dia:8,categoria:'cuentas',buscar:['LUZ'],pago:'automatico',desde:'2026-10-18',origen:'ia'}}],notas:[],estados:{'2':'hecha'}},
+  {id:'m-b1',rol:'alcancia',texto:'x',busqueda:{resultado:'encontre',nombre:'Netflix',monto:12990,dia:12,aproximado:false},acciones:[{tipo:'crear_compromiso',compromiso:{id:'c-netflix001',nombre:'Netflix',tipo:'suscripcion',signo:'gasto',monto:12990,moneda:'CLP',frecuencia:'mensual',dia:12,categoria:'suscripciones',buscar:['NETFLIX'],pago:'automatico',desde:'2026-04-12',origen:'ia'},encontrado:{monto:12990,dia:12,meses:7,veces:7,ultimas:['2026-10-13','2026-09-12','2026-08-12']}}],notas:[],estados:{}},
+  {id:'m-b2',rol:'alcancia',texto:'x',busqueda:{resultado:'anotado',nombre:'Arriendo'},acciones:[{tipo:'buscar_pago',anotado:{nombre:'Arriendo',tipo:'cuenta',categoria:'casa',monto:420000,moneda:'CLP',frecuencia:'mensual',dia:1,fecha:null,ultimo:{fecha:'2026-10-01',monto:420000}}},{tipo:'buscar_pago',anotado:{nombre:'Gimnasio',tipo:'suscripcion',categoria:'',monto:25000,moneda:'CLP',frecuencia:'mensual',dia:3,fecha:null,ultimo:null}}],notas:[],estados:{}},
+  {id:'m-b3',rol:'alcancia',texto:'x',busqueda:{resultado:'nada'},acciones:[],notas:['no_encontre_movimientos'],estados:{}},
+  {id:'m-b4',rol:'alcancia',texto:'Me falta el monto.',acciones:[{tipo:'crear_compromiso',compromiso:{nombre:'Colegio',tipo:'cuenta',frecuencia:'mensual',origen:'ia'},incompleto:true,error:'Falta el monto.'}],notas:['no_encontre_movimientos'],estados:{}},
   {id:'m-e1',rol:'alcancia',texto:'x',error:true,sin_ia:true}]`;
 const CONECTORES = JSON.parse(fs.readFileSync(path.join(RAIZ, "ui", "demo.json"), "utf8")).conectores || [];
 const VISTAS = [
@@ -272,6 +276,10 @@ const cerrarChat = (p) => p.click('.dialogo-chat [data-accion="cerrar-agregar"]'
     for (const k of pa.casos) { const r = P.prestamosParecidos(k.propuestas, conExtra, ep, pa.hoy); if (canon(r) !== canon(k.esperado)) malos.push(`prestamosParecidos «${k.nombre}» = ${canon(r)}`); }
     for (const k of pa.variantes) { const r = P.planVariante(k.deudas, k.mismos, conExtra, ch.movimientos, pa.hoy, ch.categorias, "CLP", pa.per); if (canon(r) !== canon(k.esperado)) malos.push(`planVariante «${k.nombre}» = ${canon(r)}`); }
     for (const k of pa.actualizado) { const r = P.prestamoActualizado(conExtra.find((x) => x.id === k.id), k.deuda, k.inicio); if (canon(r) !== canon(k.esperado)) malos.push(`prestamoActualizado «${k.nombre}» = ${canon(r)}`); }
+    // Buscar un cobro en los movimientos.
+    const bu = ch.buscar;
+    for (const [t, esp] of bu.palabras) if (canon(P.palabrasBusqueda(t)) !== canon(esp)) malos.push(`palabrasBusqueda «${t}» = ${canon(P.palabrasBusqueda(t))}`);
+    for (const k of bu.casos) { const r = P.buscarSerie(k.textos, bu.movimientos, bu.hoy, "CLP", k.signo); if (canon(r) !== canon(k.esperado)) malos.push(`buscarSerie «${k.nombre}» = ${canon(r)}`); }
     const dp = ch.despues, lista = ch.compromisos.map((x) => (x.id === dp.compromiso.id ? dp.compromiso : x));
     if (canon(P.estadoCompromisos(lista, ch.movimientos, dp.mes, dp.hoy, "CLP", dp.per)) !== canon(dp.esperado)) malos.push("estado después de mover el pago: distinto");
     return malos;
@@ -864,6 +872,51 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
   }
 }
 console.log("  ✓ Chat: desde el Inicio, sugerencias, plan de dos préstamos, «ese pago era del mes pasado», borrar y sin IA");
+
+// «¿Podrías buscarlo?»: la búsqueda la hace el código en los movimientos, nunca la IA (en la demo «Internet y celular» se paga cada
+// mes y no está anotado). La tarjeta dice de dónde salió y «Agregar» lo deja en Pagos; lo que ya está anotado trae su último pago;
+// si no hay nada, se dice una vez.
+const TEXTOS_BUSCAR = {
+  español: { encontre: "Lo encontré en tus movimientos", cada: "cada mes, el día ~10", anotado: "Ya lo tienes anotado", ultimo: "El último pago que vi", nada: "No lo vi en tus movimientos" },
+  inglés: { encontre: "I found it in your transactions", cada: "every month, around day 10", anotado: "You already have it", ultimo: "The last payment I saw", nada: "I didn't see it in your transactions" },
+};
+for (const [idioma, consulta, opciones] of [["español", "idioma=es", { viewport: { width: 390, height: 844 } }], ["inglés", "idioma=en", { viewport: { width: 1200, height: 820 }, colorScheme: "dark" }]]) {
+  const t = TEXTOS_BUSCAR[idioma], donde = `(${idioma})`, p = await navegador.newPage(opciones);
+  p.on("pageerror", (e) => falla(`error de JavaScript al buscar en los movimientos ${donde}: ${e.message}`));
+  const ancho = async (paso) => { if ((await p.evaluate(() => document.documentElement.scrollWidth)) > opciones.viewport.width + 2) falla(`se sale de la pantalla en «${paso}» ${donde}`); };
+  const ultimo = () => p.locator(".msg.alcancia").last();
+  const decir = async (texto) => {
+    const antes = await p.locator(".msg.alcancia").count();
+    await p.fill("#chat-texto", texto);
+    await p.click('[data-accion="chat-enviar"]');
+    await p.waitForFunction((n) => document.querySelectorAll(".msg.alcancia:not(.pensando)").length > n, antes, { timeout: 8000 });
+    return (await ultimo().textContent()).replace(/\s+/g, " ");
+  };
+  await p.goto(BASE + "?" + consulta);
+  await p.waitForSelector(".app");
+  await p.click('[data-accion="abrir-chat"]');
+  await p.waitForSelector(".dialogo-chat #chat-texto");
+  let msg = await decir("¿cuánto me cobran de internet? búscalo");
+  const globo = (await ultimo().locator(".globo").textContent()).replace(/\s+/g, " ");
+  if (!globo.includes(t.encontre) || !globo.replace(/\D/g, "").includes("27990")) falla(`la respuesta dice lo que encontró ${donde}: ${globo}`);
+  const origen = (await ultimo().locator(".propuesta .encontrado").textContent().catch(() => "")).replace(/\s+/g, " ");
+  if (!origen.includes(t.encontre) || !origen.includes(t.cada)) falla(`la tarjeta dice de dónde salió ${donde}: ${origen}`);
+  if (!(await ultimo().locator('[data-chat="hacer"]').count())) falla(`lo encontrado se puede agregar ${donde}`);
+  await ancho("encontrado");
+  if (CAPTURAS) await p.screenshot({ path: path.join(CAPTURAS, `buscar-encontre-${idioma}.png`) });
+  await ultimo().locator('[data-chat="hacer"]').click();
+  const nuevo = await p.evaluate(() => { let r; window.Alcancia._probar((E) => { r = E.compromisos.compromisos.find((c) => (c.buscar || []).includes("INTERNET")); }); return r; });
+  if (!nuevo || nuevo.monto !== 27990 || nuevo.dia !== 10 || nuevo.categoria !== "cuentas") falla(`«Agregar» guarda lo encontrado ${donde}: ${JSON.stringify(nuevo)}`);
+  msg = await decir("busca el arriendo");
+  if (!msg.includes(t.anotado) || !msg.includes(t.ultimo) || await ultimo().locator("[data-chat]").count()) falla(`lo ya anotado se dice, con su último pago y sin botones ${donde}: ${msg}`);
+  if (CAPTURAS) await p.screenshot({ path: path.join(CAPTURAS, `buscar-anotado-${idioma}.png`) });
+  msg = await decir("busca el colegio");
+  if (!msg.includes(t.nada) || msg.split(t.nada).length !== 2) falla(`si no hay nada lo dice una vez ${donde}: ${msg}`);
+  await ancho("no encontrado");
+  if (CAPTURAS) await p.screenshot({ path: path.join(CAPTURAS, `buscar-nada-${idioma}.png`) });
+  await p.close();
+}
+console.log("  ✓ Buscar en los movimientos: lo encontrado con su origen, «Agregar», lo ya anotado con su último pago y lo que no está");
 
 // «¿Es el mismo?»: la demo ya trae «Préstamo de Mamá». Pedir un plan para «mamá» pregunta antes de ofrecer «Agregar»; «Es el mismo»
 // propone actualizarlo con la cuota recalculada (sin contar dos veces la que ya estaba) y «Es otro» vuelve a la propuesta de siempre.

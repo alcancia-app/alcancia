@@ -1882,6 +1882,18 @@ class Chat(unittest.TestCase):
         self.assertEqual(v1["deudas"][0]["total"], 1200000, "quedan 8 de 10 cuotas de 150.000")
         self.assertLess(v1["meses"], v0["meses"])
         self.assertEqual(pa["casos"][0]["esperado"][0]["cuotas"]["quedan"], 8)
+        bu = k["buscar"]
+        for t, esperado in bu["palabras"]:
+            self.assertEqual(compromisos.palabras_busqueda(t), esperado, t)
+        for c in bu["casos"]:
+            self.assertEqual(compromisos.buscar_serie(c["textos"], bu["movimientos"], bu["hoy"], "CLP", c["signo"]), c["esperado"], c["nombre"])
+        # En palabras: el precio de ahora (no el de antes), el día típico y la palabra que distingue; nunca PAGO ni COM.
+        s = bu["casos"][0]["esperado"]
+        self.assertEqual((s["monto"], s["dia"], s["buscar"], s["meses"], s["desde"]), (12990, 12, ["STREAMING"], 7, "2026-04-12"))
+        self.assertEqual(bu["casos"][1]["esperado"], s, "«Pago: …com» busca lo mismo")
+        self.assertEqual(bu["casos"][4]["esperado"]["aproximado"], {"variacion": 4})
+        self.assertEqual([c["nombre"] for c in bu["casos"] if c["esperado"] is None][:2],
+                         ["Solo gastos: buscar un ingreso con ese nombre no encuentra nada", "Palabras completas: un comercio frecuente no es un cobro"])
         d = k["despues"]
         lista = [d["compromiso"] if c["id"] == d["compromiso"]["id"] else c for c in k["compromisos"]]
         self.assertEqual(compromisos.estado_mes(lista, k["movimientos"], d["mes"], d["hoy"], "CLP", d["per"]), d["esperado"])
@@ -1988,6 +2000,60 @@ class Chat(unittest.TestCase):
         a = self.decir("mi mamá me prestó 1,5 millones")["mensaje"]["acciones"][0]
         self.assertNotIn("parecidos", a)
 
+    def test_buscar_en_movimientos(self):
+        """«No tenemos el cobro mensual? podrías buscarlo?»: el código busca en los movimientos (los de un conector también) y completa
+        la propuesta; la IA nunca ve las descripciones. Netflix es un comercio público; montos y fechas, inventados."""
+        import guardar
+        movs = [{"id": f"nf{i:02d}", "fecha": f, "descripcion": "Pago: Netflix.com", "monto": -12990, "moneda": "CLP",
+                 "categoria": "suscripciones" if f >= "2026-08" else "", "cuenta": "billetera-ejemplo"}
+                for i, f in enumerate(["2026-04-12", "2026-05-12", "2026-06-11", "2026-07-14", "2026-08-12", "2026-09-12", "2026-10-13"])]
+        datos.agregar(movs)
+        x = chat.Ctx(self.HOY)
+        p = chat.prompt(x, [{"rol": "persona", "texto": "hola"}])
+        self.assertNotIn("Netflix.com", p, "la IA nunca ve las descripciones de los movimientos")
+        for si in ('"tipo": "buscar_pago"', "Mercado Pago", "Nunca digas que no puedes buscarlo"):
+            self.assertIn(si, p)
+        # 1) La propuesta llega sin monto ni día y se completa sola con lo que hay en los movimientos.
+        r = self.decir("creo q tengo un pago de netflix q tengo q pagar automáticamente también")
+        a = r["mensaje"]["acciones"][0]
+        self.assertEqual(a["tipo"], "crear_compromiso")
+        self.assertNotIn("incompleto", a)
+        c = a["compromiso"]
+        self.assertEqual((c["nombre"], c["monto"], c["dia"], c["frecuencia"], c["buscar"], c["categoria"], c["pago"], c["desde"]),
+                         ("Netflix", 12990, 12, "mensual", ["NETFLIX"], "suscripciones", "automatico", "2026-04-12"))
+        self.assertEqual(a["encontrado"], {"monto": 12990, "dia": 12, "meses": 7, "veces": 7, "ultimas": ["2026-10-13", "2026-09-12", "2026-08-12"]})
+        self.assertEqual(r["mensaje"]["busqueda"], {"resultado": "encontre", "nombre": "Netflix", "monto": 12990, "dia": 12, "aproximado": False})
+        self.assertEqual(r["mensaje"]["texto"], "Lo encontré en tus movimientos: Netflix, $12.990 el día 12. ¿Lo agrego?", "la respuesta la arma el código")
+        self.assertNotIn("nf0", json.dumps(r), "sin ids de movimientos")
+        # «Agregar»: el camino de siempre; los cobros que ya pasaron quedan reconocidos con su movimiento.
+        self.assertTrue(guardar.compromiso({"accion": "guardar", "hoy": self.HOY, "compromiso": c})["ok"])
+        lista = compromisos.validos(None, self.HOY)
+        _, pagos, _ = compromisos.asignar(lista, datos.leer_todos(), self.HOY, "CLP")
+        self.assertEqual(sorted(p["movimiento"] for k, p in pagos.items() if k.startswith(c["id"])), [m["id"] for m in movs])
+        # 2) buscar_pago de algo que ya está anotado: «Ya lo tienes anotado», con su último pago reconocido. Igual si la IA lo propone de nuevo.
+        for texto in ("¿cuánto me cobra Netflix? búscalo", "anota netflix"):
+            r = self.decir(texto)
+            self.assertEqual(r["mensaje"]["acciones"], [{"tipo": "buscar_pago", "anotado": {"nombre": "Netflix", "tipo": "suscripcion", "categoria": "suscripciones", "monto": 12990, "moneda": "CLP",
+                             "frecuencia": "mensual", "dia": 12, "fecha": None, "ultimo": {"fecha": "2026-10-13", "monto": 12990}}}], texto)
+            self.assertEqual(r["mensaje"]["busqueda"]["resultado"], "anotado")
+        r = self.decir("busca el gimnasio")  # anotado a mano, por su nombre (sin palabras para la cartola)
+        self.assertEqual(r["mensaje"]["acciones"][0]["anotado"]["ultimo"], {"fecha": "2026-10-04", "monto": 25000})
+        # 3) buscar_pago sin nada: se dice con honestidad, sin tarjeta.
+        r = self.decir("busca el colegio")
+        self.assertEqual((r["mensaje"]["acciones"], r["mensaje"]["notas"], r["mensaje"]["busqueda"]), ([], ["no_encontre_movimientos"], {"resultado": "nada"}))
+        self.assertIn("No lo vi en tus movimientos de los últimos 12 meses", r["mensaje"]["texto"])
+        # 4) Una propuesta sin monto que no está en los movimientos: sigue incompleta como antes, con la nota.
+        r = self.decir("el colegio de los niños")
+        a = r["mensaje"]["acciones"][0]
+        self.assertTrue(a["incompleto"])
+        self.assertEqual((r["mensaje"]["notas"], r["mensaje"]["texto"]), (["no_encontre_movimientos"], "Lo anoto, pero me falta el monto."))
+        self.assertNotIn("busqueda", r["mensaje"])
+        # El texto que se busca pasa por limpiar_texto (un número de cuenta no llega a ninguna parte) y las raras no buscan.
+        x = chat.Ctx(self.HOY)
+        self.assertEqual(chat.buscar_pago("cuenta 123456789 netflix", x)[0]["anotado"]["nombre"], "Netflix")
+        self.assertEqual(chat.buscar_pago("pago mensual", x), (None, "no_aplica"))
+        self.assertEqual(chat.buscar_pago(["netflix"], x), (None, "no_aplica"))
+
     def test_reasignar_pago_del_mes_pasado(self):
         import guardar
         r = self.decir("aún no pago el dividendo de este mes")
@@ -2022,10 +2088,11 @@ class Chat(unittest.TestCase):
         self.assertTrue(r["ok"])
         self.assertEqual([a["tipo"] for a in r["mensaje"]["acciones"]], ["crear_compromiso"], "solo pasa la acción válida")
         self.assertEqual(r["mensaje"]["notas"], ["descartadas"])
-        r = self.decir("SINMONTO el gimnasio")
+        r = self.decir("SINMONTO las clases de yoga")
         a = r["mensaje"]["acciones"][0]
         self.assertTrue(a["incompleto"])
-        self.assertEqual(a["compromiso"]["nombre"], "Gimnasio", "nunca sin salida: lo que se entendió va a la tarjeta")
+        self.assertEqual(a["compromiso"]["nombre"], "Clases de yoga", "nunca sin salida: lo que se entendió va a la tarjeta")
+        self.assertEqual(r["mensaje"]["notas"], ["no_encontre_movimientos"], "lo buscó en los movimientos y no estaba")
         for malo in ('{"respuesta": "hola", "extra": 1}', '{"acciones": []}', '{"respuesta": "", "acciones": []}', '{"respuesta": "x", "acciones": {}}'):
             self.assertIsNone(chat.validar_respuesta(malo)[0], malo)
         self.assertEqual(chat.validar_respuesta('{"respuesta": "Listo"}'), ("Listo", [], 0))

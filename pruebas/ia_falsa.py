@@ -27,6 +27,14 @@ elif "Eres Alcancía, la alcancía" in pedido:  # la conversación con Alcancía
         responder("Te dejo lo que entendí.", [{"tipo": "borrar_todo"}, {"tipo": "marcar_pagado", "compromiso": "C1", "comando": "rm"},
                                                {"tipo": "crear_compromiso", "compromiso": {"nombre": "Gimnasio", "tipo": "suscripcion", "monto": 25000,
                                                                                           "frecuencia": "mensual", "dia": 3}}])
+    elif "busc" in ultimo.lower().replace("ú", "u") or "cuánto me cobra" in ultimo.lower():  # la IA no ve los movimientos: pide que el código busque
+        que = next((p for p in ("Netflix", "Gimnasio", "Colegio", "Dividendo") if p.lower() in ultimo.lower()), "algo")
+        responder("Déjame buscarlo en tus movimientos.", [{"tipo": "buscar_pago", "texto": que}])
+    elif "netflix" in ultimo.lower() or "colegio" in ultimo.lower():  # sin monto ni día: la app lo busca y lo completa (o no)
+        nombre = "Netflix" if "netflix" in ultimo.lower() else "Colegio"
+        responder("Lo anoto, pero me falta el monto.", [{"tipo": "crear_compromiso", "compromiso": {
+            "nombre": nombre, "tipo": "suscripcion" if nombre == "Netflix" else "cuenta", "frecuencia": "mensual", "buscar": [nombre.upper()],
+            **({"pago": "automatico"} if nombre == "Netflix" else {})}}])
     elif "OTRACUOTA" in ultimo:  # un préstamo suelto que ya podría estar anotado: la app pregunta si es el mismo
         responder("Lo anoto. Ojo: ya tienes un préstamo con tu mamá; dime si es el mismo.", [{"tipo": "crear_compromiso", "compromiso": {
             "tipo": "prestamo", "con": "Mamá", "signo": "gasto", "prestamo": {"total": 1500000}, "cuotas_total": 12}}])
@@ -40,7 +48,7 @@ elif "Eres Alcancía, la alcancía" in pedido:  # la conversación con Alcancía
     elif "subió" in ultimo.lower():
         responder("Anotado el monto nuevo.", [{"tipo": "editar_compromiso", "compromiso": ref("ARRIENDO"), "cambios": {"monto": 470000}}])
     elif "SINMONTO" in ultimo:
-        responder("Casi: me falta el monto.", [{"tipo": "crear_compromiso", "compromiso": {"nombre": "Gimnasio", "tipo": "suscripcion",
+        responder("Casi: me falta el monto.", [{"tipo": "crear_compromiso", "compromiso": {"nombre": "Clases de yoga", "tipo": "suscripcion",
                                                                                            "frecuencia": "mensual", "dia": 3}}])
     else:
         responder("Lo anoto para recordártelo.", [{"tipo": "crear_compromiso", "compromiso": {

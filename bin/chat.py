@@ -16,8 +16,19 @@ palabras para reconocerlo, cuotas, el estado de este periodo y sus últimos 3 pa
 Nunca descripciones de movimientos, ids internos ni números de cuenta.
 
 La IA responde {"respuesta", "acciones"}; se valida estricto y cada acción se resuelve con código (lista blanca): crear_compromiso,
-plan_prestamos (cuotas y meses los calcula compromisos.plan_prestamos), reasignar_pago, marcar_pagado, marcar_pendiente y
-editar_compromiso. **Nada se aplica solo:** la interfaz muestra cada acción para que la persona la confirme.
+plan_prestamos (cuotas y meses los calcula compromisos.plan_prestamos), reasignar_pago, marcar_pagado, marcar_pendiente,
+editar_compromiso y buscar_pago. **Nada se aplica solo:** la interfaz muestra cada acción para que la persona la confirme.
+
+**Buscar un cobro en sus movimientos** (la IA nunca ve los movimientos: busca el código, compromisos.buscar_serie, en los últimos
+12 meses, incluidos los que trajeron los conectores como Mercado Pago):
+- crear_compromiso incompleto (sin monto o sin día, mensual, que no es un préstamo): se busca con su nombre y sus palabras y, si hay
+  una serie, la propuesta se completa (monto, día, palabra, categoría, desde y forma de pago) y trae `encontrado`
+  {monto, dia, meses, veces, ultimas, aproximado?}. Si no hay nada, sigue incompleta y la nota «no_encontre_movimientos» lo dice.
+- buscar_pago {texto}: si ya hay un compromiso que es ese cobro (sus palabras o reconoce los movimientos encontrados), una acción
+  `anotado` sin botones con su último pago reconocido; si no, una propuesta de crear_compromiso completa con `encontrado`; si no hay
+  nada, la nota «no_encontre_movimientos».
+Cuando la búsqueda decide lo que pasó, la respuesta la escribe el código (`busqueda`: «encontre», «anotado» o «nada»; la interfaz la
+muestra en su idioma), sin otra llamada a la IA: la IA no podía saber qué se iba a encontrar.
 
 **¿Es el mismo préstamo?** Si un préstamo propuesto (en el plan o uno nuevo) se parece a uno que ya está anotado
 (compromisos.prestamos_parecidos: primero la persona, después el total ±15 %), la acción trae `parecido` (crear) o `parecidos`
@@ -53,7 +64,7 @@ GUARDADOS, TURNOS, LARGO_PERSONA, LARGO_RESPUESTA = 50, 10, 500, 1200
 #: Acciones que puede proponer la IA y los campos de cada una (cualquier otro campo hace que esa acción no sirva).
 ACCIONES = {"crear_compromiso": {"tipo", "compromiso"}, "plan_prestamos": {"tipo", "deudas"}, "reasignar_pago": {"tipo", "compromiso"},
             "marcar_pagado": {"tipo", "compromiso"}, "marcar_pendiente": {"tipo", "compromiso"},
-            "editar_compromiso": {"tipo", "compromiso", "cambios"}}
+            "editar_compromiso": {"tipo", "compromiso", "cambios"}, "buscar_pago": {"tipo", "texto"}}
 MAX_ACCIONES, MAX_DEUDAS, MAX_COMPROMISOS = 4, 4, 30
 CAMBIOS = ("monto", "dia", "pago", "fecha_fin")
 
@@ -189,6 +200,8 @@ def contexto(x):
             comp.append(f"   ojo: si dice que el de este mes aún no lo paga, el pago del {mover['pago']['fecha']} era del vencimiento del "
                         f"{mover['a']['vence']} (que no tiene pago): propone reasignar_pago.")
     lineas += ["", "Sus compromisos (pagos que se repiten):"] + (comp or ["- (no ha anotado ninguno)"])
+    lineas += ["", "Sus movimientos (cartolas y conexiones como Mercado Pago) no los ves uno por uno, pero la app puede buscar un cobro "
+                   "en ellos: usa buscar_pago."]
     return "\n".join(lineas)
 
 
@@ -211,6 +224,8 @@ Responde SOLO con un objeto JSON, sin nada antes ni después: {{"respuesta": "..
 - acciones: de 0 a 3 de esta lista. Nada se aplica solo: la app le muestra cada una para que la confirme. Para referirte a un
   compromiso usa su referencia (C1, C2…), nunca otra cosa.
   1. {{"tipo": "crear_compromiso", "compromiso": {{...}}}}: cuando cuenta algo que paga o recibe seguido y no está en la lista.
+     Si no sabe el monto o el día, propónlo igual con lo que sepas (el nombre y cómo aparece en la cartola): la app lo busca en
+     sus movimientos y lo completa.
      Si es un préstamo y crees que ya está en la lista (la misma persona o un total parecido), propónlo igual y dile en la
      respuesta que ya tiene uno anotado: la app le pregunta si es el mismo.
      Campos del compromiso (usa solo estos; los que no sepas, déjalos fuera):
@@ -228,6 +243,11 @@ Responde SOLO con un objeto JSON, sin nada antes ni después: {{"respuesta": "..
      vencimiento anterior sin pago (si lo hay, usa reasignar_pago).
   6. {{"tipo": "editar_compromiso", "compromiso": "C1", "cambios": {{"monto": 0, "dia": 0, "pago": "manual", "fecha_fin": "AAAA-MM-DD"}}}}:
      cuando cambia algo de un compromiso (solo los campos que cambian).
+  7. {{"tipo": "buscar_pago", "texto": "Netflix"}}: cuando pide buscar un cobro, pregunta cuánto o cuándo le cobran (o le pagan)
+     algo, o no sabe el monto de algo que paga seguido. texto: solo el nombre del comercio o del cobro, corto. Tú no ves sus
+     movimientos, pero la app sí: busca con código en los de los últimos 12 meses (sus cartolas y lo que trajeron sus conexiones,
+     como Mercado Pago) y le muestra lo que encontró. Nunca digas que no puedes buscarlo: propón buscar_pago. En la respuesta
+     dile solo que lo vas a buscar; no inventes montos ni fechas.
   Si se atrasó con algo, dile con calma qué falta y cuándo vence; si hay interés por mora, menciónalo."""
 
 
@@ -300,6 +320,118 @@ def _parecido_al_crear(dicho, completo, propuesto, x):
     return {"parecido": p, "actualizar": nuevo}
 
 
+# ───────────── Buscar un cobro en los movimientos (con código: la IA nunca los ve) ─────────────
+def _textos(p):
+    """Con qué se busca una propuesta: su nombre y sus palabras para la cartola."""
+    b = p.get("buscar")
+    b = b.split(",") if isinstance(b, str) else b if isinstance(b, list) else []
+    return [str(p.get("nombre") or "")] + [v for v in b if isinstance(v, str)]
+
+
+def _ultimo_pago(x, cid):
+    ps = [p for k, p in x.pagos.items() if k.split("|", 1)[0] == cid and p.get("fecha")]
+    p = max(ps, key=lambda p: p["fecha"], default=None)
+    return {"fecha": p["fecha"], "monto": p["monto"]} if p else None
+
+
+def _ya_anotado(pal, serie, x):
+    """El compromiso activo que ya es ese cobro: todas las palabras buscadas están en su nombre o en sus palabras, o reconoce
+    alguno de los movimientos encontrados (compromisos.coincide). None si no hay."""
+    por_id = {m["id"]: m for m in x.movs} if serie else {}
+    for c in x.activos:
+        if set(pal) <= set(K.palabras_busqueda([c["nombre"]] + list(c.get("buscar") or []))):
+            return c
+        if serie and any(K.coincide(por_id[i], c, x.moneda, (x.uf or {}).get("valor")) for i in serie["ids"] if i in por_id):
+            return c
+    return None
+
+
+def _anotado(c, x):
+    return {"nombre": c["nombre"], "tipo": c["tipo"], "categoria": c.get("categoria") or "", "monto": c["monto"], "moneda": c["moneda"],
+            "frecuencia": c["frecuencia"], "dia": c.get("dia"), "fecha": c.get("fecha"), "ultimo": _ultimo_pago(x, c["id"])}
+
+
+def _encontrado(serie):
+    """Lo que la tarjeta muestra de dónde salió la propuesta (solo cifras y fechas: ni descripciones ni ids)."""
+    return {k: serie[k] for k in ("monto", "dia", "meses", "veces", "ultimas", "aproximado") if k in serie}
+
+
+def _desde_serie(p, serie, x):
+    """La propuesta `p` completada con la serie encontrada: lo que la IA dijo bien se mantiene; el monto, el día, la frecuencia, la
+    palabra, la categoría, desde (el primer cobro) y la forma de pago salen de los movimientos. (compromiso limpio o None, problemas)."""
+    c = {k: v for k, v in p.items() if k in K.CAMPOS_IA and k not in ("fecha", "cuotas_restantes")}
+    c["frecuencia"], c["signo"] = "mensual", serie["signo"]
+    if K._numero(c.get("monto"), 0, 1e12) is None:
+        c["monto"] = serie["monto"]
+        if serie.get("aproximado") and not c.get("aproximado"):
+            c["aproximado"] = serie["aproximado"]
+    if K._entero(c.get("dia"), 1, 31) is None:
+        c["dia"] = serie["dia"]
+    c["buscar"] = serie["buscar"] + [b for b in K.limpiar_buscar(c.get("buscar"), True) if b != serie["buscar"][0]]
+    if c.get("categoria") not in x.ids_cat:
+        c["categoria"] = serie["categoria"] if serie["categoria"] in x.ids_cat else ""
+    if not K.limpiar_nombre(c.get("nombre")):
+        c["nombre"] = serie["buscar"][0].capitalize()
+    if c.get("tipo") not in K.TIPOS or (c["tipo"] == "ingreso") != (serie["signo"] == "ingreso"):
+        cat = c["categoria"]
+        c["tipo"] = ("ingreso" if serie["signo"] == "ingreso" else "suscripcion" if cat == "suscripciones"
+                     else "cuenta" if cat in ("cuentas", "casa", "educacion") else "otro")
+    if c.get("pago") not in K.PAGOS:
+        c.pop("pago", None)
+        modo = K.modo_pago(c, x.auto)
+        if modo:
+            c["pago"] = modo
+    limpio, problemas = K.validar(c, x.ids_cat, x.hoy, x.moneda, estricto=True)
+    if limpio:
+        limpio["desde"] = serie["desde"]  # desde el primer cobro: los que ya pasaron quedan pagados con su movimiento
+    return limpio, problemas
+
+
+def _completar(p, x):
+    """Una propuesta incompleta (sin monto o sin día, mensual, en la moneda principal y que no es un préstamo): (acción, nota) si se
+    buscó en los movimientos, o None si no corresponde buscar."""
+    if not isinstance(p, dict) or p.get("tipo") == "prestamo" or p.get("frecuencia") not in (None, "mensual") or p.get("moneda") not in (None, x.moneda):
+        return None
+    pal = K.palabras_busqueda(_textos(p))
+    if not pal:
+        return None
+    signo = p.get("signo") if p.get("signo") in ("gasto", "ingreso") else "ingreso" if p.get("tipo") == "ingreso" else "gasto"
+    serie = K.buscar_serie(_textos(p), x.movs, x.hoy, x.moneda, signo)
+    dicho = K._numero(p.get("monto"), 0, 1e12)
+    if serie and dicho and abs(serie["monto"] - dicho) > dicho * K.BUSCAR_VARIACION / 100:
+        serie = None  # dijo un monto y lo encontrado es otra cosa («arriendo de la bodega» no es el arriendo del depto)
+    ya = _ya_anotado(pal, serie, x)
+    if ya:
+        return {"tipo": "buscar_pago", "anotado": _anotado(ya, x)}, None
+    if not serie:
+        return None, "no_encontre_movimientos"
+    limpio, _ = _desde_serie(p, serie, x)
+    if not limpio:
+        return None
+    return {"tipo": "crear_compromiso", "compromiso": {**_sin_pagos(limpio), "origen": "ia"}, "encontrado": _encontrado(serie)}, None
+
+
+def buscar_pago(texto, x):
+    """La acción buscar_pago: (acción, nota). Ya anotado → `anotado`; una serie → una propuesta completa con `encontrado`; nada →
+    nota «no_encontre_movimientos». El texto pasa por limpiar_texto (sin RUT ni números de cuenta)."""
+    texto = compromiso_ia.limpiar_texto(texto, 80) if isinstance(texto, str) else ""
+    pal = K.palabras_busqueda(texto)
+    if not pal:
+        return None, "no_aplica"
+    serie = K.buscar_serie([texto], x.movs, x.hoy, x.moneda)
+    ya = _ya_anotado(pal, serie, x)
+    if ya:
+        return {"tipo": "buscar_pago", "anotado": _anotado(ya, x)}, None
+    if not serie:
+        return None, "no_encontre_movimientos"
+    corto = re.sub(r"\s+", " ", texto).strip()
+    nombre = corto[:1].upper() + corto[1:] if len(corto) <= 40 and len(corto.split()) <= 4 else serie["buscar"][0].capitalize()
+    limpio, _ = _desde_serie({"nombre": nombre}, serie, x)
+    if not limpio:
+        return None, "no_aplica"
+    return {"tipo": "crear_compromiso", "compromiso": {**_sin_pagos(limpio), "origen": "ia"}, "encontrado": _encontrado(serie)}, None
+
+
 def resolver(a, x):
     """(acción para la interfaz, nota). La nota es un código que la interfaz explica («no_aplica», «sin_pago_para_mover»…)."""
     t = a["tipo"]
@@ -310,12 +442,20 @@ def resolver(a, x):
         limpio, problemas = K.validar(p, x.ids_cat, x.hoy, x.moneda, estricto=True)
         if limpio:
             r = {"tipo": t, "compromiso": {**_sin_pagos(limpio), "origen": "ia"}}
-        else:  # Nunca sin salida: lo que sí se entendió va a la tarjeta, para completarlo en el editor.
+        else:
+            completo = _completar(p, x)  # ¿Está en sus movimientos? Se busca con código y se completa (monto, día, palabra…).
+            if completo and completo[0]:
+                return completo
+            # Nunca sin salida: lo que sí se entendió va a la tarjeta, para completarlo en el editor.
             r = {"tipo": t, "compromiso": {**K.parcial(p, x.ids_cat, x.moneda, x.cfg), "origen": "ia"}, "incompleto": True,
                  "error": " ".join(problemas[:3])}
+            if completo:
+                return r, completo[1]
         if r["compromiso"].get("tipo") == "prestamo":
             r.update(_parecido_al_crear(a["compromiso"], r["compromiso"] if limpio else None, r["compromiso"], x))
         return r, None
+    if t == "buscar_pago":
+        return buscar_pago(a["texto"], x)
     if t == "plan_prestamos":
         deudas = []
         for d in a["deudas"] if isinstance(a["deudas"], list) else []:
@@ -381,6 +521,22 @@ def resolver(a, x):
     return {"tipo": t, "id": cid, "nombre": c["nombre"], "antes": antes, "cambios": nuevos, "compromiso": _sin_pagos(limpio)}, None
 
 
+def _busqueda(a, r, nota):
+    """Si esta acción buscó en los movimientos y eso decide la respuesta: {"resultado", ...cifras, "texto"} («encontre», «anotado» o
+    «nada»). La interfaz la muestra en su idioma; `texto` (en español) es lo que queda en la conversación y ve la IA después:
+    solo el nombre, el monto y el día."""
+    if r and r.get("encontrado"):
+        c = r["compromiso"]
+        return {"resultado": "encontre", "nombre": c["nombre"], "monto": c["monto"], "dia": c["dia"], "aproximado": bool(c.get("aproximado")),
+                "texto": f"Lo encontré en tus movimientos: {c['nombre']}, {'cerca de ' if c.get('aproximado') else ''}${_n(c['monto'])} "
+                         f"el día {c['dia']}. ¿Lo agrego?"}
+    if r and r.get("anotado"):
+        return {"resultado": "anotado", "nombre": r["anotado"]["nombre"], "texto": f"Ya lo tienes anotado: «{r['anotado']['nombre']}»."}
+    if nota == "no_encontre_movimientos" and a.get("tipo") == "buscar_pago":
+        return {"resultado": "nada", "texto": "No lo vi en tus movimientos de los últimos 12 meses. Si me dices cuánto es y qué día, lo anoto."}
+    return None
+
+
 def enviar(entrada):
     """Un mensaje de la persona → la respuesta de Alcancía. Nunca deja a la persona sin respuesta: si la IA falla o responde mal,
     devuelve un mensaje honesto (y lo guarda) en vez de nada."""
@@ -404,25 +560,39 @@ def enviar(entrada):
     persona = {"id": nuevo_id(), "rol": "persona", "texto": mensajes[-1]["texto"], "fecha": hoy}
     x = Ctx(hoy)
     respuesta, error = ia.preguntar(prompt(x, mensajes), timeout=240)
-    acciones, notas = [], []
+    acciones, notas, busqueda = [], [], None
     if not error:
         texto, crudas, descartadas = validar_respuesta(respuesta)
         if texto is None:
             error = f"{ia.nombre()} no respondió como esperaba. Inténtalo de nuevo con otras palabras."
         else:
+            vistas = set()
             for a in crudas:
                 r, nota = resolver(a, x)
+                # La misma serie (o el mismo compromiso anotado) una sola vez, aunque la IA haya pedido crear y buscar lo mismo.
+                k = (("serie", tuple(r["encontrado"]["ultimas"])) if r and r.get("encontrado") else ("anotado", r["anotado"]["nombre"])
+                     if r and r.get("anotado") else None)
+                if k in vistas:
+                    continue
+                if k:
+                    vistas.add(k)
                 if r:
                     acciones.append(r)
                 if nota and nota not in notas:
                     notas.append(nota)
+                if busqueda is None:
+                    busqueda = _busqueda(a, r, nota)
             if descartadas:
                 notas.append("descartadas")
+            if busqueda:  # la IA no podía saber qué se iba a encontrar: la respuesta la arma el código
+                texto = busqueda.pop("texto")
     if error:
         mensaje = {"id": nuevo_id(), "rol": "alcancia", "texto": error, "error": True, "fecha": hoy}
         guardar(lista + [persona, mensaje])
         return {"ok": False, "error": error, "persona": persona, "mensaje": mensaje}
     mensaje = {"id": nuevo_id(), "rol": "alcancia", "texto": texto, "acciones": acciones, "notas": notas, "estados": {}, "fecha": hoy}
+    if busqueda:
+        mensaje["busqueda"] = busqueda
     guardar(lista + [persona, mensaje])
     return {"ok": True, "persona": persona, "mensaje": mensaje}
 

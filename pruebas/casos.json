@@ -10902,6 +10902,557 @@
      }
     }
    ]
+  },
+  "buscar": {
+   "_nota": "Buscar un cobro en los movimientos (compromisos.buscar_serie ↔ buscarSerie, palabras_busqueda ↔ palabrasBusqueda): lo usa la conversación con Alcancía para completar una propuesta sin monto o día y para buscar_pago. Datos ficticios.",
+   "hoy": "2026-10-27",
+   "movimientos": [
+    {
+     "id": "b001",
+     "fecha": "2025-11-12",
+     "descripcion": "Pago: Streaming Ejemplo.com",
+     "monto": -9990,
+     "moneda": "CLP",
+     "categoria": "suscripciones",
+     "cuenta": "billetera-ejemplo"
+    },
+    {
+     "id": "b002",
+     "fecha": "2025-12-12",
+     "descripcion": "Pago: Streaming Ejemplo.com",
+     "monto": -9990,
+     "moneda": "CLP",
+     "categoria": "suscripciones",
+     "cuenta": "billetera-ejemplo"
+    },
+    {
+     "id": "b003",
+     "fecha": "2026-01-13",
+     "descripcion": "Pago: Streaming Ejemplo.com",
+     "monto": -9990,
+     "moneda": "CLP",
+     "categoria": "suscripciones",
+     "cuenta": "billetera-ejemplo"
+    },
+    {
+     "id": "b004",
+     "fecha": "2026-02-12",
+     "descripcion": "Pago: Streaming Ejemplo.com",
+     "monto": -9990,
+     "moneda": "CLP",
+     "categoria": "suscripciones",
+     "cuenta": "billetera-ejemplo"
+    },
+    {
+     "id": "b005",
+     "fecha": "2026-03-12",
+     "descripcion": "Pago: Streaming Ejemplo.com",
+     "monto": -9990,
+     "moneda": "CLP",
+     "categoria": "suscripciones",
+     "cuenta": "billetera-ejemplo"
+    },
+    {
+     "id": "b006",
+     "fecha": "2026-04-12",
+     "descripcion": "Pago: Streaming Ejemplo.com",
+     "monto": -12990,
+     "moneda": "CLP",
+     "categoria": "",
+     "cuenta": "billetera-ejemplo"
+    },
+    {
+     "id": "b007",
+     "fecha": "2026-05-12",
+     "descripcion": "Pago: Streaming Ejemplo.com",
+     "monto": -12990,
+     "moneda": "CLP",
+     "categoria": "",
+     "cuenta": "billetera-ejemplo"
+    },
+    {
+     "id": "b008",
+     "fecha": "2026-06-11",
+     "descripcion": "Pago: Streaming Ejemplo.com",
+     "monto": -12990,
+     "moneda": "CLP",
+     "categoria": "",
+     "cuenta": "billetera-ejemplo"
+    },
+    {
+     "id": "b009",
+     "fecha": "2026-07-14",
+     "descripcion": "Pago: Streaming Ejemplo.com",
+     "monto": -12990,
+     "moneda": "CLP",
+     "categoria": "",
+     "cuenta": "billetera-ejemplo"
+    },
+    {
+     "id": "b010",
+     "fecha": "2026-08-12",
+     "descripcion": "Pago: Streaming Ejemplo.com",
+     "monto": -12990,
+     "moneda": "CLP",
+     "categoria": "suscripciones",
+     "cuenta": "billetera-ejemplo"
+    },
+    {
+     "id": "b011",
+     "fecha": "2026-09-12",
+     "descripcion": "Pago: Streaming Ejemplo.com",
+     "monto": -12990,
+     "moneda": "CLP",
+     "categoria": "suscripciones",
+     "cuenta": "billetera-ejemplo"
+    },
+    {
+     "id": "b012",
+     "fecha": "2026-10-13",
+     "descripcion": "Pago: Streaming Ejemplo.com",
+     "monto": -12990,
+     "moneda": "CLP",
+     "categoria": "suscripciones",
+     "cuenta": "billetera-ejemplo"
+    },
+    {
+     "id": "b013",
+     "fecha": "2026-06-20",
+     "descripcion": "STREAMING EJEMPLO GIFT CARD",
+     "monto": -20000,
+     "moneda": "CLP",
+     "categoria": "compras",
+     "cuenta": "billetera-ejemplo"
+    },
+    {
+     "id": "b014",
+     "fecha": "2026-09-03",
+     "descripcion": "CAFE STREAMINGO",
+     "monto": -3500,
+     "moneda": "CLP",
+     "categoria": "comida",
+     "cuenta": "billetera-ejemplo"
+    },
+    {
+     "id": "b015",
+     "fecha": "2026-09-10",
+     "descripcion": "CAFE STREAMINGO",
+     "monto": -3500,
+     "moneda": "CLP",
+     "categoria": "comida",
+     "cuenta": "billetera-ejemplo"
+    },
+    {
+     "id": "b016",
+     "fecha": "2026-10-01",
+     "descripcion": "CAFE STREAMINGO",
+     "monto": -3500,
+     "moneda": "CLP",
+     "categoria": "comida",
+     "cuenta": "billetera-ejemplo"
+    },
+    {
+     "id": "b017",
+     "fecha": "2026-10-08",
+     "descripcion": "CAFE STREAMINGO",
+     "monto": -3500,
+     "moneda": "CLP",
+     "categoria": "comida",
+     "cuenta": "billetera-ejemplo"
+    },
+    {
+     "id": "b018",
+     "fecha": "2026-10-15",
+     "descripcion": "CAFE STREAMINGO",
+     "monto": -3500,
+     "moneda": "CLP",
+     "categoria": "comida",
+     "cuenta": "billetera-ejemplo"
+    },
+    {
+     "id": "b019",
+     "fecha": "2026-07-08",
+     "descripcion": "LUZ DEL SUR EJEMPLO",
+     "monto": -31000,
+     "moneda": "CLP",
+     "categoria": "cuentas",
+     "cuenta": "banco-ejemplo"
+    },
+    {
+     "id": "b020",
+     "fecha": "2026-08-08",
+     "descripcion": "LUZ DEL SUR EJEMPLO",
+     "monto": -33000,
+     "moneda": "CLP",
+     "categoria": "cuentas",
+     "cuenta": "banco-ejemplo"
+    },
+    {
+     "id": "b021",
+     "fecha": "2026-09-08",
+     "descripcion": "LUZ DEL SUR EJEMPLO",
+     "monto": -32500,
+     "moneda": "CLP",
+     "categoria": "cuentas",
+     "cuenta": "banco-ejemplo"
+    },
+    {
+     "id": "b022",
+     "fecha": "2026-10-08",
+     "descripcion": "LUZ DEL SUR EJEMPLO",
+     "monto": -31800,
+     "moneda": "CLP",
+     "categoria": "cuentas",
+     "cuenta": "banco-ejemplo"
+    },
+    {
+     "id": "b023",
+     "fecha": "2026-08-20",
+     "descripcion": "LUZ ESCALERA EDIFICIO",
+     "monto": -5000,
+     "moneda": "CLP",
+     "categoria": "casa",
+     "cuenta": "banco-ejemplo"
+    },
+    {
+     "id": "b024",
+     "fecha": "2026-09-20",
+     "descripcion": "LUZ ESCALERA EDIFICIO",
+     "monto": -5000,
+     "moneda": "CLP",
+     "categoria": "casa",
+     "cuenta": "banco-ejemplo"
+    },
+    {
+     "id": "b025",
+     "fecha": "2026-10-20",
+     "descripcion": "LUZ ESCALERA EDIFICIO",
+     "monto": -5000,
+     "moneda": "CLP",
+     "categoria": "casa",
+     "cuenta": "banco-ejemplo"
+    },
+    {
+     "id": "b026",
+     "fecha": "2026-07-02",
+     "descripcion": "SEGURO VIAJE EJEMPLO",
+     "monto": -15000,
+     "moneda": "CLP",
+     "categoria": "",
+     "cuenta": "banco-ejemplo"
+    },
+    {
+     "id": "b027",
+     "fecha": "2025-08-03",
+     "descripcion": "GIMNASIO EJEMPLO",
+     "monto": -25000,
+     "moneda": "CLP",
+     "categoria": "",
+     "cuenta": "banco-ejemplo"
+    },
+    {
+     "id": "b028",
+     "fecha": "2025-09-03",
+     "descripcion": "GIMNASIO EJEMPLO",
+     "monto": -25000,
+     "moneda": "CLP",
+     "categoria": "",
+     "cuenta": "banco-ejemplo"
+    },
+    {
+     "id": "b029",
+     "fecha": "2025-10-03",
+     "descripcion": "GIMNASIO EJEMPLO",
+     "monto": -25000,
+     "moneda": "CLP",
+     "categoria": "",
+     "cuenta": "banco-ejemplo"
+    },
+    {
+     "id": "b030",
+     "fecha": "2026-08-05",
+     "descripcion": "TRANSFERENCIA DE MATIAS SOTO",
+     "monto": 100000,
+     "moneda": "CLP",
+     "categoria": "otros_ingresos",
+     "cuenta": "banco-ejemplo"
+    },
+    {
+     "id": "b031",
+     "fecha": "2026-09-05",
+     "descripcion": "TRANSFERENCIA DE MATIAS SOTO",
+     "monto": 100000,
+     "moneda": "CLP",
+     "categoria": "otros_ingresos",
+     "cuenta": "banco-ejemplo"
+    },
+    {
+     "id": "b032",
+     "fecha": "2026-10-05",
+     "descripcion": "TRANSFERENCIA DE MATIAS SOTO",
+     "monto": 100000,
+     "moneda": "CLP",
+     "categoria": "otros_ingresos",
+     "cuenta": "banco-ejemplo"
+    },
+    {
+     "id": "b033",
+     "fecha": "2026-08-20",
+     "descripcion": "STREAMING EJEMPLO USD",
+     "monto": -10,
+     "moneda": "USD",
+     "categoria": "",
+     "cuenta": "banco-ejemplo"
+    },
+    {
+     "id": "b034",
+     "fecha": "2026-09-20",
+     "descripcion": "STREAMING EJEMPLO USD",
+     "monto": -10,
+     "moneda": "USD",
+     "categoria": "",
+     "cuenta": "banco-ejemplo"
+    }
+   ],
+   "palabras": [
+    [
+     "cobro mensual de Netflix",
+     [
+      "NETFLIX"
+     ]
+    ],
+    [
+     "Pago: Netflix.com",
+     [
+      "NETFLIX"
+     ]
+    ],
+    [
+     "Aguas Andinas 123",
+     [
+      "AGUAS",
+      "ANDINAS"
+     ]
+    ],
+    [
+     "el pago de la luz",
+     [
+      "LUZ"
+     ]
+    ],
+    [
+     "Ñuñoa Café",
+     [
+      "NUNOA",
+      "CAFE"
+     ]
+    ]
+   ],
+   "casos": [
+    {
+     "nombre": "La serie activa (precio de ahora), no la del precio anterior ni la gift card",
+     "textos": [
+      "Streaming Ejemplo"
+     ],
+     "signo": null,
+     "esperado": {
+      "signo": "gasto",
+      "monto": 12990,
+      "dia": 12,
+      "frecuencia": "mensual",
+      "buscar": [
+       "STREAMING"
+      ],
+      "categoria": "suscripciones",
+      "desde": "2026-04-12",
+      "meses": 7,
+      "veces": 7,
+      "ultimas": [
+       "2026-10-13",
+       "2026-09-12",
+       "2026-08-12"
+      ],
+      "ids": [
+       "b012",
+       "b011",
+       "b010",
+       "b009",
+       "b008",
+       "b007",
+       "b006"
+      ]
+     }
+    },
+    {
+     "nombre": "Como lo trae el conector («Pago: …com»): PAGO y COM no cuentan",
+     "textos": [
+      "Pago: Streaming Ejemplo.com"
+     ],
+     "signo": null,
+     "esperado": {
+      "signo": "gasto",
+      "monto": 12990,
+      "dia": 12,
+      "frecuencia": "mensual",
+      "buscar": [
+       "STREAMING"
+      ],
+      "categoria": "suscripciones",
+      "desde": "2026-04-12",
+      "meses": 7,
+      "veces": 7,
+      "ultimas": [
+       "2026-10-13",
+       "2026-09-12",
+       "2026-08-12"
+      ],
+      "ids": [
+       "b012",
+       "b011",
+       "b010",
+       "b009",
+       "b008",
+       "b007",
+       "b006"
+      ]
+     }
+    },
+    {
+     "nombre": "Solo gastos: buscar un ingreso con ese nombre no encuentra nada",
+     "textos": [
+      "Streaming"
+     ],
+     "signo": "ingreso",
+     "esperado": null
+    },
+    {
+     "nombre": "Palabras completas: un comercio frecuente no es un cobro",
+     "textos": [
+      "Streamingo"
+     ],
+     "signo": null,
+     "esperado": null
+    },
+    {
+     "nombre": "Un monto que varía un poco: aproximado con la variación observada",
+     "textos": [
+      "luz"
+     ],
+     "signo": "gasto",
+     "esperado": {
+      "signo": "gasto",
+      "monto": 31800,
+      "dia": 8,
+      "frecuencia": "mensual",
+      "buscar": [
+       "LUZ"
+      ],
+      "categoria": "cuentas",
+      "desde": "2026-07-08",
+      "meses": 4,
+      "veces": 4,
+      "ultimas": [
+       "2026-10-08",
+       "2026-09-08",
+       "2026-08-08"
+      ],
+      "ids": [
+       "b022",
+       "b021",
+       "b020",
+       "b019"
+      ],
+      "aproximado": {
+       "variacion": 4
+      }
+     }
+    },
+    {
+     "nombre": "Con dos palabras: si alguno trae las dos, solo esos",
+     "textos": [
+      "luz de la escalera"
+     ],
+     "signo": null,
+     "esperado": {
+      "signo": "gasto",
+      "monto": 5000,
+      "dia": 20,
+      "frecuencia": "mensual",
+      "buscar": [
+       "ESCALERA"
+      ],
+      "categoria": "casa",
+      "desde": "2026-08-20",
+      "meses": 3,
+      "veces": 3,
+      "ultimas": [
+       "2026-10-20",
+       "2026-09-20",
+       "2026-08-20"
+      ],
+      "ids": [
+       "b025",
+       "b024",
+       "b023"
+      ]
+     }
+    },
+    {
+     "nombre": "Un solo mes no es una serie",
+     "textos": [
+      "seguro de viaje"
+     ],
+     "signo": null,
+     "esperado": null
+    },
+    {
+     "nombre": "Más de 12 meses atrás no cuenta",
+     "textos": [
+      "gimnasio"
+     ],
+     "signo": null,
+     "esperado": null
+    },
+    {
+     "nombre": "Un ingreso que se repite",
+     "textos": [
+      "Matías"
+     ],
+     "signo": null,
+     "esperado": {
+      "signo": "ingreso",
+      "monto": 100000,
+      "dia": 5,
+      "frecuencia": "mensual",
+      "buscar": [
+       "MATIAS"
+      ],
+      "categoria": "otros_ingresos",
+      "desde": "2026-08-05",
+      "meses": 3,
+      "veces": 3,
+      "ultimas": [
+       "2026-10-05",
+       "2026-09-05",
+       "2026-08-05"
+      ],
+      "ids": [
+       "b032",
+       "b031",
+       "b030"
+      ]
+     }
+    },
+    {
+     "nombre": "Sin palabras que distingan no se busca",
+     "textos": [
+      "pago mensual",
+      "cobro"
+     ],
+     "signo": null,
+     "esperado": null
+    }
+   ]
   }
  }
 }

@@ -423,6 +423,7 @@ input.texto:focus, select:focus, textarea.texto:focus { outline: 2px solid var(-
 .propuesta .accion-estado { grid-column: 2; }
 /* «¿Es el mismo?»: la pregunta va en el color del texto (pide algo) y las dos respuestas pesan lo mismo. */
 .propuesta.pregunta .txt small { color: var(--texto); }
+.propuesta .txt small.encontrado { margin-top: 4px; }
 .propuesta.pregunta .acciones-chat .boton { flex: 1 1 0; }
 .acciones-chat { display: flex; flex-wrap: wrap; gap: 8px; }
 .acciones-chat .boton { min-height: 44px; padding: 0 14px; font-size: 14px; }

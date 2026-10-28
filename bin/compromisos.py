@@ -10,7 +10,8 @@ prueban juntos con pruebas/casos.json.
 Si cambias una regla, cambia los dos lados y el caso. Validar y sugerir (detectar en la cartola) solo viven aquí.
 Lo que usa la conversación con Alcancía (bin/chat.py) también vive en los dos lados: `margen_mensual`, `plan_prestamos`,
 `inicio_plan`, `pago_reasignable`, `reasignar_pago` y, para «¿es el mismo préstamo?», `claves_persona`, `prestamos_parecidos`,
-`plan_variante` y `prestamo_actualizado` (casos en «chat»).
+`plan_variante` y `prestamo_actualizado` (casos en «chat»), y para buscar un cobro en los movimientos, `palabras_busqueda` y
+`buscar_serie` (casos en «chat.buscar»).
 
   compromisos.py avisos <hoy AAAA-MM-DD> <salida.json>   lo que hay que avisar hoy (la app de Mac manda el aviso del sistema)
 """
@@ -1257,6 +1258,89 @@ def sugerencias(movimientos=None, hoy=None, solo_ids=None):
     movs = datos.leer_todos() if movimientos is None else movimientos
     return sugerir(movs, validos(raw, hoy, moneda), hoy, datos.categorias(), moneda, cfg.get("pais") or "CL", raw["descartados"], solo_ids,
                    (uf_config(cfg) or {}).get("valor"))
+
+
+# ───────────── Buscar un cobro en los movimientos (la conversación con Alcancía; igual que buscarSerie en ui/app.js) ─────────────
+#: Hasta cuántos días atrás se busca, cuánto pueden variar los montos de una misma serie (%), cuántos meses distintos la hacen
+#: serie y hasta cuántos días desde el último cobro sigue «activa».
+BUSCAR_DIAS, BUSCAR_VARIACION, BUSCAR_MESES, BUSCAR_ACTIVA = 365, 10, 2, 45
+#: Palabras que no distinguen un cobro (además de GENERICAS): artículos, «cobro», «mensual», pedazos de dominios.
+BUSCAR_VACIAS = {"DE", "DEL", "LA", "EL", "LOS", "LAS", "MI", "MIS", "TU", "SU", "UN", "UNA", "AL", "Y", "CON", "POR", "PARA", "EN", "QUE",
+                 "MES", "MENSUAL", "COBRO", "COBROS", "CARGOS", "COM", "WWW", "NET", "ORG", "SPA", "LTDA", "INC", "LLC"}
+
+
+def _palabras(texto):
+    """Las palabras de un texto, sin tildes y en mayúsculas («Pago: Netflix.com» → PAGO, NETFLIX, COM)."""
+    return [p for p in re.split(r"[^A-Z0-9]+", datos.normalizar(texto)) if p]
+
+
+def palabras_busqueda(textos):
+    """Las palabras con que se busca un cobro: completas, de 3 letras o más, sin números sueltos ni palabras que aparecen en
+    cualquier movimiento (PAGO, COMPRA…: GENERICAS y BUSCAR_VACIAS). Como mucho 8."""
+    r = []
+    for t in textos if isinstance(textos, list) else [textos]:
+        for p in _palabras(t):
+            if len(p) >= 3 and not p.isdigit() and p not in GENERICAS and p not in BUSCAR_VACIAS and p not in r:
+                r.append(p)
+    return r[:8]
+
+
+def buscar_serie(textos, movimientos, hoy, moneda, signo=None):
+    """Un cobro (o ingreso) que se repite, buscado en los movimientos de los últimos BUSCAR_DIAS días. Solo corre en el computador.
+    - Calza un movimiento que trae alguna de las palabras de `textos` (palabras_busqueda) como palabra completa, en la moneda
+      principal y con el `signo` pedido (si se pide); si alguno las trae todas, solo los que las traen todas.
+    - Serie: desde el más reciente hacia atrás, los del mismo signo con un monto a ±BUSCAR_VARIACION % de él; al menos
+      BUSCAR_MESES meses distintos y no mucho más de uno al mes (si no, es un comercio frecuente, no un cobro).
+    - Si hay varias, la que sigue activa (último cobro hace ≤ BUSCAR_ACTIVA días), después la de más meses, después la más reciente.
+    Devuelve {signo, monto (el último), dia (el típico), frecuencia, buscar (la palabra que más calzó; empate, la más larga), categoria (la más usada),
+    desde (el primer cobro), meses, veces, ultimas (3 fechas), ids, aproximado (si los montos variaron)} o None."""
+    pal = palabras_busqueda(textos)
+    if not pal:
+        return None
+    desde = _fecha(_num(hoy) - BUSCAR_DIAS)
+    calzan = []
+    for m in movimientos:
+        if not desde < m["fecha"] <= hoy or not m["monto"] or (m.get("moneda") or moneda) != moneda:
+            continue
+        s = "gasto" if m["monto"] < 0 else "ingreso"
+        palabras = set(_palabras(m.get("descripcion")))
+        tiene = [p for p in pal if p in palabras]
+        if tiene and (not signo or s == signo):
+            calzan.append((m, tiene, s))
+    if any(len(x[1]) == len(pal) for x in calzan):  # si alguno trae todas las palabras («Aguas Andinas»), solo esos
+        calzan = [x for x in calzan if len(x[1]) == len(pal)]
+    calzan.sort(key=lambda x: (x[0]["fecha"], x[0]["id"]), reverse=True)
+    series, usados = [], set()
+    for m, _, s in calzan:
+        if m["id"] in usados:
+            continue
+        base = abs(m["monto"])
+        miembros = [x for x in calzan if x[0]["id"] not in usados and x[2] == s and abs(abs(x[0]["monto"]) - base) <= base * BUSCAR_VARIACION / 100 + 1e-9]
+        usados.update(x[0]["id"] for x in miembros)
+        meses = {x[0]["fecha"][:7] for x in miembros}
+        if len(meses) >= BUSCAR_MESES and len(miembros) * 2 <= len(meses) * 3:
+            series.append((_num(miembros[0][0]["fecha"]) >= _num(hoy) - BUSCAR_ACTIVA, len(meses), miembros[0][0]["fecha"], s, miembros))
+    if not series:
+        return None
+    _, n, _, s, miembros = max(series, key=lambda x: x[:3])
+    movs = [x[0] for x in miembros]
+    monto = abs(movs[0]["monto"])
+    cuenta = {}
+    for _, tiene, _ in miembros:
+        for p in tiene:
+            cuenta[p] = cuenta.get(p, 0) + 1
+    palabra = sorted(cuenta, key=lambda p: (-cuenta[p], -len(p), p))[0]
+    cats = {}
+    for m in movs:
+        if m.get("categoria"):
+            cats[m["categoria"]] = cats.get(m["categoria"], 0) + 1
+    categoria = max(cats, key=lambda c: (cats[c], -next(i for i, m in enumerate(movs) if m.get("categoria") == c))) if cats else ""
+    r = {"signo": s, "monto": monto, "dia": _del_medio([int(m["fecha"][8:10]) for m in movs]), "frecuencia": "mensual", "buscar": [palabra],
+         "categoria": categoria, "desde": movs[-1]["fecha"], "meses": n, "veces": len(movs), "ultimas": [m["fecha"] for m in movs[:3]],
+         "ids": [m["id"] for m in movs]}
+    if any(abs(m["monto"]) != monto for m in movs):
+        r["aproximado"] = {"variacion": max(1, math.ceil(max(abs(abs(m["monto"]) - monto) for m in movs) / monto * 100 - 1e-9))}
+    return r
 
 
 def fijar_automaticos(hoy, movimientos=None):

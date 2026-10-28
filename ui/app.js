@@ -853,6 +853,58 @@
     return { ...nuevo, tipo: "prestamo", con: c.con || d.con, prestamo: { total: d.total, interes: d.interes, cuota: d.cuota }, monto: d.cuota, cuotas_total: d.cuotas,
       cuotas_pagadas: 0, frecuencia: "mensual", dia: ini.dia, desde: ini.desde };
   }
+  // Buscar un cobro en los movimientos (igual que compromisos.buscar_serie en Python; casos en «chat.buscar»). Solo local.
+  const BUSCAR_DIAS = 365, BUSCAR_VARIACION = 10, BUSCAR_MESES = 2, BUSCAR_ACTIVA = 45;
+  const GENERICAS = ["TRANSFERENCIA", "TRANSFERENCIAS", "TRANSF", "TEF", "PAGO", "PAGOS", "COMPRA", "COMPRAS", "ABONO", "CARGO", "CUOTA", "CUOTAS", "DEBITO", "CREDITO"];
+  const BUSCAR_VACIAS = ["DE", "DEL", "LA", "EL", "LOS", "LAS", "MI", "MIS", "TU", "SU", "UN", "UNA", "AL", "Y", "CON", "POR", "PARA", "EN", "QUE",
+    "MES", "MENSUAL", "COBRO", "COBROS", "CARGOS", "COM", "WWW", "NET", "ORG", "SPA", "LTDA", "INC", "LLC"];
+  const palabrasDe = (t) => normalizar(t).split(/[^A-Z0-9]+/).filter(Boolean);
+  /** Las palabras con que se busca un cobro: completas, de 3 letras o más, sin números sueltos ni PAGO, COMPRA, «cobro»… (máx. 8). */
+  function palabrasBusqueda(textos) {
+    const r = [];
+    for (const t of Array.isArray(textos) ? textos : [textos])
+      for (const p of palabrasDe(t)) if (p.length >= 3 && !/^\d+$/.test(p) && !GENERICAS.includes(p) && !BUSCAR_VACIAS.includes(p) && !r.includes(p)) r.push(p);
+    return r.slice(0, 8);
+  }
+  /** Un cobro que se repite en los últimos BUSCAR_DIAS días: la serie más activa y frecuente, o null. Ver buscar_serie en Python. */
+  function buscarSerie(textos, movimientos, hoy, moneda, signo = null) {
+    const pal = palabrasBusqueda(textos);
+    if (!pal.length) return null;
+    const desde = sumarDias(hoy, -BUSCAR_DIAS);
+    let calzan = [];
+    for (const m of movimientos) {
+      if (!(desde < m.fecha && m.fecha <= hoy) || !m.monto || (m.moneda || moneda) !== moneda) continue;
+      const s = m.monto < 0 ? "gasto" : "ingreso", palabras = new Set(palabrasDe(m.descripcion));
+      const tiene = pal.filter((x) => palabras.has(x));
+      if (tiene.length && (!signo || s === signo)) calzan.push({ m, tiene, s });
+    }
+    if (calzan.some((x) => x.tiene.length === pal.length)) calzan = calzan.filter((x) => x.tiene.length === pal.length);  // si alguno trae todas las palabras, solo esos
+    calzan.sort((a, b) => (a.m.fecha === b.m.fecha ? (a.m.id < b.m.id ? 1 : a.m.id > b.m.id ? -1 : 0) : a.m.fecha < b.m.fecha ? 1 : -1));
+    const usados = new Set();
+    let mejor = null;
+    for (const { m, s } of calzan) {
+      if (usados.has(m.id)) continue;
+      const base = Math.abs(m.monto);
+      const miembros = calzan.filter((x) => !usados.has(x.m.id) && x.s === s && Math.abs(Math.abs(x.m.monto) - base) <= base * BUSCAR_VARIACION / 100 + 1e-9);
+      miembros.forEach((x) => usados.add(x.m.id));
+      const meses = new Set(miembros.map((x) => x.m.fecha.slice(0, 7))).size;
+      if (meses < BUSCAR_MESES || miembros.length * 2 > meses * 3) continue;
+      const clave = [sumarDias(hoy, -BUSCAR_ACTIVA) <= miembros[0].m.fecha ? 1 : 0, meses, miembros[0].m.fecha];
+      const gana = !mejor || clave[0] !== mejor.clave[0] ? !mejor || clave[0] > mejor.clave[0] : clave[1] !== mejor.clave[1] ? clave[1] > mejor.clave[1] : clave[2] > mejor.clave[2];
+      if (gana) mejor = { clave, s, miembros, meses };
+    }
+    if (!mejor) return null;
+    const movs = mejor.miembros.map((x) => x.m), monto = Math.abs(movs[0].monto), cuenta = {}, cats = {};
+    for (const x of mejor.miembros) for (const p of x.tiene) cuenta[p] = (cuenta[p] || 0) + 1;
+    const palabra = Object.keys(cuenta).sort((a, b) => cuenta[b] - cuenta[a] || b.length - a.length || (a < b ? -1 : a > b ? 1 : 0))[0];
+    for (const m of movs) if (m.categoria) cats[m.categoria] = (cats[m.categoria] || 0) + 1;
+    const categoria = Object.keys(cats).sort((a, b) => cats[b] - cats[a] || movs.findIndex((m) => m.categoria === a) - movs.findIndex((m) => m.categoria === b))[0] || "";
+    const dias = movs.map((m) => +m.fecha.slice(8, 10)).sort((a, b) => a - b);
+    const r = { signo: mejor.s, monto, dia: dias[Math.floor((dias.length - 1) / 2)], frecuencia: "mensual", buscar: [palabra], categoria, desde: movs[movs.length - 1].fecha,
+      meses: mejor.meses, veces: movs.length, ultimas: movs.slice(0, 3).map((m) => m.fecha), ids: movs.map((m) => m.id) };
+    if (movs.some((m) => Math.abs(m.monto) !== monto)) r.aproximado = { variacion: Math.max(1, Math.ceil(Math.max(...movs.map((m) => Math.abs(Math.abs(m.monto) - monto))) / monto * 100 - 1e-9)) };
+    return r;
+  }
   /** «Aún no pago la hipoteca de este mes», pero aparece pagada y el vencimiento anterior no: ese pago era del anterior. */
   function pagoReasignable(compromisos, movimientos, cid, hoy, moneda, per = null, uf = null, mora = []) {
     const activos = compromisos.filter((c) => c.activo !== false), c = activos.find((x) => x.id === cid);
@@ -1953,7 +2005,8 @@
   /** Lo que la app explica cuando algo que propuso la IA no se pudo preparar (bin/chat.py devuelve el código). */
   const NOTAS_CHAT = { no_encontre: "No encontré ese pago entre los tuyos.", sin_pago_para_mover: "Revisé: no hay un pago de este mes que mover.",
     ya_pagado: "Eso ya aparece pagado.", ya_pendiente: "Eso ya aparece pendiente.", sin_cambios: "Eso ya está así.",
-    no_aplica: "Hubo algo que no pude preparar. Si quieres, dímelo de otra forma.", descartadas: "Dejé fuera algo que no entendí bien." };
+    no_aplica: "Hubo algo que no pude preparar. Si quieres, dímelo de otra forma.", descartadas: "Dejé fuera algo que no entendí bien.",
+    no_encontre_movimientos: "No lo vi en tus movimientos de los últimos 12 meses." };
   const claveAccion = (i, j = null) => (j == null ? String(i) : `${i}.${j}`);
   const estadoAccion = (m, i, j = null) => (m.estados || {})[claveAccion(i, j)] || "";
   /** Lo que respondió a «¿Es el mismo?» («mismo» u «otro»; "" si aún no): se guarda aparte, con la clave «es:<i>.<j>». */
@@ -2001,11 +2054,28 @@
         ${botonesChat(ref, [["mismo", tr("Es el mismo")], ["otro", tr("Es otro")]])}</div>`;
     }
     const linea = a.incompleto && !x.actualiza ? T("Me faltó algo: complétalo y lo guardo.") : x.actualiza ? T("Lo actualizo: {x}", { x: lineaPropuesta(c) }) : lineaPropuesta(c);
+    const encontrado = j == null && a.encontrado && !x.actualiza ? `<small class="encontrado" data-sin-traducir>${lineaEncontrado(a.encontrado, c.moneda)}</small>` : "";
     const pie = estado ? hechoChat(estado) : x.espera ? "" : x.actualiza ? botonesChat(ref, [["hacer", tr("Actualizar"), true], ["cambiar", tr("Cambiar")], ["no", tr("No")]])
       : a.incompleto ? botonesChat(ref, [["cambiar", tr("Completar"), true], ["no", tr("No")]])
         : botonesChat(ref, [["hacer", tr("Agregar"), true], ["cambiar", tr("Cambiar")], ["no", tr("No")]]);
     return `<div class="propuesta ${estado ? "resuelta" : ""} ${x.espera && !estado ? "en-espera" : ""}">${icono}
-      <div class="txt"><b data-sin-traducir>${titulo}</b><small data-sin-traducir>${linea}</small></div>${pie}</div>`;
+      <div class="txt"><b data-sin-traducir>${titulo}</b><small data-sin-traducir>${linea}</small>${encontrado}</div>${pie}</div>`;
+  }
+  /** De dónde salió una propuesta que se completó con los movimientos (bin/chat.py, `encontrado`): solo cifras y fechas. */
+  const lineaEncontrado = (e, moneda) => T("Lo encontré en tus movimientos: {x} cada mes, el día ~{d} (últimas: {f})",
+    { x: (e.aproximado ? "≈ " : "") + esc(dinero(e.monto, moneda)), d: esc(e.dia), f: (e.ultimas || []).map((f) => esc(fechaCorta(f))).join(", ") });
+  /** buscar_pago de algo que ya está anotado: sin botones, con su último pago reconocido. */
+  function tarjetaAnotado(a) {
+    const c = a.anotado, mo = (v) => esc(c.moneda === UF ? textoUF(v) : dinero(v, c.moneda));
+    const ultimo = c.ultimo ? T("El último pago que vi: {f} ({x}).", { f: esc(fechaCorta(c.ultimo.fecha)), x: esc(dinero(c.ultimo.monto)) }) : T("Aún no veo un pago reconocido.");
+    return `<div class="accion-chat sin-caja"><div class="propuesta resuelta"><span class="emoji" aria-hidden="true">${iconoComp(c)}</span>
+      <div class="txt"><b data-sin-traducir>${esc(c.nombre)}</b><small data-sin-traducir>${mo(c.monto)} ${textoFrecuencia(c)}</small><small data-sin-traducir>${ultimo}</small></div></div></div>`;
+  }
+  /** Cuando la búsqueda en los movimientos decidió lo que pasó, la respuesta la armó el código (`busqueda`): aquí, en tu idioma. */
+  function textoBusqueda(b) {
+    if (b.resultado === "encontre") return T("Lo encontré en tus movimientos: {n}, {x} el día {d}. ¿Lo agrego?", { n: esc(b.nombre), x: (b.aproximado ? "≈ " : "") + esc(dinero(b.monto)), d: esc(b.dia) });
+    if (b.resultado === "anotado") return T("Ya lo tienes anotado: «{n}».", { n: esc(b.nombre) });
+    return T("No lo vi en tus movimientos de los últimos 12 meses. Si me dices cuánto es y qué día, lo anoto.");
   }
   /** «Es el mismo» y no hay nada que cambiar (o la propuesta venía incompleta): no se agrega otro. */
   const tarjetaYaEsta = (p, c) => `<div class="propuesta resuelta"><span class="emoji" aria-hidden="true">${iconoComp(c)}</span>
@@ -2035,6 +2105,7 @@
         ${propuestas.map((c, j) => tarjetaPropuesta(m, a, i, c, j, { parecido: parecidos[j], es: esMismo(m, i, j), actualiza: mismos.includes(j), espera: abiertas > 0 })).join("")}
         ${pendientes > 1 && !abiertas ? botonesChat(ref, [["todos", T(todos, { n: pendientes }), true]]) : ""}</div>`;
     }
+    if (a.tipo === "buscar_pago") return a.anotado ? tarjetaAnotado(a) : "";
     const nombre = esc(a.nombre), f = (v) => esc(fechaCorta(v));
     if (a.tipo === "reasignar_pago") return caja(T("«{c}»: el pago del {f} ({x}) era del vencimiento del {a}. Lo paso ahí y el del {d} queda pendiente.",
       { c: nombre, f: f(a.pago.fecha), x: x(a.pago.monto), a: f(a.a.vence), d: f(a.de.vence) }), [["hacer", tr("Sí, corrígelo"), true], no]);
@@ -2053,9 +2124,9 @@
   const avatarChat = () => `<span class="avatar" aria-hidden="true">${LOGO}</span>`;
   function mensajeChat(m) {
     if (m.rol === "persona") return `<div class="msg persona"><div class="globo" data-sin-traducir>${textoChat(m.texto)}</div></div>`;
-    const notas = (m.notas || []).filter((n) => NOTAS_CHAT[n]).map((n) => `<p class="nota-chat" data-sin-traducir>${esc(tr(NOTAS_CHAT[n]))}</p>`).join("");
+    const notas = (m.notas || []).filter((n) => NOTAS_CHAT[n] && !(n === "no_encontre_movimientos" && m.busqueda)).map((n) => `<p class="nota-chat" data-sin-traducir>${esc(tr(NOTAS_CHAT[n]))}</p>`).join("");
     const extra = m.sin_ia ? `<div class="acciones-chat"><button class="boton" data-accion="chat-ajustes">Abrir Ajustes</button></div>` : "";
-    return `<div class="msg alcancia ${m.error ? "error" : ""}">${avatarChat()}<div class="cuerpo-msg"><div class="globo" data-sin-traducir>${textoChat(m.texto)}</div>
+    return `<div class="msg alcancia ${m.error ? "error" : ""}">${avatarChat()}<div class="cuerpo-msg"><div class="globo" data-sin-traducir>${m.busqueda ? textoBusqueda(m.busqueda) : textoChat(m.texto)}</div>
       ${(m.acciones || []).map((a, i) => tarjetaAccion(m, a, i)).join("")}${notas}${extra}</div></div>`;
   }
   /** «Cuéntale a Alcancía»: el chat con el chanchito. En celular ocupa toda la pantalla; el campo queda abajo, en la zona del pulgar. */
@@ -3058,7 +3129,7 @@
     },
     _probar(f) { f(E); render(); },
     _pruebas: { calcularPrestamo, resumen, historia, redondearArriba, presupuestoSugerido, reglaPara, estadoCompromisos, gastoMaximo, rango, periodoDe, periodoConfig, detectarSueldo, reglaHabil, proximoSueldo, correrHabil, moraDelAnio, loQueTienes, loQueDebes, cargos, modoPago,
-      margenMensual, planPrestamos, inicioPlan, pagoReasignable, reasignarPago, clavesPersona, prestamosParecidos, planVariante, prestamoActualizado },
+      margenMensual, planPrestamos, inicioPlan, pagoReasignable, reasignarPago, clavesPersona, prestamosParecidos, planVariante, prestamoActualizado, palabrasBusqueda, buscarSerie },
   };
 
   // ───────────── Vista previa en el navegador (datos ficticios de demo.json) ─────────────
@@ -3187,6 +3258,19 @@
       if (!i) return responder(tr("Eso ya aparece pagado."));
       return responder(tr("¡Bien! ¿Lo marco como pagado?"), [{ tipo: "marcar_pagado", id: i.id, nombre: i.nombre, periodo: i.periodo, vence: i.vence, signo: i.signo }]);
     }
+    // Buscar un cobro en los movimientos (como buscar_pago en bin/chat.py, o una propuesta sin monto que se completa sola).
+    const pedido = /\bBUSC|\bCUANTO ME COBRA|\bCUANDO ME COBRA/.test(n);
+    const sinMonto = !pedido && !/\d/.test(n) && !/PREST/.test(n);
+    if (pedido || sinMonto) {
+      const b = buscadoSimulado(texto, lista, hoy, moneda);
+      if (b && b.anotado) { const res = responder(`Ya lo tienes anotado: «${b.anotado.nombre}».`, [{ tipo: "buscar_pago", anotado: b.anotado }]); res.mensaje.busqueda = { resultado: "anotado", nombre: b.anotado.nombre }; return res; }
+      if (b && b.compromiso) {
+        const c = b.compromiso, res = responder(`Lo encontré en tus movimientos: ${c.nombre}, $${c.monto} el día ${c.dia}. ¿Lo agrego?`, [{ tipo: "crear_compromiso", compromiso: c, encontrado: b.encontrado }]);
+        res.mensaje.busqueda = { resultado: "encontre", nombre: c.nombre, monto: c.monto, dia: c.dia, aproximado: !!c.aproximado };
+        return res;
+      }
+      if (pedido) { const res = responder("No lo vi en tus movimientos de los últimos 12 meses.", [], ["no_encontre_movimientos"]); res.mensaje.busqueda = { resultado: "nada" }; return res; }
+    }
     const r = entenderSimulado(texto);
     if (r.ok && r.compromiso.tipo === "prestamo") {
       // ¿Ya está anotado? Igual que bin/chat.py: «Es el mismo» propone actualizar el que ya estaba con el total y las cuotas nuevas.
@@ -3202,6 +3286,31 @@
     return responder(tr("Casi: me faltó algo para anotarlo."), [{ tipo: "crear_compromiso", compromiso: { ...r.parcial, origen: "ia" }, incompleto: true, error: r.error }]);
   }
 
+  /** En la vista previa: lo que haría bin/chat.py al buscar un cobro (buscar_pago o completar una propuesta), con buscarSerie.
+   *  {anotado} si ya está anotado, {compromiso, encontrado} si lo encontró, o null. Las palabras de la pregunta no se buscan. */
+  function buscadoSimulado(texto, lista, hoy, moneda) {
+    const pal = palabrasBusqueda(texto).filter((p) => !/^(BUSC|CUANT|CUAND|COBR|PAGA|PAGO|PODRIAS|PUEDES|TENGO|CREO|ANOTA|AUTOMATIC|TAMBIEN|SIEMPRE|TODOS|MESES|ESTE|ESTA|ESO)/.test(p));
+    if (!pal.length) return null;
+    const activos = lista.filter((c) => c.activo !== false), serie = buscarSerie(pal, E.movimientos, hoy, moneda);
+    const porId = new Map(E.movimientos.map((m) => [m.id, m]));
+    const ya = activos.find((c) => pal.every((p) => palabrasBusqueda([c.nombre, ...(c.buscar || [])]).includes(p)))
+      || (serie && activos.find((c) => serie.ids.some((id) => porId.has(id) && coincide(porId.get(id), c, moneda))));
+    if (ya) {
+      const { pagos } = asignar(activos, E.movimientos, hoy, moneda);
+      const ultimo = Object.entries(pagos).filter(([k, p]) => k.split("|")[0] === ya.id && p.fecha).map(([, p]) => p).sort((a, b) => (a.fecha < b.fecha ? 1 : -1))[0];
+      return { anotado: { nombre: ya.nombre, tipo: ya.tipo, categoria: ya.categoria || "", monto: ya.monto, moneda: ya.moneda, frecuencia: ya.frecuencia, dia: ya.dia ?? null,
+        fecha: ya.fecha ?? null, ultimo: ultimo ? { fecha: ultimo.fecha, monto: ultimo.monto } : null } };
+    }
+    if (!serie) return null;
+    const cat = E.categorias.some((c) => c.id === serie.categoria) ? serie.categoria : "";
+    const c = { id: nuevoIdComp(), nombre: primeraMayuscula(serie.buscar[0].toLowerCase()), tipo: serie.signo === "ingreso" ? "ingreso" : cat === "suscripciones" ? "suscripcion" : ["cuentas", "casa", "educacion"].includes(cat) ? "cuenta" : "otro",
+      signo: serie.signo, monto: serie.monto, moneda, frecuencia: "mensual", dia: serie.dia, categoria: cat, buscar: serie.buscar, tolerancia: TOLERANCIA, activo: true, desde: serie.desde, origen: "ia" };
+    if (serie.aproximado) c.aproximado = serie.aproximado;
+    const modo = modoPago(c, E.palabrasAuto || []);
+    if (modo) c.pago = modo;
+    const { ids, ...encontrado } = serie;
+    return { compromiso: c, encontrado: { monto: encontrado.monto, dia: encontrado.dia, meses: encontrado.meses, veces: encontrado.veces, ultimas: encontrado.ultimas, ...(serie.aproximado ? { aproximado: serie.aproximado } : {}) } };
+  }
   /** En la vista previa: entiende lo básico del texto (monto, día, cuotas) para mostrar la tarjeta, como haría tu IA. */
   function entenderSimulado(texto) {
     const t = String(texto || ""), n = normalizar(t);

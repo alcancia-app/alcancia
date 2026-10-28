@@ -162,15 +162,15 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
   contexto **calculado por código** (`contexto`): periodo y días que quedan, `margen_mensual` (ingreso típico − gasto típico sin pagos
   de compromisos − compromisos vigentes al mes por su máximo), las tres cifras en totales y cada compromiso con una referencia opaca
   (C1, C2…), nombre, tipo, monto o rango, día, `modo_pago`, `buscar`, cuotas, estado del periodo y sus últimos 3 pagos con el
-  vencimiento al que se asignaron. **Nunca** descripciones de movimientos, ids ni números de cuenta. La IA responde
-  `{"respuesta", "acciones"}`; se valida estricto y cada acción (lista blanca `ACCIONES`) se resuelve con código: `crear_compromiso`
+  vencimiento al que se asignaron. **Nunca** descripciones de movimientos, ids ni números de cuenta (en ellos busca el código,
+  abajo). La IA responde `{"respuesta", "acciones"}`; se valida estricto y cada acción (lista blanca `ACCIONES`) se resuelve con código: `crear_compromiso`
   (`validar(estricto)`; si no pasa, `parcial` con `incompleto`), `plan_prestamos` (la IA solo da `{con, total, interes}`;
   `plan_prestamos` usa como máximo `USO_MARGEN` (75 %) del margen, busca los menos meses en que las cuotas redondeadas hacia arriba
   (`paso_cuota`) caben, y `inicio_plan` pone la primera el día después del próximo sueldo; las propuestas son préstamos con
   `prestamo.cuota` fija y `pago: "manual"`), `reasignar_pago` (`pago_reasignable`: el último vencimiento del periodo tiene pago y el
-  anterior no; también si la IA dijo `marcar_pendiente`), `marcar_pagado`, `marcar_pendiente` y `editar_compromiso` (monto, día,
-  pago, fecha_fin). Lo que no se pudo preparar vuelve como código en `notas` (la interfaz lo explica). **Nada se aplica solo:** cada
-  acción es una tarjeta («Agregar», «Sí, corrígelo», «Cambiar» abre `#editor-comp`, «No») que usa la acción `compromiso` de siempre
+  anterior no; también si la IA dijo `marcar_pendiente`), `marcar_pagado`, `marcar_pendiente`, `editar_compromiso` (monto, día,
+  pago, fecha_fin) y `buscar_pago` (abajo). Lo que no se pudo preparar vuelve como código en `notas` (la interfaz lo explica).
+  **Nada se aplica solo:** cada acción es una tarjeta («Agregar», «Sí, corrígelo», «Cambiar» abre `#editor-comp`, «No») que usa la acción `compromiso` de siempre
   (nueva subacción `reasignar` en `guardar.py`: `reasignar_pago` mueve el pago con el formato de `pagos` de siempre y deja el
   movimiento en `no_es`). Sin IA instalada (`ia.instalada()`) devuelve `sin_ia` y la interfaz lleva a Ajustes. La conversación se
   guarda solo en `~/Alcancia/.alcancia/chat.json` (últimos 50, ya limpios, con lo que se hizo con cada acción en `estados`) y llega
@@ -199,6 +199,25 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
   usa la subacción `actualizar_prestamo` de `guardar.py` (mismo id, solo a préstamo, validado, mantiene `pagos` y sí cambia
   `desde`); el editor también, si se abrió desde una actualización. El prompt pide a la IA que lo diga en `respuesta`, pero la
   detección es del código. Casos en `pruebas/casos.json` (`chat.parecido`).
+  **Buscar un cobro en sus movimientos** (la IA nunca ve los movimientos: busca el código, solo en el computador). `palabras_busqueda`/
+  `palabrasBusqueda` (palabras completas de 3+ letras, sin tildes, sin números sueltos, sin `GENERICAS` —PAGO, COMPRA…— ni
+  `BUSCAR_VACIAS` —«de», «cobro», «mensual», «com»…) y `buscar_serie`/`buscarSerie` (casos `chat.buscar`): en los últimos 365 días,
+  en la moneda principal (cartolas y conectores, p. ej. «Pago: Netflix.com» de Mercado Pago), los movimientos que traen alguna palabra
+  (si alguno las trae todas, solo esos); la serie se arma desde el más reciente con el mismo signo y montos a ±10 %, al menos 2 meses
+  distintos y no mucho más de uno al mes (un comercio frecuente no es un cobro); si hay varias, la activa (último cobro ≤ 45 días),
+  luego la de más meses, luego la más reciente. Da monto (el último), día (el típico), `buscar` (la palabra que más calzó; empate, la
+  más larga), categoría (la más usada), `desde` (el primer cobro) y `aproximado` si los montos variaron. Dos caminos en `chat.py`:
+  (1) un `crear_compromiso` que no valida (sin monto o día), mensual, en la moneda principal y que no es préstamo se busca con su
+  nombre y palabras (si dijo un monto, la serie tiene que estar a ±10 % de él) y se completa (`_desde_serie`: lo que la IA dijo bien se
+  mantiene; `pago` con `modo_pago`) con `encontrado` {monto, dia, meses, veces, ultimas, aproximado?}; (2) la acción **`buscar_pago`**
+  `{texto}` (pasa por `limpiar_texto`). Si ya hay un compromiso activo que es ese cobro (todas las palabras buscadas en su nombre o
+  `buscar`, o `coincide` con un movimiento de la serie), la acción es `{"tipo": "buscar_pago", "anotado": {…, "ultimo"}}` (sin
+  botones, con su último pago reconocido); si no hay nada, la nota `no_encontre_movimientos`. Cuando la búsqueda decide, la respuesta
+  la arma el código sin otra llamada (`mensaje.busqueda` {resultado: «encontre»|«anotado»|«nada», nombre, monto, dia}; la interfaz la
+  pinta en su idioma con `textoBusqueda` y `texto` queda en español para la conversación). Lo que vuelve a la IA en los turnos
+  siguientes es solo esa frase (nombre, monto, día); nunca descripciones ni ids. El prompt le dice que la app puede buscar en sus
+  movimientos (también los de Mercado Pago) y que nunca diga que no puede. La misma serie no se propone dos veces en un mensaje. En el
+  navegador, `buscadoSimulado` usa `buscarSerie` con la demo («¿cuánto me cobran de internet? búscalo»).
 - **Consejos:** `consejos.py <hoy>` arma un prompt con totales y exige las tres secciones (`### Lo que va bien`, `### Ojo con`,
   `### Para esta semana`). Si no vienen, no se guarda nada.
 
