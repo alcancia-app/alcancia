@@ -19,7 +19,10 @@ Alcancía es gratis y abierta, y la hacemos entre todos. Hay lugar para cualquie
    (`CLAUDE.md` y `GEMINI.md` solo apuntan a ese archivo).
 2. Haz un fork, una rama y tu cambio. La sección "Desarrollo" del [README](README.md#desarrollo) explica cómo correrla.
 3. Corre `bash pruebas/correr.sh` (lo mismo que revisa GitHub en cada cambio).
-4. Abre un pull request contando qué cambia para quien usa Alcancía y cómo lo probaste.
+4. Si tu cambio se nota (una función nueva, otra forma de hacer algo, otra pantalla), deja al día lo que lo cuenta: el
+   README, la página (`docs/`), las capturas y [`CHANGELOG.md`](CHANGELOG.md). Si no sabes bien qué tocar, dilo en el pull
+   request y lo completamos nosotros.
+5. Abre un pull request contando qué cambia para quien usa Alcancía y cómo lo probaste.
 
 Reglas que importan: código, comentarios y textos en español (todo texto nuevo de la interfaz con su traducción en `ui/idiomas/en.json`);
 **nunca subas una cartola real ni datos personales** (usa datos ficticios); solo biblioteca estándar en Python; y no romper el
@@ -50,6 +53,8 @@ enlace a la documentación de la API: así sabemos dónde hay conexiones oficial
 Todo entra por pull request y lo junta alguien que mantiene el proyecto: nadie puede subir cambios directo. Revisamos:
 - **Siempre:** que las pruebas de GitHub pasen, que no haya datos personales y que el cambio haga lo que dice. Si es tu primer
   aporte, GitHub espera a que aprobemos correr las pruebas (es normal).
+- **Que la documentación diga la verdad:** si el cambio agrega, cambia o quita algo que se nota, revisamos que el
+  README, la página, las guías y el `CHANGELOG.md` cuenten la app como queda. Lo que falte lo completamos antes de juntar.
 - **Código:** que no cambie el formato de los datos, que los textos nuevos tengan su traducción y que no agregue dependencias,
   conexiones a internet nuevas ni nada que pida claves o datos bancarios.
 - **Conectores:** API oficial, llave de la persona, solo lectura, solo los dominios declarados, sin dependencias, con prueba contra el
@@ -64,7 +69,7 @@ Todo entra por pull request y lo junta alguien que mantiene el proyecto: nadie p
 Si algo falta te lo pedimos con un comentario; casi nunca cerramos un aporte sin conversar.
 
 ¿Buscas por dónde empezar? Mira los issues con la etiqueta
-[`good first issue`](https://github.com/alcancia-app/alcancia/labels/good%20first%20issue) o pregunta en Discussions.
+[`good first issue`](https://github.com/alcancia-app/alcancia/labels/good%20first%20issue) (o [`sin programar`](https://github.com/alcancia-app/alcancia/labels/sin%20programar)) o pregunta en Discussions.
 
 ¿Encontraste un problema de seguridad? No abras un issue: avísanos en privado como dice [`SECURITY.md`](SECURITY.md).
 
@@ -79,8 +84,11 @@ Al participar aceptas el [código de conducta](CODE_OF_CONDUCT.md).
 - **No code needed:** add your bank (let your AI learn your statement and share just the *recipe*, never your transactions), chat in
   [Discussions](https://github.com/alcancia-app/alcancia/discussions), report bugs or ideas in
   [issues](https://github.com/alcancia-app/alcancia/issues/new/choose), test it on your system (label `probar`), add well-known
-  merchants from your country, and help with translations.
+  merchants and the words statements use for loans, mortgages or insurance (`bin/compromisos_conocidos.json`) from your country, and help with translations.
 - **Code (with or without AI):** read [`AGENTS.md`](AGENTS.md), fork, branch, run `bash pruebas/correr.sh` and open a pull request.
   Code and comments are in Spanish; UI text needs its English entry in `ui/idiomas/en.json`; never commit real statements or personal data.
+  If your change is visible, also update the README, the page (`docs/`), screenshots and `CHANGELOG.md`, or say so in the
+  pull request and we'll do it.
 - **Review:** everything goes through a pull request and a maintainer merges it. Contributions are licensed under AGPL-3.0.
+  We also check that the README, the page and the docs still describe the app as it is.
 - **Security issues:** never in a public issue; report privately as described in [`SECURITY.md`](SECURITY.md).
