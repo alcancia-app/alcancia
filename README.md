@@ -3,55 +3,64 @@
 <h1 align="center">Alcancía</h1>
 
 <p align="center"><b>Control de gastos para quienes nos cuesta medirnos.</b><br>
-Juntas las cartolas de tus bancos y billeteras, Alcancía las ordena y tu propia IA te avisa a tiempo cuando algo se está pasando.<br>
+Juntas las cartolas de tus bancos y billeteras, Alcancía las ordena, te dice cuánto te queda hasta tu sueldo y qué falta pagar,
+y tu propia IA te avisa a tiempo cuando algo se está pasando.<br>
 Gratis, de código abierto y con tus datos en tu computador.</p>
 
-<p align="center"><a href="https://alcancia-app.github.io/alcancia/">Sitio</a> ·
-<a href="https://alcancia-app.github.io/alcancia/demo/">Vista previa</a> ·
+<p align="center"><a href="https://alcancia-app.github.io/alcancia/"><b>Página</b></a> ·
+<a href="https://alcancia-app.github.io/alcancia/demo/"><b>Pruébala en el navegador</b></a> ·
+<a href="#instalar">Instalar</a> ·
 <a href="https://github.com/alcancia-app/alcancia/discussions">Comunidad</a> ·
 <a href="CONTRIBUTING.md">Cómo aportar</a> ·
 <a href="#english">English</a></p>
 
+<p align="center"><picture><source srcset="docs/img/app-resumen-oscuro.png" media="(prefers-color-scheme: dark)"><img src="docs/img/app-resumen-claro.png" width="860" alt="El Inicio de Alcancía en el Mac: cuánto te queda hasta fin de mes, lo que tienes, lo que gastaste, lo que debes y en qué se fue (datos ficticios)"></picture></p>
+<p align="center">
+<picture><source srcset="docs/img/app-celular-oscuro.png" media="(prefers-color-scheme: dark)"><img src="docs/img/app-celular-claro.png" width="250" alt="El Inicio en el celular (datos ficticios)"></picture>
+<picture><source srcset="docs/img/app-pagos-oscuro.png" media="(prefers-color-scheme: dark)"><img src="docs/img/app-pagos-claro.png" width="250" alt="Pagos: lo que falta pagar este mes, lo atrasado primero (datos ficticios)"></picture>
+<picture><source srcset="docs/img/app-chat-oscuro.png" media="(prefers-color-scheme: dark)"><img src="docs/img/app-chat-claro.png" width="250" alt="Conversar con Alcancía: encontró un cobro en tus movimientos y pregunta si lo agrega (datos ficticios)"></picture>
+</p>
+<p align="center"><sub>Datos ficticios. Inicio, Pagos y la conversación con Alcancía.</sub></p>
+
 ---
 
 ## Qué hace
-- **Lee la cartola de cualquier banco o billetera del mundo** (CSV, Excel, PDF con texto, OFX/QFX, QIF o CAMT.053). Cada banco tiene una *receta*: un archivo corto que dice
-  cómo leer su cartola. Si tu banco aún no está, **tu IA aprende a leerlo** y puedes compartir la receta con la comunidad.
-- **Movimientos que llegan solos:** conexiones oficiales con una llave que creas tú (Mercado Pago, PayPal, Stripe, Buda.com, bancos
-  de EE. UU. y Canadá con SimpleFIN, Up en Australia, Akahu en Nueva Zelanda… y las que sume la comunidad), y la **carpeta vigilada**:
-  descargas la cartola de cualquier banco y Alcancía la agrega sola. Nunca con la clave de tu banco.
-- **Pregúntale a tu propia IA:** Alcancía trae un servidor MCP, así que Claude, ChatGPT (app y Codex) o Gemini en tu computador pueden
-  consultar tus finanzas («¿cuánto gasté en delivery este mes?»). Se conecta con un clic en Conexiones.
-- **No duplica nada:** puedes subir la misma cartola dos veces, o cartolas que se traslapan.
-- **Pone las categorías sola:** primero lo que tú le enseñaste, después comercios conocidos y al final tu IA.
-- **Te dice si vas bien:** cuánto llevas gastado, a qué ritmo vas y qué categoría se te está pasando, antes de que termine el mes,
-  y cómo vas comparado con tus últimos 6 meses (en total y por categoría).
-- **Te da consejos concretos:** tu IA mira tus números y te deja lo que va bien, a qué ponerle ojo y algo para hacer esta semana.
-- **Compromisos: que no se te olvide nada.** Anota lo que pagas o recibes seguido (dividendo, arriendo, créditos, cuentas,
-  suscripciones, transferencias, tu sueldo) escribiéndolo con tus palabras («el arriendo vence el 5, son 450.000») o a mano.
-  Alcancía **reconoce el pago en tu cartola**, te muestra lo que falta pagar este mes (y lo atrasado primero), el avance de tus
-  deudas («te quedan 187 de 240 cuotas») y, en Mac, te avisa antes de que venza. Al agregar una cartola detecta lo que parece un
-  compromiso (se repite cada mes o la descripción lo delata: dividendo, cuota 53/240, PAC, seguro…) y te pregunta; nunca lo agrega solo.
-- **Montos que varían y en UF:** marca un compromiso como aproximado («≈ $480.000, entre $465.000 y $495.000») o anótalo en UF
-  (un dividendo): Alcancía estima cuánto es en pesos con lo que pagaste antes, sin conectarse a ningún lado.
-- **Préstamos entre personas:** «mi tía me prestó 1.800.000 en 12 cuotas» o «le presté 850 lucas a Matías en 5»: Alcancía calcula
-  la cuota (la última ajusta el redondeo), cuándo terminas y lo que te queda. Lo que te deben se muestra aparte («Te deben») y no se
-  resta de lo que debes. Si tu IA no entiende algo, se abre el editor con lo que sí entendió para que lo completes.
-- **Conversa con tu alcancía:** un chat con el chanchito (tu IA, con tu cuenta) para decirle «me atrasé con el arriendo», «la
-  hipoteca de este mes aún no la pago» (si ve un pago este mes y ninguno el mes pasado, entiende que era del mes pasado y te
-  ofrece corregirlo) o preguntarle «mi mamá me prestó 1,5 millones y mi tío Matías 4, ¿cuánto puedo pagar al mes?»: calcula tu margen y te
-  propone dos pagos con cuota redonda, meses y aviso. **Nada cambia sin que lo confirmes.** Ver [Conversar con Alcancía](#chat).
-- **En tu celular (iPhone y Android):** mira cuánto te queda, en qué se fue y qué pagos vienen, y recibe un aviso antes de que
-  venza lo que pagas tú. Tu Mac deja una copia **cifrada con una frase que solo tú sabes** en tu propia nube (iCloud Drive, Google
-  Drive…) y el celular la abre. Sin servidores ni cuentas. Por ahora el celular es para mirar: lo que cambia datos se hace en el
-  Mac. Ver [Alcancía en tu celular](#celular).
-- **Todo más ordenado:** compromisos y sugerencias agrupados por tipo con su subtotal mensual, y en Movimientos puedes agrupar por
-  comercio (total y cuántas veces, con el detalle al abrirlo).
-- **Gasto máximo sugerido:** lo que entra − tus compromisos − tus otros gastos fijos = lo que puedes gastar en lo variable,
-  repartido por categoría según lo que gastas normalmente.
-- **Tu mes empieza cuando te pagan:** si nunca elegiste otra cosa, Alcancía detecta tu sueldo en tus movimientos y tu mes va de
-  sueldo a sueldo (si te pagan antes, parte ese día). Te dice cuándo debería llegar el próximo (en día hábil, con los feriados de
-  Chile) y, si se atrasa, te pregunta suave «¿Aún no te pagan?».
+- **Lee la cartola de cualquier banco o billetera** (CSV, Excel, PDF con texto, OFX/QFX, QIF, CAMT.053). Cada banco es una
+  [*receta*](#recetas-cada-banco-del-mundo); si el tuyo no está, tu IA aprende a leerlo. Nunca duplica nada.
+- **Movimientos que llegan solos:** [conexiones oficiales](#conexiones-automáticas) con una llave que creas tú (Mercado Pago,
+  PayPal, Stripe, Buda.com, SimpleFIN, Up, Akahu) y la carpeta vigilada (descargas la cartola y se agrega sola).
+- **Cuánto te queda hasta tu sueldo:** una sola cifra arriba, con los días que faltan, lo que puedes gastar al día y tu ritmo.
+  Detecta tu sueldo y tu mes va [de sueldo a sueldo](#tu-mes-de-sueldo-a-sueldo).
+- **Lo que tienes, lo que gastaste y lo que debes**, y en qué se fue cada peso, comparado con tus últimos 6 meses.
+- **Categorías solas:** lo que le enseñaste, comercios conocidos y tu IA. Corriges una vez y aprende.
+- **Pagos al día:** dividendo, arriendo, créditos, cuentas, suscripciones y tu sueldo. Reconoce cada pago en tu cartola, separa lo
+  que **se paga solo** (PAC, PAT, suscripciones) de lo que pagas tú, avisa antes de que venza y detecta el interés por mora.
+- **Préstamos entre personas** («mi tía me prestó 1.800.000 en 12 cuotas») y lo que te deben, aparte. Montos que varían y en UF.
+- **[Conversa con Alcancía](#chat):** «me atrasé con el arriendo», «¿cuánto me cobran de internet? búscalo» o «mi mamá me prestó
+  1,5 millones, ¿cuánto puedo pagar al mes?». Busca en tus movimientos sin mostrárselos a la IA, hace las cuentas con código y
+  **nada cambia sin que lo confirmes**.
+- **Consejos concretos** de tu IA: lo que va bien, a qué ponerle ojo y algo para esta semana. Gasto máximo sugerido por categoría.
+- **[En tu celular](#celular)** (iPhone y Android, para mirar): tu Mac deja una copia cifrada con una frase que solo tú sabes en tu
+  propia nube, y el celular te avisa antes de que venza un pago.
+- **[Tu IA, fuera de Alcancía](#tu-ia-fuera-de-alcancía-mcp):** Claude, ChatGPT o Gemini pueden consultar tus finanzas con un
+  servidor MCP de solo lectura.
+- **Español e inglés.** Lo primero que te pregunta es el idioma.
+
+<a id="instalar"></a>
+## Instalar
+
+| | Cómo | Estado |
+|---|---|---|
+| 🌐 **Navegador** | [Vista previa con datos ficticios](https://alcancia-app.github.io/alcancia/demo/): nada que instalar. | Para mirar cómo funciona |
+| 🍎 **Mac** | [Desde el código](#instalar-en-mac-desde-el-código) con `bash build.sh` (macOS 15 y las herramientas de Xcode). | Funciona; aún sin versión publicada ni firma de Apple |
+| 📱 **iPhone y Android** | [Desde el código](movil/README.md) con Xcode o Android Studio. Lee la copia cifrada que deja el Mac. | Fase 1: para mirar |
+| 🪟 🐧 **Windows y Linux** | La misma interfaz, en una app de escritorio. | En camino |
+
+Para la IA necesitas una de estas, con tu propia cuenta: Claude Code, Codex (ChatGPT) o Gemini CLI. La
+[guía de tu IA](https://alcancia-app.github.io/alcancia/ia.html) explica cómo instalarla paso a paso. Sin IA, Alcancía igual lee
+tus cartolas, reconoce tus pagos y te muestra tus cifras.
+
+En GitHub, **Watch → Custom → Releases** te avisa cuando salga la primera versión para descargar.
 
 ## Tus datos son tuyos
 - Todo queda en tu computador, en una carpeta con archivos abiertos (CSV y JSON) que puedes abrir con Excel o llevarte adonde quieras.
@@ -65,10 +74,26 @@ Gratis, de código abierto y con tus datos en tu computador.</p>
 - *Muy pronto:* respaldo **con candado** en tu nube (iCloud Drive, Google Drive, OneDrive, Dropbox) o en tu GitHub/GitLab: cifrado
   en tu computador, con una llave que solo tú tienes.
 
+<a id="comunidad"></a>
+## Cómo aportar
+Alcancía es gratis y abierta, y la hacemos entre todos. Casi nada exige programar:
+- 🏦 **Agrega tu banco:** agrega tu cartola en la app y deja que tu IA aprenda a leerla; al final te ofrece compartir **solo la
+  receta** en el [catálogo](https://github.com/alcancia-app/alcancia-catalogo). Sirve para todos los de tu país.
+- 💬 **Conversa** en [Discussions](https://github.com/alcancia-app/alcancia/discussions): dudas, ideas y cómo te ordenaste.
+- 🧪 **Pruébala en tu sistema:** los issues con la etiqueta [`probar`](https://github.com/alcancia-app/alcancia/labels/probar).
+- 🔌 **Suma una conexión oficial** de tu país: [Agregar un conector](CONTRIBUTING.md#agregar-un-conector-conexión-automática).
+- 🛠️ **Programa, con o sin IA:** [`AGENTS.md`](AGENTS.md) es la guía para personas y para cualquier IA de programación. Empieza
+  por [CONTRIBUTING.md](CONTRIBUTING.md) y los issues [`good first issue`](https://github.com/alcancia-app/alcancia/labels/good%20first%20issue).
+
+Al participar aceptas el [código de conducta](CODE_OF_CONDUCT.md).
+
 ## Estado
-Versión 0.1, recién nacida. Ya funcionan el motor (leer cartolas, recetas, categorías, resumen y consejos), la interfaz y la app de
-Mac (todavía sin versión publicada: por ahora se compila desde el código, ver abajo) y la app del celular para iPhone y Android en
-su fase 1 (para mirar, con los datos que deja el Mac; se compila desde el código). Windows y Linux vienen en camino. Puedes [ver la interfaz con datos ficticios](https://alcancia-app.github.io/alcancia/demo/).
+Versión 0.1, recién nacida. Ya funcionan el motor (leer cartolas, recetas, categorías, pagos, resumen y consejos), la interfaz, la
+conversación con Alcancía, la app de Mac (todavía sin versión publicada: por ahora se compila desde el código) y la app del celular
+para iPhone y Android en su fase 1 (para mirar, con los datos que deja el Mac; se compila desde el código). Windows y Linux vienen en
+camino.
+
+---
 
 ## Cómo funciona
 ```
@@ -349,3 +374,8 @@ payments are due. Each bank is supported through a data-only *recipe* (plus OFX,
 learns it and you can share just the recipe with the community. Transactions can also arrive automatically: official APIs with a key
 you create (Mercado Pago, PayPal, Stripe, Buda.com, SimpleFIN for US/Canada banks, Up, Akahu) and a watched Downloads folder. A
 read-only local MCP server lets your own AI (Claude, ChatGPT/Codex, Gemini) answer questions about your finances. Spanish-first, English included. Licensed under AGPL-3.0.
+
+**Try it:** [browser preview with made-up data](https://alcancia-app.github.io/alcancia/demo/) (add `?idioma=en`) · **Mac:**
+[build from source](#instalar-en-mac-desde-el-código) (`bash build.sh`, macOS 15; no signed release yet) · **iPhone and Android:**
+[build from source](movil/README.md) (phase 1, read-only) · **Windows and Linux:** coming. Questions and ideas are welcome in
+[Discussions](https://github.com/alcancia-app/alcancia/discussions), in English or Spanish; see [CONTRIBUTING.md](CONTRIBUTING.md).
