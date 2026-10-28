@@ -1,0 +1,20 @@
+{
+  "appId": "app.alcancia.movil",
+  "appName": "Alcancía",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "scrollEnabled": true
+  },
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": false,
+    "adjustMarginsForEdgeToEdge": "auto"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_alcancia",
+      "iconColor": "#C2603A"
+    }
+  }
+}

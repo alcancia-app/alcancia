@@ -18,8 +18,9 @@ avisarnos en privado. *(English below.)*
 - Si investigas de buena fe, sin tocar datos de otras personas ni dañar nada, no vamos a tomar ninguna acción en tu contra.
 
 ## Qué cubre
-Todo lo de este repo y lo que sale de él: la app de Mac (y las de Windows y Linux cuando existan), los scripts de `bin/`, la
-interfaz de `ui/`, los conectores, el servidor MCP, las actualizaciones, la página publicada y los workflows de GitHub. También el
+Todo lo de este repo y lo que sale de él: la app de Mac (y las de Windows y Linux cuando existan), la app del celular (`movil/`,
+iPhone y Android), los scripts de `bin/`, la interfaz de `ui/`, la copia cifrada para el celular, los conectores, el servidor MCP,
+las actualizaciones, la página publicada y los workflows de GitHub. También el
 [catálogo de recetas](https://github.com/alcancia-app/alcancia-catalogo).
 
 Nos interesa especialmente:
@@ -28,6 +29,8 @@ Nos interesa especialmente:
 - Que una **llave de un conector** salga del Llavero hacia otro lugar que no sea el dominio oficial del servicio.
 - Que alguien pueda hacer llegar una **actualización falsa** de Alcancía.
 - Que la IA de la persona vea más de lo que dice el [README](README.md) (nunca números de cuenta, RUT ni claves).
+- Que la **copia para el celular** se pueda abrir sin la frase, cambiar sin que se note, o lleve algo que no debería (llaves,
+  tokens, rutas del computador): el formato está en el [README](README.md#copia-celular).
 - Que un pull request pueda robar secretos o permisos de los workflows.
 
 No cubre: lo que exige tener ya el control de tu computador o de tu cuenta de usuario, problemas de la IA que tú elegiste (Claude,
@@ -40,6 +43,10 @@ ChatGPT/Codex o Gemini) o de los servicios con los que conectas, ni ataques de i
 - Recetas = solo datos, validadas. Todo lo que viene de afuera se escapa antes de mostrarse y la interfaz tiene una política de
   contenido (CSP) que no deja correr código que no venga con la app.
 - La IA corre en una carpeta temporal, sin herramientas ni conexiones extra, y lo que propone se valida y la persona lo confirma.
+- Al celular los datos llegan cifrados (PBKDF2-SHA256 de 600.000 vueltas + AES-256-GCM, IV nuevo en cada escritura) en la nube de
+  la persona; la frase no se guarda en ninguna parte (el Mac guarda la llave derivada en su Llavero, el celular solo si la persona
+  lo pide, en el Llavero o el Keystore). La app del celular no tiene permiso de internet, ni respaldo automático en Android, ni
+  excepciones de ATS en iOS.
 - Todo cambio entra por pull request revisado. Las actions de GitHub están fijadas por SHA, con permisos mínimos y sin
   `pull_request_target`.
 - Actualizaciones: hoy se verifica la huella SHA-256 publicada junto al Release. La **firma** de las actualizaciones (para que ni
@@ -80,7 +87,7 @@ We reply within **5 business days**, share a plan within **30 days**, and publis
 wish); after **90 days** without a fix we'll agree on disclosure with you. Good-faith research that doesn't touch other people's data
 is welcome and won't be pursued.
 
-**In scope:** the Mac app (and future Windows/Linux apps), `bin/` scripts, the `ui/` interface, connectors, the MCP server, updates,
+**In scope:** the Mac app (and future Windows/Linux apps), the phone app (`movil/`) and its encrypted copy, `bin/` scripts, the `ui/` interface, connectors, the MCP server, updates,
 the published site, GitHub workflows, and the recipe catalog. We especially care about code execution from statements, recipes,
 translations, transaction descriptions or AI replies; connector keys leaving the Keychain for anything but the service's official
 domain; forged updates; the AI seeing more than documented; and pull requests stealing workflow secrets or permissions.

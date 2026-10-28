@@ -1,0 +1,24 @@
+{
+  "name": "alcancia-movil",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Alcancía en el celular (iPhone y Android): la misma interfaz de ui/, solo para mirar. Los datos llegan desde el Mac por una copia cifrada en la nube de la persona.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "armar": "node armar.mjs",
+    "sync": "node armar.mjs && cap sync",
+    "ios": "node armar.mjs && cap sync ios && cap open ios",
+    "android": "node armar.mjs && cap sync android && cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "7.6.9",
+    "@capacitor/core": "7.6.9",
+    "@capacitor/ios": "7.6.9",
+    "@capacitor/local-notifications": "7.0.7",
+    "alcancia-carpeta": "file:plugins/carpeta"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "7.6.9"
+  }
+}

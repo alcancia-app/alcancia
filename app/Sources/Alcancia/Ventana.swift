@@ -92,10 +92,13 @@ final class Ventana: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNavig
             e["version"] = Actualizaciones.version
             e["carpeta"] = Rutas.base.path.replacingOccurrences(of: FileManager.default.homeDirectoryForCurrentUser.path, with: "~")
             e["actualizacion"] = Actualizaciones.disponible
+            e["celular"] = Celular.paraJS
             if e["config"] == nil { e["config"] = Config.leer() }
             e.merge(Ventana.shared.pendiente) { _, nuevo in nuevo }
             Ventana.shared.pendiente = [:]
             Ventana.shared.llamar("estado", e)
+            // «Alcancía en tu celular»: con el estado recién llegado, la interfaz arma y cifra la copia (si toca) y la devuelve.
+            Celular.despuesDelEstado()
         }
     }
 
@@ -222,6 +225,17 @@ final class Ventana: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNavig
             }
         case "avisos":
             Avisos.activar(d["activo"] as? Bool ?? false)
+        case "celular":
+            // «Alcancía en tu celular» (Celular.swift). Elegir la carpeta de la nube es una hoja de esta ventana.
+            if d["accion"] as? String == "carpeta" {
+                let panel = Celular.panelCarpeta()
+                guard let v = ventana else { return }
+                panel.beginSheetModal(for: v) { r in
+                    Celular.carpetaElegida(r == .OK ? panel.url : nil)
+                }
+            } else {
+                Celular.atender(d)
+            }
         case "pedirConsejos":
             let hoy = (d["hoy"] as? String ?? "").filter { $0.isNumber || $0 == "-" }
             Procesador.correrJSON("consejos.py", [hoy]) { Ventana.shared.llamar("consejosListos", $0) }

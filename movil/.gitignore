@@ -1,0 +1,5 @@
+# Lo que se arma o se baja: no se versiona.
+node_modules/
+www/
+plugins/*/android/build/
+plugins/*/android/.gradle/

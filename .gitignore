@@ -12,6 +12,7 @@
 !/pruebas/
 !/ejemplos/
 !/escritorio/
+!/movil/
 !/build.sh
 !/README.md
 !/AGENTS.md
@@ -41,5 +42,7 @@ capturas/
 *.xml
 !/pruebas/datos/*.xml
 !/docs/*.xml
+# La app del celular: manifiestos y recursos de Android son XML (movil/.gitignore deja fuera lo que se arma o se baja)
+!/movil/**/*.xml
 *.pdf
 !/pruebas/datos/*.pdf

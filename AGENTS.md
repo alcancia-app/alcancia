@@ -6,10 +6,12 @@
 Alcancía es una app de control de gastos personal. La persona agrega las cartolas de sus bancos y billeteras (CSV, Excel o PDF con texto); Alcancía
 las lee con una **receta** por banco, las guarda sin duplicar, las categoriza (reglas aprendidas → comercios conocidos → la IA del
 usuario) y muestra cuánto lleva gastado, a qué ritmo va y qué categoría se pasa del presupuesto. La IA del usuario (Claude Code, Codex
-o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app de escritorio para Mac, Windows y Linux en camino.
+o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app de escritorio para Mac (Windows y Linux en camino) y
+app del celular (iPhone y Android, `movil/`, fase 1: para mirar, con la copia cifrada que deja el Mac en la nube de la persona).
 
 **Principios que no se negocian**
 1. **Los datos son del usuario.** Viven en su computador (`~/Alcancia`), en formato abierto. No hay servidores propios ni telemetría.
+   Al celular llegan como una copia cifrada con una frase de la persona, en su propia nube (nunca por un servidor nuestro).
 2. **Nunca pedimos la clave del banco** ni entramos al sitio de un banco con el usuario y la clave de la persona (nada de "scraping").
    Lo automático va por dos caminos: **conectores** a APIs oficiales con una llave que la persona crea ella misma en el servicio
    (guardada en el Llavero, solo lectura) y la **carpeta vigilada** (las cartolas que descarga se agregan solas). Las finanzas
@@ -29,12 +31,13 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
 | `bin/conectores/` | Un módulo por servicio con API oficial (`INFO`, `probar`, `movimientos`). `bin/red.py` hace los pedidos HTTPS (solo a los dominios de cada conector). `bin/sincronizar.py probar|traer <conector>` los usa; `bin/vigilar.py` es la carpeta vigilada. |
 | `bin/mcp_servidor.py`, `bin/mcp_conectar.py` | Servidor MCP de solo lectura (stdio, JSON-RPC, sin dependencias) para que la IA de la persona consulte sus finanzas, y el script que lo registra en Claude Desktop, Claude Code, Codex/ChatGPT, Gemini CLI y Antigravity (con su comando oficial o editando su JSON con respaldo). |
 | `recetas/` | Recetas incluidas en la app (solo las probadas con una cartola real) y `README.md` con el formato. |
-| `ui/` | Interfaz web única (`app.js`, `app.css`), `demo.json` (ficticio, se genera con `herramientas/generar_demo.py`) e `idiomas/en.json`. |
+| `ui/` | Interfaz web única (`app.js`, `app.css`), `copia.js` (la copia cifrada para el celular: el mismo código cifra en el Mac y abre en el teléfono), `demo.json` (ficticio, se genera con `herramientas/generar_demo.py`) e `idiomas/en.json`. |
 | `docs/` | Página pública (GitHub Pages). `pagina.yml` la publica junto a `ui/` en `/demo/`. |
-| `pruebas/` | `correr.sh` (todo), `test_python.py`, `interfaz.mjs` (Playwright), `casos.json` (casos compartidos Python ↔ JS), `ia_falsa.py`, `datos/` (cartola ficticia). |
+| `pruebas/` | `correr.sh` (todo), `test_python.py`, `interfaz.mjs` (Playwright), `copia.mjs` (cifrado de la copia para el celular, en Node), `movil.mjs` (la app del celular de punta a punta con `capacitor_falso.js`), `contrato.py`, `casos.json` (casos compartidos Python ↔ JS), `ia_falsa.py`, `datos/` (cartola ficticia). |
 | `herramientas/` | `revisar_privacidad.sh`, `generar_demo.py`, `generar_pdf_prueba.py` (las cartolas PDF ficticias de `pruebas/datos/`). |
 | `ejemplos/` | Scripts para construir encima del formato abierto. |
-| `app/` | App de Mac (SwiftPM, macOS 15, sin proyecto de Xcode). `AlcanciaApp.swift` (arranque y barra de menú), `Ventana.swift` (WKWebView + puente: un `case` por acción), `Servicios.swift` (rutas, config, idioma, IA del usuario, `Procesador.correrJSON`), `Actualizaciones.swift` (GitHub Releases o `git pull` en un checkout de desarrollo), `Avisos.swift` (notificaciones de compromisos). |
+| `app/` | App de Mac (SwiftPM, macOS 15, sin proyecto de Xcode). `AlcanciaApp.swift` (arranque y barra de menú), `Ventana.swift` (WKWebView + puente: un `case` por acción), `Servicios.swift` (rutas, config, idioma, IA del usuario, `Procesador.correrJSON`), `Actualizaciones.swift` (GitHub Releases o `git pull` en un checkout de desarrollo), `Avisos.swift` (notificaciones de compromisos), `Celular.swift` (la copia para el celular: carpeta de la nube, llave en el Llavero y cuándo escribir). |
+| `movil/` | App del celular (Capacitor 7, iOS + Android, `app.alcancia.movil`): `armar.mjs` (arma `www/` con `ui/` y `host/`), `host/` (el anfitrión del teléfono), `plugins/carpeta/` (Swift + Kotlin), `ios/`, `android/`, `README.md` (compilar y probar). Ver «App del celular». |
 | `build.sh`, `herramientas/empaquetar.sh` | Arman `dist/Alcancia.app` (con Python portátil verificado por SHA-256 y bin/, ui/, recetas/ adentro) + zip + `.sha256`; `build.sh` la instala en `~/Applications`. |
 
 ## Cómo funciona
@@ -218,6 +221,16 @@ o Gemini, con su propia cuenta) también da consejos. Interfaz web única; app d
   siguientes es solo esa frase (nombre, monto, día); nunca descripciones ni ids. El prompt le dice que la app puede buscar en sus
   movimientos (también los de Mercado Pago) y que nunca diga que no puede. La misma serie no se propone dos veces en un mensaje. En el
   navegador, `buscadoSimulado` usa `buscarSerie` con la demo («¿cuánto me cobran de internet? búscalo»).
+- **Alcancía en tu celular (Mac):** Ajustes → «Alcancía en tu celular» (`seccionCelular`, asistente `dialogoCelular`): carpeta de
+  la nube (acción `celular` {accion: «carpeta»} → `NSOpenPanel` → `celularCarpeta`), frase (`AlcanciaCopia.fuerzaFrase`, 12+
+  caracteres y «Entiendo que sin esta frase…»). La interfaz deriva la llave (`nuevaCabecera`, WebCrypto) y manda `{accion:
+  «activar», llave, cabecera}`: `Celular.swift` guarda **la llave, no la frase**, en el Llavero y el marcador de la carpeta en
+  `UserDefaults` (nada de esto va a `config.json` ni al estado). Después de cada `estado`, `Celular.despuesDelEstado` llama
+  `copiaCelular({llave, cabecera, forzar, anterior})`; la interfaz arma el contenido con lo que acaba de llegar (`E._crudo` →
+  `AlcanciaCopia.paraCelular`, lista blanca), compara la huella y, si cambió (o `forzar`: 6 horas, «Copiar ahora», recién activada),
+  lo cifra y devuelve `{accion: «escribir», texto, huella}`; Swift lo escribe de una vez (`.atomic`) y responde `celularEscrito`.
+  Formato en el README («Copia para el celular»); pruebas en `pruebas/copia.mjs` y, del Mac (vista previa) al teléfono, en
+  `pruebas/movil.mjs`. Si cambias lo que viaja, cambia `paraCelular`, el README y la prueba de «lo que viaja».
 - **Consejos:** `consejos.py <hoy>` arma un prompt con totales y exige las tres secciones (`### Lo que va bien`, `### Ojo con`,
   `### Para esta semana`). Si no vienen, no se guarda nada.
 
@@ -243,16 +256,41 @@ Diseño mobile first (la misma interfaz va a ir en una app de celular): pensar p
   legibles con `nombreComercio` (solo presentación: «DELIVERY RAPIDITO *PEDIDO» → «Delivery Rapidito»; lo guardado no cambia y la
   descripción original se ve al tocar la fila). Un movimiento sin categoría muestra un «+» gris discreto.
 
+## App del celular (`movil/`)
+- **El Mac es la fuente.** El celular (fase 1) solo mira: lee la copia cifrada (`ui/copia.js`) de la carpeta de la nube, la abre con
+  la frase y pinta la misma interfaz con `ALCANCIA_HOST = "movil"` (`LECTURA` en `ui/app.js`). Nunca llaves de conectores, IA ni
+  red: el manifiesto quita INTERNET y la CSP de `ui/index.html` no cambia (`armar.mjs` lo revisa).
+- **Lo que cambia datos no se ofrece** en `LECTURA`: sin «+», chat, categorizar (el chip es un `span`), «Ya lo pagué», editar
+  compromisos, saldo, presupuesto (solo lectura), consejos nuevos, conexiones ni importar; `app.css` oculta lo que quede
+  (`html[data-host="movil"] …`) y un toque que igual llegue (`SOLO_MAC` en `ui/app.js`) solo muestra «Esto se hace en tu Mac por
+  ahora». El anfitrión responde lo mismo a esas acciones (`SOLO_MAC` en `movil/host/host.js`). Al agregar algo que cambie datos,
+  súmalo a los dos `SOLO_MAC` y a `app.css`; `pruebas/movil.mjs` revisa que nada así quede a la vista en ninguna pantalla.
+- **Primer uso:** idioma (el mismo `pasoIdioma`), saludo y «Trae tus datos» (`vistaTraer`, `bv-traer`). Acción `traer`
+  {accion: elegir | abrir {frase, recordar} | releer | olvidar | desconectar} → `traerRespuesta` y el estado (con `celular`:
+  {estado: nuevo | frase | listo, archivo, generado, recordada, desactualizada, error}). Los ajustes del teléfono son solo
+  `idioma_ui`, `bienvenida` y `avisos` (plugin, no `localStorage`); el resto de `config` llega del Mac.
+- **Avisos:** `avisosPagos` (lógica pura, en `_pruebas`) y `window.Alcancia.avisosCelular` (con el texto en el idioma elegido);
+  el anfitrión los programa con `@capacitor/local-notifications` (ids de 31 bits, 9:00, máximo 60, `registerActionTypes` con el
+  texto genérico de la pantalla bloqueada). El permiso se pide al activar «Avisarme antes de que venza un pago».
+- **Plugin `Carpeta`** (`movil/plugins/carpeta`, Swift + Kotlin): `elegir`, `leer`, `olvidar`, `guardarCache`, `leerCache`,
+  `guardarLlave`, `leerLlave`, `borrarLlave`, `guardarAjustes`, `leerAjustes`. Un método nuevo va en los dos lenguajes y en
+  `pruebas/capacitor_falso.js` (el contrato lo revisa). Swift y Kotlin no compilan aquí: imita lo que ya compila y avisa.
+- `armar.mjs` → `npx cap sync`; los proyectos `ios/` y `android/` se versionan (AndroidManifest, `data_extraction_rules.xml`,
+  `variables.gradle`, Info.plist). Dependencias con versión exacta, `package-lock.json` y `.npmrc` con `ignore-scripts=true`; el
+  workflow hace `npm ci`, `npm audit --audit-level=high` y `cap sync`.
+
 ## Puente interfaz ↔ app
 La UI llama `host.enviar(accion, datos)` y la app responde con `window.Alcancia.<funcion>(json)`. En el navegador, `simular()` responde
 con datos ficticios. Acciones: `listo, config, probarIA, elegirCartola, vistaCartola, aprenderReceta, guardarReceta, importar,
 categoria, categoriaNueva, saldo, regla, presupuesto, pedirConsejos, abrirEnlace, abrirCarpeta, conectar, sincronizar, desconectar, vigilar, mcpConectar,
-buscarActualizacion, actualizar, chat, compromiso, avisos`. Respuestas: `estado, iaProbada, cartolaElegida, vistaLista,
-recetaAprendida, importarProgreso, importado, consejosListos, conectado, sincronizado, importadoSolo, mcpListo, actualizacionRevisada,
-actualizacionProgreso, chatRespuesta`. Solo el marco principal cargado desde `ui/` puede usar el puente (`Ventana.swift`
-revisa el origen) y la ventana nunca navega fuera de `ui/` (un enlace https se abre en el navegador). `pruebas/contrato.py` revisa que cada acción exista en `Ventana.swift` (y en Windows/Linux cuando exista), que cada
-función que llama la app exista en `window.Alcancia` y que los scripts que llama existan. Una acción nueva va en `ui/app.js`, en `Ventana.swift`
-y simulada en `simular()`.
+buscarActualizacion, actualizar, chat, compromiso, avisos, celular` (Mac) y `traer` (solo celular). Respuestas: `estado, iaProbada,
+cartolaElegida, vistaLista, recetaAprendida, importarProgreso, importado, consejosListos, conectado, sincronizado, importadoSolo, mcpListo,
+actualizacionRevisada, actualizacionProgreso, chatRespuesta, copiaCelular, celularCarpeta, celularEscrito` y, del celular,
+`traerRespuesta, avisosRespuesta, avisosCelular, soloEnMac`. Solo el marco principal cargado desde `ui/` puede usar el puente (`Ventana.swift`
+revisa el origen) y la ventana nunca navega fuera de `ui/` (un enlace https se abre en el navegador). `pruebas/contrato.py` revisa que cada acción exista en `Ventana.swift` (y en Windows/Linux cuando exista), en
+`movil/host/host.js` (`ACCIONES` o `SOLO_MAC`) y simulada en `simular()`; que cada función que llaman las apps exista en
+`window.Alcancia`; que los scripts y los métodos nativos que llaman existan (plugins de iOS y Android y el Capacitor falso), y la
+seguridad de la app del celular. Una acción nueva va en `ui/app.js`, en `Ventana.swift`, en `movil/host/host.js` y simulada en `simular()`.
 
 ## App de Mac
 - Datos en `~/Alcancia`; el código va dentro de la app (`Contents/Resources/alcancia`) y los scripts corren con el Python portátil incluido

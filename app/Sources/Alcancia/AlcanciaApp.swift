@@ -24,7 +24,8 @@ final class AlcanciaApp: NSObject, NSApplicationDelegate {
     }
 
     /// Lo que corre solo: actualizaciones, conexiones, carpeta vigilada, avisos de compromisos (solo si la persona los activó y
-    /// ya dio permiso: aquí nunca se pide) y reparar las IA conectadas por MCP. Una sola vez.
+    /// ya dio permiso: aquí nunca se pide), la copia para el celular cada 6 horas (si está activa) y reparar las IA conectadas por
+    /// MCP. Una sola vez.
     static func iniciarTareas() {
         guard !tareasIniciadas else { return }
         tareasIniciadas = true
@@ -32,6 +33,7 @@ final class AlcanciaApp: NSObject, NSApplicationDelegate {
         Conexiones.revisarCadaRato()
         Vigilante.empezar()
         Avisos.revisarCadaRato()
+        Celular.revisarCadaRato()
         // Si la app cambió de lugar (o se actualizó), las IA conectadas por MCP siguen apuntando a la ruta nueva.
         Procesador.correrJSON("mcp_conectar.py", ["reparar"]) { _ in }
     }

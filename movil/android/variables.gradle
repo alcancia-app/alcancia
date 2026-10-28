@@ -1,0 +1,18 @@
+ext {
+    // Kotlin: el mismo para el plugin propio (movil/plugins/carpeta); igual que el classpath de android/build.gradle.
+    kotlin_version = '2.2.20'
+    minSdkVersion = 26 // Android 8.0: Keystore con AES-GCM y selector de archivos con permiso persistente
+    compileSdkVersion = 35
+    targetSdkVersion = 35
+    androidxActivityVersion = '1.9.2'
+    androidxAppCompatVersion = '1.7.0'
+    androidxCoordinatorLayoutVersion = '1.2.0'
+    androidxCoreVersion = '1.15.0'
+    androidxFragmentVersion = '1.8.4'
+    coreSplashScreenVersion = '1.0.1'
+    androidxWebkitVersion = '1.12.1'
+    junitVersion = '4.13.2'
+    androidxJunitVersion = '1.2.1'
+    androidxEspressoCoreVersion = '3.6.1'
+    cordovaAndroidVersion = '10.1.1'
+}

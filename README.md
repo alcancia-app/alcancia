@@ -41,6 +41,10 @@ Gratis, de código abierto y con tus datos en tu computador.</p>
   hipoteca de este mes aún no la pago» (si ve un pago este mes y ninguno el mes pasado, entiende que era del mes pasado y te
   ofrece corregirlo) o preguntarle «mi mamá me prestó 1,5 millones y mi tío Matías 4, ¿cuánto puedo pagar al mes?»: calcula tu margen y te
   propone dos pagos con cuota redonda, meses y aviso. **Nada cambia sin que lo confirmes.** Ver [Conversar con Alcancía](#chat).
+- **En tu celular (iPhone y Android):** mira cuánto te queda, en qué se fue y qué pagos vienen, y recibe un aviso antes de que
+  venza lo que pagas tú. Tu Mac deja una copia **cifrada con una frase que solo tú sabes** en tu propia nube (iCloud Drive, Google
+  Drive…) y el celular la abre. Sin servidores ni cuentas. Por ahora el celular es para mirar: lo que cambia datos se hace en el
+  Mac. Ver [Alcancía en tu celular](#celular).
 - **Todo más ordenado:** compromisos y sugerencias agrupados por tipo con su subtotal mensual, y en Movimientos puedes agrupar por
   comercio (total y cuántas veces, con el detalle al abrirlo).
 - **Gasto máximo sugerido:** lo que entra − tus compromisos − tus otros gastos fijos = lo que puedes gastar en lo variable,
@@ -56,12 +60,15 @@ Gratis, de código abierto y con tus datos en tu computador.</p>
   categorizar, totales por categoría para los consejos y, en la conversación, tus totales y tus compromisos (nunca la cartola).
   Nunca tus claves ni tus números de cuenta.
 - Alcancía **nunca te pide la clave de tu banco**. Las cartolas las descargas tú.
+- Si quieres verla en tu celular, tus números viajan **cifrados en tu computador** (con una frase que no se guarda en ninguna parte)
+  a una carpeta de tu propia nube. Ni tu nube, ni nosotros, ni nadie sin la frase puede abrirlos.
 - *Muy pronto:* respaldo **con candado** en tu nube (iCloud Drive, Google Drive, OneDrive, Dropbox) o en tu GitHub/GitLab: cifrado
   en tu computador, con una llave que solo tú tienes.
 
 ## Estado
 Versión 0.1, recién nacida. Ya funcionan el motor (leer cartolas, recetas, categorías, resumen y consejos), la interfaz y la app de
-Mac (todavía sin versión publicada: por ahora se compila desde el código, ver abajo). Windows y Linux vienen en camino. Puedes [ver la interfaz con datos ficticios](https://alcancia-app.github.io/alcancia/demo/).
+Mac (todavía sin versión publicada: por ahora se compila desde el código, ver abajo) y la app del celular para iPhone y Android en
+su fase 1 (para mirar, con los datos que deja el Mac; se compila desde el código). Windows y Linux vienen en camino. Puedes [ver la interfaz con datos ficticios](https://alcancia-app.github.io/alcancia/demo/).
 
 ## Cómo funciona
 ```
@@ -213,6 +220,46 @@ y **nada se aplica solo**: lo que propone aparece como una tarjeta («Agregar»,
 - También puede proponer anotar un compromiso nuevo, marcar algo como pagado o pendiente, o cambiar el monto, el día, cómo se paga o
   cuándo termina uno. Si tu IA no responde o responde algo que no sirve, el chat te lo dice; nunca queda en blanco.
 
+### Copia para el celular
+<a id="copia-celular"></a>
+`Alcancia-celular.alcancia`, en la carpeta de tu nube que elegiste en el Mac (Ajustes → «Alcancía en tu celular»). Es un JSON
+(versión 1) que se abre con cualquier biblioteca estándar de AES-GCM; el código está en [`ui/copia.js`](ui/copia.js):
+```
+{"alcancia": "copia-celular", "version": 1,
+ "kdf": {"alg": "PBKDF2-SHA256", "iteraciones": 600000, "sal": "<16 bytes, base64>"},
+ "cifrado": "AES-256-GCM",
+ "verificador": {"iv": "<12 bytes>", "datos": "<«alcancia» cifrado, AAD «alcancia:celular:verificador»>"},
+ "datos": {"iv": "<12 bytes, nuevo en cada escritura>", "datos": "<contenido cifrado + etiqueta de 16 bytes, AAD «alcancia:celular:1»>"}}
+```
+- **La llave** = PBKDF2-SHA256(frase en NFC, sal, 600.000 vueltas) → 32 bytes. La frase la eliges una vez (12 caracteres o más) y
+  **no se guarda en ninguna parte**: el Mac guarda en su Llavero la llave ya derivada, y el celular, solo si marcas «Recordarla en
+  este teléfono», en su Llavero (iOS) o cifrada con el Keystore (Android). Al abrir no se aceptan menos de 100.000 vueltas.
+- **El verificador** permite decir «la frase no es la correcta» sin tocar los datos. Cualquier cambio en el archivo (o un archivo
+  a medio subir) hace fallar la etiqueta GCM: el celular sigue mostrando la última copia que abrió bien. Una `version` mayor que la
+  que conoce la app pide actualizarla.
+- **El contenido** (descifrado) es `{"formato": 1, "generado", "version", "hoy", "estado": {...}}`, con solo lo que la interfaz
+  necesita para pintar: `config` (`pais`, `moneda`, `inicio_mes`, `uf`), `movimientos` (las columnas de los CSV), `categorias`,
+  `presupuesto`, `cuentas` (`id`, `nombre`, `moneda`, `saldo`, `conector`), `consejos`, `compromisos`, `conexiones` (si está
+  conectada y cuándo fue la última vez), `feriados` y las palabras de `compromisos_conocidos.json`. **Nunca** llaves ni tokens de
+  conectores, rutas de tu computador, la conversación con Alcancía, recetas, la carpeta vigilada ni los datos de tu IA.
+- El Mac la escribe de una vez (sin archivos a medias) al abrir, cuando cambian tus datos (importar, sincronizar, categorizar…) y
+  cada 6 horas aunque no haya cambios. Nunca borra la copia: si dejas de usarla, la borras tú.
+
+## Alcancía en tu celular
+<a id="celular"></a>
+La misma interfaz, en una app para iPhone y Android ([`movil/`](movil/), con [Capacitor](https://capacitorjs.com)). El Mac sigue
+siendo la fuente: lee tus cartolas y conexiones y guarda las llaves; el celular **mira**.
+1. En el Mac: Ajustes → **Alcancía en tu celular** → elige una carpeta de tu nube (iCloud Drive, Google Drive, OneDrive o
+   Dropbox) y crea una frase. Alcancía deja ahí `Alcancia-celular.alcancia`, cifrado ([formato](#copia-celular)).
+2. En el celular: elige tu idioma, toca **Elegir el archivo**, búscalo en esa carpeta y escribe tu frase. El celular guarda el
+   permiso para volver a leerlo: al abrir la app y al volver a ella trae la copia más nueva.
+3. Si quieres, activa **Avisarme antes de que venza un pago**: un aviso 3 días antes y el día que vence, solo de lo que pagas tú
+   (lo que se paga solo no), sin montos y con un título genérico. El permiso del sistema se pide recién ahí.
+
+En esta fase, categorizar, marcar pagos, agregar cartolas o compromisos, conectar cuentas y conversar con Alcancía se hacen en el
+Mac (el celular no lo ofrece; si llegas a tocar algo así, te lo dice). La app del celular no usa internet: no tiene servidores, ni
+cuentas, ni llaves de conectores, ni telemetría. Cómo instalarla desde el código: [`movil/README.md`](movil/README.md).
+
 ## Cartolas en PDF
 Algunos bancos solo entregan la cartola en PDF. Alcancía lee los PDF **con texto** (los que genera el banco, no los escaneados) sin
 librerías: saca el texto con su posición, lo arma como tabla (filas por altura, columnas alineadas con la fila de encabezados) y lo
@@ -296,7 +343,9 @@ your statements, shows what's still due (overdue first), tracks loan installment
 expenses and, on Mac, reminds you before things are due. You can also chat with your piggy bank: tell it you fell behind, that a
 payment was last month's, or ask how much you can pay each month on money family lent you (if that loan is already on your list, it asks whether it's the same one
 so it isn't counted twice); it proposes, you confirm. Your month can run from payday to payday. Your data stays on your computer in open files: no servers, no accounts, no ads, and it never asks for your bank
-password. Each bank is supported through a data-only *recipe* (plus OFX, QIF and CAMT.053 out of the box); if yours is missing, your AI
+password. A phone app (iPhone and Android, phase 1, read-only) shows the same screens: your Mac leaves a copy encrypted with a passphrase
+only you know (PBKDF2-SHA256 + AES-256-GCM) in a folder of your own cloud, and the phone opens it and can remind you before your
+payments are due. Each bank is supported through a data-only *recipe* (plus OFX, QIF and CAMT.053 out of the box); if yours is missing, your AI
 learns it and you can share just the recipe with the community. Transactions can also arrive automatically: official APIs with a key
 you create (Mercado Pago, PayPal, Stripe, Buda.com, SimpleFIN for US/Canada banks, Up, Akahu) and a watched Downloads folder. A
 read-only local MCP server lets your own AI (Claude, ChatGPT/Codex, Gemini) answer questions about your finances. Spanish-first, English included. Licensed under AGPL-3.0.

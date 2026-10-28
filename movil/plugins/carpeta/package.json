@@ -1,0 +1,10 @@
+{
+  "name": "alcancia-carpeta",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Leer la copia cifrada que deja el Mac en la nube de la persona (iCloud Drive, Google Drive…) con el selector de archivos del sistema, con permiso para volver a leerla, y guardar la llave en el Llavero o el Keystore. Sin red propia.",
+  "license": "AGPL-3.0-only",
+  "files": ["ios/", "android/", "Package.swift", "AlcanciaCarpeta.podspec"],
+  "capacitor": { "ios": { "src": "ios" }, "android": { "src": "android" } },
+  "peerDependencies": { "@capacitor/core": "7.6.9" }
+}

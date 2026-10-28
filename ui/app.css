@@ -660,6 +660,27 @@ input.texto:focus, select:focus, textarea.texto:focus { outline: 2px solid var(-
   .al-dia .acciones { margin-left: 18px; }
 }
 
+/* ───────── Alcancía en tu celular ───────── */
+/* La fuerza de la frase (Mac): tres rayas en gris que se llenan; «Muy corta» en rojo, el resto en el color de acción. */
+.fuerza { display: flex; align-items: center; gap: 10px; margin: -4px 0 12px; }
+.fuerza-barra { display: grid; grid-template-columns: repeat(3, 28px); gap: 4px; }
+.fuerza-barra i { height: 4px; border-radius: 2px; background: var(--linea); }
+.fuerza[data-nivel="1"] i:nth-child(-n+1), .fuerza[data-nivel="2"] i:nth-child(-n+2), .fuerza[data-nivel="3"] i { background: var(--acento); }
+.fuerza small { color: var(--suave); font-size: 12.5px; }
+.traer .vacio h1, .traer-frase h1 { font-size: 22px; margin: 8px 0; }
+.traer-frase { max-width: 480px; margin: 24px auto; }
+.traer-frase .campo input { width: 100%; }
+.chip-cat.solo-ver { cursor: default; }
+.chip-cat.solo-ver:hover { color: var(--suave); }
+
+/* En el celular (fase 1) se mira: lo que cambia datos no se muestra. La interfaz igual evita pintar casi todo esto (LECTURA en
+   app.js) y un toque que llegue igual solo muestra «Esto se hace en tu Mac por ahora». */
+html[data-host="movil"] .nav { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+html[data-host="movil"] :is([data-comp-pagado], [data-comp-noes], [data-comp-desmarcar], [data-comp-editar], [data-sug-agregar], [data-sug-no],
+  [data-saldo-editar], [data-sueldo], [data-regla-si], [data-regla-no], [data-vista="ordenar"], [data-accion="agregar-contar"], [data-accion="pedir-consejos"],
+  [data-accion="sugerir"], [data-accion="guardar-pres"], [data-accion="usar-maximos"], [data-accion="ajustes-mes"], .pie-vista) { display: none !important; }
+html[data-host="movil"] .fila-pres input[readonly] { border-color: transparent; background: none; text-align: right; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
