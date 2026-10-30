@@ -308,14 +308,17 @@ seguridad de la app del celular. Una acción nueva va en `ui/app.js`, en `Ventan
 ## Reglas al cambiar cosas
 - Código, comentarios, commits y textos en **español** (de Chile neutro). Todo texto nuevo visible va con su traducción en
   `ui/idiomas/en.json` en el mismo cambio, como frase completa con marcadores (`T("Llevas {g}…", {g})`), nunca pedazos pegados.
-- Contenido del usuario y dinero con `esc()` y `data-sin-traducir`.
+- Contenido del usuario y dinero con `esc()` y `data-sin-traducir`. `T()` ya escapa sus valores (no les pongas `esc()`); `Thtml()`
+  es solo para HTML que arma el código (un monto en `<span>`, una cifra en `<b>`) con lo de la persona ya escapado, y `Tp()` es
+  texto plano (avisos con `toast`, que usa `textContent`).
 - No cambies el formato de los datos (README, "Formato de los datos") sin compatibilidad. Hay gente con scripts que dependen de él.
 - Antes de cerrar un cambio: `bash pruebas/correr.sh` y mirar la interfaz (`cd ui && python3 -m http.server 8765`, `?idioma=en`,
   `?bienvenida`, `?vacio`, `window.Alcancia._probar(E => …)`), también a ancho de celular.
 - Seguridad (detalle en `SECURITY.md`): lo que viene de afuera se escapa con `esc()` (también emojis e ids de categorías), sin
   scripts ni manejadores en línea (la CSP de `ui/index.html` los bloquea: `script-src 'self'`). Archivos importados con límites
   (`recetas.MAXIMO_ARCHIVO`, partes de un .xlsx, XML sin DTD ni entidades → `recetas.ArchivoNoValido`). La IA corre sin
-  herramientas ni MCP (`claude --disallowedTools "*" --strict-mcp-config`, `codex -s read-only`). `~/Alcancia` queda 0700 y
+  herramientas ni MCP (`claude --disallowedTools "*" --strict-mcp-config`, `codex -s read-only`), sin variables `ALCANCIA_*` y Claude
+  sin la memoria de la persona (`SIN_MEMORIA_CLAUDE`) y con `--safe-mode` si su versión lo conoce (`ia._soporta`). `~/Alcancia` queda 0700 y
   los archivos 0600 (`datos.carpeta_privada`, `mkstemp`). En los guiones que arma Swift, todo lo variable va con `comillas()`.
   Workflows: actions fijadas por SHA con su versión en un comentario (Dependabot con `cooldown`), `permissions` mínimos,
   `persist-credentials: false`, nunca `pull_request_target` ni `${{ github.event.* }}` dentro de `run:` (va por `env:`).

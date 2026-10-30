@@ -34,6 +34,25 @@ def _entorno_ia():
     """La IA corre sin las variables de Alcancía (ni credenciales ni modos de prueba): solo ve lo que le mandamos."""
     return {k: v for k, v in os.environ.items() if not k.startswith("ALCANCIA_")}
 
+
+#: Claude Code carga la memoria de la persona (CLAUDE.md, memoria automática) aunque corra sin herramientas. Esto la apaga y mantiene
+#: su sesión (no exige una llave de API como --bare): la IA solo ve lo que Alcancía le manda.
+SIN_MEMORIA_CLAUDE = {"CLAUDE_CODE_DISABLE_CLAUDE_MDS": "1", "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1"}
+_ayuda = {}
+
+
+def _soporta(comando, opcion):
+    """Si el CLI conoce una opción (las versiones viejas fallan con opciones desconocidas). Se pregunta una vez por comando."""
+    if comando not in _ayuda:
+        try:
+            r = subprocess.run([comando, "--help"], stdin=subprocess.DEVNULL, capture_output=True, text=True, encoding="utf-8",
+                               timeout=20, env=_entorno_ia())
+            _ayuda[comando] = (r.stdout or "") + (r.stderr or "")
+        except (OSError, subprocess.SubprocessError):
+            _ayuda[comando] = ""
+    return opcion in _ayuda[comando]
+
+
 #: id → (comandos posibles, nombre visible). Gemini: Antigravity CLI (`agy`) o el Gemini CLI antiguo.
 IAS = {"claude": (("claude",), "Claude"), "codex": (("codex",), "ChatGPT (Codex)"), "gemini": (("agy", "gemini"), "Gemini")}
 
@@ -78,12 +97,16 @@ def ejecutar_ia(prompt, timeout=600):
             return subprocess.run(cmd, stdin=subprocess.DEVNULL, text=True, encoding="utf-8", capture_output=True, timeout=timeout, cwd=tmp, env=_entorno_ia())
         if ia == "gemini":
             cmd = [comando, "-p", "Responde a las instrucciones de arriba. Entrega solo el resultado pedido.", "-o", "text"]
-        else:
-            # Claude Code sin herramientas ni servidores MCP: lo que le mandamos trae texto de afuera (descripciones de la cartola,
-            # filas de un archivo) y una instrucción escondida ahí no debe poder correr comandos, leer archivos ni usar otras
-            # conexiones de la persona, aunque su configuración permita todo. Solo tiene que responder texto.
-            cmd = [comando, "-p", "--output-format", "text", "--disallowedTools", "*", "--strict-mcp-config"]
-        return subprocess.run(cmd, input=prompt, text=True, encoding="utf-8", capture_output=True, timeout=timeout, cwd=tmp, env=_entorno_ia())
+            return subprocess.run(cmd, input=prompt, text=True, encoding="utf-8", capture_output=True, timeout=timeout, cwd=tmp, env=_entorno_ia())
+        # Claude Code sin herramientas ni servidores MCP: lo que le mandamos trae texto de afuera (descripciones de la cartola,
+        # filas de un archivo) y una instrucción escondida ahí no debe poder correr comandos, leer archivos ni usar otras
+        # conexiones de la persona, aunque su configuración permita todo. Solo tiene que responder texto.
+        # Tampoco carga la memoria de la persona (SIN_MEMORIA_CLAUDE) y, si su versión lo tiene, corre en --safe-mode.
+        cmd = [comando, "-p", "--output-format", "text", "--disallowedTools", "*", "--strict-mcp-config"]
+        if _soporta(comando, "--safe-mode"):
+            cmd.append("--safe-mode")
+        return subprocess.run(cmd, input=prompt, text=True, encoding="utf-8", capture_output=True, timeout=timeout, cwd=tmp,
+                              env={**_entorno_ia(), **SIN_MEMORIA_CLAUDE})
 
 
 def preguntar(prompt, timeout=600):

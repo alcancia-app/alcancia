@@ -2127,6 +2127,63 @@ class Chat(unittest.TestCase):
         self.assertEqual(json.loads(json.dumps(__import__("estado").estado()["chat"])), [])
 
 
+class SeguridadIA(unittest.TestCase):
+    """Cómo se llama a Claude: sin memoria de la persona y con --safe-mode solo si su versión lo conoce; y T() escapa."""
+
+    def _con_claude(self, ayuda):
+        import ia
+        carpeta = tempfile.mkdtemp(dir=TMP)
+        anotado = os.path.join(carpeta, "anotado.json")
+        ruta = os.path.join(carpeta, "claude")
+        with open(ruta, "w", encoding="utf-8") as f:
+            f.write("#!" + sys.executable + "\nimport json, os, sys\n"
+                    f"if '--help' in sys.argv: print({ayuda!r}); sys.exit(0)\n"
+                    f"json.dump({{'argv': sys.argv[1:], 'env': dict(os.environ)}}, open({anotado!r}, 'w'))\n"
+                    "print('listo')\n")
+        os.chmod(ruta, 0o755)
+        antes_path, antes_elegida = os.environ["PATH"], ia.elegida
+        os.environ["PATH"] = carpeta + os.pathsep + antes_path
+        ia.elegida = lambda: "claude"
+        ia._ayuda.clear()
+        try:
+            r = ia.ejecutar_ia("hola", timeout=60)
+        finally:
+            os.environ["PATH"], ia.elegida = antes_path, antes_elegida
+            ia._ayuda.clear()
+        self.assertEqual(r.returncode, 0, r.stderr)
+        with open(anotado, encoding="utf-8") as f:
+            return json.load(f)
+
+    def test_claude_sin_memoria_y_safe_mode_si_existe(self):
+        x = self._con_claude("Usage: claude [options]\n  --safe-mode  Sin extensiones")
+        self.assertEqual((x["env"].get("CLAUDE_CODE_DISABLE_CLAUDE_MDS"), x["env"].get("CLAUDE_CODE_DISABLE_AUTO_MEMORY")), ("1", "1"))
+        self.assertIn("--safe-mode", x["argv"])
+        self.assertEqual(x["argv"][x["argv"].index("--disallowedTools") + 1], "*")
+        self.assertFalse([k for k in x["env"] if k.startswith("ALCANCIA_")])
+
+    def test_claude_viejo_sin_safe_mode(self):
+        x = self._con_claude("Usage: claude [options]")
+        self.assertNotIn("--safe-mode", x["argv"], "una versión que no la conoce fallaría con la opción")
+
+    def test_T_escapa_los_valores(self):
+        import re
+        if not shutil.which("node"):
+            self.skipTest("falta node")
+        js = open(os.path.join(RAIZ, "ui", "app.js"), encoding="utf-8").read()
+        esc = re.search(r"^  const esc = .*;$", js, re.M).group(0)
+        fns = "\n".join(re.search(r"^  function " + n + r"\(.*?^  \}$", js, re.M | re.S).group(0) for n in ("T", "Thtml", "Tp"))
+        prueba = (f"const E = {{ idioma: 'es', textos: {{}} }};\n{esc}\n{fns}\n"
+                  "console.log(T('Pagaste **{x}** ({m})', { x: '$1.000', m: '<img src=x onerror=alert(1)>' }));"
+                  "console.log(Thtml('Te faltan {m} al mes', { m: '<span class=\"monto-chat\">$5</span>' }));"
+                  "console.log(Tp('Creé «{c}»', { c: '<b>' }));")
+        r = subprocess.run(["node", "-e", prueba], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stdout.strip().splitlines(), ["Pagaste <b>$1.000</b> (&lt;img src=x onerror=alert(1)&gt;)",
+                                                         'Te faltan <span class="monto-chat">$5</span> al mes', "Creé «<b>»"])
+        self.assertNotRegex(js, r"esc\((T|Thtml|frase)\(", "T ya escapa: no escapar dos veces")
+        self.assertNotRegex(js, r"toast\((T|Thtml|frase)\(", "el aviso es texto plano (textContent): va con Tp")
+
+
 if __name__ == "__main__":
     try:
         unittest.main(verbosity=1)
