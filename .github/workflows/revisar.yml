@@ -28,6 +28,7 @@ jobs:
       - name: Sintaxis
         run: |
           node --check ui/app.js
+          node --check ui/i18n.js
           node --check ui/copia.js
           for f in movil/host/*.js movil/*.mjs pruebas/*.mjs pruebas/capacitor_falso.js; do node --check "$f"; done
           python3 -m py_compile bin/*.py bin/conectores/*.py pruebas/*.py ejemplos/*.py herramientas/*.py

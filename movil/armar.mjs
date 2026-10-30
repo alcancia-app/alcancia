@@ -14,6 +14,8 @@ const version = JSON.parse(fs.readFileSync(path.join(AQUI, "package.json"), "utf
 fs.rmSync(SALIDA, { recursive: true, force: true });
 fs.mkdirSync(SALIDA, { recursive: true });
 fs.cpSync(path.join(RAIZ, "ui"), SALIDA, { recursive: true, filter: (f) => path.relative(path.join(RAIZ, "ui"), f) !== "demo.json" });
+// Pieza «i18n»: la interfaz la necesita antes de app.js (ui/index.html la carga).
+if (!fs.existsSync(path.join(SALIDA, "i18n.js"))) throw new Error("Falta ui/i18n.js (pieza «i18n»).");
 fs.cpSync(path.join(AQUI, "host"), path.join(SALIDA, "host"), { recursive: true });
 fs.writeFileSync(path.join(SALIDA, "host", "arranque.js"), fs.readFileSync(path.join(AQUI, "host", "arranque.js"), "utf8").replace("__VERSION__", version));
 

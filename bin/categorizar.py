@@ -90,8 +90,9 @@ def por_ia(movimientos, categorias, lote=120):
     hechos, error = 0, ""
     for i in range(0, len(faltan), lote):
         parte = faltan[i:i + lote]
-        texto, error = ia.preguntar(prompt_ia(parte, categorias))
-        if error:
+        texto, fallo = ia.preguntar(prompt_ia(parte, categorias))
+        if fallo:
+            error = ia.frase(fallo)
             break
         for j, cat in leer_respuesta(texto, len(parte), ids).items():
             parte[j]["categoria"] = cat

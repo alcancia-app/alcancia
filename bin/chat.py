@@ -553,13 +553,14 @@ def enviar(entrada):
                 mensajes.append({"rol": m["rol"], "texto": texto})
     if not mensajes or mensajes[-1]["rol"] != "persona" or len(mensajes[-1]["texto"]) < 2:
         return {"ok": False, "error": "Escríbeme algo y te respondo."}
-    if not ia.instalada():
+    if not ia.comando(ia.elegida()):
         return {"ok": False, "sin_ia": True, "error": f"Para conversar necesito tu IA y no encontré {ia.nombre()} en este computador. "
                                                        "Revisa en Ajustes → Tu IA."}
     lista = historial()
     persona = {"id": nuevo_id(), "rol": "persona", "texto": mensajes[-1]["texto"], "fecha": hoy}
     x = Ctx(hoy)
-    respuesta, error = ia.preguntar(prompt(x, mensajes), timeout=240)
+    respuesta, fallo = ia.preguntar(prompt(x, mensajes), timeout=240)
+    error = ia.frase(fallo)
     acciones, notas, busqueda = [], [], None
     if not error:
         texto, crudas, descartadas = validar_respuesta(respuesta)

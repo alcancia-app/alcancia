@@ -1,5 +1,6 @@
 {
-  "idioma": "English",
+  "codigo": "en",
+  "nombre": "English",
   "textos": {
     "{n} ya estaban y no se duplicaron.": "{n} were already there and weren't duplicated.",
     "A este ritmo terminas el mes en {x}: te sobrarían {y}.": "At this pace you'll end the month at {x}: {y} to spare.",
@@ -1002,6 +1003,12 @@
     "No pude escribir la copia en esa carpeta. ¿Sigue existiendo?": "I couldn't write the copy to that folder. Does it still exist?",
     "tu nube": "your cloud",
     "En el celular, aquí eliges el archivo de tu nube": "On your phone, here you choose the file in your cloud",
-    "Ver topes": "See limits"
+    "Ver topes": "See limits",
+    "No encontré {ia} en este computador. Revisa en Ajustes → Tu IA.": "I couldn't find {ia} on this computer. Check Settings → Your AI.",
+    "{ia} se demoró demasiado en responder. Inténtalo de nuevo.": "{ia} took too long to answer. Please try again.",
+    "{ia} no respondió. {detalle}": "{ia} didn't answer. {detalle}",
+    "No conozco esa IA.": "I don't know that AI.",
+    "Idioma": "Language",
+    "Actualiza {ia} para usarla con {app}: tu versión no conoce las protecciones que necesitamos.": "Update {ia} to use it with {app}: your version doesn't know the protections we need."
   }
 }

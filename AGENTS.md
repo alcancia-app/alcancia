@@ -27,19 +27,41 @@ app del celular (iPhone y Android, `movil/`, fase 1: para mirar, con la copia ci
 
 | Ruta | Qué es |
 |---|---|
-| `bin/` | Python **solo biblioteca estándar**. `datos.py` (formato en disco, ids, escritura atómica), `recetas.py` (validar, detectar y aplicar recetas; lee CSV y .xlsx sin librerías), `pdf.py` (texto de un PDF con posiciones → tabla), `categorizar.py` (reglas, comercios conocidos, IA), `resumen.py` (cuentas del mes, proyección, alertas, presupuesto sugerido, historia de 6 meses, periodos de sueldo a sueldo), `compromisos.py` (validar, reconocer pagos, estado del mes, avance de deudas, gasto máximo, sugerir, avisos; palabras en `compromisos_conocidos.json`), `ia.py` (`preguntar()` con la IA del usuario), `compromiso_ia.py` (`limpiar_texto` y los campos de un compromiso explicados para la IA). Scripts que llama la app: `estado.py` (todo lo que pinta la interfaz), `importar.py`, `receta_ia.py`, `chat.py` (conversar con Alcancía), `consejos.py`, `compromisos.py avisos` y `guardar.py` (categoría, regla, presupuesto, receta, compromiso; lo de la interfaz llega en un archivo JSON de entrada). El último argumento siempre es la ruta del JSON de salida. |
+| `bin/` | Python **solo biblioteca estándar**. `nucleo.py` (pieza «nucleo»: `app.json`, carpeta de datos, config validada, escritura atómica), `datos.py` (formato en disco, ids y config de Alcancía sobre `nucleo`), `recetas.py` (validar, detectar y aplicar recetas; lee CSV y .xlsx sin librerías), `pdf.py` (texto de un PDF con posiciones → tabla), `categorizar.py` (reglas, comercios conocidos, IA), `resumen.py` (cuentas del mes, proyección, alertas, presupuesto sugerido, historia de 6 meses, periodos de sueldo a sueldo), `compromisos.py` (validar, reconocer pagos, estado del mes, avance de deudas, gasto máximo, sugerir, avisos; palabras en `compromisos_conocidos.json`), `ia.py` (pieza «ia»: `preguntar()` con la IA del usuario, `probar`, `frase()`), `compromiso_ia.py` (`limpiar_texto` y los campos de un compromiso explicados para la IA). Scripts que llama la app: `estado.py` (todo lo que pinta la interfaz), `importar.py`, `receta_ia.py`, `chat.py` (conversar con Alcancía), `consejos.py`, `compromisos.py avisos` y `guardar.py` (categoría, regla, presupuesto, receta, compromiso; lo de la interfaz llega en un archivo JSON de entrada). El último argumento siempre es la ruta del JSON de salida. |
 | `bin/conectores/` | Un módulo por servicio con API oficial (`INFO`, `probar`, `movimientos`). `bin/red.py` hace los pedidos HTTPS (solo a los dominios de cada conector). `bin/sincronizar.py probar|traer <conector>` los usa; `bin/vigilar.py` es la carpeta vigilada. |
 | `bin/mcp_servidor.py`, `bin/mcp_conectar.py` | Servidor MCP de solo lectura (stdio, JSON-RPC, sin dependencias) para que la IA de la persona consulte sus finanzas, y el script que lo registra en Claude Desktop, Claude Code, Codex/ChatGPT, Gemini CLI y Antigravity (con su comando oficial o editando su JSON con respaldo). |
 | `recetas/` | Recetas incluidas en la app (solo las probadas con una cartola real) y `README.md` con el formato. |
-| `ui/` | Interfaz web única (`app.js`, `app.css`), `copia.js` (la copia cifrada para el celular: el mismo código cifra en el Mac y abre en el teléfono), `demo.json` (ficticio, se genera con `herramientas/generar_demo.py`) e `idiomas/en.json`. |
+| `ui/` | Interfaz web única (`app.js`, `app.css`), `i18n.js` (pieza «i18n»: `T`, `Thtml`, `Tp`, `tr`, `traducirDOM`, paquetes de idioma validados), `copia.js` (la copia cifrada para el celular: el mismo código cifra en el Mac y abre en el teléfono), `demo.json` (ficticio, se genera con `herramientas/generar_demo.py`) e `idiomas/en.json`. |
 | `docs/` | Página pública (GitHub Pages). `pagina.yml` la publica junto a `ui/` en `/demo/`. |
 | `CHANGELOG.md` | Lo que cambia para quien usa la app, en palabras simples (ver «Lo que rodea a un cambio»). |
 | `pruebas/` | `correr.sh` (todo), `test_python.py`, `interfaz.mjs` (Playwright), `copia.mjs` (cifrado de la copia para el celular, en Node), `movil.mjs` (la app del celular de punta a punta con `capacitor_falso.js`), `contrato.py`, `casos.json` (casos compartidos Python ↔ JS), `ia_falsa.py`, `datos/` (cartola ficticia). |
 | `herramientas/` | `revisar_privacidad.sh`, `generar_demo.py`, `generar_pdf_prueba.py` (las cartolas PDF ficticias de `pruebas/datos/`). |
 | `ejemplos/` | Scripts para construir encima del formato abierto. |
 | `app/` | App de Mac (SwiftPM, macOS 15, sin proyecto de Xcode). `AlcanciaApp.swift` (arranque y barra de menú), `Ventana.swift` (WKWebView + puente: un `case` por acción), `Servicios.swift` (rutas, config, idioma, IA del usuario, `Procesador.correrJSON`), `Actualizaciones.swift` (GitHub Releases o `git pull` en un checkout de desarrollo), `Avisos.swift` (notificaciones de compromisos), `Celular.swift` (la copia para el celular: carpeta de la nube, llave en el Llavero y cuándo escribir). |
+| `app.json`, `piezas.json` | **Pieza** (ver «Piezas» abajo): `app.json` describe la app para las piezas (id, carpeta de datos, plataformas, claves de config); `piezas.json` lo escribe `pieza.py`. |
 | `movil/` | App del celular (Capacitor 7, iOS + Android, `app.alcancia.movil`): `armar.mjs` (arma `www/` con `ui/` y `host/`), `host/` (el anfitrión del teléfono), `plugins/carpeta/` (Swift + Kotlin), `ios/`, `android/`, `README.md` (compilar y probar). Ver «App del celular». |
 | `build.sh`, `herramientas/empaquetar.sh` | Arman `dist/Alcancia.app` (con Python portátil verificado por SHA-256 y bin/, ui/, recetas/ adentro) + zip + `.sha256`; `build.sh` la instala en `~/Applications`. |
+
+## Piezas (de [Pieza](https://github.com/pieza-app/pieza))
+Alcancía usa piezas de Pieza, la base de la familia de apps: código probado que se copia a la app (modelo «copiar y adueñarse»).
+
+| Pieza | Archivos | Qué usa Alcancía |
+|---|---|---|
+| `nucleo` | `bin/nucleo.py` | `app.json`, carpeta de datos, config validada por `app.json` (`limpiar_config`), escritura atómica, `recursos()`. `datos.py` lo envuelve con lo propio: `~/Alcancia` 0700, archivos **siempre** 0600 (`nucleo.PRIVADO`), `CONFIG_INICIAL` y los ajustes con forma propia (`CONFIG_OBJETOS`: `inicio_mes`, `uf`, que valida quien los usa). |
+| `ia` | `bin/ia.py` | La IA de la persona (`preguntar`, `probar`, `comando`, `elegida`, `nombre`, `frase`). Los errores son `{codigo, plantilla, valores}`: los scripts responden `{"ok": false, "error": ia.frase(error), "codigo"}`. Un CLI que no conoce `--strict-mcp-config` o `--disallowedTools` no corre (error `actualizar`). Lo propio (prompts, `limpiar_texto`, validar respuestas) sigue en `categorizar.py`, `consejos.py`, `chat.py`, `compromiso_ia.py` y `receta_ia.py`. El Mac prueba la IA con `ia.py probar <entrada {ia}> <salida>` (`Procesador.conEntrada`). |
+| `i18n` | `ui/i18n.js` | `T`, `Thtml`, `Tp`, `tr`, `frase`, `traducirDOM` (`app.js` crea la instancia; `E.idioma` es un espejo de `i18n.idioma`). `ui/index.html` la carga antes de `app.js`; `movil/armar.mjs` copia `ui/` entera y revisa que esté. `ui/idiomas/en.json` lleva `codigo` y `nombre`. |
+
+- **La carpeta de siempre:** `app.json` dice `"nombre": "Alcancia"` (sin tilde: es el nombre de la carpeta) y `"datos": "visible"`, así
+  la carpeta de datos de `nucleo` es `~/Alcancia/.alcancia` (donde siempre estuvo `config.json`). Con `ALCANCIA_CARPETA` (pruebas,
+  desarrollo) `datos.py` le pasa la misma carpeta a `nucleo` (`ALCANCIA_DATOS`). Nunca cambies `nombre`, `id` ni `datos` sin migrar.
+- Las claves simples de config son las de `app.json` y las mismas de `Config.permitidas` en `Servicios.swift` (la prueba `Piezas`
+  lo revisa); `inicio_mes` y `uf` las valida el Mac al guardarlas y Python al usarlas.
+- `app.json` va dentro de la app (`herramientas/empaquetar.sh`): `bin/nucleo.py` lo busca junto a `bin/`.
+- **No edites a mano los archivos de una pieza.** Se actualizan con «Pieza al día» (`.github/workflows/pieza-al-dia.yml`, una vez por
+  semana abre un PR o un issue) o con `python3 <pieza>/herramientas/pieza.py actualizar .`. Si hay que cambiar algo, el cambio va
+  primero a Pieza (`pieza.py diferencias . <pieza>` lo muestra) y vuelve desde allá; `pieza.py estado .` dice si algo quedó distinto.
+- No adoptadas todavía: `bienvenida` (la de Alcancía tiene el camino del celular, «Trae tus datos», y pruebas propias) y
+  `actualizaciones` (en Mac pide un target propio de SwiftPM y no es para el celular).
 
 ## Cómo funciona
 - **Importar:** `importar.py vista <archivo> [receta]` detecta la receta (la que reconoce más encabezados) y devuelve una muestra sin
@@ -176,7 +198,7 @@ app del celular (iPhone y Android, `movil/`, fase 1: para mirar, con la copia ci
   pago, fecha_fin) y `buscar_pago` (abajo). Lo que no se pudo preparar vuelve como código en `notas` (la interfaz lo explica).
   **Nada se aplica solo:** cada acción es una tarjeta («Agregar», «Sí, corrígelo», «Cambiar» abre `#editor-comp`, «No») que usa la acción `compromiso` de siempre
   (nueva subacción `reasignar` en `guardar.py`: `reasignar_pago` mueve el pago con el formato de `pagos` de siempre y deja el
-  movimiento en `no_es`). Sin IA instalada (`ia.instalada()`) devuelve `sin_ia` y la interfaz lleva a Ajustes. La conversación se
+  movimiento en `no_es`). Sin IA instalada (`ia.comando(ia.elegida())`) devuelve `sin_ia` y la interfaz lleva a Ajustes. La conversación se
   guarda solo en `~/Alcancia/.alcancia/chat.json` (últimos 50, ya limpios, con lo que se hizo con cada acción en `estados`) y llega
   en el estado (`chat`). `margen_mensual`, `plan_prestamos`, `inicio_plan`, `pago_reasignable`, `reasignar_pago` y la cuota fija de
   `calcular_prestamo` viven igual en `ui/app.js` (`margenMensual`, `planPrestamos`, `inicioPlan`, `pagoReasignable`, `reasignarPago`,
@@ -311,6 +333,7 @@ seguridad de la app del celular. Una acción nueva va en `ui/app.js`, en `Ventan
 - Contenido del usuario y dinero con `esc()` y `data-sin-traducir`. `T()` ya escapa sus valores (no les pongas `esc()`); `Thtml()`
   es solo para HTML que arma el código (un monto en `<span>`, una cifra en `<b>`) con lo de la persona ya escapado, y `Tp()` es
   texto plano (avisos con `toast`, que usa `textContent`).
+- Archivos de piezas (`bin/nucleo.py`, `bin/ia.py`, `ui/i18n.js`): no se editan aquí; ver «Piezas».
 - No cambies el formato de los datos (README, "Formato de los datos") sin compatibilidad. Hay gente con scripts que dependen de él.
 - Antes de cerrar un cambio: `bash pruebas/correr.sh` y mirar la interfaz (`cd ui && python3 -m http.server 8765`, `?idioma=en`,
   `?bienvenida`, `?vacio`, `window.Alcancia._probar(E => …)`), también a ancho de celular.
@@ -318,8 +341,8 @@ seguridad de la app del celular. Una acción nueva va en `ui/app.js`, en `Ventan
   scripts ni manejadores en línea (la CSP de `ui/index.html` los bloquea: `script-src 'self'`). Archivos importados con límites
   (`recetas.MAXIMO_ARCHIVO`, partes de un .xlsx, XML sin DTD ni entidades → `recetas.ArchivoNoValido`). La IA corre sin
   herramientas ni MCP (`claude --disallowedTools "*" --strict-mcp-config`, `codex -s read-only`), sin variables `ALCANCIA_*` y Claude
-  sin la memoria de la persona (`SIN_MEMORIA_CLAUDE`) y con `--safe-mode` si su versión lo conoce (`ia._soporta`). `~/Alcancia` queda 0700 y
-  los archivos 0600 (`datos.carpeta_privada`, `mkstemp`). En los guiones que arma Swift, todo lo variable va con `comillas()`.
+  sin la memoria de la persona (`SIN_MEMORIA_CLAUDE`) y con `--safe-mode` si su versión lo conoce (`ia._soporta`); sin `--strict-mcp-config` o `--disallowedTools` no corre. `~/Alcancia` queda 0700 y
+  los archivos 0600 (`datos.carpeta_privada`, `nucleo.PRIVADO`). En los guiones que arma Swift, todo lo variable va con `comillas()`.
   Workflows: actions fijadas por SHA con su versión en un comentario (Dependabot con `cooldown`), `permissions` mínimos,
   `persist-credentials: false`, nunca `pull_request_target` ni `${{ github.event.* }}` dentro de `run:` (va por `env:`).
 - Privacidad: `bash herramientas/revisar_privacidad.sh` antes de cada commit (usa `.terminos-privados`, local y nunca versionado).
@@ -338,6 +361,7 @@ revisa cada fila ("no aplica" se decide, no se supone):
 | quita algo | bórralo de la página, el README y las guías: nada que prometa lo que ya no hace |
 | cambia el formato de datos o el puente | la documentación del formato, `ejemplos/` si existe y esta guía |
 | cambia carpetas, reglas o pruebas | esta guía (`AGENTS.md`) y `CONTRIBUTING.md` |
+| actualiza o agrega una pieza | `piezas.json` (lo escribe `pieza.py`), la tabla «Piezas» de esta guía y `app.json` si pide config |
 | resuelve un issue | ciérralo con «Resuelto en …» dando crédito y abre issues para lo que quedó pendiente |
 | lo nota quien usa Alcancía | `CHANGELOG.md`: una línea en «Sin publicar», en lenguaje de persona («Ahora puedes…»), en español e inglés |
 
