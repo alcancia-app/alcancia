@@ -61,6 +61,19 @@
       else if (window._faltantes) window._faltantes.add(plantilla);
     }
     t = esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+    // Los valores son texto: se escapan aquí (un nombre, una descripción de la cartola o lo que dijo la IA nunca entra como HTML).
+    for (const [k, v] of Object.entries(valores)) t = t.split(`{${k}}`).join(esc(String(v)));
+    return t;
+  }
+  /** Como T(), pero los valores van tal cual: SOLO para HTML que arma el propio código (un monto en <span>, una cifra en <b>), con
+   *  todo lo de la persona ya pasado por esc(). */
+  function Thtml(plantilla, html = {}) {
+    return T(plantilla).replace(/\{(\w+)\}/g, (m, k) => (k in html ? String(html[k]) : m));
+  }
+  /** Como T(), pero en texto plano (para textContent, como el aviso de abajo): ni escapa ni pone <b>. */
+  function Tp(plantilla, valores = {}) {
+    let t = plantilla;
+    if (E.idioma !== "es") { if (E.textos[plantilla]) t = E.textos[plantilla]; else if (window._faltantes) window._faltantes.add(plantilla); }
     for (const [k, v] of Object.entries(valores)) t = t.split(`{${k}}`).join(String(v));
     return t;
   }
@@ -1114,11 +1127,11 @@
     return `<div class="contenido"><div class="encabezado"><h1>Más</h1></div>
       <nav class="lista-mas" aria-label="Más">
         ${fila('data-vista="conexiones"', "conexiones", "Conexiones", estadoCon)}
-        ${fila('data-vista="presupuesto"', "presupuesto", "Presupuesto", tope ? `<small data-sin-traducir>${T("{x} al mes, por categoría", { x: esc(dinero(tope)) })}</small>` : `<small>Cuánto quieres gastar como máximo en cada cosa.</small>`)}
-        ${fila('data-vista="consejos"', "consejos", "Consejos", ultimo ? `<small data-sin-traducir>${T("Los últimos, del {f}", { f: esc(fechaCorta(ultimo.fecha)) })}</small>` : `<small data-sin-traducir>${T("Lo que {ia} ve en tus números", { ia: esc(nombreIA()) })}</small>`)}
+        ${fila('data-vista="presupuesto"', "presupuesto", "Presupuesto", tope ? `<small data-sin-traducir>${T("{x} al mes, por categoría", { x: dinero(tope) })}</small>` : `<small>Cuánto quieres gastar como máximo en cada cosa.</small>`)}
+        ${fila('data-vista="consejos"', "consejos", "Consejos", ultimo ? `<small data-sin-traducir>${T("Los últimos, del {f}", { f: fechaCorta(ultimo.fecha) })}</small>` : `<small data-sin-traducir>${T("Lo que {ia} ve en tus números", { ia: nombreIA() })}</small>`)}
         ${fila('data-accion="ajustes"', "ajustes", "Ajustes", `<small>Tu IA, país, tu mes, respaldo e idioma.</small>`)}</nav>
       <footer class="acerca"><p>${frase("**Tus datos son tuyos.** Todo queda en tu computador.", {})}</p>
-        <p data-sin-traducir>${T("Alcancía {v} · Gratis y de código abierto (AGPL-3.0).", { v: esc(E.version) })}</p>
+        <p data-sin-traducir>${T("Alcancía {v} · Gratis y de código abierto (AGPL-3.0).", { v: E.version })}</p>
         <div class="enlaces"><a href="#" data-enlace="${ENLACES.sitio}">Sitio web</a><a href="#" data-enlace="${ENLACES.codigo}">Código</a><a href="#" data-enlace="${ENLACES.comunidad}">Comunidad</a></div></footer></div>`;
   }
 
@@ -1130,7 +1143,7 @@
   function textoCopia() {
     const c = E.celular || {};
     if (!c.generado) return "";
-    return T("Copia de tu Mac: {f}", { f: hace(c.generado) || esc(fechaCorta(c.generado.slice(0, 10))) }) + (c.desactualizada ? " · " + esc(tr("no pude leer la más nueva")) : "");
+    return T("Copia de tu Mac: {f}", { f: hace(c.generado) || fechaCorta(c.generado.slice(0, 10)) }) + (c.desactualizada ? " · " + esc(tr("no pude leer la más nueva")) : "");
   }
   function vistaMasMovil() {
     const tope = Object.values(E.presupuesto.mensual || {}).filter((v) => v > 0).reduce((a, b) => a + b, 0);
@@ -1139,17 +1152,17 @@
     return `<div class="contenido"><div class="encabezado"><h1>Más</h1></div>
       <nav class="lista-mas" aria-label="Más">
         ${fila('data-accion="ajustes"', "conexiones", "Tus datos", `<small data-sin-traducir>${textoCopia() || esc(tr("Llegan cifrados desde tu Mac."))}</small>`)}
-        ${fila('data-vista="presupuesto"', "presupuesto", "Presupuesto", tope ? `<small data-sin-traducir>${T("{x} al mes, por categoría", { x: esc(dinero(tope)) })}</small>` : `<small>Los topes se eligen en tu Mac.</small>`)}
-        ${fila('data-vista="consejos"', "consejos", "Consejos", ultimo ? `<small data-sin-traducir>${T("Los últimos, del {f}", { f: esc(fechaCorta(ultimo.fecha)) })}</small>` : `<small>Los que pidas en tu Mac aparecen aquí.</small>`)}
+        ${fila('data-vista="presupuesto"', "presupuesto", "Presupuesto", tope ? `<small data-sin-traducir>${T("{x} al mes, por categoría", { x: dinero(tope) })}</small>` : `<small>Los topes se eligen en tu Mac.</small>`)}
+        ${fila('data-vista="consejos"', "consejos", "Consejos", ultimo ? `<small data-sin-traducir>${T("Los últimos, del {f}", { f: fechaCorta(ultimo.fecha) })}</small>` : `<small>Los que pidas en tu Mac aparecen aquí.</small>`)}
         ${fila('data-accion="ajustes"', "ajustes", "Ajustes", `<small>Idioma, avisos y tus datos.</small>`)}</nav>
       <footer class="acerca"><p>${frase("**Tus datos son tuyos.** Llegan cerrados con candado desde tu Mac, por tu propia nube.", {})}</p>
         <p>Por ahora, en el celular se mira: categorizar, marcar pagos, agregar cartolas y conversar con Alcancía se hacen en tu Mac.</p>
-        <p data-sin-traducir>${T("Alcancía {v} · Gratis y de código abierto (AGPL-3.0).", { v: esc(E.version) })}</p>
+        <p data-sin-traducir>${T("Alcancía {v} · Gratis y de código abierto (AGPL-3.0).", { v: E.version })}</p>
         <div class="enlaces"><a href="#" data-enlace="${ENLACES.sitio}">Sitio web</a><a href="#" data-enlace="${ENLACES.codigo}">Código</a><a href="#" data-enlace="${ENLACES.comunidad}">Comunidad</a></div></footer></div>`;
   }
   const pasosCelular = () => `<div class="pasos-vacio">
       <div><b>1</b><span>En tu Mac: Alcancía → Ajustes → «Alcancía en tu celular». Elige una carpeta de tu nube y una frase.</span></div>
-      <div><b>2</b><span data-sin-traducir>${T("Aquí: «Elegir el archivo» y busca «{a}» en esa carpeta.", { a: esc(ARCHIVO_CELULAR) })}</span></div>
+      <div><b>2</b><span data-sin-traducir>${T("Aquí: «Elegir el archivo» y busca «{a}» en esa carpeta.", { a: ARCHIVO_CELULAR })}</span></div>
       <div><b>3</b><span>Escribe la frase que elegiste en el Mac.</span></div></div>`;
   /** En el celular, antes de tener datos: elegir el archivo y escribir la frase. */
   function vistaTraer() {
@@ -1157,7 +1170,7 @@
     const error = (x) => (x ? `<p class="error-txt" role="alert" data-sin-traducir>${esc(tr(x))}</p>` : "");
     if (c.estado === "frase") {
       return `<div class="contenido traer"><section class="tarjeta traer-frase"><h1>Escribe tu frase</h1>
-        <p class="texto-suave" data-sin-traducir>${T("La que elegiste en tu Mac para abrir «{a}».", { a: esc(c.archivo || ARCHIVO_CELULAR) })}</p>
+        <p class="texto-suave" data-sin-traducir>${T("La que elegiste en tu Mac para abrir «{a}».", { a: c.archivo || ARCHIVO_CELULAR })}</p>
         <form data-traer-form><label class="campo"><span>Frase</span><input id="traer-frase" class="texto" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-traer-frase value="${esc(t.frase)}" data-sin-traducir></label>
           <label class="marcar"><input type="checkbox" data-traer-recordar ${t.recordar ? "checked" : ""}><span>Recordarla en este teléfono<small>Queda en el llavero del teléfono, protegida por su bloqueo. Si no, te la pido cada vez que abras Alcancía.</small></span></label>
           ${error(t.error)}
@@ -1181,7 +1194,7 @@
         <label class="interruptor"><input type="checkbox" data-avisos ${E.config.avisos ? "checked" : ""}><span class="visual" aria-hidden="true"></span><span class="oculto-accesible">Avisarme antes de que venza un pago</span></label></div></div>
       <div class="seccion"><h3>General</h3>
         <div class="fila"><div class="txt"><b>Idioma de la app</b></div><select data-config="idioma_ui"><option value="es" ${E.idioma === "es" ? "selected" : ""}>Español</option><option value="en" ${E.idioma === "en" ? "selected" : ""}>English</option></select></div></div>
-      <div class="seccion"><h3>Acerca de Alcancía</h3><p style="margin:0 0 8px;color:var(--suave)">${frase("Alcancía {v} · Gratis y de código abierto (AGPL-3.0).", { v: esc(E.version) })}</p>
+      <div class="seccion"><h3>Acerca de Alcancía</h3><p style="margin:0 0 8px;color:var(--suave)">${frase("Alcancía {v} · Gratis y de código abierto (AGPL-3.0).", { v: E.version })}</p>
         <p class="texto-suave">Por ahora, en el celular se mira: categorizar, marcar pagos, agregar cartolas y conversar con Alcancía se hacen en tu Mac.</p>
         <div class="enlaces"><a href="#" data-enlace="${ENLACES.sitio}">Sitio web</a><a href="#" data-enlace="${ENLACES.codigo}">Código</a><a href="#" data-enlace="${ENLACES.comunidad}">Comunidad</a></div></div>
       <div class="pie-dialogo"><button class="boton principal" data-accion="cerrar">Listo</button></div>`;
@@ -1195,10 +1208,10 @@
         <div class="fila"><div class="txt"><b>Copia para el celular</b><small>Apagada</small></div><button class="boton" data-accion="celular-configurar">Activar</button></div></div>`;
     }
     const estado = c.error ? `<small class="error-txt" data-sin-traducir>${esc(tr(c.error))}</small>`
-      : `<small data-sin-traducir>${c.ultima ? T("Última copia: {f}", { f: hace(c.ultima) || esc(fechaCorta(c.ultima.slice(0, 10))) }) : esc(tr("Preparando la primera copia…"))}</small>`;
+      : `<small data-sin-traducir>${c.ultima ? T("Última copia: {f}", { f: hace(c.ultima) || fechaCorta(c.ultima.slice(0, 10)) }) : esc(tr("Preparando la primera copia…"))}</small>`;
     return `<div class="seccion"><h3>Alcancía en tu celular</h3>
-      <div class="fila"><div class="txt"><b data-sin-traducir>${T("En {c}", { c: esc(c.nombre || "") })}${c.nube ? ` · ${esc(c.nube)}` : ""}</b>${estado}</div><button class="boton" data-accion="celular-copiar">Copiar ahora</button></div>
-      <p class="texto-suave intro-campo" data-sin-traducir>${T("Se actualiza al abrir Alcancía, cuando llegan movimientos y cada 6 horas. En el celular: «Elegir el archivo» y busca «{a}».", { a: esc(ARCHIVO_CELULAR) })}</p>
+      <div class="fila"><div class="txt"><b data-sin-traducir>${T("En {c}", { c: c.nombre || "" })}${c.nube ? ` · ${esc(c.nube)}` : ""}</b>${estado}</div><button class="boton" data-accion="celular-copiar">Copiar ahora</button></div>
+      <p class="texto-suave intro-campo" data-sin-traducir>${T("Se actualiza al abrir Alcancía, cuando llegan movimientos y cada 6 horas. En el celular: «Elegir el archivo» y busca «{a}».", { a: ARCHIVO_CELULAR })}</p>
       <div class="fila"><div class="txt"><b>Frase</b><small>Si la cambias, escríbela de nuevo en el celular.</small></div><button class="boton sutil" data-accion="celular-frase">Cambiar</button></div>
       <div class="fila"><div class="txt"><b>Dejar de copiar</b><small>La copia que ya está en tu nube queda ahí; puedes borrarla tú.</small></div><button class="boton sutil" data-accion="celular-desactivar">Desactivar</button></div></div>`;
   }
@@ -1214,14 +1227,14 @@
         ${error}<div class="pie-dialogo">${cerrar}<button class="boton principal" data-accion="celular-carpeta">Elegir carpeta</button></div>`;
     }
     if (k.paso === "listo") {
-      return `${cab}<p data-sin-traducir>🎉 ${T("Listo: tu copia está en **{c}**.", { c: esc(k.carpeta?.nombre || E.celular.nombre || "") })}</p>
+      return `${cab}<p data-sin-traducir>🎉 ${T("Listo: tu copia está en **{c}**.", { c: k.carpeta?.nombre || E.celular.nombre || "" })}</p>
         <div class="pasos-vacio"><div><b>1</b><span>Instala Alcancía en tu celular.</span></div>
-          <div><b>2</b><span data-sin-traducir>${T("Toca «Elegir el archivo» y busca «{a}» en esa carpeta.", { a: esc(ARCHIVO_CELULAR) })}</span></div>
+          <div><b>2</b><span data-sin-traducir>${T("Toca «Elegir el archivo» y busca «{a}» en esa carpeta.", { a: ARCHIVO_CELULAR })}</span></div>
           <div><b>3</b><span>Escribe tu frase.</span></div></div>
         <div class="pie-dialogo"><button class="boton principal" data-accion="celular-cerrar">Listo</button></div>`;
     }
     const f = C.fuerzaFrase(k.frase), problema = C.revisarFrase(k.frase), creando = k.paso === "creando";
-    const carpeta = k.carpeta ? `<p data-sin-traducir>${T("Carpeta: {c}", { c: `<b>${esc(k.carpeta.nombre)}</b>${k.carpeta.nube ? " · " + esc(k.carpeta.nube) : ""}` })} <button class="enlace" data-accion="celular-carpeta">${esc(tr("Cambiar"))}</button></p>
+    const carpeta = k.carpeta ? `<p data-sin-traducir>${Thtml("Carpeta: {c}", { c: `<b>${esc(k.carpeta.nombre)}</b>${k.carpeta.nube ? " · " + esc(k.carpeta.nube) : ""}` })} <button class="enlace" data-accion="celular-carpeta">${esc(tr("Cambiar"))}</button></p>
       ${k.carpeta.enNube === false ? `<p class="error-txt">Esa carpeta no parece estar en una nube: el celular no la va a ver. Mejor elige una dentro de iCloud Drive, Google Drive, OneDrive o Dropbox.</p>` : ""}` : "";
     return `${cab}${carpeta}
       <label class="campo"><span>${k.cambiar ? "Tu nueva frase" : "Crea una frase"}</span><input id="celular-frase" class="texto" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-celular-frase value="${esc(k.frase)}" ${creando ? "disabled" : ""} data-sin-traducir></label>
@@ -1252,9 +1265,9 @@
     const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
     if (!(min >= 0)) return "";
     if (min < 2) return tr("recién");
-    if (min < 60) return T("hace {n} min", { n: min });
+    if (min < 60) return Tp("hace {n} min", { n: min });
     const h = Math.round(min / 60);
-    return h < 24 ? T("hace {n} h", { n: h }) : T("hace {n} días", { n: Math.round(h / 24) });
+    return h < 24 ? Tp("hace {n} h", { n: h }) : Tp("hace {n} días", { n: Math.round(h / 24) });
   }
   function tarjetaConector(c) {
     const est = E.conexiones[c.id] || {}, sinc = E.sincronizando[c.id];
@@ -1262,8 +1275,8 @@
     let estado;
     if (sinc) estado = `<small>Trayendo movimientos…</small>`;
     else if (est.conectado && est.error) estado = `<small class="error-txt" data-sin-traducir>${esc(est.error)}</small>`;
-    else if (est.conectado && est.esperando) estado = `<small>${frase("{s} está preparando tus movimientos. Llegan en la próxima revisión.", { s: esc(c.nombre) })}</small>`;
-    else if (est.conectado) estado = `<small class="ok-txt">${est.ultima ? frase("✓ Conectado · revisado {h}", { h: esc(hace(est.ultima)) }) : "✓ Conectado"}</small>`;
+    else if (est.conectado && est.esperando) estado = `<small>${frase("{s} está preparando tus movimientos. Llegan en la próxima revisión.", { s: c.nombre })}</small>`;
+    else if (est.conectado) estado = `<small class="ok-txt">${est.ultima ? frase("✓ Conectado · revisado {h}", { h: hace(est.ultima) }) : "✓ Conectado"}</small>`;
     else estado = `<small data-sin-traducir>${esc(paises)}</small>`;
     const botones = est.conectado
       ? `<button class="boton" data-sincronizar="${esc(c.id)}" ${sinc ? "disabled" : ""}>Revisar ahora</button><button class="icono" data-desconectar="${esc(c.id)}" title="Desconectar" aria-label="Desconectar">✕</button>`
@@ -1277,14 +1290,14 @@
     const otros = E.conectores.filter((c) => !c.paises.includes(pais) && !c.paises.includes("*"));
     const v = E.vigilar || {};
     const recientes = (v.recientes || []).slice(0, 4).map((r) => `<li data-sin-traducir>${esc(r.archivo)} · ${r.resultado === "importado"
-      ? esc(T(r.nuevos === 1 ? "1 movimiento nuevo" : "{n} movimientos nuevos", { n: r.nuevos })) : esc(tr("no la sé leer todavía"))}</li>`).join("");
+      ? T(r.nuevos === 1 ? "1 movimiento nuevo" : "{n} movimientos nuevos", { n: r.nuevos }) : esc(tr("no la sé leer todavía"))}</li>`).join("");
     return `<div class="contenido">${volver("mas", "Más")}<div class="encabezado"><h1>Conexiones</h1></div>
       <p class="intro-vista">${frase("Que tus movimientos lleguen solos. Alcancía usa la conexión oficial de cada servicio con una llave que creas tú, y la guarda cifrada en tu computador. **Nunca te pide la clave de tu banco.**", {})}</p>
       <section class="tarjeta"><div class="fila sin-borde"><div class="txt"><b>📥 Cartolas que descargues</b>
         <small>Descargas la cartola desde tu banco, como siempre, y Alcancía la agrega sola apenas llega a tu carpeta de Descargas. Sirve para cualquier banco del mundo.</small></div>
         <label class="interruptor"><input type="checkbox" data-vigilar ${v.activo ? "checked" : ""}><span class="visual" aria-hidden="true"></span><span class="oculto-accesible">Importar solas las cartolas que descargue</span></label></div>
         ${v.activo && recientes ? `<ul class="recientes">${recientes}</ul>` : ""}</section>
-      ${delPais.length ? `<h2 class="subtitulo">${frase("En {p}", { p: esc(nombrePais(pais)) })}</h2><div class="conectores">${delPais.map(tarjetaConector).join("")}</div>` : ""}
+      ${delPais.length ? `<h2 class="subtitulo">${frase("En {p}", { p: nombrePais(pais) })}</h2><div class="conectores">${delPais.map(tarjetaConector).join("")}</div>` : ""}
       ${mundo.length ? `<h2 class="subtitulo">En todo el mundo</h2><div class="conectores">${mundo.map(tarjetaConector).join("")}</div>` : ""}
       ${otros.length ? `<details class="otros-paises"><summary>${frase("Otros países ({n})", { n: otros.length })}</summary><div class="conectores">${otros.map(tarjetaConector).join("")}</div></details>` : ""}
       ${seccionIAExterna()}
@@ -1318,9 +1331,9 @@
     const k = E.conectar;
     const campos = c.campos.map((f) => `<label class="campo"><span data-sin-traducir>${esc(tr(f.etiqueta))}</span>
       <input class="entrada" type="${f.secreto ? "password" : "text"}" id="campo-${esc(f.id)}" data-campo="${esc(f.id)}" autocomplete="off" spellcheck="false" value="${esc(k.campos[f.id] || "")}" ${k.enviando ? "disabled" : ""}></label>`).join("");
-    return `<h2 id="t-conectar">${frase("Conectar {s}", { s: esc(tr(c.nombre)) })}</h2>
+    return `<h2 id="t-conectar">${frase("Conectar {s}", { s: tr(c.nombre) })}</h2>
       <ol class="pasos-conectar">${c.pasos.map((p) => `<li data-sin-traducir>${mdCorto(tr(p))}</li>`).join("")}</ol>
-      ${c.enlace ? `<p><a href="#" data-enlace="${esc(c.enlace)}">${frase("Abrir la página de {s}", { s: esc(c.nombre) })} ↗</a></p>` : ""}
+      ${c.enlace ? `<p><a href="#" data-enlace="${esc(c.enlace)}">${frase("Abrir la página de {s}", { s: c.nombre })} ↗</a></p>` : ""}
       ${c.nota ? `<p class="nota-conector" data-sin-traducir>${mdCorto(tr(c.nota))}</p>` : ""}
       <div class="campos-conectar">${campos}</div>
       <div class="candado"><span class="grande-ico" aria-hidden="true">🔐</span><div>La llave se guarda cifrada en el llavero de tu computador y solo se usa para leer tus movimientos. Puedes desconectar cuando quieras.</div></div>
@@ -1335,12 +1348,12 @@
     const max = Math.max(1, h.tope, ...h.meses.map((m) => Math.max(m.gastado, m.proyeccion || 0)));
     const alto = (v) => (v / max * 80).toFixed(1);
     let texto;
-    if (ult.en_curso && ult.proyeccion != null) texto = frase("A este ritmo cierras el mes en **{x}**.", { x: esc(dinero(ult.proyeccion)) });
-    else if (ult.en_curso) texto = frase("Llevas **{x}** este mes.", { x: esc(dinero(ult.gastado)) });
-    else texto = frase("En {m} gastaste **{x}**.", { m: esc(nombreMes(ult.mes)), x: esc(dinero(ult.gastado)) });
+    if (ult.en_curso && ult.proyeccion != null) texto = frase("A este ritmo cierras el mes en **{x}**.", { x: dinero(ult.proyeccion) });
+    else if (ult.en_curso) texto = frase("Llevas **{x}** este mes.", { x: dinero(ult.gastado) });
+    else texto = frase("En {m} gastaste **{x}**.", { m: nombreMes(ult.mes), x: dinero(ult.gastado) });
     if (h.promedio == null) texto += " " + frase("Cuando tengas más meses, aquí vas a ver cómo vas comparado con ellos.", {});
     else if (h.promedio > 0 && !(ult.en_curso && ult.proyeccion == null)) {
-      const v = ult.proyeccion ?? ult.gastado, pct = Math.round(Math.abs(v - h.promedio) / h.promedio * 100), p = esc(dinero(h.promedio));
+      const v = ult.proyeccion ?? ult.gastado, pct = Math.round(Math.abs(v - h.promedio) / h.promedio * 100), p = dinero(h.promedio);
       texto += " " + (pct >= 5 && v > h.promedio ? frase("Es {n}% más que tu promedio de los meses anteriores ({x}).", { n: pct, x: p })
         : pct >= 5 ? frase("Es {n}% menos que tu promedio de los meses anteriores ({x}).", { n: pct, x: p })
           : frase("Es parecido a tu promedio de los meses anteriores ({x}).", { x: p }));
@@ -1358,9 +1371,9 @@
         <div class="plot" data-sin-traducir>${cols}${h.tope ? `<div class="tope-linea" style="bottom:${alto(h.tope)}%"></div>` : ""}</div>
         <div class="eje" data-sin-traducir>${eje}</div></div>
       <div class="leyenda" aria-hidden="true"><span><i class="m-real"></i>Gastado</span>${hayProy ? `<span><i class="m-proy"></i>Proyección del mes</span>` : ""}
-        ${h.tope ? `<span><i class="m-tope"></i>${frase("Presupuesto: {x}", { x: esc(dinero(h.tope)) })}</span>` : ""}</div>
+        ${h.tope ? `<span><i class="m-tope"></i>${frase("Presupuesto: {x}", { x: dinero(h.tope) })}</span>` : ""}</div>
       <div class="oculto-accesible"><table><caption data-sin-traducir>${titulo}</caption><thead><tr><th scope="col">Mes</th><th scope="col">Gastado</th><th scope="col">Proyección</th></tr></thead>
-        <tbody>${filas}</tbody></table>${h.tope ? `<p>${frase("Presupuesto: {x}", { x: esc(dinero(h.tope)) })}</p>` : ""}</div>`;
+        <tbody>${filas}</tbody></table>${h.tope ? `<p>${frase("Presupuesto: {x}", { x: dinero(h.tope) })}</p>` : ""}</div>`;
   }
 
   // ───────────── Resumen: tres números (lo que tienes, lo que gastaste, lo que debes) ─────────────
@@ -1374,13 +1387,13 @@
       : frase("**Estás al día.** Pagaste todo lo de este mes.", {})}</p></div>`;
     const p = pend[0], c = esc(p.nombre), x = montoCorto(p);
     let texto;
-    if (p.estado === "atrasado" && p.modo_pago === "automatico") texto = p.dias === 1 ? T("No vimos el cargo de **{c}**: {x}, venció ayer.", { c, x }) : T("No vimos el cargo de **{c}**: {x}, venció hace {n} días.", { c, x, n: p.dias });
-    else if (p.estado === "atrasado") texto = p.dias === 1 ? T("Te falta pagar **{c}**: {x}, venció ayer.", { c, x }) : T("Te falta pagar **{c}**: {x}, vencido hace {n} días.", { c, x, n: p.dias });
-    else if (p.estado === "hoy") texto = T("Te falta pagar **{c}**: {x}, vence hoy.", { c, x });
-    else texto = p.dias === 1 ? T("Te falta pagar **{c}**: {x}, vence mañana.", { c, x }) : T("Te falta pagar **{c}**: {x}, vence en {n} días.", { c, x, n: p.dias });
+    if (p.estado === "atrasado" && p.modo_pago === "automatico") texto = p.dias === 1 ? Thtml("No vimos el cargo de **{c}**: {x}, venció ayer.", { c, x }) : Thtml("No vimos el cargo de **{c}**: {x}, venció hace {n} días.", { c, x, n: p.dias });
+    else if (p.estado === "atrasado") texto = p.dias === 1 ? Thtml("Te falta pagar **{c}**: {x}, venció ayer.", { c, x }) : Thtml("Te falta pagar **{c}**: {x}, vencido hace {n} días.", { c, x, n: p.dias });
+    else if (p.estado === "hoy") texto = Thtml("Te falta pagar **{c}**: {x}, vence hoy.", { c, x });
+    else texto = p.dias === 1 ? Thtml("Te falta pagar **{c}**: {x}, vence mañana.", { c, x }) : Thtml("Te falta pagar **{c}**: {x}, vence en {n} días.", { c, x, n: p.dias });
     const sumables = pend.filter((i) => i.moneda === monedaPrincipal());
     const mas = pend.length > 1 ? " " + T(pend.length === 2 ? "Y 1 cosa más ({x} en total)." : "Y {n} cosas más ({x} en total).", { n: pend.length - 1,
-      x: (sumables.some((i) => i.rango) ? "≈ " : "") + esc(dinero(sumables.reduce((a, i) => a + i.monto, 0))) }) : "";
+      x: (sumables.some((i) => i.rango) ? "≈ " : "") + dinero(sumables.reduce((a, i) => a + i.monto, 0)) }) : "";
     return `<div class="al-dia ${p.estado === "atrasado" ? "atrasado" : "pendiente"}" role="status"><span class="punto" aria-hidden="true"></span>
       <p data-sin-traducir>${texto}${mas}</p>
       <div class="acciones"><button class="boton sutil" data-comp-pagado="${esc(`${p.id}|${p.periodo}`)}">Ya lo pagué</button>${pend.length > 1 ? `<button class="boton sutil" data-cifra-abrir="debes">Ver todo</button>` : ""}</div></div>`;
@@ -1396,13 +1409,13 @@
     const prox = proximoSueldo(p, E.hoy, E.feriados || []);
     const pregunta = sueldoC && prox && prox.atrasado && leerLocal("alcancia.sueldoNoHoy") !== E.hoy ? preguntaSueldo(sueldoC, prox) : "";
     if (!im.auto) return { pregunta, info: "" };
-    const inicio = rango(periodoHoy(), p)[0], f = esc(fechaCorta(inicio));
+    const inicio = rango(periodoHoy(), p)[0], f = fechaCorta(inicio);
     const texto = (p.llegadas || []).includes(inicio) ? frase("Tu mes va desde que llegó tu sueldo ({f}).", { f }) : frase("Tu mes va desde el {f}, el día que suele llegar tu sueldo.", { f });
     return { pregunta, info: `<div class="linea-mes"><p>${texto}</p><button class="boton sutil" data-accion="ajustes-mes">Cambiar</button></div>` };
   }
   /** «¿Aún no te pagan?»: suave, sin aviso del sistema. «Todavía no» no insiste hoy; «Ya me pagaron» busca el movimiento. */
   function preguntaSueldo(c, prox) {
-    const f = esc(fechaLarga(prox.fecha));
+    const f = fechaLarga(prox.fecha);
     if (E.sueldoPregunta !== "pagaron") {
       return `<div class="linea-mes pregunta" role="status"><p>${frase("¿Aún no te pagan? Lo esperaba el {f}.", { f })}</p>
         <div class="acciones"><button class="boton sutil" data-sueldo="no">Todavía no</button><button class="boton" data-sueldo="pagaron">Ya me pagaron</button>
@@ -1410,13 +1423,13 @@
     }
     const cand = candidatoSueldo(prox);
     if (cand && E.sueldoCandidatoNo !== cand.id) {
-      return `<div class="linea-mes pregunta" role="status"><p>${frase("¿Es este? {d} · {x} · {f}", { d: esc(nombreComercio(cand.descripcion)), x: esc(dinero(cand.monto, cand.moneda || monedaPrincipal())), f: esc(fechaCorta(cand.fecha)) })}</p>
+      return `<div class="linea-mes pregunta" role="status"><p>${frase("¿Es este? {d} · {x} · {f}", { d: nombreComercio(cand.descripcion), x: dinero(cand.monto, cand.moneda || monedaPrincipal()), f: fechaCorta(cand.fecha) })}</p>
         <div class="acciones"><button class="boton principal" data-sueldo="es" data-sueldo-mov="${esc(cand.id)}">Sí, es mi sueldo</button><button class="boton sutil" data-sueldo="noes" data-sueldo-mov="${esc(cand.id)}">No es este</button></div></div>`;
     }
     const conectados = E.conectores.filter((k) => E.conexiones[k.id]?.conectado);
     return `<div class="linea-mes pregunta" role="status"><p>${frase("Agrega tu cartola o revisa tus cuentas conectadas para verlo.", {})}</p>
       <div class="acciones"><button class="boton" data-accion="importar">Agregar movimientos</button>
-      ${conectados.map((k) => `<button class="boton sutil" data-sincronizar="${esc(k.id)}">${frase("Revisar {s}", { s: esc(tr(k.nombre)) })}</button>`).join("")}
+      ${conectados.map((k) => `<button class="boton sutil" data-sincronizar="${esc(k.id)}">${frase("Revisar {s}", { s: tr(k.nombre) })}</button>`).join("")}
       <button class="boton sutil" data-sueldo="hoy">Márcalo como recibido hoy</button></div></div>`;
   }
   /** El ingreso más probable de ser el sueldo que no se reconoció: el más grande desde 10 días antes de la fecha esperada. */
@@ -1437,7 +1450,7 @@
     c.pagos = { ...(c.pagos || {}), [o.periodo]: { como: "manual", fecha } };
     host.enviar("compromiso", { accion: "pagado", id: c.id, periodo: o.periodo, hoy: fecha });
     E.sueldoPregunta = null; E._per = undefined; E.mes = periodoHoy();
-    toast(T("Listo: tu mes parte el {f}", { f: fechaCorta(fecha) })); render();
+    toast(Tp("Listo: tu mes parte el {f}", { f: fechaCorta(fecha) })); render();
   }
 
   /** Una de las tres cifras de segundo nivel (fila compacta): etiqueta chica arriba, monto abajo. Tocar abre su desglose. */
@@ -1469,16 +1482,16 @@
   /** El ritmo del mes, en una línea (dentro de la cifra protagonista). Rojo solo si te pasas del presupuesto. */
   function lineaRitmo(r, enCurso) {
     if (enCurso && r.proyeccion != null) {
-      if (!r.presupuesto) return `<p class="ritmo">${frase("A este ritmo cierras el mes en **{x}**.", { x: esc(dinero(r.proyeccion)) })}</p>`;
+      if (!r.presupuesto) return `<p class="ritmo">${frase("A este ritmo cierras el mes en **{x}**.", { x: dinero(r.proyeccion) })}</p>`;
       const dif = r.presupuesto - r.proyeccion;
-      return dif >= 0 ? `<p class="ritmo">${frase("A este ritmo terminas el mes en {x}: te sobrarían {y}.", { x: esc(dinero(r.proyeccion)), y: esc(dinero(dif)) })}</p>`
-        : r.proyeccion <= r.presupuesto * 1.1 ? `<p class="ritmo">${frase("A este ritmo terminas justo en el límite: {x}.", { x: esc(dinero(r.proyeccion)) })}</p>`
-          : `<p class="ritmo mal">${frase("A este ritmo terminas el mes en {x}: {y} sobre tu presupuesto.", { x: esc(dinero(r.proyeccion)), y: esc(dinero(-dif)) })}</p>`;
+      return dif >= 0 ? `<p class="ritmo">${frase("A este ritmo terminas el mes en {x}: te sobrarían {y}.", { x: dinero(r.proyeccion), y: dinero(dif) })}</p>`
+        : r.proyeccion <= r.presupuesto * 1.1 ? `<p class="ritmo">${frase("A este ritmo terminas justo en el límite: {x}.", { x: dinero(r.proyeccion) })}</p>`
+          : `<p class="ritmo mal">${frase("A este ritmo terminas el mes en {x}: {y} sobre tu presupuesto.", { x: dinero(r.proyeccion), y: dinero(-dif) })}</p>`;
     }
     if (!enCurso && r.presupuesto && r.dia) {
       const dif = r.presupuesto - r.gastado;
-      return dif >= 0 ? `<p class="ritmo">${frase("Terminaste {x} bajo tu presupuesto. ¡Bien hecho!", { x: esc(dinero(dif)) })}</p>`
-        : `<p class="ritmo mal">${frase("Te pasaste {x} del presupuesto. El próximo mes se puede.", { x: esc(dinero(-dif)) })}</p>`;
+      return dif >= 0 ? `<p class="ritmo">${frase("Terminaste {x} bajo tu presupuesto. ¡Bien hecho!", { x: dinero(dif) })}</p>`
+        : `<p class="ritmo mal">${frase("Te pasaste {x} del presupuesto. El próximo mes se puede.", { x: dinero(-dif) })}</p>`;
     }
     return "";
   }
@@ -1495,14 +1508,14 @@
     if (!enCurso) {
       const num = `<span class="heroe-num" data-sin-traducir>${esc(dinero(r.gastado))}${codigo}</span>`;
       const neto = r.ingresos - r.gastado;
-      const sub = r.ingresos ? frase(neto >= 0 ? "Entró {i} · te sobró {s}" : "Entró {i} · te faltó {s}", { i: esc(dinero(r.ingresos)), s: esc(dinero(Math.abs(neto))) }) : "";
-      return `<section class="heroe"><p class="heroe-frase" data-sin-traducir>${T("En {m} gastaste {x}", { m: esc(nombreMes(E.mes)), x: num })}</p>
+      const sub = r.ingresos ? frase(neto >= 0 ? "Entró {i} · te sobró {s}" : "Entró {i} · te faltó {s}", { i: dinero(r.ingresos), s: dinero(Math.abs(neto)) }) : "";
+      return `<section class="heroe"><p class="heroe-frase" data-sin-traducir>${Thtml("En {m} gastaste {x}", { m: esc(nombreMes(E.mes)), x: num })}</p>
         ${sub ? `<p class="heroe-sub">${sub}</p>` : ""}${ritmo}</section>`;
     }
     const q = cuantoQueda(r, t);
     if (!q) {
       const num = `<span class="heroe-num" data-sin-traducir>${esc(dinero(r.gastado))}${codigo}</span>`;
-      return `<section class="heroe"><p class="heroe-frase" data-sin-traducir>${T("Llevas gastado {x}", { x: num })}</p>
+      return `<section class="heroe"><p class="heroe-frase" data-sin-traducir>${Thtml("Llevas gastado {x}", { x: num })}</p>
         <p class="heroe-sub">${frase("Anota cuánto tienes en tus cuentas y te digo cuánto te queda hasta tu sueldo.", {})}</p>
         <div class="acciones"><button class="boton" data-cifra-abrir="tienes">Anotar lo que tengo</button></div>${ritmo}</section>`;
     }
@@ -1510,9 +1523,9 @@
     const num = `<span class="heroe-num ${negativo ? "rojo-txt" : ""}" data-sin-traducir>${q.aprox ? '<span class="aprox-signo">≈</span>' : ""}${esc(dinero(Math.abs(q.queda)))}${codigo}</span>`;
     const plantilla = negativo ? (q.sueldo ? "Te faltan {x} para llegar a tu sueldo" : "Te faltan {x} para llegar a fin de mes") : (q.sueldo ? "Te quedan {x} hasta tu sueldo" : "Te quedan {x} hasta fin de mes");
     const sub = negativo ? frase(q.dias === 1 ? "1 día" : "{n} días", { n: q.dias })
-      : frase(q.dias === 1 ? "1 día · ~{y} por día" : "{n} días · ~{y} por día", { n: q.dias, y: esc(dinero(q.porDia)) });
+      : frase(q.dias === 1 ? "1 día · ~{y} por día" : "{n} días · ~{y} por día", { n: q.dias, y: dinero(q.porDia) });
     return `<section class="heroe"><button type="button" class="heroe-boton" data-cifra="queda" aria-expanded="${abierta}" ${abierta ? 'aria-controls="desglose"' : ""}>
-        <span class="heroe-frase" data-sin-traducir>${T(plantilla, { x: num })}</span>
+        <span class="heroe-frase" data-sin-traducir>${Thtml(plantilla, { x: num })}</span>
         <span class="heroe-sub">${sub}<span class="heroe-como">Cómo lo calculo</span></span>${escalaDias(q)}</button>${ritmo}</section>`;
   }
   /** Al tocar la cifra protagonista: el cálculo en simple, con lo que detecté de tu mes y el próximo sueldo. */
@@ -1521,7 +1534,7 @@
     const base = q.fuente === "tienes" ? fila(tr("Lo que tienes hoy"), esc(dinero(q.base)))
       : fila(tr("Lo que entró este mes"), esc(dinero(q.r.ingresos))) + fila(tr("Lo que gastaste"), esc(dinero(-q.r.gastado)));
     const p = per(), prox = p ? proximoSueldo(p, E.hoy, E.feriados || []) : null, n = prox ? diasEntre(E.hoy, prox.fecha) : -1;
-    const sueldo = prox && n >= 0 ? `<p class="pista-sueldo">${frase(n === 0 ? "Tu sueldo debería llegar hoy ({f})." : n === 1 ? "Próximo sueldo: {f} (aprox.), mañana." : "Próximo sueldo: {f} (aprox.), en {n} días.", { f: esc(fechaLarga(prox.fecha)), n })}</p>` : "";
+    const sueldo = prox && n >= 0 ? `<p class="pista-sueldo">${frase(n === 0 ? "Tu sueldo debería llegar hoy ({f})." : n === 1 ? "Próximo sueldo: {f} (aprox.), mañana." : "Próximo sueldo: {f} (aprox.), en {n} días.", { f: fechaLarga(prox.fecha), n })}</p>` : "";
     return `<h2 class="desglose-titulo">Cómo lo calculo</h2>
       <div class="calculo">${base}
         ${fila(tr("Lo que falta pagar este mes"), (q.aprox ? "≈ " : "") + esc(dinero(-q.falta)))}
@@ -1555,7 +1568,7 @@
       ${tres}${E.cifra !== "queda" ? caja : ""}
       ${enQueSeFue(r)}${pendientesHTML(LECTURA ? "" : lm.pregunta)}
       ${LECTURA ? "" : `<button class="fila-consejos fila-chat" data-accion="abrir-chat" aria-haspopup="dialog"><span class="ico chanchito">${LOGO}</span><span>Pregúntale a Alcancía</span><span class="cf-flecha" aria-hidden="true">›</span></button>
-      <button class="fila-consejos" data-vista="consejos"><span class="ico">${icono("consejos", 20)}</span><span>${frase("Pídele consejos a {ia} sobre este mes", { ia: esc(nombreIA()) })}</span><span class="cf-flecha" aria-hidden="true">›</span></button>`}</div>`;
+      <button class="fila-consejos" data-vista="consejos"><span class="ico">${icono("consejos", 20)}</span><span>${frase("Pídele consejos a {ia} sobre este mes", { ia: nombreIA() })}</span><span class="cf-flecha" aria-hidden="true">›</span></button>`}</div>`;
   }
 
   function desgloseTienes(t) {
@@ -1564,15 +1577,15 @@
       const b = c.base;
       let origen = "";
       if (b) {
-        const f = esc(fechaCorta(b.fecha));
-        origen = b.origen === "conector" ? T("Según {s}, el {f}", { s: esc(c.nombre), f }) : b.origen === "cartola" ? T("Según tu cartola del {f}", { f }) : T("Lo anotaste el {f}", { f });
+        const f = fechaCorta(b.fecha);
+        origen = b.origen === "conector" ? T("Según {s}, el {f}", { s: c.nombre, f }) : b.origen === "cartola" ? T("Según tu cartola del {f}", { f }) : T("Lo anotaste el {f}", { f });
         if (c.movimientos_despues) origen += " · " + T(c.movimientos_despues === 1 ? "más 1 movimiento después" : "más {n} movimientos después", { n: c.movimientos_despues });
       }
-      const editor = `<form class="saldo-editor" data-saldo-form="${esc(c.id)}"><label class="oculto-accesible" data-sin-traducir for="saldo-${esc(c.id)}">${T("¿Cuánto tienes hoy en {c}?", { c: esc(c.nombre) })}</label>
+      const editor = `<form class="saldo-editor" data-saldo-form="${esc(c.id)}"><label class="oculto-accesible" data-sin-traducir for="saldo-${esc(c.id)}">${T("¿Cuánto tienes hoy en {c}?", { c: c.nombre })}</label>
         <input class="texto" id="saldo-${esc(c.id)}" inputmode="numeric" data-saldo-input="${esc(c.id)}" value="${esc(E.saldoEdit?.cuenta === c.id ? E.saldoEdit.texto : "")}" placeholder="${esc(tr("Monto de hoy"))}" data-sin-traducir>
         <button class="boton principal" type="submit">Guardar</button>${c.saldo != null ? `<button class="boton sutil" type="button" data-saldo-cancelar>Cancelar</button>` : ""}</form>`;
       return `<div class="cuenta-fila ${c.saldo == null ? "sin" : ""}">
-        <div class="txt"><b data-sin-traducir>${esc(c.nombre)}</b>${c.saldo == null ? `<small data-sin-traducir>${LECTURA ? esc(tr("Anota cuánto tienes en tu Mac.")) : T("¿Cuánto tienes hoy en {c}?", { c: esc(c.nombre) })}</small>` : `<small data-sin-traducir>${origen}</small>`}</div>
+        <div class="txt"><b data-sin-traducir>${esc(c.nombre)}</b>${c.saldo == null ? `<small data-sin-traducir>${LECTURA ? esc(tr("Anota cuánto tienes en tu Mac.")) : T("¿Cuánto tienes hoy en {c}?", { c: c.nombre })}</small>` : `<small data-sin-traducir>${origen}</small>`}</div>
         ${c.saldo != null && !editando ? `<span class="valor" data-sin-traducir>${esc(dinero(c.saldo, c.moneda))}</span>${LECTURA ? "" : `<button class="boton sutil" data-saldo-editar="${esc(c.id)}">Corregir</button>`}` : LECTURA ? "" : editor}</div>`;
     };
     const aviso = E.saldoAviso ? `<p class="saldo-aviso ${E.saldoAviso.cuadra ? "ok" : ""}" role="status" data-sin-traducir>${E.saldoAviso.texto}</p>` : "";
@@ -1595,7 +1608,7 @@
       const alerta = r.alertas.find((a) => a.categoria === id);
       const clase = !id ? "falta" : alerta?.tipo === "pasado" ? "pasado" : alerta ? "ojo" : "";
       return `<button type="button" class="cat ${clase}" data-ir-cat="${esc(id)}"><span class="emoji" aria-hidden="true">${esc(c.emoji)}</span><span class="nombre" data-sin-traducir>${esc(nombreCat(c))}</span>
-        <span class="monto" data-sin-traducir>${esc(dinero(g))}${tope ? ` <small>${T("de {x}", { x: esc(dinero(tope)) })}</small>` : ""}</span>
+        <span class="monto" data-sin-traducir>${esc(dinero(g))}${tope ? ` <small>${T("de {x}", { x: dinero(tope) })}</small>` : ""}</span>
         <span class="barra ${clase}"><i style="width:${(tope ? Math.min(100, g / tope * 100) : g / max * 100).toFixed(1)}%"></i></span></button>`;
     }).join("");
     return `<section class="seccion-inicio"><div class="cabeza-seccion"><h2 class="titulo-seccion">En qué se fue</h2><button class="boton sutil" data-vista="presupuesto">${LECTURA ? "Ver topes" : "Editar topes"}</button></div>
@@ -1616,7 +1629,7 @@
     if (!d.te_deben || !d.te_deben.length) return "";
     return `<h3 class="grupo">Te deben</h3>${d.te_deben.map((t) => `<div class="debe-fila"><span class="emoji" aria-hidden="true">🤝</span>
       <div class="txt"><b data-sin-traducir>${esc(t.nombre)}</b><small data-sin-traducir>${[t.cuotas ? T(t.cuotas.quedan === 1 ? "le queda 1 cuota" : "le quedan {q} de {t} cuotas", { q: t.cuotas.quedan, t: t.cuotas.total }) : "",
-        t.este_mes ? T("este mes {x}", { x: esc(dinero(t.este_mes)) }) : ""].filter(Boolean).join(" · ")}</small></div>
+        t.este_mes ? T("este mes {x}", { x: dinero(t.este_mes) }) : ""].filter(Boolean).join(" · ")}</small></div>
       <span class="valor ingreso" data-sin-traducir>${esc(dinero(t.monto))}</span></div>`).join("")}
       <div class="total-pres sub"><span>Te deben en total</span><span class="ingreso" data-sin-traducir>${esc(dinero(d.te_deben_total))}</span></div>
       <p class="nota-mcp">Lo que te deben va aparte: no se resta de lo que debes.</p>`;
@@ -1637,19 +1650,19 @@
     const fila = (ico, nombre, detalle, monto) => `<div class="debe-fila"><span class="emoji" aria-hidden="true">${ico}</span>
       <div class="txt"><b data-sin-traducir>${nombre}</b><small data-sin-traducir>${detalle}</small></div><span class="valor" data-sin-traducir>${esc(dinero(monto))}</span></div>`;
     const otras = d.partes.filter((p) => p.tipo !== "compromiso").map((p) => {
-      if (p.tipo === "tarjeta") return fila("💳", T("Por pagar en tu tarjeta"), p.desde ? T(p.compras === 1 ? "1 compra con crédito desde tu último pago ({f})" : "{n} compras con crédito desde tu último pago ({f})", { n: p.compras, f: esc(fechaCorta(p.desde)) })
+      if (p.tipo === "tarjeta") return fila("💳", T("Por pagar en tu tarjeta"), p.desde ? T(p.compras === 1 ? "1 compra con crédito desde tu último pago ({f})" : "{n} compras con crédito desde tu último pago ({f})", { n: p.compras, f: fechaCorta(p.desde) })
         : T(p.compras === 1 ? "1 compra con crédito: se paga cuando llegue el estado de cuenta" : "{n} compras con crédito: se pagan cuando llegue el estado de cuenta", { n: p.compras }), p.monto);
       if (p.tipo === "deuda") return fila("🏦", esc(p.nombre), [p.cuotas ? T("Te quedan {q} de {t} cuotas", { q: p.cuotas.quedan, t: p.cuotas.total }) : T("Saldo que anotaste"),
-        p.original ? T("en UF: es una estimación") : p.max !== p.monto ? T("hasta {x}", { x: esc(dinero(p.max)) }) : "",
-        p.este_mes ? T("este mes {x}", { x: esc(dinero(p.este_mes)) }) : ""].filter(Boolean).join(" · "), p.monto);
-      return fila(esc(p.categoria && cat(p.categoria).id ? cat(p.categoria).emoji : "🧾"), esc(nombreComercio(p.nombre)), T(p.quedan === 1 ? "Te queda 1 cuota de {c}" : "Te quedan {q} cuotas de {c}", { q: p.quedan, c: esc(dinero(p.cuota)) }), p.monto);
+        p.original ? T("en UF: es una estimación") : p.max !== p.monto ? T("hasta {x}", { x: dinero(p.max) }) : "",
+        p.este_mes ? T("este mes {x}", { x: dinero(p.este_mes) }) : ""].filter(Boolean).join(" · "), p.monto);
+      return fila(esc(p.categoria && cat(p.categoria).id ? cat(p.categoria).emoji : "🧾"), esc(nombreComercio(p.nombre)), T(p.quedan === 1 ? "Te queda 1 cuota de {c}" : "Te quedan {q} cuotas de {c}", { q: p.quedan, c: dinero(p.cuota) }), p.monto);
     }).join("");
     return `<h2 class="desglose-titulo">Lo que debes</h2>
       ${comp.length ? `<div class="por-pagar"><h3 class="grupo">Por pagar este mes</h3>${comp.map(filaComp).join("")}</div>` : ""}
       ${otras ? `<h3 class="grupo">Tarjeta, cuotas y créditos</h3>${otras}` : ""}
       <div class="total-pres"><span>Este mes</span><span data-sin-traducir>${d.aprox ? "≈ " : ""}${esc(dinero(d.este_mes))}</span></div>
       <div class="total-pres sub"><span>En total</span><span data-sin-traducir>${d.aprox ? "≈ " : ""}${esc(dinero(d.total))}</span></div>
-      ${d.aprox ? `<p class="nota-mcp">${frase("Hay montos aproximados o en UF: podría llegar a {x} este mes.", { x: esc(dinero(d.este_mes_max)) })}</p>` : ""}
+      ${d.aprox ? `<p class="nota-mcp">${frase("Hay montos aproximados o en UF: podría llegar a {x} este mes.", { x: dinero(d.este_mes_max) })}</p>` : ""}
       ${teDebenHTML(d)}
       <p class="nota-mcp"><button class="enlace" data-vista="compromisos">Ver tus pagos</button></p>`;
   }
@@ -1678,7 +1691,7 @@
     const sug = (E.sugerencias || []).filter((s) => !(E.compromisos.descartados || []).includes(s.clave));
     const filas = [...reglas.map((r) => {
       const c = cat(r.categoria);
-      return `<div class="aprendi-fila"><span class="emoji" aria-hidden="true">${esc(c.emoji)}</span><div class="txt">${frase(r.n === 1 ? "«{r}» siempre fue **{c}**. ¿Se lo pongo al que no tiene categoría y a los que vengan?" : "«{r}» siempre fue **{c}**. ¿Se lo pongo a los {n} que no tienen categoría y a los que vengan?", { r: esc(r.contiene), c: esc(nombreCat(c)), n: r.n })}</div>
+      return `<div class="aprendi-fila"><span class="emoji" aria-hidden="true">${esc(c.emoji)}</span><div class="txt">${frase(r.n === 1 ? "«{r}» siempre fue **{c}**. ¿Se lo pongo al que no tiene categoría y a los que vengan?" : "«{r}» siempre fue **{c}**. ¿Se lo pongo a los {n} que no tienen categoría y a los que vengan?", { r: r.contiene, c: nombreCat(c), n: r.n })}</div>
         <div class="acciones"><button class="boton sutil" data-regla-no="${esc(r.contiene)}">No</button><button class="boton" data-regla-si="${esc(r.contiene)}" data-regla-cat="${esc(r.categoria)}">Sí, siempre</button></div></div>`;
     }), ...sug.slice(0, reglas.length ? 1 : 2).map((s) => `<div class="aprendi-fila"><span class="emoji" aria-hidden="true">${iconoComp(s)}</span><div class="txt">${textoSugerencia(s)}</div>
         <div class="acciones"><button class="boton sutil" data-sug-no="${esc(s.clave)}">No es</button><button class="boton" data-sug-agregar="${esc(s.clave)}">¿Lo agrego?</button></div></div>`)];
@@ -1696,7 +1709,7 @@
     const anotar = !listaCompromisos().length && !LECTURA ? `<div class="pendiente-fila"><span class="ico">${icono("compromisos", 20)}</span><p>${frase("Anota lo que pagas seguido (arriendo, créditos, cuentas) y te digo si te falta pagar algo.", {})}</p>
       <button class="boton" data-accion="agregar-contar">Anotar</button></div>` : "";
     const pagoMora = moraDelAnio(listaCompromisos(), E.movimientos, E.hoy, monedaPrincipal(), ufCfg(), E.palabrasMora || []);
-    const mora = pagoMora > 0 ? `<div class="pendiente-fila"><span class="ico rojo-txt" aria-hidden="true">!</span><p class="mora-anio">${frase("Este año pagaste {x} en intereses por atraso.", { x: esc(dinero(pagoMora)) })}</p></div>` : "";
+    const mora = pagoMora > 0 ? `<div class="pendiente-fila"><span class="ico rojo-txt" aria-hidden="true">!</span><p class="mora-anio">${frase("Este año pagaste {x} en intereses por atraso.", { x: dinero(pagoMora) })}</p></div>` : "";
     const partes = [preguntaMes, ordenar, aprendiHTML(), anotar, mora].filter(Boolean);
     if (!partes.length) return "";
     return `<section class="tarjeta pendientes"><h2 class="titulo-seccion">Pendientes</h2>${partes.join("")}</section>`;
@@ -1711,7 +1724,7 @@
   /** Cómo se pagó, en palabras: «Crédito · 6 cuotas de $61.000», «Débito», «Con saldo». */
   function medioTexto(m) {
     const n = cuotasDe(m);
-    if (n) return T("Crédito · {n} cuotas de {c}", { n, c: esc(dinero(valorCuota(m), m.moneda || monedaPrincipal())) });
+    if (n) return T("Crédito · {n} cuotas de {c}", { n, c: dinero(valorCuota(m), m.moneda || monedaPrincipal()) });
     return { credito: T("Crédito"), debito: T("Débito"), saldo: T("Con saldo") }[m.medio] || "";
   }
   /** La categoría de un movimiento: icono y nombre corto en gris (un toque la cambia). Sin categoría: un «+» gris discreto. */
@@ -1719,7 +1732,7 @@
     const c = cat(m.categoria), falta = !m.categoria;
     if (LECTURA) return falta ? "" : `<span class="chip-cat solo-ver" data-sin-traducir><span aria-hidden="true">${esc(c.emoji)}</span><span class="n">${esc(nombreCat(c))}</span></span>`;
     return `<button type="button" class="chip-cat ${falta ? "falta" : ""}" id="chip-${esc(m.id)}" data-elegir="${esc(m.id)}" aria-haspopup="dialog"
-      aria-label="${falta ? esc(tr("Ponle categoría")) : T("Categoría: {c}. Cambiar", { c: esc(nombreCat(c)) })}" ${falta ? `title="${esc(tr("Ponle categoría"))}"` : ""} data-sin-traducir>${falta
+      aria-label="${falta ? esc(tr("Ponle categoría")) : T("Categoría: {c}. Cambiar", { c: nombreCat(c) })}" ${falta ? `title="${esc(tr("Ponle categoría"))}"` : ""} data-sin-traducir>${falta
         ? `<span class="mas-cat" aria-hidden="true">+</span>` : `<span aria-hidden="true">${esc(c.emoji)}</span><span class="n">${esc(nombreCat(c))}</span>`}</button>`;
   }
   /** Una fila de movimiento: el comercio legible a la izquierda (tocarlo muestra la descripción original), la categoría en gris
@@ -1774,7 +1787,7 @@
     const sug = categoriaSugerida(m);
     const botones = ops.map((c, i) => `<button type="button" class="op-cat ${c.id === m.categoria ? "actual" : ""} ${c.id === sug && !m.categoria ? "sugerida" : ""}" data-pick="${esc(c.id)}" data-lugar="${lugar}" ${c.id === sug && !m.categoria ? `title="La que sueles usar para este comercio"` : ""}>
         ${atajos && i < 9 ? `<kbd aria-hidden="true">${i + 1}</kbd>` : ""}<span class="e" aria-hidden="true">${esc(c.emoji)}</span><span class="n" data-sin-traducir>${esc(nombreCat(c))}</span></button>`).join("");
-    const crear = q && !exacta ? `<button type="button" class="op-cat crear" data-nueva-cat="${lugar}" data-con-nombre="1"><span class="e" aria-hidden="true">＋ ${sugerirEmoji(q)}</span><span class="n" data-sin-traducir>${T("Crear «{x}»", { x: esc(q) })}</span></button>`
+    const crear = q && !exacta ? `<button type="button" class="op-cat crear" data-nueva-cat="${lugar}" data-con-nombre="1"><span class="e" aria-hidden="true">＋ ${sugerirEmoji(q)}</span><span class="n" data-sin-traducir>${T("Crear «{x}»", { x: q })}</span></button>`
       : `<button type="button" class="op-cat nueva" data-nueva-cat="${lugar}"><span class="e" aria-hidden="true">＋</span><span class="n">Nueva</span></button>`;
     const nueva = k.nueva ? `<div class="nueva-cat" role="group" aria-label="Nueva categoría">
         <label class="campo"><span>Nombre de la categoría</span><input class="texto" id="${lugar}-nueva" data-nueva-nombre="${lugar}" maxlength="40" value="${esc(k.nueva.nombre)}" placeholder="${esc(tr("p. ej. Cine o Comida atípica"))}" data-sin-traducir></label>
@@ -1828,7 +1841,7 @@
     const c = { id: idNuevaCategoria(nombre), nombre, emoji: k.nueva?.emoji || sugerirEmoji(nombre), tipo: m.monto > 0 ? "ingreso" : "gasto" };
     E.categorias = [...E.categorias, c];
     host.enviar("categoriaNueva", { categoria: c, mes: mesDe(m.fecha), id: m.id });
-    toast(T("Creé «{c}»", { c: nombre }));
+    toast(Tp("Creé «{c}»", { c: nombre }));
     elegirCategoria(m, c.id, lugar, true);
   }
 
@@ -1897,8 +1910,8 @@
       html += filaMov(m, cuentas);
     }
     const c = f.categoria && f.categoria !== "__sin" ? cat(f.categoria) : null;
-    const hist = c && c.id ? `<section class="tarjeta"><div class="tarjeta-cabeza">${frase("Últimos 6 meses de {c}", { c: esc(nombreCat(c)) }, "h2")}</div>
-      ${bloqueHistoria(historia(E.movimientos, E.mes, E.hoy, E.presupuesto, E.categorias, c.id, 6, per()), T("Gasto en {c} de los últimos 6 meses", { c: esc(nombreCat(c)) }), true)}</section>` : "";
+    const hist = c && c.id ? `<section class="tarjeta"><div class="tarjeta-cabeza">${frase("Últimos 6 meses de {c}", { c: nombreCat(c) }, "h2")}</div>
+      ${bloqueHistoria(historia(E.movimientos, E.mes, E.hoy, E.presupuesto, E.categorias, c.id, 6, per()), T("Gasto en {c} de los últimos 6 meses", { c: nombreCat(c) }), true)}</section>` : "";
     const sinCat = E.movimientos.filter((m) => !m.categoria).length, soloSin = f.categoria === "__sin";
     return `<div class="contenido"><div class="encabezado"><h1>Movimientos</h1>${selectorMes()}</div>
       <div class="filtros"><input id="buscar" class="texto buscar" type="search" placeholder="${esc(tr("Buscar"))}" value="${esc(f.texto)}" data-filtro="texto" aria-label="${esc(tr("Buscar"))}" data-sin-traducir>
@@ -1919,7 +1932,7 @@
     if (!a || !cat(a.categoria).id) return "";
     const c = cat(a.categoria);
     return `<div class="aviso-regla" role="status"><p>${frase(a.parecidos ? (a.parecidos === 1 ? "¿Siempre {c} para «{r}»? También hay 1 parecido." : "¿Siempre {c} para «{r}»? También hay {n} parecidos.") : "¿Siempre {c} para «{r}»?",
-      { c: esc(c.emoji + " " + nombreCat(c)), r: esc(a.contiene), n: a.parecidos })}</p>
+      { c: c.emoji + " " + nombreCat(c), r: a.contiene, n: a.parecidos })}</p>
       <button class="boton principal" data-accion="aprender-si">Sí, siempre</button><button class="icono" data-accion="aprender-no" title="Solo este" aria-label="Solo este">✕</button></div>`;
   }
 
@@ -1930,8 +1943,8 @@
     const promedio = presupuestoSugerido(E.movimientos, completos, E.categorias, E.presupuesto.moneda, per());
     const filas = E.categorias.filter((c) => c.tipo === "gasto").map((c) => `<div class="fila-pres"><span class="emoji" aria-hidden="true">${esc(c.emoji)}</span>
       <div style="min-width:0"><b data-sin-traducir>${esc(c.nombre)}</b>
-        <small>${frase("Este mes: {x}", { x: esc(dinero(r.por_categoria[c.id] || 0)) })}${promedio[c.id] ? " · " + frase("Lo normal: {x}", { x: esc(dinero(promedio[c.id])) }) : ""}</small></div>
-      <input class="texto" inputmode="numeric" ${LECTURA ? "readonly" : ""} data-pres="${esc(c.id)}" value="${esc(numeroPlano(E.presEdit[c.id]))}" placeholder="${esc(tr("Sin tope"))}" aria-label="${T("Tope para {c}", { c: esc(c.nombre) })}" data-sin-traducir></div>`).join("");
+        <small>${frase("Este mes: {x}", { x: dinero(r.por_categoria[c.id] || 0) })}${promedio[c.id] ? " · " + frase("Lo normal: {x}", { x: dinero(promedio[c.id]) }) : ""}</small></div>
+      <input class="texto" inputmode="numeric" ${LECTURA ? "readonly" : ""} data-pres="${esc(c.id)}" value="${esc(numeroPlano(E.presEdit[c.id]))}" placeholder="${esc(tr("Sin tope"))}" aria-label="${T("Tope para {c}", { c: c.nombre })}" data-sin-traducir></div>`).join("");
     const total = Object.values(E.presEdit).filter((v) => v > 0).reduce((a, b) => a + b, 0);
     const cambio = JSON.stringify(limpiarPres(E.presEdit)) !== JSON.stringify(limpiarPres(E.presupuesto.mensual || {}));
     return `<div class="contenido">${volver("mas", "Más")}<div class="encabezado"><h1>Presupuesto mensual</h1>
@@ -1944,7 +1957,7 @@
   const limpiarPres = (p) => Object.fromEntries(Object.entries(p).filter(([, v]) => v > 0).sort());
 
   function vistaConsejos() {
-    const ia = esc(nombreIA());
+    const ia = nombreIA();
     const elegido = E.consejos.find((c) => c.fecha === E.consejoSel) || E.consejos[0];
     let cuerpo;
     if (E.pidiendoConsejos) {
@@ -2012,13 +2025,13 @@
   function textoEstado(i) {
     const ing = i.signo === "ingreso";
     if (i.estado === "pagado" && !ing && i.pago.mora) return T(i.pago.mora.dias === 1 ? "Pagado el {f} con 1 día de atraso · {x} de interés por mora" : "Pagado el {f} con {n} días de atraso · {x} de interés por mora",
-      { f: esc(fechaCorta(i.pago.fecha)), n: i.pago.mora.dias, x: esc(dinero(i.pago.mora.monto, i.moneda)) });
-    if (i.estado === "pagado") return T(ing ? "Llegó el {f}" : "Pagado el {f}", { f: esc(fechaCorta(i.pago.fecha)) });
+      { f: fechaCorta(i.pago.fecha), n: i.pago.mora.dias, x: dinero(i.pago.mora.monto, i.moneda) });
+    if (i.estado === "pagado") return T(ing ? "Llegó el {f}" : "Pagado el {f}", { f: fechaCorta(i.pago.fecha) });
     if (i.modo_pago === "automatico" && !ing) {
       // Se cobra solo: no se le pide nada a la persona, salvo si pasaron los días de gracia y el cargo no aparece.
       if (i.estado === "atrasado") return i.dias === 1 ? T("No vimos el cargo: venció ayer") : T("No vimos el cargo: venció hace {n} días", { n: i.dias });
       if (i.estado === "esperando") return T("Se paga solo · aún no aparece el cargo");
-      return T("Se paga solo el {f}", { f: esc(fechaCorta(i.vence)) });
+      return T("Se paga solo el {f}", { f: fechaCorta(i.vence) });
     }
     if (i.estado === "hoy") return T(ing ? "Llega hoy" : "Vence hoy");
     if (i.estado === "pendiente") return i.dias === 1 ? T(ing ? "Llega mañana" : "Vence mañana") : T(ing ? "Llega en {n} días" : "Vence en {n} días", { n: i.dias });
@@ -2043,10 +2056,10 @@
   }
   /** El detalle: «entre $465.000 y $495.000», «12,75 UF ≈ $490.000 – $506.000» o «12,75 UF (aún no sé cuánto es en pesos)». */
   function detalleMonto(x) {
-    if (x.original && x.original.sin_valor) return T("{u} (aún no sé cuánto es en pesos)", { u: esc(textoUF(x.original.monto)) });
+    if (x.original && x.original.sin_valor) return T("{u} (aún no sé cuánto es en pesos)", { u: textoUF(x.original.monto) });
     if (!x.rango) return "";
-    const a = esc(dinero(x.rango.min, x.moneda)), b = esc(dinero(x.rango.max, x.moneda));
-    return x.original ? T("{u} ≈ {a} – {b}", { u: esc(textoUF(x.original.monto)), a, b }) : T("entre {a} y {b}", { a, b });
+    const a = dinero(x.rango.min, x.moneda), b = dinero(x.rango.max, x.moneda);
+    return x.original ? T("{u} ≈ {a} – {b}", { u: textoUF(x.original.monto), a, b }) : T("entre {a} y {b}", { a, b });
   }
   /** «≈ $480.000 (entre $465.000 y $495.000)», «12,75 UF ≈ $490.000 – $506.000» o el monto exacto. */
   const montoLargo = (x) => (x.original ? detalleMonto(x) : x.rango ? `≈ ${esc(dinero(x.monto, x.moneda))} (${detalleMonto(x)})` : esc(dinero(x.monto, x.moneda)));
@@ -2063,7 +2076,7 @@
     const u = ufCfg() || {};
     return `<div class="dos"><label class="campo"><span>Valor de la UF hoy</span><input class="texto" id="uf-valor" inputmode="decimal" data-uf="valor" value="${esc(formatoDecimal(u.valor))}" placeholder="${esc(tr("p. ej. 39.500"))}" data-sin-traducir></label>
       <label class="campo"><span>Cuánto puede variar al mes (%)</span><input class="texto" id="uf-variacion" inputmode="decimal" data-uf="variacion_mensual" value="${esc(formatoDecimal(u.variacion_mensual ?? UF_MENSUAL))}" data-sin-traducir></label></div>
-      <p class="nota-mcp">${u.valor && u.fecha ? frase("Anotado el {f}. Cuando reconozca un pago en UF, uso el valor que sale de ese pago.", { f: esc(fechaCorta(u.fecha)) })
+      <p class="nota-mcp">${u.valor && u.fecha ? frase("Anotado el {f}. Cuando reconozca un pago en UF, uso el valor que sale de ese pago.", { f: fechaCorta(u.fecha) })
         : frase("Solo hace falta mientras no reconozca ningún pago en UF: después saco el valor de tus pagos. Es una estimación.", {})}</p>`;
   }
   const hayUF = () => listaCompromisos().some((c) => c.moneda === UF);
@@ -2079,8 +2092,8 @@
     else if (completa) acciones = `<button class="boton sutil" data-comp-desmarcar="${clave}">Desmarcar</button>`;
     const detalle = [textoEstado(i)];
     if (i.cuota) detalle.push(T("cuota {n} de {t}", { n: i.cuota.numero, t: i.cuota.total }));
-    if (completa && i.estado === "pagado" && i.pago.como === "automatico") detalle.push(T("lo reconocí en tu cartola: {d}", { d: esc(i.pago.descripcion) }));
-    if (i.anterior) detalle.push(T("de {m}", { m: esc(nombreMes(i.vence.slice(0, 7))) }));
+    if (completa && i.estado === "pagado" && i.pago.como === "automatico") detalle.push(T("lo reconocí en tu cartola: {d}", { d: i.pago.descripcion }));
+    if (i.anterior) detalle.push(T("de {m}", { m: nombreMes(i.vence.slice(0, 7)) }));
     // Pagado y reconocido: lo que de verdad se pagó. Si no, el monto (aproximado o en UF, con su rango al lado).
     const pagadoReal = i.estado === "pagado" && i.pago.como === "automatico" && (i.rango || i.original);
     if (!pagadoReal && (i.rango || i.original)) detalle.push(detalleMonto(i));
@@ -2091,9 +2104,9 @@
   }
   function textoFrecuencia(c) {
     if (c.frecuencia === "mensual") return T("el {d} de cada mes", { d: c.dia });
-    if (c.frecuencia === "semanal") return T("cada {d}", { d: esc(tr(DIAS_SEMANA[(c.dia || 1) - 1])) });
-    if (c.frecuencia === "anual") return T("cada año, el {f}", { f: esc(fechaCorta(c.fecha)) });
-    return T("una vez, el {f}", { f: esc(fechaCorta(c.fecha)) });
+    if (c.frecuencia === "semanal") return T("cada {d}", { d: tr(DIAS_SEMANA[(c.dia || 1) - 1]) });
+    if (c.frecuencia === "anual") return T("cada año, el {f}", { f: fechaCorta(c.fecha) });
+    return T("una vez, el {f}", { f: fechaCorta(c.fecha) });
   }
   /** «Lo que estás pagando»: todo junto, con el avance de las deudas y el total mensual comprometido. */
   function seccionLoQuePagas(e) {
@@ -2107,32 +2120,32 @@
       let extra = "";
       if (r.cuotas && r.tipo === "prestamo") {
         const pct = r.cuotas.total ? Math.round(r.cuotas.pagadas / r.cuotas.total * 100) : 0, debe = r.signo !== "ingreso";
-        const x = esc(dinero(r.por_pagar || 0, r.moneda)), p = esc(r.con || ""), cu = esc(dinero(r.monto, r.moneda));
+        const x = dinero(r.por_pagar || 0, r.moneda), p = r.con || "", cu = dinero(r.monto, r.moneda);
         const linea = r.cuotas.quedan === 0 ? T(debe ? "¡Le pagaste todo a {p}!" : "¡{p} te pagó todo!", { p })
           : [T(debe ? "Le debes {x} a {p}" : "{p} te debe {x}", { x, p }), T(debe ? "te quedan {q} de {t} cuotas de {c}" : "le quedan {q} de {t} cuotas de {c}", { q: r.cuotas.quedan, t: r.cuotas.total, c: cu }),
-            r.termina ? T(debe ? "terminas en {m}" : "termina en {m}", { m: esc(mesLargo(r.termina)) }) : ""].filter(Boolean).join(" · ");
+            r.termina ? T(debe ? "terminas en {m}" : "termina en {m}", { m: mesLargo(r.termina) }) : ""].filter(Boolean).join(" · ");
         extra = `<div class="avance-deuda"><div class="barra" role="img" data-sin-traducir aria-label="${T("{p}% pagado", { p: pct })}"><i style="width:${pct}%"></i></div><small data-sin-traducir>${linea}</small></div>`;
       } else if (r.cuotas) {
         const pct = r.cuotas.total ? Math.round(r.cuotas.pagadas / r.cuotas.total * 100) : 0;
         const linea = r.cuotas.quedan === 0 ? T("¡Pagaste las {t} cuotas!", { t: r.cuotas.total })
-          : T("Te quedan {q} de {t} cuotas", { q: r.cuotas.quedan, t: r.cuotas.total }) + (r.termina ? " · " + T("termina en {m}", { m: esc(mesLargo(r.termina)) }) : "");
+          : T("Te quedan {q} de {t} cuotas", { q: r.cuotas.quedan, t: r.cuotas.total }) + (r.termina ? " · " + T("termina en {m}", { m: mesLargo(r.termina) }) : "");
         extra = `<div class="avance-deuda"><div class="barra" role="img" data-sin-traducir aria-label="${T("{p}% pagado", { p: pct })}"><i style="width:${pct}%"></i></div>
-          <small data-sin-traducir>${linea}${r.por_pagar ? " · " + T(r.saldo ? "saldo que anotaste: {x}" : "quedan por pagar {x}", { x: (r.rango ? "≈ " : "") + esc(r.moneda === UF ? textoUF(r.por_pagar) : dinero(r.por_pagar, r.moneda)) }) : ""}</small></div>`;
+          <small data-sin-traducir>${linea}${r.por_pagar ? " · " + T(r.saldo ? "saldo que anotaste: {x}" : "quedan por pagar {x}", { x: (r.rango ? "≈ " : "") + (r.moneda === UF ? textoUF(r.por_pagar) : dinero(r.por_pagar, r.moneda)) }) : ""}</small></div>`;
       } else if (r.tipo === "deuda") {
-        extra = `<div class="avance-deuda"><small data-sin-traducir>${r.termina ? T("termina en {m}", { m: esc(mesLargo(r.termina)) }) + " · " : ""}${r.saldo ? T("saldo que anotaste: {x}", { x: esc(dinero(r.saldo, r.moneda)) }) + " · " : ""}<button class="enlace" data-comp-editar="${esc(r.id)}">${esc(tr("Anotar cuántas cuotas faltan"))}</button></small></div>`;
+        extra = `<div class="avance-deuda"><small data-sin-traducir>${r.termina ? T("termina en {m}", { m: mesLargo(r.termina) }) + " · " : ""}${r.saldo ? T("saldo que anotaste: {x}", { x: dinero(r.saldo, r.moneda) }) + " · " : ""}<button class="enlace" data-comp-editar="${esc(r.id)}">${esc(tr("Anotar cuántas cuotas faltan"))}</button></small></div>`;
       }
       const modo = r.modo_pago !== undefined ? r.modo_pago : modoPago(c, E.palabrasAuto || []);
       const etiqueta = modo ? `<span class="chip etiqueta-pago">${esc(tr(modo === "automatico" ? "Se paga solo" : "Pagas tú"))}</span> ` : "";
       return `<div class="pagando"><span class="emoji" aria-hidden="true">${iconoComp(r)}</span>
         <div class="txt"><b data-sin-traducir>${esc(r.nombre)}</b><small data-sin-traducir>${etiqueta}${r.rango !== undefined ? montoLargo(r) : esc(r.moneda === UF ? textoUF(r.monto) : dinero(r.monto, r.moneda))} ${textoFrecuencia(c)}</small>${extra}</div>
-        <button class="icono" data-comp-editar="${esc(r.id)}" data-sin-traducir title="${esc(tr("Editar"))}" aria-label="${T("Editar {c}", { c: esc(r.nombre) })}">✎</button></div>`;
+        <button class="icono" data-comp-editar="${esc(r.id)}" data-sin-traducir title="${esc(tr("Editar"))}" aria-label="${T("Editar {c}", { c: r.nombre })}">✎</button></div>`;
     };
     const pausados = listaCompromisos().filter((c) => c.activo === false);
     const bloques = GRUPOS_COMP.map(([g, titulo]) => {
       const l = e.compromisos.filter((c) => grupoDe(c) === g);
       if (!l.length) return "";
       const mios = l.filter((c) => c.moneda === moneda), sub = mios.reduce((a, c) => a + c.mensual, 0);
-      return `<h3 class="grupo con-total"><span>${titulo}</span>${sub ? `<span class="sub" data-sin-traducir>${T("{x} al mes", { x: (mios.some((c) => c.rango) ? "≈ " : "") + esc(dinero(sub)) })}</span>` : ""}</h3>${l.map(fila).join("")}`;
+      return `<h3 class="grupo con-total"><span>${titulo}</span>${sub ? `<span class="sub" data-sin-traducir>${T("{x} al mes", { x: (mios.some((c) => c.rango) ? "≈ " : "") + dinero(sub) })}</span>` : ""}</h3>${l.map(fila).join("")}`;
     }).join("");
     return `<h2 class="subtitulo">Lo que estás pagando</h2><section class="tarjeta">${bloques}
       ${pausados.length ? `<h3 class="grupo">En pausa</h3>${pausados.map((c) => fila({ ...c, mensual: 0, cuotas: null })).join("")}` : ""}
@@ -2141,7 +2154,7 @@
   }
   /** Una sugerencia (detectada en la cartola) en palabras: «Parece que pagas X cerca del día 15». */
   function textoSugerencia(s) {
-    const x = (s.aproximado ? "≈ " : "") + esc(dinero(s.monto, s.moneda)), m = esc(s.nombre);
+    const x = (s.aproximado ? "≈ " : "") + dinero(s.monto, s.moneda), m = s.nombre;
     if (s.motivo === "palabra") return frase(s.signo === "ingreso" ? "Recibiste **{x}** ({m}) el día {d} y parece algo que se repite." : "Pagaste **{x}** ({m}) el día {d} y parece un compromiso.", { x, m, d: s.dia });
     return frase(s.signo === "ingreso" ? "Parece que recibes **{x}** cerca del día {d}: {m}." : "Parece que pagas **{x}** cerca del día {d}: {m}.", { x, m, d: s.dia });
   }
@@ -2185,11 +2198,11 @@
   function lineaPropuesta(c) {
     const partes = [];
     if (c.tipo === "prestamo" && c.prestamo && c.cuotas_total) {
-      const m = (x) => esc(c.moneda === UF ? textoUF(x) : dinero(x, c.moneda));
+      const m = (x) => (c.moneda === UF ? textoUF(x) : dinero(x, c.moneda));
       partes.push(T(c.prestamo.ultima !== c.prestamo.cuota ? "{c} al mes por {n} meses (la última de {u})" : "{c} al mes por {n} meses",
         { c: m(c.prestamo.cuota), n: c.cuotas_total, u: m(c.prestamo.ultima) }));
       const o = primeraCuota(c);
-      if (o) partes.push(T("la primera el {f}", { f: esc(fechaCorta(o.vence)) }));
+      if (o) partes.push(T("la primera el {f}", { f: fechaCorta(o.vence) }));
     } else if (c.monto) partes.push((c.aproximado ? "≈ " : "") + esc(c.moneda === UF ? textoUF(c.monto) : dinero(c.monto, c.moneda)) + (c.frecuencia && (c.dia || c.fecha) ? " " + textoFrecuencia(c) : ""));
     const modo = pagaLaPersona(c) ? c.pago || modoPago(c, E.palabrasAuto || []) : null;
     if (modo) partes.push(T(modo === "automatico" ? "se paga solo" : "lo pagas tú y te aviso"));
@@ -2203,17 +2216,17 @@
    *  («Actualizar»). `x.espera`: hay una pregunta abierta en el mismo plan y las cifras pueden cambiar (sin botones aún). */
   function tarjetaPropuesta(m, a, i, c, j = null, x = {}) {
     const estado = estadoAccion(m, i, j), ref = { id: m.id, i, j };
-    const titulo = esc(c.nombre || (c.con ? T("Préstamo de {p}", { p: esc(c.con) }) : tr("Un pago nuevo")));
+    const titulo = esc(c.nombre || (c.con ? T("Préstamo de {p}", { p: c.con }) : tr("Un pago nuevo")));
     const icono = `<span class="emoji" aria-hidden="true">${iconoComp(c)}</span>`;
     if (x.parecido && !x.es && !estado) {
-      const p = x.parecido, mo = (v) => esc(c.moneda === UF ? textoUF(v) : dinero(v));
+      const p = x.parecido, mo = (v) => (c.moneda === UF ? textoUF(v) : dinero(v));
       const detalle = p.cuotas && p.cuotas.quedan ? T(p.cuotas.quedan === 1 ? "{c} al mes, queda 1 cuota" : "{c} al mes, quedan {n} cuotas", { c: mo(p.monto), n: p.cuotas.quedan })
         : T("{c} al mes", { c: mo(p.monto) });
       return `<div class="propuesta pregunta">${icono}<div class="txt"><b data-sin-traducir>${titulo}</b>
-        <small data-sin-traducir>${T("Ya tienes anotado «{n}» ({d}). ¿Es el mismo?", { n: esc(p.nombre), d: detalle })}</small></div>
+        <small data-sin-traducir>${Thtml("Ya tienes anotado «{n}» ({d}). ¿Es el mismo?", { n: esc(p.nombre), d: detalle })}</small></div>
         ${botonesChat(ref, [["mismo", tr("Es el mismo")], ["otro", tr("Es otro")]])}</div>`;
     }
-    const linea = a.incompleto && !x.actualiza ? T("Me faltó algo: complétalo y lo guardo.") : x.actualiza ? T("Lo actualizo: {x}", { x: lineaPropuesta(c) }) : lineaPropuesta(c);
+    const linea = a.incompleto && !x.actualiza ? T("Me faltó algo: complétalo y lo guardo.") : x.actualiza ? Thtml("Lo actualizo: {x}", { x: lineaPropuesta(c) }) : lineaPropuesta(c);
     const encontrado = j == null && a.encontrado && !x.actualiza ? `<small class="encontrado" data-sin-traducir>${lineaEncontrado(a.encontrado, c.moneda)}</small>` : "";
     const pie = estado ? hechoChat(estado) : x.espera ? "" : x.actualiza ? botonesChat(ref, [["hacer", tr("Actualizar"), true], ["cambiar", tr("Cambiar")], ["no", tr("No")]])
       : a.incompleto ? botonesChat(ref, [["cambiar", tr("Completar"), true], ["no", tr("No")]])
@@ -2223,18 +2236,18 @@
   }
   /** De dónde salió una propuesta que se completó con los movimientos (bin/chat.py, `encontrado`): solo cifras y fechas. */
   const lineaEncontrado = (e, moneda) => T("Lo encontré en tus movimientos: {x} cada mes, el día ~{d} (últimas: {f})",
-    { x: (e.aproximado ? "≈ " : "") + esc(dinero(e.monto, moneda)), d: esc(e.dia), f: (e.ultimas || []).map((f) => esc(fechaCorta(f))).join(", ") });
+    { x: (e.aproximado ? "≈ " : "") + dinero(e.monto, moneda), d: e.dia, f: (e.ultimas || []).map((f) => fechaCorta(f)).join(", ") });
   /** buscar_pago de algo que ya está anotado: sin botones, con su último pago reconocido. */
   function tarjetaAnotado(a) {
     const c = a.anotado, mo = (v) => esc(c.moneda === UF ? textoUF(v) : dinero(v, c.moneda));
-    const ultimo = c.ultimo ? T("El último pago que vi: {f} ({x}).", { f: esc(fechaCorta(c.ultimo.fecha)), x: esc(dinero(c.ultimo.monto)) }) : T("Aún no veo un pago reconocido.");
+    const ultimo = c.ultimo ? T("El último pago que vi: {f} ({x}).", { f: fechaCorta(c.ultimo.fecha), x: dinero(c.ultimo.monto) }) : T("Aún no veo un pago reconocido.");
     return `<div class="accion-chat sin-caja"><div class="propuesta resuelta"><span class="emoji" aria-hidden="true">${iconoComp(c)}</span>
       <div class="txt"><b data-sin-traducir>${esc(c.nombre)}</b><small data-sin-traducir>${mo(c.monto)} ${textoFrecuencia(c)}</small><small data-sin-traducir>${ultimo}</small></div></div></div>`;
   }
   /** Cuando la búsqueda en los movimientos decidió lo que pasó, la respuesta la armó el código (`busqueda`): aquí, en tu idioma. */
   function textoBusqueda(b) {
-    if (b.resultado === "encontre") return T("Lo encontré en tus movimientos: {n}, {x} el día {d}. ¿Lo agrego?", { n: esc(b.nombre), x: (b.aproximado ? "≈ " : "") + esc(dinero(b.monto)), d: esc(b.dia) });
-    if (b.resultado === "anotado") return T("Ya lo tienes anotado: «{n}».", { n: esc(b.nombre) });
+    if (b.resultado === "encontre") return T("Lo encontré en tus movimientos: {n}, {x} el día {d}. ¿Lo agrego?", { n: b.nombre, x: (b.aproximado ? "≈ " : "") + dinero(b.monto), d: b.dia });
+    if (b.resultado === "anotado") return T("Ya lo tienes anotado: «{n}».", { n: b.nombre });
     return T("No lo vi en tus movimientos de los últimos 12 meses. Si me dices cuánto es y qué día, lo anoto.");
   }
   /** «Es el mismo» y no hay nada que cambiar (o la propuesta venía incompleta): no se agrega otro. */
@@ -2255,10 +2268,10 @@
       const { plan: p, propuestas, mismos } = planElegido(m, a, i), n = p.meses, parecidos = a.parecidos || [];
       const abiertas = parecidos.filter((q, j) => q && !esMismo(m, i, j) && !estadoAccion(m, i, j)).length;
       const intro = p.alcanza === null ? T("Aún no tengo meses completos para saber cuánto te queda libre, así que te propongo {n} meses. Cuando tenga más datos, lo ajustamos.", { n })
-        : p.alcanza ? T("Te quedan libres cerca de {m} al mes. Uso como máximo {d} ({u}) y el resto te queda de colchón. Así terminas en {n} meses:", { m: x(p.margen), d: x(p.disponible), u: `<span class="monto-chat">${p.uso}${E.idioma === "es" ? "\u00a0%" : "%"}</span>`, n })
-          : p.margen <= 0 ? T("Hoy lo que gastas y tus compromisos ya suman más de lo que entra (te faltan {m} al mes). Te dejo la cuota más chica posible, pero para pagarla tendrías que recortar en otra parte:", { m: x(-p.margen) })
-            : T("Con lo que te queda libre (cerca de {m} al mes) no alcanza sin apretarte: aun en {n} meses serían {t} al mes, {f} más de lo que te recomiendo. Te dejo la propuesta más liviana; si puedes, conversa un plazo más largo:", { m: x(p.margen), n, t: x(p.al_mes), f: x(p.falta) });
-      const base = p.base && p.base.ingreso != null && p.base.gasto != null ? `<small class="base-plan" data-sin-traducir>${T("Entra {i} · gastas {g} · compromisos {c}", { i: x(p.base.ingreso), g: x(p.base.gasto), c: x(p.base.compromisos) })}</small>` : "";
+        : p.alcanza ? Thtml("Te quedan libres cerca de {m} al mes. Uso como máximo {d} ({u}) y el resto te queda de colchón. Así terminas en {n} meses:", { m: x(p.margen), d: x(p.disponible), u: `<span class="monto-chat">${p.uso}${E.idioma === "es" ? "\u00a0%" : "%"}</span>`, n })
+          : p.margen <= 0 ? Thtml("Hoy lo que gastas y tus compromisos ya suman más de lo que entra (te faltan {m} al mes). Te dejo la cuota más chica posible, pero para pagarla tendrías que recortar en otra parte:", { m: x(-p.margen) })
+            : Thtml("Con lo que te queda libre (cerca de {m} al mes) no alcanza sin apretarte: aun en {n} meses serían {t} al mes, {f} más de lo que te recomiendo. Te dejo la propuesta más liviana; si puedes, conversa un plazo más largo:", { m: x(p.margen), n, t: x(p.al_mes), f: x(p.falta) });
+      const base = p.base && p.base.ingreso != null && p.base.gasto != null ? `<small class="base-plan" data-sin-traducir>${Thtml("Entra {i} · gastas {g} · compromisos {c}", { i: x(p.base.ingreso), g: x(p.base.gasto), c: x(p.base.compromisos) })}</small>` : "";
       const pendientes = propuestas.filter((c, j) => !estadoAccion(m, i, j)).length;
       const todos = mismos.some((j) => !estadoAccion(m, i, j)) ? "Guardar los {n}" : "Agregar los {n}";
       return `<div class="accion-chat plan"><p data-sin-traducir>${intro}</p>${base}
@@ -2267,17 +2280,17 @@
     }
     if (a.tipo === "buscar_pago") return a.anotado ? tarjetaAnotado(a) : "";
     const nombre = esc(a.nombre), f = (v) => esc(fechaCorta(v));
-    if (a.tipo === "reasignar_pago") return caja(T("«{c}»: el pago del {f} ({x}) era del vencimiento del {a}. Lo paso ahí y el del {d} queda pendiente.",
+    if (a.tipo === "reasignar_pago") return caja(Thtml("«{c}»: el pago del {f} ({x}) era del vencimiento del {a}. Lo paso ahí y el del {d} queda pendiente.",
       { c: nombre, f: f(a.pago.fecha), x: x(a.pago.monto), a: f(a.a.vence), d: f(a.de.vence) }), [["hacer", tr("Sí, corrígelo"), true], no]);
-    if (a.tipo === "marcar_pagado") return caja(T(a.signo === "ingreso" ? "«{c}» (del {f}): ¿lo marco como recibido?" : "«{c}» (vence el {f}): ¿lo marco como pagado?",
+    if (a.tipo === "marcar_pagado") return caja(Thtml(a.signo === "ingreso" ? "«{c}» (del {f}): ¿lo marco como recibido?" : "«{c}» (vence el {f}): ¿lo marco como pagado?",
       { c: nombre, f: f(a.vence) }), [["hacer", tr("Sí, márcalo"), true], no]);
-    if (a.tipo === "marcar_pendiente") return caja(T("«{c}»: quito el pago del {f} y queda pendiente (vence el {v}).", { c: nombre, f: f(a.pago.fecha), v: f(a.vence) }),
+    if (a.tipo === "marcar_pendiente") return caja(Thtml("«{c}»: quito el pago del {f} y queda pendiente (vence el {v}).", { c: nombre, f: f(a.pago.fecha), v: f(a.vence) }),
       [["hacer", tr("Sí, déjalo pendiente"), true], no]);
     if (a.tipo === "editar_compromiso") {
       const valor = (k, v) => (v == null || v === "" ? "—" : k === "monto" ? x(v) : k === "pago" ? esc(tr(v === "automatico" ? "Se paga solo" : "Lo pago yo")) : k === "fecha_fin" ? f(v) : esc(v));
       const etiqueta = { monto: tr("Monto"), dia: tr("Día"), pago: tr("Cómo se paga"), fecha_fin: tr("Termina") };
       const cambios = Object.keys(a.cambios).map((k) => `${esc(etiqueta[k])}: ${valor(k, a.antes[k])} → <b>${valor(k, a.cambios[k])}</b>`).join(" · ");
-      return caja(T("«{c}»: {x}", { c: nombre, x: cambios }), [["hacer", tr("Sí, cámbialo"), true], ["cambiar", tr("Cambiar")], no]);
+      return caja(Thtml("«{c}»: {x}", { c: nombre, x: cambios }), [["hacer", tr("Sí, cámbialo"), true], ["cambiar", tr("Cambiar")], no]);
     }
     return "";
   }
@@ -2291,7 +2304,7 @@
   }
   /** «Cuéntale a Alcancía»: el chat con el chanchito. En celular ocupa toda la pantalla; el campo queda abajo, en la zona del pulgar. */
   function dialogoChat() {
-    const k = E.chat, ia = esc(nombreIA()), msgs = k.mensajes || [], conIA = hayIA();
+    const k = E.chat, ia = nombreIA(), msgs = k.mensajes || [], conIA = hayIA();
     const borrar = !msgs.length ? "" : k.confirmarBorrar
       ? `<span class="confirmar-borrar"><button class="boton sutil" data-accion="chat-no-borrar">Cancelar</button><button class="boton" data-accion="chat-borrar-si">Borrar la conversación</button></span>`
       : `<button class="boton sutil" data-accion="chat-borrar">Borrar</button>`;
@@ -2350,7 +2363,7 @@
         ${campoNum("saldo", c.saldo, tr("Saldo que te queda por pagar"))}</fieldset>` : "";
     const existe = listaCompromisos().some((x) => x.id === c.id);
     return `<h2 id="t-comp">${existe ? "Editar compromiso" : k.origen === "ia" ? "¿Quedó bien?" : "Nuevo compromiso"}</h2>
-      ${k.origen === "ia" ? frase("Así lo entendió {ia}. Revisa y corrige lo que haga falta antes de guardar.", { ia: esc(nombreIA()) }, "p") : ""}
+      ${k.origen === "ia" ? frase("Así lo entendió {ia}. Revisa y corrige lo que haga falta antes de guardar.", { ia: nombreIA() }, "p") : ""}
       <div class="campos-comp">
         <label class="campo ancho"><span>Nombre</span><input class="texto" id="ce-nombre" maxlength="60" data-ce="nombre" value="${esc(c.nombre)}" data-sin-traducir></label>
         <div class="dos"><label class="campo"><span>Tipo</span><select id="ce-tipo" data-ce="tipo" data-sin-traducir>${opc(TIPOS_COMP, c.tipo)}</select></label>
@@ -2393,12 +2406,12 @@
   }
   /** Préstamo entre personas: con quién, quién le prestó a quién, el total y en cuántas cuotas; el cálculo se ve en vivo. */
   function camposPrestamo(c) {
-    const k = calculoPrestamo(c), m = c.moneda, d = (x) => esc(m === UF ? textoUF(x) : dinero(x, m));
+    const k = calculoPrestamo(c), m = c.moneda, d = (x) => (m === UF ? textoUF(x) : dinero(x, m));
     let vivo = "";
     if (k) {
       vivo = T(k.ultima !== k.cuota ? "Son {n} cuotas de {c} (la última de {u})." : "Son {n} cuotas de {c}.", { n: k.cuotas, c: d(k.cuota), u: d(k.ultima) });
       if (k.interes) vivo += " " + T("En total se paga {t}.", { t: d(k.pagar) });
-      if (k.primera) vivo += " " + T(c.signo === "ingreso" ? "La primera el {f} y termina en {m}." : "La primera el {f} y terminas en {m}.", { f: esc(fechaCorta(k.primera)), m: esc(mesLargo(k.ultimaFecha)) });
+      if (k.primera) vivo += " " + T(c.signo === "ingreso" ? "La primera el {f} y termina en {m}." : "La primera el {f} y terminas en {m}.", { f: fechaCorta(k.primera), m: mesLargo(k.ultimaFecha) });
     }
     return `<div class="dos"><label class="campo"><span>¿Con quién?</span><input class="texto" id="ce-con" maxlength="30" data-ce="con" value="${esc(c.con)}" placeholder="${esc(tr("p. ej. Mamá"))}" data-sin-traducir></label>
         <label class="campo"><span>¿Quién le prestó a quién?</span><select id="ce-signo" data-ce="signo" data-sin-traducir>
@@ -2425,7 +2438,7 @@
     if (!c.preguntar_uf) return "";
     return `<fieldset class="preguntas"><legend>¿Se paga en UF? <small>(opcional)</small></legend>
       <label class="marcar"><input type="checkbox" data-ce-uf ${c.moneda === UF ? "checked" : ""}><span>Sí, el monto está en UF<small data-sin-traducir>${c.moneda === UF && c.montoPesos
-        ? T("Escribe cuántas UF son. Tu último pago fue de {x}: de ahí saco cuánto vale la UF.", { x: esc(dinero(c.montoPesos, monedaPrincipal())) })
+        ? T("Escribe cuántas UF son. Tu último pago fue de {x}: de ahí saco cuánto vale la UF.", { x: dinero(c.montoPesos, monedaPrincipal()) })
         : esc(tr("Así te muestro un rango en pesos que sigue a la UF."))}</small></span></label></fieldset>`;
   }
   /** En UF: cuánto sería en pesos con lo último que sé de la UF, o cómo lo voy a saber. */
@@ -2435,7 +2448,7 @@
     if (!ref || !monto) return `<p class="pista-campo">${frase("Es una estimación: saco el valor de la UF de tu primer pago reconocido, o puedes escribirlo en Ajustes.", {})}</p>`;
     const borr = { id: "_", moneda: UF, monto, aproximado: c.aproxActivo ? (c.aproxModo === "rango" ? { min: c.aproxMin || monto, max: c.aproxMax || monto } : { variacion: c.aproxVariacion || 0 }) : null };
     const x = enMoneda(borr, E.hoy, { _: ref }, monedaPrincipal(), (ufCfg() || {}).variacion_mensual ?? UF_MENSUAL);
-    return `<p class="pista-campo" data-sin-traducir>${T("Con la UF a {v}: {r}. Es una estimación.", { v: esc(dinero(ref.valor, monedaPrincipal())), r: detalleMonto(x) })}</p>`;
+    return `<p class="pista-campo" data-sin-traducir>${Thtml("Con la UF a {v}: {r}. Es una estimación.", { v: esc(dinero(ref.valor, monedaPrincipal())), r: detalleMonto(x) })}</p>`;
   }
   /** Lo que se va a guardar (o null y el error en el editor). Mismas reglas que compromisos.validar en Python. */
   function compromisoDelEditor(sinOpcionales) {
@@ -2536,11 +2549,11 @@
     const falta = ordenar(gastos.filter((i) => i.estado !== "pagado" && !seCobraSolo(i))), solos = ordenar(gastos.filter(seCobraSolo));
     const pagados = ordenar(gastos.filter((i) => i.estado === "pagado"));
     const aprox = e.total_max !== e.total || e.arrastre_max !== e.arrastre;
-    const resumenLinea = hay ? `<p class="linea-total" data-sin-traducir>${T("Este mes: {t} en pagos · pagado {p} · falta {f}", { t: (aprox ? "≈ " : "") + esc(dinero(e.total + e.arrastre)), p: esc(dinero(e.pagado)),
-        f: `<b>${e.aprox ? "≈ " : ""}${esc(dinero(e.pendiente))}</b>` })}${e.atrasado ? " · " + `<span class="rojo-txt">${T("{x} atrasado", { x: esc(dinero(e.atrasado)) })}</span>` : ""}</p>
-      ${enCurso && g.disponible != null ? `<p class="linea-maximo">${g.alcanza ? frase("Después de tus compromisos, este mes puedes gastar hasta **{x}** en lo variable.", { x: esc(dinero(g.disponible)) })
+    const resumenLinea = hay ? `<p class="linea-total" data-sin-traducir>${Thtml("Este mes: {t} en pagos · pagado {p} · falta {f}", { t: (aprox ? "≈ " : "") + esc(dinero(e.total + e.arrastre)), p: esc(dinero(e.pagado)),
+        f: `<b>${e.aprox ? "≈ " : ""}${esc(dinero(e.pendiente))}</b>` })}${e.atrasado ? " · " + `<span class="rojo-txt">${T("{x} atrasado", { x: dinero(e.atrasado) })}</span>` : ""}</p>
+      ${enCurso && g.disponible != null ? `<p class="linea-maximo">${g.alcanza ? frase("Después de tus compromisos, este mes puedes gastar hasta **{x}** en lo variable.", { x: dinero(g.disponible) })
         : frase("Este mes tus compromisos y gastos fijos suman más de lo que entra.", {})} <button class="enlace" data-vista="presupuesto">Ver el detalle</button></p>` : ""}` : "";
-    const listaMes = hay ? `<section class="seccion-pagos"><h2 class="titulo-seccion" data-sin-traducir>${falta.length ? T("Falta pagar en {m}", { m: esc(nombreMes(E.mes)) }) : T("En {m}", { m: esc(nombreMes(E.mes)) })}</h2>
+    const listaMes = hay ? `<section class="seccion-pagos"><h2 class="titulo-seccion" data-sin-traducir>${falta.length ? T("Falta pagar en {m}", { m: nombreMes(E.mes) }) : T("En {m}", { m: nombreMes(E.mes) })}</h2>
         ${falta.length ? falta.map((i) => filaCompromiso(i, true)).join("") : `<p class="al-dia ok"><span class="punto" aria-hidden="true"></span><span>${solos.length ? frase("**Estás al día.** Lo que queda se paga solo.", {}) : frase("**Estás al día.** Pagaste todo lo de este mes.", {})}</span></p>`}
         ${solos.length ? `<h3 class="grupo">Se paga solo</h3>${solos.map((i) => filaCompromiso(i, true)).join("")}` : ""}
         ${pagados.length ? `<h3 class="grupo">Pagado</h3>${pagados.map((i) => filaCompromiso(i, true)).join("")}` : ""}
@@ -2561,9 +2574,9 @@
     const cab = `<div class="tarjeta-cabeza"><h2>Gasto máximo sugerido</h2></div>`;
     if (g.ingreso == null) return `<section class="tarjeta maximo">${cab}<p class="texto-suave">Cuando sepa cuánto te entra al mes (anota tu sueldo en Pagos o agrega cartolas con tus ingresos), aquí te digo cuánto puedes gastar en lo variable.</p></section>`;
     const origen = g.fuente === "compromisos" ? tr("Según los ingresos que anotaste en Pagos.") : tr("Según el promedio de lo que te entró los últimos meses.");
-    const desglose = frase("Entra {i} · compromisos {c} · otros gastos fijos {f}", { i: esc(dinero(g.ingreso)), c: esc(dinero(g.compromisos)), f: esc(dinero(g.otros_fijos)) }, "small");
+    const desglose = frase("Entra {i} · compromisos {c} · otros gastos fijos {f}", { i: dinero(g.ingreso), c: dinero(g.compromisos), f: dinero(g.otros_fijos) }, "small");
     if (!g.alcanza) {
-      return `<section class="tarjeta maximo">${cab}<div class="ritmo ojo">🫶 ${frase("Este mes lo comprometido ({c}) es más de lo que entra ({i}): faltan {x}.", { c: esc(dinero(g.compromisos + g.otros_fijos)), i: esc(dinero(g.ingreso)), x: esc(dinero(-(g.disponible || 0))) })}</div>
+      return `<section class="tarjeta maximo">${cab}<div class="ritmo ojo">🫶 ${frase("Este mes lo comprometido ({c}) es más de lo que entra ({i}): faltan {x}.", { c: dinero(g.compromisos + g.otros_fijos), i: dinero(g.ingreso), x: dinero(-(g.disponible || 0)) })}</div>
         <p class="texto-suave">Respira: tenerlo claro ya es avanzar. Mira si algún compromiso se puede mover de fecha o si algún gasto fijo se puede bajar, y anota en Pagos lo que tengas claro.</p>
         <p class="pie-maximo">${desglose} <small data-sin-traducir>${esc(origen)}</small></p></section>`;
     }
@@ -2574,7 +2587,7 @@
         <span class="barra ${x.gastado > x.maximo ? "pasado" : x.gastado > x.maximo * 0.85 ? "ojo" : ""}"><i style="width:${pct.toFixed(1)}%"></i></span></div>`;
     }).join("");
     const aprox = estadoDelMes().aprox ? `<small data-sin-traducir>${esc(tr("Con los montos aproximados o en UF uso el máximo de cada uno, para que no te quedes corto."))}</small>` : "";
-    return `<section class="tarjeta maximo">${cab}<p class="maximo-cifra">${frase("Este mes puedes gastar hasta **{x}** en lo variable.", { x: esc(dinero(g.disponible)) })}</p>
+    return `<section class="tarjeta maximo">${cab}<p class="maximo-cifra">${frase("Este mes puedes gastar hasta **{x}** en lo variable.", { x: dinero(g.disponible) })}</p>
       <p class="pie-maximo">${desglose} <small data-sin-traducir>${esc(origen)}</small>${aprox}</p>
       ${filas ? `<p class="pista-cat">Máximo por categoría, según lo que gastas normalmente, y lo que llevas este mes:</p>${filas}
         <div class="pie-dialogo"><button class="boton" data-accion="usar-maximos">Usar estos máximos como topes</button></div>` : ""}</section>`;
@@ -2619,7 +2632,7 @@
   }
 
   function dialogoImportar() {
-    const im = E.importar, ia = esc(nombreIA());
+    const im = E.importar, ia = nombreIA();
     const cab = `<h2 id="t-importar">Agregar movimientos</h2>`;
     const cerrar = `<button class="boton" data-accion="cerrar-importar">Cancelar</button>`;
     const muestra = (lista) => `<table class="tabla-muestra" data-sin-traducir>${(lista || []).map((m) => `<tr><td>${esc(m.fecha)}</td><td>${esc(m.descripcion)}</td>
@@ -2627,20 +2640,20 @@
     switch (im.paso) {
       case "leyendo": case "aprendiendo": case "guardando": {
         const p = im.progreso;
-        const texto = im.paso === "leyendo" ? T("Leyendo {x}…", { x: esc(im.nombre) }) : im.paso === "aprendiendo" ? T("{ia} está aprendiendo a leer este archivo…", { ia }) : esc(p?.texto || tr("Guardando…"));
+        const texto = im.paso === "leyendo" ? T("Leyendo {x}…", { x: im.nombre }) : im.paso === "aprendiendo" ? T("{ia} está aprendiendo a leer este archivo…", { ia }) : esc(p?.texto || tr("Guardando…"));
         return `${cab}<div class="progreso"><p data-sin-traducir>${texto}</p><div class="barra ${p?.paso ? "" : "indef"}"><i style="width:${p?.paso ? Math.round(p.paso / p.total * 100) : 0}%"></i></div>
           ${p?.paso ? `<small>${frase("Paso {n} de {t}", { n: p.paso, t: p.total })}</small>` : ""}</div>`;
       }
       case "vista": {
         const v = im.vista;
-        return `${cab}<p>${frase("Encontré **{n} movimientos** de {b}, del {d} al {h}.", { n: v.total, b: esc(v.receta.institucion || v.receta.nombre), d: esc(v.desde), h: esc(v.hasta) })}</p>
+        return `${cab}<p>${frase("Encontré **{n} movimientos** de {b}, del {d} al {h}.", { n: v.total, b: v.receta.institucion || v.receta.nombre, d: v.desde, h: v.hasta })}</p>
           ${muestra(v.muestra)}
           <label class="marcar"><input type="checkbox" data-importar-ia ${im.ia ? "checked" : ""}><span>${frase("Que {ia} ponga las categorías que falten", { ia })}<small>Usa tu propia cuenta. Solo ve la descripción y el monto de cada movimiento.</small></span></label>
           ${(v.avisos || []).length ? `<details class="texto-suave" style="color:var(--suave);font-size:12.5px"><summary>${frase("{n} filas no eran movimientos", { n: v.avisos.length })}</summary><ul data-sin-traducir>${v.avisos.map((a) => `<li>${esc(a)}</li>`).join("")}</ul></details>` : ""}
           <div class="pie-dialogo">${cerrar}<button class="boton principal" data-accion="importar-guardar">Agregar</button></div>`;
       }
       case "sin_receta":
-        return `${cab}<p>${frase("Todavía no sé leer «{x}». Pasa con bancos nuevos: cada uno arma su cartola a su manera.", { x: esc(im.nombre) })}</p>
+        return `${cab}<p>${frase("Todavía no sé leer «{x}». Pasa con bancos nuevos: cada uno arma su cartola a su manera.", { x: im.nombre })}</p>
           <div class="candado"><span class="grande-ico" aria-hidden="true">🧠</span><div>${frase("{ia} puede mirar las primeras filas y aprender a leerlo. Después te muestro cómo quedó antes de guardar nada.", { ia })}</div></div>
           ${im.error ? `<p class="error-txt" data-sin-traducir>${esc(im.error)}</p>` : ""}
           <div class="pie-dialogo">${cerrar}<button class="boton principal" data-accion="aprender-receta">${frase("Que {ia} aprenda a leerlo", { ia })}</button></div>`;
@@ -2684,7 +2697,7 @@
       <div class="seccion"><h3>General</h3>
         <div class="fila"><div class="txt"><b>Idioma de la app</b></div><select data-config="idioma_ui"><option value="es" ${E.idioma === "es" ? "selected" : ""}>Español</option><option value="en" ${E.idioma === "en" ? "selected" : ""}>English</option></select></div>
         <div class="fila"><div class="txt"><b>Carpeta de tus datos</b><small data-sin-traducir>${esc(E.carpeta)}</small></div><button class="boton" data-accion="abrir-carpeta">Abrir</button></div></div>
-      <div class="seccion"><h3>Acerca de Alcancía</h3><p style="margin:0 0 8px;color:var(--suave)">${frase("Alcancía {v} · Gratis y de código abierto (AGPL-3.0).", { v: esc(E.version) })}</p>
+      <div class="seccion"><h3>Acerca de Alcancía</h3><p style="margin:0 0 8px;color:var(--suave)">${frase("Alcancía {v} · Gratis y de código abierto (AGPL-3.0).", { v: E.version })}</p>
         <div class="fila"><div class="txt"><b>Actualizaciones</b><small>${E.buscando === "buscando" ? "Buscando…" : E.buscando === "alDia" ? "Estás en la última versión." : E.buscando === "sinConexion" ? "No pude revisar: ¿hay internet?" : E.actualizacion?.hay ? "Hay una versión nueva." : "Alcancía revisa sola cada 6 horas."}</small></div>
           ${E.actualizacion?.hay ? `<button class="boton principal" data-accion="actualizar">Actualizar</button>` : `<button class="boton" data-accion="buscar-act" ${E.buscando === "buscando" ? "disabled" : ""}>Buscar actualizaciones</button>`}</div>
         <div class="enlaces"><a href="#" data-enlace="${ENLACES.sitio}">Sitio web</a><a href="#" data-enlace="${ENLACES.codigo}">Código</a><a href="#" data-enlace="${ENLACES.comunidad}">Comunidad</a></div></div>
@@ -3102,9 +3115,9 @@
     host.enviar("saldo", { cuenta, monto, fecha: E.hoy });
     E.saldoEdit = null;
     const dif = antes && antes.saldo != null ? monto - antes.saldo : null;
-    E.saldoAviso = dif == null ? { cuadra: true, texto: T("Listo: desde hoy sigo tus movimientos en {c}.", { c: esc(c.nombre) }) }
-      : Math.abs(dif) < 1 ? { cuadra: true, texto: T("✓ Cuadra con lo que yo calculaba para {c}.", { c: esc(c.nombre) }) }
-        : { cuadra: false, texto: T(dif > 0 ? "Había una diferencia de {x} (tienes más de lo que yo calculaba): puede ser plata que entró y no veo, como una devolución o un traspaso. Desde ahora parto de lo que me dijiste." : "Había una diferencia de {x} (tienes menos de lo que yo calculaba): puede ser plata en Reservas o movimientos que no veo. Desde ahora parto de lo que me dijiste.", { x: esc(dinero(Math.abs(dif))) }) };
+    E.saldoAviso = dif == null ? { cuadra: true, texto: T("Listo: desde hoy sigo tus movimientos en {c}.", { c: c.nombre }) }
+      : Math.abs(dif) < 1 ? { cuadra: true, texto: T("✓ Cuadra con lo que yo calculaba para {c}.", { c: c.nombre }) }
+        : { cuadra: false, texto: T(dif > 0 ? "Había una diferencia de {x} (tienes más de lo que yo calculaba): puede ser plata que entró y no veo, como una devolución o un traspaso. Desde ahora parto de lo que me dijiste." : "Había una diferencia de {x} (tienes menos de lo que yo calculaba): puede ser plata en Reservas o movimientos que no veo. Desde ahora parto de lo que me dijiste.", { x: dinero(Math.abs(dif)) }) };
     render();
   }
   /** Guarda el idioma por el mismo camino que Ajustes y sigue con la bienvenida, ya en ese idioma. */
@@ -3317,14 +3330,14 @@
       if (r.ok) {
         const c = E.conectores.find((x) => x.id === r.conector);
         E.conectar = null; E.conexiones[r.conector] = { conectado: true }; E.sincronizando[r.conector] = true;
-        toast(T("{s} conectado. Trayendo tus movimientos…", { s: c ? c.nombre : "" }));
+        toast(Tp("{s} conectado. Trayendo tus movimientos…", { s: c ? c.nombre : "" }));
       } else Object.assign(E.conectar, { enviando: false, error: r.error || tr("No se pudo conectar.") });
       render();
     },
     sincronizado(r) {
       delete E.sincronizando[r.conector];
-      if (r.ok && (r.detectados || []).length) toast(T(r.detectados.length === 1 ? "Encontré 1 pago que parece un compromiso: revísalo en Pagos" : "Encontré {n} pagos que parecen compromisos: revísalos en Pagos", { n: r.detectados.length }));
-      if (r.ok && r.nuevos) toast(T(r.nuevos === 1 ? "1 movimiento nuevo de {s}" : "{n} movimientos nuevos de {s}", { n: r.nuevos, s: r.nombre || "" }));
+      if (r.ok && (r.detectados || []).length) toast(Tp(r.detectados.length === 1 ? "Encontré 1 pago que parece un compromiso: revísalo en Pagos" : "Encontré {n} pagos que parecen compromisos: revísalos en Pagos", { n: r.detectados.length }));
+      if (r.ok && r.nuevos) toast(Tp(r.nuevos === 1 ? "1 movimiento nuevo de {s}" : "{n} movimientos nuevos de {s}", { n: r.nuevos, s: r.nombre || "" }));
       else if (r.ok && !r.esperando && r.manual) toast("Todo al día");
       render();
     },
@@ -3336,8 +3349,8 @@
       render();
     },
     importadoSolo(r) {
-      for (const x of r.importados || []) toast(T(x.nuevos === 1 ? "Agregué tu cartola de {b}: 1 movimiento nuevo" : "Agregué tu cartola de {b}: {n} movimientos nuevos", { b: x.institucion, n: x.nuevos }));
-      if ((r.sin_receta || []).length) toast(T("Descargaste «{x}», pero todavía no sé leerla. Agrégala a mano y tu IA aprende.", { x: r.sin_receta[0] }));
+      for (const x of r.importados || []) toast(Tp(x.nuevos === 1 ? "Agregué tu cartola de {b}: 1 movimiento nuevo" : "Agregué tu cartola de {b}: {n} movimientos nuevos", { b: x.institucion, n: x.nuevos }));
+      if ((r.sin_receta || []).length) toast(Tp("Descargaste «{x}», pero todavía no sé leerla. Agrégala a mano y tu IA aprende.", { x: r.sin_receta[0] }));
     },
     // ── Alcancía en tu celular ──
     /** Mac: después de mandar el estado, la app pide la copia (Celular.swift). Se arma con lo que acaba de llegar (paraCelular), se cifra
