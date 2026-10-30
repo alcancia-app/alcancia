@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import compromisos  # noqa: E402
 import datos  # noqa: E402
 import ia  # noqa: E402
+import tu_ia  # noqa: E402
 
 LARGO_MAXIMO = 500
 
@@ -138,7 +139,9 @@ def main(texto, hoy):
     ids = {c["id"] for c in categorias}
     respuesta, error = ia.preguntar(prompt(texto, hoy, categorias, moneda), timeout=180)
     if error:
-        return {"ok": False, "error": ia.frase(error) + " Mientras, puedes completarlo aquí.", "codigo": error["codigo"], "parcial": {}}
+        r = tu_ia.respuesta(error, parcial={})
+        r["error"] += " Mientras, puedes completarlo aquí."
+        return r
     propuesta = leer_json(respuesta)
     if propuesta is None:
         return {"ok": False, "error": f"{ia.nombre()} no respondió con un compromiso. Complétalo aquí y guárdalo.", "parcial": {}}

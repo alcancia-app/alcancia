@@ -5,6 +5,7 @@ import re
 
 import datos
 import ia
+import tu_ia
 
 #: Comercios muy comunes por categoría (en mayúsculas y sin tildes). La comunidad los amplía por país.
 #: Lo más largo se revisa primero: «UBER EATS» es comida antes de que «UBER» sea transporte.
@@ -92,7 +93,7 @@ def por_ia(movimientos, categorias, lote=120):
         parte = faltan[i:i + lote]
         texto, fallo = ia.preguntar(prompt_ia(parte, categorias))
         if fallo:
-            error = ia.frase(fallo)
+            error = tu_ia.frase(fallo)
             break
         for j, cat in leer_respuesta(texto, len(parte), ids).items():
             parte[j]["categoria"] = cat

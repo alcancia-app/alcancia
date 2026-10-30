@@ -27,7 +27,7 @@ BASE = os.environ.get("ALCANCIA_CARPETA") or os.path.join(os.path.expanduser("~"
 INTERNO = os.path.join(BASE, ".alcancia")
 MOVIMIENTOS = os.path.join(BASE, "movimientos")
 CONSEJOS = os.path.join(BASE, "consejos")
-#: La pieza «nucleo» guarda la config en su carpeta de datos: con «datos»: «visible» en app.json es ~/Alcancia/.alcancia, la de
+#: La pieza «nucleo» guarda la config en su carpeta de datos: app.json dice ~/Alcancia/.alcancia («datos»: {«carpeta»}), la de
 #: siempre. Si ALCANCIA_CARPETA cambia la carpeta (pruebas, desarrollo), la de nucleo la sigue (ALCANCIA_DATOS).
 if os.environ.get("ALCANCIA_CARPETA"):
     os.environ.setdefault("ALCANCIA_DATOS", INTERNO)

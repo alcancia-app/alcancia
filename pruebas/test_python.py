@@ -2220,8 +2220,7 @@ class Piezas(unittest.TestCase):
         r = subprocess.run([sys.executable, "-c", codigo], cwd=RAIZ, env=env, capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout.split(), [os.path.join(casa, "Alcancia", ".alcancia")] * 2)
-        if os.name != "nt":
-            self.assertEqual(os.stat(os.path.join(casa, "Alcancia", ".alcancia")).st_mode & 0o777, 0o700)
+        self.assertFalse(os.path.exists(os.path.join(casa, "Alcancia")), "solo leer no crea carpetas")
         import nucleo
         self.assertEqual(nucleo.carpeta_datos(), datos.INTERNO, "con ALCANCIA_CARPETA (pruebas), nucleo la sigue")
 
@@ -2244,7 +2243,7 @@ class Piezas(unittest.TestCase):
         self.assertEqual(permitidas, set(app["config"]), "Config.permitidas (Swift) = claves simples de app.json")
         self.assertFalse(set(datos.CONFIG_OBJETOS) & set(app["config"]))
         self.assertEqual(app["id"], "alcancia")
-        self.assertEqual((app["nombre"], app["datos"]), ("Alcancia", "visible"), "= ~/Alcancia/.alcancia")
+        self.assertEqual((app["nombre"], app["datos"], app["privado"]), ("Alcancía", {"carpeta": "~/Alcancia/.alcancia"}, True))
 
     def test_app_json_va_dentro_de_la_app(self):
         sh = _leer(os.path.join(RAIZ, "herramientas", "empaquetar.sh"))

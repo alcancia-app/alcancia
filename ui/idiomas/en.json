@@ -1009,6 +1009,8 @@
     "{ia} no respondió. {detalle}": "{ia} didn't answer. {detalle}",
     "No conozco esa IA.": "I don't know that AI.",
     "Idioma": "Language",
-    "Actualiza {ia} para usarla con {app}: tu versión no conoce las protecciones que necesitamos.": "Update {ia} to use it with {app}: your version doesn't know the protections we need."
+    "Actualiza {ia} para usarla con {app}: tu versión no conoce las protecciones que necesitamos.": "Update {ia} to use it with {app}: your version doesn't know the protections we need.",
+    "No encontré {ia} en este computador.": "I couldn't find {ia} on this computer.",
+    "{ia} no respondió.": "{ia} didn't answer."
   }
 }

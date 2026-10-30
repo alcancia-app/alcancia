@@ -1,7 +1,10 @@
 {
- "nombre": "Alcancia",
+ "nombre": "Alcancía",
  "id": "alcancia",
- "datos": "visible",
+ "datos": {
+  "carpeta": "~/Alcancia/.alcancia"
+ },
+ "privado": true,
  "icono": "docs/favicon.svg",
  "plataformas": [
   "mac",
