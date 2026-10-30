@@ -1733,6 +1733,15 @@ class Mora(unittest.TestCase):
         self.assertIn("12320 en intereses por atraso", consejos.linea_compromisos("2026-10-26", datos.leer_todos(), {"moneda": "CLP"},
                                                                                 datos.categorias(), compromisos.validos(None, "2026-10-26", "CLP")))
 
+    def test_una_sola_expresion_para_todas_las_palabras(self):
+        # _patron_mora junta las palabras en una expresión: tiene que decir lo mismo que revisarlas una por una.
+        palabras = compromisos.palabras_mora("CL") + ["INT.MORA", "late fee"]
+        patron = compromisos._patron_mora(palabras)
+        for desc, esperado in [("INT. MORA DIVIDENDO", True), ("INT-MORA CREDITO", True), ("Late-Fee card", True),
+                               ("MORADA DEL SOL", False), ("SUPERMERCADO EJEMPLO", False), ("", False), (None, False)]:
+            self.assertEqual(compromisos._es_mora({"descripcion": desc}, patron), esperado, desc)
+            self.assertEqual(compromisos._es_mora({"descripcion": desc}, palabras), esperado, desc)
+
     def test_categoria_nueva_en_un_categorias_json_de_antes(self):
         datos.escribir_json(os.path.join(datos.BASE, "categorias.json"), [{"id": "comida", "nombre": "Comida", "emoji": "🍔", "tipo": "gasto"}])
         ids = [c["id"] for c in datos.categorias()]
