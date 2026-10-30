@@ -71,8 +71,26 @@ def main():
 <meta property="og:url" content="https://alcancia-app.github.io/alcancia/conectar.html">
 <meta property="og:title" content="Que tus movimientos lleguen solos a Alcancía">
 <meta property="og:description" content="Conexiones oficiales con una llave que creas tú, la carpeta de descargas y tu propia IA por MCP.">
+<meta property="og:locale" content="es_CL"><meta property="og:locale:alternate" content="en_US">
 <meta property="og:image" content="https://alcancia-app.github.io/alcancia/img/compartir.png">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{{
+ "@context": "https://schema.org",
+ "@type": "TechArticle",
+ "headline": "Conectar tus cuentas a Alcancía sin la clave del banco",
+ "description": "Conexiones oficiales con una llave que creas tú (Mercado Pago, PayPal, Stripe, Buda.com, SimpleFIN, Up, Akahu), la carpeta de descargas y tu propia IA por MCP.",
+ "inLanguage": "es",
+ "url": "https://alcancia-app.github.io/alcancia/conectar.html",
+ "image": "https://alcancia-app.github.io/alcancia/img/compartir.png",
+ "isPartOf": {{
+  "@type": "WebSite",
+  "name": "Alcancía",
+  "url": "https://alcancia-app.github.io/alcancia/"
+ }}
+}}
+</script>
 {estilo}
 </head>
 <body>
