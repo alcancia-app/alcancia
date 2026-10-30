@@ -379,3 +379,7 @@ read-only local MCP server lets your own AI (Claude, ChatGPT/Codex, Gemini) answ
 [build from source](#instalar-en-mac-desde-el-código) (`bash build.sh`, macOS 15; no signed release yet) · **iPhone and Android:**
 [build from source](movil/README.md) (phase 1, read-only) · **Windows and Linux:** coming. Questions and ideas are welcome in
 [Discussions](https://github.com/alcancia-app/alcancia/discussions), in English or Spanish; see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
+
+[![Hecho con Pieza](https://pieza-app.github.io/pieza/sello.svg)](https://pieza-app.github.io/pieza/) · Las piezas comunes (tu IA, idiomas, actualizaciones…) viven en [Pieza](https://github.com/pieza-app/pieza).
