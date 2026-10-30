@@ -398,11 +398,17 @@
   }
   const sinPuntos = (t) => normalizar(String(t || "").replace(/[.\-_/]/g, " "));
   const escRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const esMora = (m, palabras) => { const d = sinPuntos(m.descripcion); return palabras.some((p) => new RegExp(`(?<![A-Z0-9])${escRe(sinPuntos(p))}(?![A-Z0-9])`).test(d)); };
+  // Una sola expresión para todas las palabras (igual que compromisos._patron_mora): armarla por palabra y movimiento era lo más lento.
+  const patronMora = (palabras) => new RegExp(`(?<![A-Z0-9])(?:${palabras.map((p) => escRe(sinPuntos(p))).join("|")})(?![A-Z0-9])`);
   function moras(ocs, pagos, movimientos, moneda, uf, palabras, usados) {
     const porId = new Map(movimientos.map((m) => [m.id, m]));
-    const cargos = palabras.length ? movimientos.filter((m) => m.monto < 0 && !usados.has(m.id) && esMora(m, palabras))
-      .sort((a, b) => (a.fecha !== b.fecha ? (a.fecha < b.fecha ? -1 : 1) : a.id < b.id ? -1 : a.id > b.id ? 1 : 0)) : [];
+    let cargos = null; // se buscan recién cuando hay un pago atrasado: casi siempre no hay ninguno
+    const buscarCargos = () => {
+      if (!palabras.length) return [];
+      const patron = patronMora(palabras);
+      return movimientos.filter((m) => m.monto < 0 && !usados.has(m.id) && patron.test(sinPuntos(m.descripcion)))
+        .sort((a, b) => (a.fecha !== b.fecha ? (a.fecha < b.fecha ? -1 : 1) : a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    };
     const tomados = new Set();
     for (const [c, o] of ocs) {
       const p = pagos[`${c.id}|${o.periodo}`];
@@ -412,6 +418,7 @@
       const m = porId.get(p.movimiento), t = tope(c, uf);
       let extra = t && m && -m.monto > t[1] + 1e-9 ? -m.monto - t[0] : 0;
       const mon = m ? m.moneda || moneda : moneda;
+      cargos ??= buscarCargos();
       const cerca = cargos.filter((x) => !tomados.has(x.id) && Math.abs(dnum(x.fecha) - dnum(p.fecha)) <= 7 && (x.moneda || moneda) === mon);
       const lejos = (x) => Math.abs(dnum(x.fecha) - dnum(p.fecha));
       const cargo = cerca.sort((a, b) => lejos(a) - lejos(b) || (a.fecha !== b.fecha ? (a.fecha < b.fecha ? -1 : 1) : a.id < b.id ? -1 : 1))[0];
