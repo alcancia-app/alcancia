@@ -105,7 +105,8 @@ html[data-host="mac"] .contenido { padding-top: 44px; }
 
 /* ───────────── Botones (pieza «componentes»: .pz-boton) ─────────────
    En Alcancía todo botón mide 44 px (también en escritorio: la misma interfaz va al celular) y «plano» es el gris discreto. */
-.pz-boton { min-height: 44px; padding: 0 16px; font-weight: 600; }
+:root { --pz-boton-alto: 44px; }
+.pz-boton { padding: 0 16px; font-weight: 600; }
 .pz-boton.pz-plano { color: var(--texto-suave); padding: 0 10px; }
 .pz-boton.pz-plano:hover { color: var(--texto); }
 .pz-boton.grande { width: 100%; font-size: 16px; }
@@ -359,7 +360,7 @@ input.texto:focus, select:focus, textarea.texto:focus { outline: 2px solid var(-
 .comp-fila .txt small, .sugerencia .txt small, .pagando .txt small { display: block; color: var(--texto-suave); font-size: 13px; overflow-wrap: anywhere; }
 .comp-fila .valor { font-weight: 600; text-align: right; white-space: nowrap; }
 .comp-fila .acciones { grid-column: 3; justify-content: flex-end; }
-.comp-fila .pz-boton, .sugerencia .pz-boton, .aprendi-fila .pz-boton, .pendiente-fila .pz-boton, .al-dia .pz-boton { min-height: 44px; padding: 0 12px; font-size: 14px; }
+.comp-fila .pz-boton, .sugerencia .pz-boton, .aprendi-fila .pz-boton, .pendiente-fila .pz-boton, .al-dia .pz-boton { padding: 0 12px; font-size: 14px; }
 .comp-fila .pz-boton:not(.pz-plano) { background: transparent; }
 .sugerencia .acciones { grid-column: 2; justify-content: flex-start; }
 .comp-fila .punto { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; background: var(--tenue); }
@@ -422,7 +423,7 @@ input.texto:focus, select:focus, textarea.texto:focus { outline: 2px solid var(-
 .propuesta .txt small.encontrado { margin-top: 4px; }
 .propuesta.pregunta .acciones-chat .pz-boton { flex: 1 1 0; }
 .acciones-chat { display: flex; flex-wrap: wrap; gap: 8px; }
-.acciones-chat .pz-boton { min-height: 44px; padding: 0 14px; font-size: 14px; }
+.acciones-chat .pz-boton { padding: 0 14px; font-size: 14px; }
 .accion-estado { margin: 0; font-size: 13px; color: var(--texto-suave); font-weight: 600; }
 .accion-estado.hecha { color: var(--texto); }
 .resuelta .txt b, .accion-chat.resuelta > p { color: var(--texto-suave); }
@@ -458,7 +459,7 @@ input.texto:focus, select:focus, textarea.texto:focus { outline: 2px solid var(-
 .opcion-pago:has(input:checked) { border-color: var(--acento); background: var(--acento-suave); }
 .opcion-pago:has(input:focus-visible) { outline: 2px solid var(--acento); outline-offset: 2px; }
 .etiqueta-pago { display: inline-block; margin-right: 4px; vertical-align: 1px; font-size: 11px; padding: 0 7px; line-height: 18px; }
-.calculo-vivo { padding: 12px 0; border-top: 1px solid var(--linea); border-bottom: 1px solid var(--linea); line-height: 1.5; }
+.calculo-vivo { margin: 0; color: var(--texto); padding: 12px 0; border-top: 1px solid var(--linea); border-bottom: 1px solid var(--linea); line-height: 1.5; }
 .aprox-campos { display: grid; gap: 12px; margin: -2px 0 4px; }
 .monto-moneda { display: grid; grid-template-columns: minmax(0, 1fr) 7.5em; gap: 8px; }
 .detectados { border-top: 1px solid var(--linea); margin-top: 16px; padding-top: 16px; }
@@ -548,7 +549,7 @@ input.texto:focus, select:focus, textarea.texto:focus { outline: 2px solid var(-
 .interruptor input:focus-visible + .visual { outline: 2px solid var(--acento); outline-offset: 2px; }
 .pasos-conectar { padding-left: 20px; line-height: 1.6; margin: 4px 0 12px; } .pasos-conectar li { margin-bottom: 4px; }
 .pasos-conectar code { font-size: 12px; background: var(--fondo); padding: 1px 4px; border-radius: 4px; overflow-wrap: anywhere; }
-.nota-conector { font-size: 13px; color: var(--texto-suave); line-height: 1.5; border-left: 2px solid var(--linea); padding: 4px 12px; }
+.nota-conector { margin: 0; font-size: 13px; color: var(--texto-suave); line-height: 1.5; border-left: 2px solid var(--linea); padding: 4px 12px; }
 .campos-conectar { display: grid; gap: 12px; margin: 16px 0; }
 .entrada { width: 100%; min-height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--linea); background: var(--fondo); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
 
@@ -575,24 +576,15 @@ input.texto:focus, select:focus, textarea.texto:focus { outline: 2px solid var(-
 /* ───────────── Diálogos (pieza «componentes»: .pz-dialogo, hoja desde abajo en celular) ───────────── */
 .pz-dialogo { width: min(600px, 100%); }
 .pz-dialogo h2 { font-size: 20px; letter-spacing: -.01em; }
-.pz-dialogo p, .pz-dialogo .texto-suave { line-height: 1.55; }
-.pz-dialogo > p, .pz-dialogo .texto-suave { margin: 0 0 16px; }
-/* La pieza pone margen y gris a todo <p> de un diálogo: lo propio de Alcancía vuelve a lo suyo. */
-.pz-dialogo .nota-idioma { margin: 16px 0 0; }
-.pz-dialogo .pista-campo { margin: -4px 0 0; }
-.pz-dialogo .nota-mcp, .pz-dialogo .pista-sueldo { margin: 12px 0 0; }
-.pz-dialogo .detectados > .texto-suave { margin: 0 0 4px; }
-.pz-dialogo .calculo-vivo { margin: 0; color: var(--texto); }
-.pz-dialogo .nota-conector { margin: 0; }
+:where(.pz-dialogo) p, :where(.pz-dialogo) .texto-suave { line-height: 1.55; }
+/* Con :where(), así las clases propias (.nota-idioma, .pista-campo…) dicen su margen sin tener que repetirlo aquí. */
+:where(.pz-dialogo) > p, :where(.pz-dialogo) .texto-suave { margin: 0 0 16px; }
 /* La bienvenida: las rayitas del avance arriba del título. */
 .dialogo-bv { display: flex; flex-direction: column; }
 .dialogo-bv .pasos-bv { order: -1; }
 .seccion { margin-bottom: 24px; }
 .seccion h3 { font-size: 13px; color: var(--texto-suave); margin-bottom: 4px; font-weight: 650; }
-/* Regla de color: un solo botón naranjo por pantalla. En «Tu IA» probar es secundario (la acción principal es la del pie) y los
-   enlaces van en el color del texto, como el resto de Alcancía. */
-[data-pz-probar-ia].pz-principal { background: var(--panel); border-color: var(--linea); color: var(--texto); }
-[data-pz-probar-ia].pz-principal:hover { background: var(--hover); }
+/* Regla de color: los enlaces van en el color del texto, como el resto de Alcancía (el naranjo queda para la acción principal). */
 .pz-enlace { color: var(--texto); font-weight: 600; text-decoration-color: var(--tenue); text-underline-offset: 3px; }
 .pz-enlace:hover { text-decoration-color: currentColor; }
 .fila.envuelve { flex-wrap: wrap; row-gap: 8px; }
@@ -643,7 +635,6 @@ input.texto:focus, select:focus, textarea.texto:focus { outline: 2px solid var(-
 .dos { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .campo { display: grid; gap: 4px; }
 .campo > span { font-size: 13px; font-weight: 600; color: var(--texto-suave); }
-.pz-dialogo .error-txt, .pz-dialogo p.error-txt { color: var(--rojo); }
 .editor-comp > h2 { margin-bottom: 8px; }
 
 /* ───────────── Más ancho: dos columnas donde ayuda ───────────── */

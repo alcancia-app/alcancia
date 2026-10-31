@@ -6,6 +6,10 @@ Lo que cambia para quien usa Alcancía, en palabras simples. Las versiones anter
 
 ## Sin publicar · Unreleased
 
+- Antes de borrar un pago que se repite (o de desconectar el celular), Alcancía te pregunta, con «Cancelar» ya elegido: un Enter
+  apurado no borra nada. Lo mismo al borrar la conversación con Alcancía.
+  *Before deleting a recurring payment (or disconnecting your phone), Alcancía asks you, with «Cancel» already selected: a hurried
+  Enter deletes nothing. The same when you delete your conversation with Alcancía.*
 - **Apariencia:** en Ajustes eliges si Alcancía se ve clara, oscura o como el sistema (también en el celular).
   *Appearance: in Settings you choose whether Alcancía looks light, dark or matches your system (on your phone too).*
 - Los diálogos se manejan mejor con el teclado: el foco queda adentro, Esc o tocar fuera los cierra y vuelves a donde estabas.

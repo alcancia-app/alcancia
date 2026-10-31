@@ -54,7 +54,7 @@
   const retenidos = [];
   const ui = PiezaComponentes.crear({
     i18n, host, app: "Alcancía", repo: "alcancia-app/alcancia",
-    get version() { return E.version; },
+    version: () => E.version,
     pintar: () => render(),
     cerrar: () => cerrarDialogo(),
     retener: (texto, o) => { if (E.bv !== 0) return false; retenidos.push([texto, o]); return true; },
@@ -1176,14 +1176,14 @@
     if (k.paso === "carpeta") {
       return { titulo, cuerpo: `<p>Tu Mac deja una copia de tus números, cerrada con candado, en una carpeta de tu nube. Tu celular la lee desde ahí.</p>
         <div class="candado"><span class="grande-ico" aria-hidden="true">☁️</span><div><b>Elige una carpeta de tu nube</b><br>Una que también veas en el celular: iCloud Drive, Google Drive, OneDrive o Dropbox.</div></div>
-        ${error}`, pie: `${cerrar}<button class="pz-boton pz-principal" data-accion="celular-carpeta" data-autofoco>Elegir carpeta</button>` };
+        ${error}`, pie: `${cerrar}<button class="pz-boton pz-principal" data-accion="celular-carpeta">Elegir carpeta</button>` };
     }
     if (k.paso === "listo") {
       return { titulo, cuerpo: `<p data-sin-traducir>🎉 ${T("Listo: tu copia está en **{c}**.", { c: k.carpeta?.nombre || E.celular.nombre || "" })}</p>
         <div class="pasos-vacio"><div><b>1</b><span>Instala Alcancía en tu celular.</span></div>
           <div><b>2</b><span data-sin-traducir>${T("Toca «Elegir el archivo» y busca «{a}» en esa carpeta.", { a: ARCHIVO_CELULAR })}</span></div>
           <div><b>3</b><span>Escribe tu frase.</span></div></div>`,
-        pie: `<button class="pz-boton pz-principal" data-accion="celular-cerrar" data-autofoco>Listo</button>` };
+        pie: `<button class="pz-boton pz-principal" data-accion="celular-cerrar">Listo</button>` };
     }
     const f = C.fuerzaFrase(k.frase), problema = C.revisarFrase(k.frase), creando = k.paso === "creando";
     const carpeta = k.carpeta ? `<p data-sin-traducir>${Thtml("Carpeta: {c}", { c: `<b>${esc(k.carpeta.nombre)}</b>${k.carpeta.nube ? " · " + esc(k.carpeta.nube) : ""}` })} <button class="enlace" data-accion="celular-carpeta">${esc(tr("Cambiar"))}</button></p>
@@ -1931,8 +1931,6 @@
 
   /** Versión nueva: aviso discreto arriba (nunca una alerta del sistema) con la fila de la pieza «componentes» («Actualizar ahora»
    *  y, al actualizar, «Paso n de 3» con su barra). «Después» lo esconde hasta la próxima vez que se revise. En el celular, nada. */
-  /** Lo que manda la app de una versión nueva (`detalle`: la versión y sus notas) en la forma de la pieza (`notas`). */
-  const conNotas = (r) => (r ? { ...r, notas: r.notas ?? r.detalle ?? "" } : r);
   function avisoActualizacion() {
     if (LECTURA) return "";
     const enCurso = ui.act.estado && typeof ui.act.estado === "object";
@@ -2819,7 +2817,8 @@
       case "agregar-contar": case "abrir-chat": E.agregar = "contar"; E.chat.bajar = true; E.chat.confirmarBorrar = false; render(); return ($("#chat-texto") || $('.dialogo-chat [data-accion="chat-ajustes"]'))?.focus();
       case "chat-enviar": return enviarChat();
       case "chat-ajustes": E.agregar = null; E.ajustes = true; return render();
-      case "chat-borrar": E.chat.confirmarBorrar = true; render(); return $('[data-accion="chat-borrar-si"]')?.focus();
+      // Borrar no se deshace: el foco queda en «Cancelar» (un Enter apurado no borra).
+      case "chat-borrar": E.chat.confirmarBorrar = true; render(); return $('[data-accion="chat-no-borrar"]')?.focus();
       case "chat-no-borrar": E.chat.confirmarBorrar = false; return render();
       case "chat-borrar-si": E.chat = { ...E.chat, mensajes: [], confirmarBorrar: false }; host.enviar("chat", { accion: "borrar" }); toast("Conversación borrada"); render(); return $("#chat-texto")?.focus();
       case "cerrar-agregar": E.agregar = null; render(); return $(".nav-agregar")?.focus();
@@ -2874,9 +2873,13 @@
         if (E.importar && E.importar.paso === "compromiso") E.importar.paso = "listo";
         E.compEdit = null; return render();
       case "comp-borrar": {
-        const id = E.compEdit?.c?.id;
-        E.compromisos.compromisos = listaCompromisos().filter((x) => x.id !== id);
-        host.enviar("compromiso", { accion: "borrar", id }); E.compEdit = null; toast("Compromiso borrado"); return render();
+        const id = E.compEdit?.c?.id, nombre = E.compEdit?.c?.nombre || "";
+        // Antes de borrar, la pieza pregunta con el foco en «Cancelar».
+        return ui.confirmar({ titulo: "¿Borrar «{n}»?", valores: { n: nombre }, texto: "Sale de tus pagos. Tus movimientos no cambian.", si: "Borrar", peligro: true }).then((si) => {
+          if (!si || E.compEdit?.c?.id !== id) return;
+          E.compromisos.compromisos = listaCompromisos().filter((x) => x.id !== id);
+          host.enviar("compromiso", { accion: "borrar", id }); E.compEdit = null; toast("Compromiso borrado"); render();
+        });
       }
       case "sug-todas": E.sugTodas = !E.sugTodas; return render();
       case "agrupar-mov": E.agruparMov = !E.agruparMov; E.grupoMov = null; render(); return $('[data-accion="agrupar-mov"]')?.focus();
@@ -2900,7 +2903,11 @@
       case "traer-elegir": E.ajustes = false; E.traer = { ...E.traer, error: "", frase: "" }; host.enviar("traer", { accion: "elegir" }); return render();
       case "traer-releer": host.enviar("traer", { accion: "releer" }); return toast("Buscando la copia más nueva…");
       case "traer-olvidar": host.enviar("traer", { accion: "olvidar" }); E.celular = { ...E.celular, recordada: false }; toast("Listo: te la pido la próxima vez"); return render();
-      case "traer-desconectar": host.enviar("traer", { accion: "desconectar" }); E.ajustes = false; return render();
+      case "traer-desconectar":
+        return ui.confirmar({ titulo: "¿Desconectar este teléfono?", texto: "Borra de aquí la copia, el permiso para leer el archivo y la frase. En tu Mac no cambia nada.", si: "Desconectar", peligro: true }).then((si) => {
+          if (!si) return;
+          host.enviar("traer", { accion: "desconectar" }); E.ajustes = false; render();
+        });
     }
   });
   document.addEventListener("input", (ev) => {
@@ -3221,7 +3228,7 @@
       if (!E.chat.pensando) E.chat.mensajes = mezclarChat(Array.isArray(e.chat) ? e.chat : [], E.chat.mensajes);
       if (!E.presupuesto.moneda) E.presupuesto.moneda = E.config.moneda || "CLP";
       // La versión nueva que ya se conoce (Actualizaciones.disponible): la fila de la pieza la muestra en Ajustes y arriba.
-      if (!LECTURA) ui.act.disponible = e.actualizacion?.hay ? conNotas(e.actualizacion) : null;
+      if (!LECTURA) ui.actualizacionDisponible(e.actualizacion, { pintar: false });
       tema.aplicar(tema.elegir({ config: E.config.tema }));
       sueldoSolo();
       E._per = undefined;
@@ -3275,7 +3282,7 @@
       else E.errorConsejos = r.error || tr("No se pudieron crear los consejos.");
       render();
     },
-    actualizacionRevisada(r) { if (r.hay) E.actOculto = false; ui.actualizacionRevisada(conNotas(r)); },
+    actualizacionRevisada(r) { if (r.hay) E.actOculto = false; ui.actualizacionRevisada(r); },
     actualizacionProgreso: (a) => ui.actualizacionProgreso(a),
     conectado(r) {
       if (!E.conectar || E.conectar.id !== r.conector) return;

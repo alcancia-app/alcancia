@@ -1036,6 +1036,12 @@
     "Incluir la versión de la app, el idioma y el sistema": "Include the app version, language and system",
     "Ayuda a entender el contexto. Nunca se incluye nada tuyo.": "It helps us understand the context. Nothing of yours is ever included.",
     "Abrir en GitHub": "Open in GitHub",
-    "Se abrió GitHub: revisa y publica": "GitHub is open: review and post"
+    "Se abrió GitHub: revisa y publica": "GitHub is open: review and post",
+    "Detuviste a {ia}.": "You stopped {ia}.",
+    "Revisar de nuevo": "Check again",
+    "Hay cambios nuevos en el código de {app}": "There are new changes in {app}'s code",
+    "¿Borrar «{n}»?": "Delete “{n}”?",
+    "Sale de tus pagos. Tus movimientos no cambian.": "It leaves your payments. Your transactions don't change.",
+    "¿Desconectar este teléfono?": "Disconnect this phone?"
   }
 }

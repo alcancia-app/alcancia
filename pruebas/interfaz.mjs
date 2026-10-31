@@ -147,7 +147,7 @@ const VISTAS = [
   ["celular-cambiar-frase", "E=>{E.celularConfig={paso:'frase',frase:'',entiendo:false,error:'',cambiar:true,carpeta:{nombre:'Alcancía',nube:'Google Drive',enNube:true}}}"],
   ["celular-creando", "E=>{E.celularConfig.paso='creando'}"],
   ["celular-listo", "E=>{E.celularConfig.paso='listo'}"],
-  ["actualizacion", "E=>{E.celularConfig=null;E.celular={};E.ajustes=false;E.vista='resumen';window.Alcancia.actualizacionRevisada({hay:true,detalle:'Versión 0.2.0\\n• Algo nuevo'})}"],
+  ["actualizacion", "E=>{E.celularConfig=null;E.celular={};E.ajustes=false;E.vista='resumen';window.Alcancia.actualizacionRevisada({hay:true,version:'0.2.0',desarrollo:false,detalle:'Versión 0.2.0\\n• Algo nuevo',notas:'Versión 0.2.0\\n• Algo nuevo'})}"],
   ["actualizando", "E=>{window.Alcancia.actualizacionProgreso({paso:'2',texto:'Preparando la versión nueva…',pct:40,total:3})}"],
   ["ajustes-actualizando", "E=>{E.ajustes=true}"],
   ["actualizacion-error", "E=>{E.ajustes=false;window.Alcancia.actualizacionProgreso({paso:'error',texto:'x',total:3})}"],
@@ -873,6 +873,7 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     await p.click('.nav-agregar');
     await p.click('.pz-dialogo [data-accion="agregar-contar"]');
     await p.click('[data-accion="chat-borrar"]');
+    if ((await p.evaluate(() => document.activeElement?.dataset.accion)) !== "chat-no-borrar") falla(`al preguntar si borrar la conversación, el foco queda en «Cancelar» ${donde}`);
     await p.click('[data-accion="chat-borrar-si"]');
     if ((await p.$$(".msg.persona")).length) falla(`«Borrar la conversación» la deja vacía ${donde}`);
     await p.evaluate(() => window.Alcancia._probar((E) => { E.config.ia = ""; }));
@@ -1053,14 +1054,18 @@ for (const [modo, opciones] of [["escritorio", { viewport: { width: 1200, height
   // Actualizaciones: buscar y quedar al día.
   await p.click('[data-pz-act="buscar"]');
   await p.waitForFunction(() => document.querySelector(".pz-act")?.textContent.includes("Estás en la última versión"), null, { timeout: 4000 }).catch(() => falla(`buscar actualizaciones dice que está al día ${donde}`));
-  // Apariencia: oscuro y claro se aplican al tiro (data-tema) y vuelven a «Como el sistema».
+  // Una versión nueva (la forma que manda el Mac: con `version`) dice «Hay una versión nueva», no «cambios en el código».
+  const act = await p.evaluate(() => { window.Alcancia.actualizacionRevisada({ hay: true, version: "9.9.9", desarrollo: false, detalle: "Versión 9.9.9", notas: "Versión 9.9.9" }); return document.querySelector(".pz-dialogo .pz-act")?.textContent || ""; });
+  if (!act.includes("Hay una versión nueva") || act.includes("código")) falla(`una versión nueva se anuncia como tal ${donde}: ${act.slice(0, 80)}`);
+  await p.evaluate(() => window.Alcancia.actualizacionRevisada({ hay: false }));
+  // Apariencia: oscuro y claro se aplican al tiro (data-pz-modo) y vuelven a «Como el sistema».
   await p.click('[data-pz-tema="oscuro"]');
-  const oscuro = await p.evaluate(() => [document.documentElement.dataset.tema, getComputedStyle(document.body).backgroundColor]);
+  const oscuro = await p.evaluate(() => [document.documentElement.dataset.pzModo, getComputedStyle(document.body).backgroundColor]);
   await p.click('[data-pz-tema="claro"]');
-  const claro = await p.evaluate(() => [document.documentElement.dataset.tema, getComputedStyle(document.body).backgroundColor]);
+  const claro = await p.evaluate(() => [document.documentElement.dataset.pzModo, getComputedStyle(document.body).backgroundColor]);
   if (oscuro[0] !== "oscuro" || claro[0] !== "claro" || oscuro[1] === claro[1]) falla(`«Apariencia» cambia entre oscuro y claro ${donde}: ${oscuro} / ${claro}`);
   await p.click('[data-pz-tema="sistema"]');
-  if (await p.evaluate(() => "tema" in document.documentElement.dataset)) falla(`«Como el sistema» deja de fijar el tema ${donde}`);
+  if (await p.evaluate(() => "pzModo" in document.documentElement.dataset)) falla(`«Como el sistema» deja de fijar el tema ${donde}`);
   // Esc cierra y el foco vuelve a quien lo abrió.
   await p.keyboard.press("Escape");
   if (await p.$(".pz-dialogo")) falla(`Esc cierra Ajustes ${donde}`);
@@ -1084,10 +1089,20 @@ for (const [modo, opciones] of [["escritorio", { viewport: { width: 1200, height
   if (await p.$(".pz-dialogo [data-pz-cerrar]")) falla("la bienvenida no lleva ✕ (se sale con «Lo hago después»)");
   // ?tema= fija el tema en la vista previa (capturas).
   await p.goto(BASE + "?tema=oscuro"); await p.waitForSelector(".nav");
-  if ((await p.evaluate(() => document.documentElement.dataset.tema)) !== "oscuro") falla("?tema=oscuro fija el modo oscuro");
+  if ((await p.evaluate(() => document.documentElement.dataset.pzModo)) !== "oscuro") falla("?tema=oscuro fija el modo oscuro");
+  // Borrar un compromiso pregunta antes, con el foco en «Cancelar»; Esc no borra y «Borrar» sí.
+  await p.goto(BASE + "?idioma=es"); await p.waitForSelector(".nav");
+  const antes = await p.evaluate(() => { let n = 0; window.Alcancia._probar((E) => { const c = E.compromisos.compromisos[1]; n = E.compromisos.compromisos.length; E.compEdit = { c: { ...c, buscarTexto: c.buscar.join(", ") }, origen: "manual", error: "" }; }); return n; });
+  await p.click('[data-accion="comp-borrar"]'); await p.waitForSelector('[data-pz-confirmar="si"]');
+  if ((await p.evaluate(() => document.activeElement?.dataset.pzConfirmar)) !== "no") falla("al borrar un compromiso, el foco queda en «Cancelar»");
+  await p.keyboard.press("Escape");
+  const cuenta = () => p.evaluate(() => { let n = 0; window.Alcancia._probar((E) => { n = E.compromisos.compromisos.length; }); return n; });
+  if ((await cuenta()) !== antes || !(await p.$('[data-accion="comp-borrar"]'))) falla("Esc al preguntar no borra el compromiso");
+  await p.click('[data-accion="comp-borrar"]'); await p.click('[data-pz-confirmar="si"]');
+  if ((await cuenta()) !== antes - 1) falla("«Borrar» borra el compromiso");
   await p.close();
 }
-console.log("  ✓ Piezas de interfaz: foco y Esc en los diálogos, Tu IA con {ia}, actualizaciones, Apariencia y avisos en cola");
+console.log("  ✓ Piezas de interfaz: foco y Esc en los diálogos, Tu IA con {ia}, actualizaciones, Apariencia, avisos en cola y «Cancelar» primero al borrar");
 
 {
   // Seguridad: lo que viene de afuera (la descripción de una transferencia, el nombre o emoji de una categoría, lo que responde la IA)

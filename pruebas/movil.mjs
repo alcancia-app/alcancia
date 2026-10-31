@@ -224,6 +224,13 @@ await paso("Desconectar este teléfono: vuelve a «Trae tus datos» sin copia, l
   await p.waitForFunction(() => window._celular.pendientes.length > 0, null, { timeout: 4000 });
   await p.evaluate(() => window.Alcancia._probar((E) => { E.ajustes = true; }));
   await p.click('[data-accion="traer-desconectar"]');
+  // Pregunta antes (con el foco en «Cancelar»: un Enter apurado no borra nada).
+  await p.waitForSelector('[data-pz-confirmar="si"]');
+  if ((await p.evaluate(() => document.activeElement?.dataset.pzConfirmar)) !== "no") falla("al desconectar, el foco debe quedar en «Cancelar»");
+  await p.keyboard.press("Escape");
+  if (!(await p.$('[data-accion="traer-desconectar"]')) || (await guardadoDe(p)).llave === null) falla("«Cancelar» no desconecta");
+  await p.click('[data-accion="traer-desconectar"]');
+  await p.click('[data-pz-confirmar="si"]');
   await p.waitForSelector('[data-accion="traer-elegir"]');
   await p.waitForFunction(() => !window._celular.pendientes.length, null, { timeout: 3000 }).catch(() => {});
   const g = await guardadoDe(p);

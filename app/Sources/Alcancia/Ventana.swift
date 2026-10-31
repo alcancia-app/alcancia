@@ -279,9 +279,11 @@ final class Ventana: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNavig
                 Ventana.shared.llamar("mcpListo", x)
             }
         case "buscarActualizacion":
-            Actualizaciones.revisar { hay, detalle in
-                // `notas` es la forma de la pieza «componentes» (la fila de actualización); `detalle` queda por compatibilidad.
-                Ventana.shared.llamar("actualizacionRevisada", ["hay": hay, "detalle": detalle, "notas": hay ? detalle : "", "sinConexion": detalle == Actualizaciones.sinConexion])
+            Actualizaciones.revisar { _, detalle in
+                // La forma de la pieza «componentes» (`notas`, `version`, `desarrollo`); `detalle` queda por compatibilidad.
+                var r = Actualizaciones.disponible
+                r["sinConexion"] = detalle == Actualizaciones.sinConexion
+                Ventana.shared.llamar("actualizacionRevisada", r)
             }
         case "actualizar":
             // Nunca en medio de una importación: cerrar la app la cortaría.
