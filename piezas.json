@@ -73,6 +73,30 @@
     "permisos": {},
     "red": []
    }
+  },
+  "red": {
+   "version": "0.1.0",
+   "archivos": {
+    "bin/red.py": "892915b116140652f6dbca023b315af37595cd3f0930b60a1c28b85c1c40e46a"
+   },
+   "ficha": {
+    "requiere": [
+     "nucleo"
+    ],
+    "permisos": {},
+    "red": []
+   }
+  },
+  "cifrado": {
+   "version": "0.1.0",
+   "archivos": {
+    "ui/cifrado.js": "af338088d2ebb97dcd043e65419762d350951fd7c810ae39eaa9e60a7b192b61"
+   },
+   "ficha": {
+    "requiere": [],
+    "permisos": {},
+    "red": []
+   }
   }
  }
 }

@@ -248,7 +248,7 @@ y **nada se aplica solo**: lo que propone aparece como una tarjeta («Agregar»,
 ### Copia para el celular
 <a id="copia-celular"></a>
 `Alcancia-celular.alcancia`, en la carpeta de tu nube que elegiste en el Mac (Ajustes → «Alcancía en tu celular»). Es un JSON
-(versión 1) que se abre con cualquier biblioteca estándar de AES-GCM; el código está en [`ui/copia.js`](ui/copia.js):
+(versión 1) que se abre con cualquier biblioteca estándar de AES-GCM; el código está en [`ui/copia.js`](ui/copia.js) y la pieza «cifrado» ([`ui/cifrado.js`](ui/cifrado.js)):
 ```
 {"alcancia": "copia-celular", "version": 1,
  "kdf": {"alg": "PBKDF2-SHA256", "iteraciones": 600000, "sal": "<16 bytes, base64>"},
@@ -256,7 +256,8 @@ y **nada se aplica solo**: lo que propone aparece como una tarjeta («Agregar»,
  "verificador": {"iv": "<12 bytes>", "datos": "<«alcancia» cifrado, AAD «alcancia:celular:verificador»>"},
  "datos": {"iv": "<12 bytes, nuevo en cada escritura>", "datos": "<contenido cifrado + etiqueta de 16 bytes, AAD «alcancia:celular:1»>"}}
 ```
-- **La llave** = PBKDF2-SHA256(frase en NFC, sal, 600.000 vueltas) → 32 bytes. La frase la eliges una vez (12 caracteres o más) y
+- **La llave** = PBKDF2-SHA256(frase en NFC, sal, 600.000 vueltas) → 64 bytes: los primeros 32 son la llave AES (los mismos
+  que daba la versión anterior, que derivaba solo 32; una llave guardada de 32 bytes sigue sirviendo). La frase la eliges una vez (12 caracteres o más) y
   **no se guarda en ninguna parte**: el Mac guarda en su Llavero la llave ya derivada, y el celular, solo si marcas «Recordarla en
   este teléfono», en su Llavero (iOS) o cifrada con el Keystore (Android). Al abrir no se aceptan menos de 100.000 vueltas.
 - **El verificador** permite decir «la frase no es la correcta» sin tocar los datos. Cualquier cambio en el archivo (o un archivo

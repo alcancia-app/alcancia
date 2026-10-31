@@ -1084,7 +1084,7 @@
   }
 
   // ───────────── Alcancía en tu celular ─────────────
-  // En el Mac: Ajustes → «Alcancía en tu celular» deja una copia cifrada (ui/copia.js) en una carpeta de la nube de la persona.
+  // En el Mac: Ajustes → «Alcancía en tu celular» deja una copia cifrada (ui/copia.js sobre la pieza «cifrado») en una carpeta de la nube de la persona.
   // En el celular: «Traer tus datos» la abre con la frase y la interfaz queda solo para mirar (LECTURA).
   const ARCHIVO_CELULAR = (window.AlcanciaCopia && window.AlcanciaCopia.ARCHIVO) || "Alcancia-celular.alcancia";
   /** «Copia de tu Mac: hace 2 h» (en el celular) */
@@ -1201,10 +1201,10 @@
     if (!k || k.paso === "creando") return;
     k.paso = "creando"; k.error = ""; render();
     try {
-      const { cabecera, raw } = await window.AlcanciaCopia.nuevaCabecera(k.frase);
+      const { cabecera, llaves } = await window.AlcanciaCopia.nuevaCabecera(k.frase);
       k.frase = "";
-      host.enviar("celular", { accion: "activar", llave: raw, cabecera });
-    } catch (e) { k.paso = "frase"; k.error = e.message || tr("No pude crear la copia."); render(); }
+      host.enviar("celular", { accion: "activar", llave: llaves.raw, cabecera });
+    } catch (e) { k.paso = "frase"; k.error = e && e.codigo ? window.AlcanciaCopia.mensaje(e) : tr("No pude crear la copia."); render(); }
   }
   /** Lo que solo se puede hacer en el Mac (en el celular, fase 1). Un aviso discreto, sin bloquear nada. */
   const soloEnMac = (texto = "Esto se hace en tu Mac por ahora") => toast(texto);
@@ -1221,12 +1221,14 @@
     const h = Math.round(min / 60);
     return h < 24 ? Tp("hace {n} h", { n: h }) : Tp("hace {n} días", { n: Math.round(h / 24) });
   }
+  /** El error de un conector en el idioma elegido: los de la pieza «red» traen su plantilla y valores; los demás, la frase. */
+  const errorRed = (r) => (r && r.plantilla ? Tp(r.plantilla, r.valores || {}) : (r && r.error) || "");
   function tarjetaConector(c) {
     const est = E.conexiones[c.id] || {}, sinc = E.sincronizando[c.id];
     const paises = c.paises.includes("*") ? tr("Todo el mundo") : c.paises.join(" · ");
     let estado;
     if (sinc) estado = `<small>Trayendo movimientos…</small>`;
-    else if (est.conectado && est.error) estado = `<small class="error-txt" data-sin-traducir>${esc(est.error)}</small>`;
+    else if (est.conectado && est.error) estado = `<small class="error-txt" data-sin-traducir>${esc(errorRed(est))}</small>`;
     else if (est.conectado && est.esperando) estado = `<small>${frase("{s} está preparando tus movimientos. Llegan en la próxima revisión.", { s: c.nombre })}</small>`;
     else if (est.conectado) estado = `<small class="ok-txt">${est.ultima ? frase("✓ Conectado · revisado {h}", { h: hace(est.ultima) }) : "✓ Conectado"}</small>`;
     else estado = `<small data-sin-traducir>${esc(paises)}</small>`;
@@ -3290,7 +3292,7 @@
         const c = E.conectores.find((x) => x.id === r.conector);
         E.conectar = null; E.conexiones[r.conector] = { conectado: true }; E.sincronizando[r.conector] = true;
         toast("{s} conectado. Trayendo tus movimientos…", { valores: { s: c ? c.nombre : "" } });
-      } else Object.assign(E.conectar, { enviando: false, error: r.error || tr("No se pudo conectar.") });
+      } else Object.assign(E.conectar, { enviando: false, error: errorRed(r) || tr("No se pudo conectar.") });
       render();
     },
     sincronizado(r) {
@@ -3322,7 +3324,7 @@
         if (!d.forzar && h === d.anterior) return host.enviar("celular", { accion: "escribir", sinCambios: true });
         const texto = await C.armar(contenido, d.cabecera, await C.importarLlave(d.llave));
         host.enviar("celular", { accion: "escribir", texto, huella: h });
-      } catch (e) { host.enviar("celular", { accion: "escribir", error: (e && e.message) || "No pude preparar la copia." }); }
+      } catch (e) { host.enviar("celular", { accion: "escribir", error: e && e.codigo ? window.AlcanciaCopia.mensaje(e) : "No pude preparar la copia." }); }
     },
     celularCarpeta(r) {
       const k = E.celularConfig;

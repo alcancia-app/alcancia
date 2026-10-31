@@ -30,6 +30,7 @@ jobs:
           node --check ui/app.js
           node --check ui/i18n.js
           node --check ui/copia.js
+          node --check ui/cifrado.js
           for f in movil/host/*.js movil/*.mjs pruebas/*.mjs pruebas/capacitor_falso.js; do node --check "$f"; done
           python3 -m py_compile bin/*.py bin/conectores/*.py pruebas/*.py ejemplos/*.py herramientas/*.py
           python3 -c "import json, glob; [json.load(open(f, encoding='utf-8')) for f in glob.glob('ui/idiomas/*.json') + glob.glob('recetas/*.json') + ['ui/demo.json', 'pruebas/casos.json', 'movil/package.json', 'movil/capacitor.config.json']]"

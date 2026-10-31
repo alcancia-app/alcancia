@@ -1442,6 +1442,31 @@ class Conectores(unittest.TestCase):
         self.assertFalse(r["ok"])
         e = datos.leer_json(os.path.join(datos.INTERNO, "conexiones.json"), None)["mercadopago"]
         self.assertIn("esperar", e["error"])
+        # Pieza «red»: el error trae su código y su plantilla (la interfaz lo traduce) y la plantilla está en inglés.
+        self.assertEqual((r["codigo"], r["valores"]["servicio"]), ("esperar", "Mercado Pago"))
+        self.assertEqual(e["plantilla"], r["plantilla"])
+        en = datos.leer_json(os.path.join(RAIZ, "ui", "idiomas", "en.json"), {})["textos"]
+        import red
+        self.assertTrue(all(f in en for f in red.ERRORES.values()), "cada error de la red tiene su traducción")
+        self.assertTrue(all("{servicio}" in en[f] for f in red.ERRORES.values() if "{servicio}" in f))
+
+    def test_red_agente_y_tope(self):
+        """User-Agent con el repo de app.json, y una respuesta más grande que el tope no se lee entera."""
+        from red import ErrorRed, Red
+        from servidor_falso import ServidorFalso
+        rutas = {("GET", "api.ejemplo.com/chico"): lambda q, b, h: (200, {"ok": True}),
+                 ("GET", "api.ejemplo.com/grande"): lambda q, b, h: (200, "x" * 5000)}
+        with ServidorFalso(rutas) as srv:
+            os.environ["ALCANCIA_RED_PRUEBA"] = srv.url
+            try:
+                red = Red(["api.ejemplo.com"], "Ejemplo", maximo=1000)
+                self.assertEqual(red.get("https://api.ejemplo.com/chico"), {"ok": True})
+                with self.assertRaises(ErrorRed) as e:
+                    red.get("https://api.ejemplo.com/grande", crudo=True)
+                self.assertEqual(e.exception.codigo, "grande")
+            finally:
+                del os.environ["ALCANCIA_RED_PRUEBA"]
+        self.assertIn("alcancia-app/alcancia", srv.pedidos[0][4]["user-agent"])
 
 
     def test_mercadopago_como_se_pago_devolucion_y_saldo(self):

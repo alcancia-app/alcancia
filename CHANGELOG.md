@@ -6,6 +6,10 @@ Lo que cambia para quien usa Alcancía, en palabras simples. Las versiones anter
 
 ## Sin publicar · Unreleased
 
+- Los errores de las conexiones (por ejemplo «Mercado Pago no aceptó la llave») ahora salen en tu idioma, y una respuesta enorme o
+  que tarda demasiado se corta en vez de dejar la revisión colgada. Tu copia para el celular y tu frase siguen sirviendo igual.
+  *Connection errors (for example «Mercado Pago didn't accept the key») now show in your language, and a huge or very slow answer
+  is cut off instead of leaving the check hanging. Your phone copy and your passphrase keep working the same.*
 - Antes de borrar un pago que se repite (o de desconectar el celular), Alcancía te pregunta, con «Cancelar» ya elegido: un Enter
   apurado no borra nada. Lo mismo al borrar la conversación con Alcancía.
   *Before deleting a recurring payment (or disconnecting your phone), Alcancía asks you, with «Cancel» already selected: a hurried

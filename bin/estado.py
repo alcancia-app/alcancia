@@ -45,7 +45,7 @@ def consejos():
 def conexiones():
     """Estado de cada conexión para la interfaz (sin la memoria interna de los conectores; secretos nunca hay aquí)."""
     todo = datos.leer_json(os.path.join(datos.INTERNO, "conexiones.json"), {})
-    claves = ("conectado", "ultima", "error", "nuevos", "cuentas")
+    claves = ("conectado", "ultima", "error", "plantilla", "valores", "nuevos", "cuentas")
     return {cid: {**{k: v for k, v in e.items() if k in claves}, "esperando": bool(e.get("memoria", {}).get("esperando"))}
             for cid, e in todo.items() if isinstance(e, dict)}
 

@@ -1,6 +1,7 @@
 {
  "nombre": "Alcancía",
  "id": "alcancia",
+ "repo": "alcancia-app/alcancia",
  "datos": {
   "carpeta": "~/Alcancia/.alcancia"
  },
