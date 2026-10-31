@@ -11,3 +11,6 @@ capacitor-cordova-ios-plugins
 # Generated Config files
 App/App/capacitor.config.json
 App/App/config.xml
+
+# Lo que Xcode arma al resolver paquetes de Swift
+App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
