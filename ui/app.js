@@ -56,6 +56,7 @@
     i18n, host, app: "Alcancía", repo: "alcancia-app/alcancia",
     version: () => E.version,
     pintar: () => render(),
+    mantenerCampos: true,  // un campo donde se escribe (el buscador, montos) conserva el foco y el cursor al repintar
     cerrar: () => cerrarDialogo(),
     retener: (texto, o) => { if (E.bv !== 0) return false; retenidos.push([texto, o]); return true; },
     elegirIA: (id) => { E.config.ia = id; host.enviar("config", { ia: id }); },
@@ -980,7 +981,8 @@
     const chat = $(".chat-cuerpo");
     if (chat) { if (E.chat.bajar || scrollChat == null) { chat.scrollTop = chat.scrollHeight; E.chat.bajar = false; } else chat.scrollTop = scrollChat; }
     if (scrollPagina && window.scrollY !== scrollPagina) window.scrollTo(0, scrollPagina);
-    if (idActivo) { const el = document.getElementById(idActivo); if (el) { el.focus(); if (cursor != null && el.setSelectionRange) try { el.setSelectionRange(cursor, cursor); } catch {} } }
+    // Un botón o una casilla con id vuelve a tener el foco; un campo con cursor lo devuelve la pieza (mantenerCampos).
+    if (idActivo && cursor == null) document.getElementById(idActivo)?.focus();
     // Foco al abrir un diálogo (en la pantalla de idioma, el sugerido: Enter ya elige), adentro mientras está y de vuelta al cerrarlo.
     ui.despuesDePintar();
   }

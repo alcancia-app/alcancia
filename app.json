@@ -12,6 +12,9 @@
   "ios",
   "android"
  ],
+ "ia": {
+  "ayuda": "Revisa en Ajustes → Tu IA."
+ },
  "config": {
   "idioma_ui": [
    "es",

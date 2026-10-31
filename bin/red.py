@@ -12,6 +12,9 @@
   antes de salir.
 - **Nunca se siguen redirecciones**: urllib las seguiría a cualquier dominio llevándose la llave en la cabecera.
 - **Límites**: tamaño máximo de la respuesta (se corta al leer, no se confía en Content-Length) y tiempo máximo del pedido entero.
+- **Subidas grandes por partes** (`subir`): `Content-Range` por parte, se retoma desde lo que el servicio dice tener (308) y
+  avisa el avance.
+- **El User-Agent** es «<Nombre> (<repo>)» de app.json, siempre en ASCII (una cabecera con «ñ» o un emoji rompería el pedido).
 - **Las credenciales** viajan solo en las cabeceras de esos pedidos: nunca se escriben en disco ni en los mensajes de error.
 
 Para las pruebas, <ID>_RED_PRUEBA=http://127.0.0.1:<puerto> manda todo a un servidor falso local (solo 127.0.0.1, y nunca
@@ -21,6 +24,7 @@ import json
 import os
 import re
 import time
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -74,9 +78,28 @@ _ABRIR = urllib.request.build_opener(_SinRedirecciones()).open
 DOMINIO = re.compile(r"^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$")
 
 
+def _ascii(texto):
+    """Un texto seguro para una cabecera HTTP (que solo admite latin-1): sin tildes ni símbolos raros. «Señal» → «Senal»."""
+    t = unicodedata.normalize("NFKD", str(texto))
+    t = "".join(c for c in t if 32 <= ord(c) < 127 and c not in '"\\')
+    return " ".join(t.split())[:80]
+
+
 def agente():
+    """User-Agent: «<Nombre> (<repo>)» con `repo` de app.json («dueño/repo»), siempre en ASCII."""
     a = nucleo.app()
-    return f"{a['nombre']} ({a.get('repo') or a['id']})" if isinstance(a.get("repo"), str) else a["nombre"]
+    nombre = _ascii(a.get("nombre", "")) or _ascii(a["id"]) or "app"
+    repo = a.get("repo")
+    if isinstance(repo, str) and re.fullmatch(r"[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}", repo):
+        return f"{nombre} ({repo})"
+    return nombre
+
+
+class _Parcial:
+    """Lo que responde un servicio a una parte de una subida que aún no termina (308 sin Location: «Resume Incomplete»)."""
+
+    def __init__(self, rango):
+        self.rango = rango
 
 
 class Red:
@@ -112,8 +135,10 @@ class Red:
             return f"{self.prueba}/{p.hostname}{p.path}" + (f"?{p.query}" if p.query else "")
         return url
 
-    def pedir(self, metodo, url, cabeceras=None, json_=None, formulario=None, crudo=False, timeout=None, maximo=None):
-        """El JSON de la respuesta (o los bytes si crudo=True). Lanza ErrorRed con un código y una frase clara si algo falla."""
+    def pedir(self, metodo, url, cabeceras=None, json_=None, formulario=None, crudo=False, timeout=None, maximo=None, datos=None,
+              tipo=None, _parcial=False):
+        """El JSON de la respuesta (o los bytes si crudo=True). `datos`: bytes tal cual (con `tipo` como Content-Type). Lanza
+        ErrorRed con un código y una frase clara si algo falla."""
         if metodo not in ("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"):
             raise ValueError("Red: método desconocido.")
         tiempo = min(timeout or self.tiempo, 600)
@@ -123,6 +148,10 @@ class Red:
             cuerpo, cab["Content-Type"] = json.dumps(json_).encode(), "application/json"
         elif formulario is not None:
             cuerpo, cab["Content-Type"] = urllib.parse.urlencode(formulario).encode(), "application/x-www-form-urlencoded"
+        elif datos is not None:
+            if not isinstance(datos, (bytes, bytearray)):
+                raise ValueError("Red: «datos» son bytes.")
+            cuerpo, cab["Content-Type"] = bytes(datos), tipo or "application/octet-stream"
         pedido = urllib.request.Request(self._url(url), data=cuerpo, headers=cab, method=metodo)
         fin = time.monotonic() + tiempo
         try:
@@ -151,6 +180,8 @@ class Red:
                 texto = (e.read(2000) or b"").decode("utf-8", "replace")
             except OSError:
                 texto = ""
+            if _parcial and e.code == 308 and not e.headers.get("Location"):
+                return _Parcial(e.headers.get("Range"))
             if 300 <= e.code < 400:
                 raise self._error("redireccion", e.code) from None
             if e.code in (401, 403):
@@ -167,6 +198,37 @@ class Red:
             return json.loads(datos or b"null")
         except ValueError:
             raise self._error("no_entendi", self.ultimo_estado) from None
+
+    def subir(self, url, archivo, *, parte=8 * 1024 * 1024, cabeceras=None, tipo="application/octet-stream", avance=None,
+              metodo="PUT", desde=0, timeout=None):
+        """Sube un archivo grande por partes a una URL de subida (p. ej. la «resumable» de un servicio): un pedido por parte con
+        `Content-Range: bytes a-b/total`. El servicio responde 308 (sin Location) mientras falta, con `Range: bytes=0-n` (lo que
+        ya tiene: se sigue desde ahí) y 2xx al final (su JSON es lo que se devuelve). `avance(enviados, total)` después de cada
+        parte. `desde`: para retomar una subida cortada. Las mismas reglas de siempre: solo esa URL, sin redirecciones."""
+        if not isinstance(parte, int) or not 256 * 1024 <= parte <= 256 * 1024 * 1024:
+            raise ValueError("Red: «parte» va entre 256 KB y 256 MB.")
+        total = os.path.getsize(archivo)
+        pos = max(0, min(int(desde), total))
+        with open(archivo, "rb") as f:
+            while True:
+                f.seek(pos)
+                trozo = f.read(parte)
+                rango = f"bytes {pos}-{pos + len(trozo) - 1}/{total}" if trozo else f"bytes */{total}"
+                r = self.pedir(metodo, url, cabeceras={**(cabeceras or {}), "Content-Range": rango}, datos=trozo, tipo=tipo,
+                               timeout=timeout, _parcial=True)
+                if not isinstance(r, _Parcial):
+                    if avance:
+                        avance(total, total)
+                    return r
+                g = re.fullmatch(r"bytes=0-(\d+)", r.rango or "")
+                siguiente = int(g.group(1)) + 1 if g else pos + len(trozo)
+                if siguiente <= pos and trozo:
+                    raise self._error("no_entendi", 308)  # el servicio no avanza: no se sube lo mismo para siempre
+                pos = min(siguiente, total)
+                if avance:
+                    avance(pos, total)
+                if not trozo:
+                    raise self._error("no_entendi", 308)
 
     def get(self, url, **kw):
         return self.pedir("GET", url, **kw)

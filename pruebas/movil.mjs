@@ -189,7 +189,7 @@ await paso("Nube sin conexión, copia a medias o de una versión nueva: queda la
   const p = await telefono({ guardado: { nube: { nombre: "foto.jpg", texto: "hola" }, ajustes: LISTO.ajustes } });
   await p.click('[data-accion="traer-elegir"]');
   await p.waitForSelector(".vacio .error-txt");
-  if (!(await p.textContent(".vacio .error-txt")).includes("no es la copia de Alcancía")) falla("un archivo cualquiera no dice que no es la copia");
+  if (!(await p.textContent(".vacio .error-txt")).includes("no es una copia de Alcancía")) falla("un archivo cualquiera no dice que no es la copia");
   await p.close();
 });
 
@@ -305,7 +305,7 @@ await paso("En inglés: todo lo del celular traducido", async () => {
     const p = await telefono({ guardado, consulta: "?idioma=en" });
     const pasos = guardado === CON_LLAVE
       ? ["E=>{E.vista='resumen'}", "E=>{E.cifra='tienes'}", "E=>{E.cifra='debes'}", "E=>{E.cifra=null;E.vista='movimientos'}", "E=>{E.vista='compromisos'}", "E=>{E.vista='mas'}", "E=>{E.vista='presupuesto'}", "E=>{E.vista='consejos';E.consejos=[]}", "E=>{E.ajustes=true}"]
-      : guardado === LISTO ? ["E=>{}", "E=>{E.traer.error='La frase no es la correcta.'}", "E=>{E.ajustes=true}"] : ["E=>{E.bv=0}", "E=>{E.bv=1}", "E=>{E.bv=2}", "E=>{E.bv=null;E.celular.error='Ese archivo no es la copia de Alcancía para el celular.'}", "E=>{E.ajustes=true}"];
+      : guardado === LISTO ? ["E=>{}", "E=>{E.traer.error='La frase no es la correcta.'}", "E=>{E.ajustes=true}"] : ["E=>{E.bv=0}", "E=>{E.bv=1}", "E=>{E.bv=2}", "E=>{E.bv=null;E.celular.error='Ese archivo no es una copia de Alcancía.'}", "E=>{E.ajustes=true}"];
     await p.waitForTimeout(300);
     for (const f of pasos) { await p.evaluate(`window.Alcancia._probar(${f})`); await p.waitForTimeout(40); }
     for (const t of await p.evaluate(() => [...window._faltantes])) if (!esDato(t)) faltan.add(t);

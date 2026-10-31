@@ -1,7 +1,7 @@
 // «Copia para el celular»: lo que el Mac deja en la nube de la persona para que el teléfono la muestre. El cifrado es la pieza
 // «cifrado» (ui/cifrado.js, se carga antes): PBKDF2-SHA256 600.000 vueltas → AES-256-GCM con AAD y un verificador de la frase. Aquí
 // queda lo propio de Alcancía: cómo se reconoce el archivo (los mismos nombres de siempre, así lo que ya está en la nube se abre
-// igual), qué viaja (paraCelular, lista blanca) y las frases de los errores en palabras de la copia. El mismo archivo corre en el
+// igual) y qué viaja (paraCelular, lista blanca). Las frases de los errores son las de la pieza (con {app}) menos la de versión. El mismo archivo corre en el
 // Mac (dentro de la interfaz), en el teléfono y en Node (pruebas/copia.mjs). Formato en el README («Copia para el celular»).
 // - La frase nunca se guarda: el Mac guarda la llave derivada (`llaves.raw`) en su Llavero y el teléfono, si la persona lo pide, en
 //   su Llavero o Keystore. Una llave guardada antes (32 bytes, solo AES) sigue sirviendo; las nuevas son de 64.
@@ -11,24 +11,20 @@
   "use strict";
   const P = globalThis.PiezaCifrado;
   const FORMATO = 1, TIPO = "copia-celular", ARCHIVO = "Alcancia-celular.alcancia";
-  const C = P.crear({ app: "Alcancía", contexto: "alcancia:celular", verificador: "alcancia", marca: "alcancia", tipo: TIPO, formato: FORMATO });
-  /** Los errores de la pieza en palabras de la copia (las frases que la interfaz ya traduce). */
-  const MENSAJES = {
-    frase: "La frase no es la correcta.",
-    danado: "La copia está dañada o se está copiando todavía. Prueba en un rato.",
-    version: "Esta copia viene de una versión más nueva de Alcancía. Actualiza la app del celular.",
-    no_es: "Ese archivo no es la copia de Alcancía para el celular.",
-    sin_cifrado: "Este equipo no puede cifrar la copia.",
-    corta: P.MENSAJES.corta,
-  };
-  /** La frase de un error para mostrar (y traducir con tr): la de la copia si es de la pieza, o el mensaje tal cual. */
-  const mensaje = (e) => (e && MENSAJES[e.codigo]) || (e && e.message) || MENSAJES.danado;
+  // La versión nueva siempre se ve en el teléfono: hay que decir qué app actualizar. Lo demás, con las frases de la pieza.
+  const C = P.crear({
+    app: "Alcancía", contexto: "alcancia:celular", verificador: "alcancia", marca: "alcancia", tipo: TIPO, formato: FORMATO,
+    mensajes: { version: "Esta copia viene de una versión más nueva de Alcancía. Actualiza la app del celular." },
+  });
+  const MENSAJES = C.MENSAJES;
+  /** La frase de un error para mostrar (ya armada, con «Alcancía»; tr la traduce): la de la pieza o el mensaje tal cual. */
+  const mensaje = (e) => (e && (e.frase || e.message)) || C.error("danado").frase;
 
   /** Abre el archivo con la frase o con una llave guardada ({raw}): {contenido, llaves}. Revisa además que sea una copia completa. */
   async function abrir(texto, clave) {
     const { contenido, llaves, version } = await C.abrir(texto, clave);
     if (!contenido || typeof contenido !== "object" || contenido.formato !== version || !contenido.estado || typeof contenido.estado !== "object") {
-      throw new P.ErrorCifrado("danado", { app: "Alcancía" });
+      throw C.error("danado");
     }
     return { contenido, llaves };
   }
