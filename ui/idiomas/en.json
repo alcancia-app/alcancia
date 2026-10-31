@@ -1042,6 +1042,19 @@
     "Hay cambios nuevos en el código de {app}": "There are new changes in {app}'s code",
     "¿Borrar «{n}»?": "Delete “{n}”?",
     "Sale de tus pagos. Tus movimientos no cambian.": "It leaves your payments. Your transactions don't change.",
-    "¿Desconectar este teléfono?": "Disconnect this phone?"
+    "¿Desconectar este teléfono?": "Disconnect this phone?",
+    "Dirección no permitida para {servicio}.": "Address not allowed for {servicio}.",
+    "{servicio} quiso mandarme a otra dirección y no la seguí (por seguridad).": "{servicio} tried to send me somewhere else and I didn't follow (for safety).",
+    "{servicio} no aceptó la llave (puede estar vencida o sin permiso de lectura).": "{servicio} didn't accept the key (it may have expired or lack read permission).",
+    "{servicio} pidió esperar un rato antes de volver a consultar.": "{servicio} asked to wait a while before checking again.",
+    "{servicio} respondió con un error ({estado}).": "{servicio} answered with an error ({estado}).",
+    "No pude conectarme con {servicio}. ¿Hay internet?": "I couldn't connect to {servicio}. Are you online?",
+    "{servicio} se demoró demasiado en responder.": "{servicio} took too long to answer.",
+    "{servicio} mandó una respuesta demasiado grande.": "{servicio} sent an answer that is too large.",
+    "{servicio} respondió algo que no entendí.": "{servicio} answered something I didn't understand.",
+    "El archivo está dañado o se está copiando todavía. Prueba en un rato.": "The file is damaged or still being copied. Try again in a while.",
+    "Este archivo viene de una versión más nueva de {app}. Actualiza la app.": "This file comes from a newer version of {app}. Update the app.",
+    "Ese archivo no es una copia de {app}.": "That file isn't a {app} copy.",
+    "Este equipo no puede cifrar.": "This device can't encrypt."
   }
 }

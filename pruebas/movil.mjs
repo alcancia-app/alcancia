@@ -34,12 +34,12 @@ const demo = JSON.parse(fs.readFileSync(path.join(UI, "demo.json"), "utf8"));
 const HOY = demo.hoy, AHORA = new Date(`${HOY}T08:00:00`).getTime();
 const esDato = (t) => JSON.stringify(demo).includes(t) || /^(Alcancía|English|Español|CLP|USD|iCloud Drive|Alcancia-celular\.alcancia)$/.test(t);
 
-// «El Mac»: la copia armada con el mismo ui/copia.js, en Node.
-vm.runInThisContext(fs.readFileSync(path.join(UI, "copia.js"), "utf8"), { filename: "ui/copia.js" });
+// «El Mac»: la copia armada con los mismos ui/cifrado.js (pieza) y ui/copia.js, en Node.
+for (const f of ["cifrado.js", "copia.js"]) vm.runInThisContext(fs.readFileSync(path.join(UI, f), "utf8"), { filename: "ui/" + f });
 const C = globalThis.AlcanciaCopia;
 const FRASE = "caballo pila grapa correcta";
 const mac = await C.nuevaCabecera(FRASE);
-const copia = (estado) => C.armar(C.paraCelular(estado, { generado: new Date(AHORA - 3600e3).toISOString(), version: "0.1.0" }), mac.cabecera, mac.llave);
+const copia = (estado) => C.armar(C.paraCelular(estado, { generado: new Date(AHORA - 3600e3).toISOString(), version: "0.1.0" }), mac.cabecera, mac.llaves);
 const COPIA = await copia(demo);
 const NUBE = { nombre: "Alcancia-celular.alcancia", texto: COPIA };
 
@@ -69,7 +69,7 @@ const ajustes = (p) => p.evaluate(() => JSON.parse(window._celular.ajustes || "{
 const visible = (p, sel) => p.evaluate((s) => [...document.querySelectorAll(s)].filter((e) => e.offsetParent !== null || e.getClientRects().length).length, sel);
 const toast = (p) => p.waitForFunction(() => document.querySelector("#toast.visible")?.textContent, null, { timeout: 4000 }).then((h) => h.jsonValue());
 const LISTO = { nube: NUBE, elegido: true, ajustes: JSON.stringify({ idioma_ui: "es", bienvenida: true }) };
-const CON_LLAVE = { ...LISTO, llave: JSON.stringify({ raw: mac.raw, sal: mac.cabecera.kdf.sal }) };
+const CON_LLAVE = { ...LISTO, llave: JSON.stringify({ raw: mac.llaves.raw, sal: mac.cabecera.kdf.sal }) };
 
 await paso("Teléfono nuevo: idioma primero, elegir el archivo y abrirlo con la frase (recordándola)", async () => {
   const p = await telefono({ guardado: { nube: NUBE } });
@@ -91,7 +91,7 @@ await paso("Teléfono nuevo: idioma primero, elegir el archivo y abrirlo con la 
   await p.click('[data-traer-form] [type="submit"]');
   await p.waitForSelector(".tres", { timeout: 8000 });
   const g = await guardadoDe(p);
-  if (!g.llave || JSON.parse(g.llave).raw !== mac.raw) falla("no recordó la llave en el llavero");
+  if (!g.llave || JSON.parse(g.llave).raw !== mac.llaves.raw) falla("no recordó la llave en el llavero");
   if (g.cache !== COPIA) falla("no guardó la última copia");
   const a = await ajustes(p);
   if (a.idioma_ui !== "es" || a.bienvenida !== true) falla("no guardó idioma y bienvenida: " + JSON.stringify(a));
@@ -140,6 +140,30 @@ await paso("Reabrir: la llave recordada abre sola, y al volver a primer plano ll
   await p.waitForSelector(".mov", { timeout: 4000 });
   if (!(await p.textContent(".lista-mov")).includes("Cafeteria Recien Llegada")) falla("no se ve el movimiento nuevo después de volver");
   await p.close();
+});
+
+await paso("Una copia y una llave recordada de antes de la pieza «cifrado» (32 bytes): abre sola, y el Mac sigue copiando", async () => {
+  const v = JSON.parse(fs.readFileSync(path.join(RAIZ, "pruebas", "datos", "copia-antes-de-pieza.json"), "utf8"));
+  const antes = { ...LISTO, nube: { ...NUBE, texto: v.texto }, llave: JSON.stringify({ raw: v.raw, sal: v.cabecera.kdf.sal }) };
+  const p = await telefono({ guardado: antes });
+  await p.waitForSelector(".tres");
+  if (await visible(p, "#traer-frase")) falla("con la llave de antes pidió la frase");
+  // El Mac con la llave de 32 bytes que tenía en el Llavero arma la copia nueva; el teléfono la abre sola.
+  const nueva = await C.armar(C.paraCelular(demo, { generado: new Date(AHORA).toISOString(), version: "0.1.0" }), v.cabecera, await C.importarLlave(v.raw));
+  await p.evaluate(([t, a]) => { window._celular.nube.texto = t; window.ALCANCIA_AHORA = a; document.dispatchEvent(new Event("visibilitychange")); }, [nueva, AHORA + 120000]);
+  await p.waitForFunction((t) => window._celular.cache === t, nueva, { timeout: 4000 });
+  if (await visible(p, "#traer-frase")) falla("la copia nueva con la llave de antes pidió la frase");
+  await p.close();
+  // Sin llave recordada: con la frase se abre y queda recordada la llave nueva (64 bytes).
+  const q = await telefono({ guardado: { ...LISTO, nube: { ...NUBE, texto: v.texto } } });
+  await q.waitForSelector("#traer-frase");
+  await q.fill("#traer-frase", v.frase);
+  await q.check("[data-traer-recordar]");
+  await q.click('[data-traer-form] [type="submit"]');
+  await q.waitForSelector(".tres", { timeout: 8000 });
+  const g = await guardadoDe(q);
+  if (!g.llave || Buffer.from(JSON.parse(g.llave).raw, "base64").length !== 64) falla("con la frase no recordó la llave nueva de 64 bytes");
+  await q.close();
 });
 
 await paso("Sin recordar la frase: se pide al abrir", async () => {

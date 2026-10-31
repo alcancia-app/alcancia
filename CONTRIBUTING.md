@@ -41,7 +41,7 @@ en ese servicio. Como es código que habla por internet, lo revisamos con más c
    clave, ni APIs "no oficiales". Si el servicio exige ser empresa o firmar convenio, no sirve (todavía).
 2. **Solo lectura.** Si el servicio permite elegir permisos, pide solo los de leer movimientos.
 3. Un archivo en `bin/conectores/<id>.py` con `INFO`, `probar()` y `movimientos()` (el contrato está al inicio de
-   `bin/conectores/__init__.py`). Todos los pedidos van por `red` (el objeto que recibes), que solo deja hablar con `INFO["hosts"]`.
+   `bin/conectores/__init__.py`). Todos los pedidos van por `red` (el objeto que recibes; es la pieza «red» de [Pieza](https://github.com/pieza-app/pieza), `bin/red.py`, que no se edita aquí), que solo deja hablar con `INFO["hosts"]`, nunca sigue redirecciones y corta respuestas de más de 10 MB o de más de 60 s (`red.get(url, maximo=…)` si tu servicio manda más). Sus errores (`ErrorRed`) ya vienen traducidos: déjalos pasar.
 4. **Solo biblioteca estándar** de Python. Sin SDKs.
 5. Una prueba en `pruebas/test_python.py` contra `pruebas/servidor_falso.py`, con respuestas copiadas de la documentación oficial
    (datos inventados). Que revise que la llave va en la cabecera correcta, la paginación y el signo de los montos.

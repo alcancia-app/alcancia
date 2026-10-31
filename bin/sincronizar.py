@@ -36,6 +36,14 @@ def _guardar_estado(cid, cambios):
     datos.escribir_json(RUTA_ESTADO, todo)
 
 
+_SIN_ERROR = {"error": "", "plantilla": "", "valores": {}}
+
+
+def _fallo(e):
+    """La respuesta de un error: la frase en español y, si viene de la pieza «red», su plantilla y valores para traducirla."""
+    return e.como_dict() if isinstance(e, ErrorRed) else {"ok": False, "error": str(e)}
+
+
 _CREDENCIAL = {}
 
 
@@ -191,10 +199,10 @@ def probar(cid, salida):
     try:
         nueva, cuentas = mod.probar(cred, red)
     except (conectores.Error, ErrorRed) as e:
-        return {"ok": False, "error": str(e)}
+        return _fallo(e)
     registrar_cuentas(mod, cuentas)
     guardar_saldos(mod, cred, red, date.today().isoformat())
-    _guardar_estado(cid, {"conectado": True, "cuentas": [c["nombre"] for c in cuentas], "error": ""})
+    _guardar_estado(cid, {"conectado": True, "cuentas": [c["nombre"] for c in cuentas], **_SIN_ERROR})
     r = {"ok": True, "cuentas": [{**c, "nombre": sin_numeros(c["nombre"])} for c in cuentas]}
     if nueva:
         r["credencial"] = nueva
@@ -217,11 +225,12 @@ def traer(cid, salida, hoy=None):
     try:
         crudos, memoria, nueva = mod.movimientos(credencial(), desde, hoy, est.get("memoria", {}), red)
     except conectores.Esperar as e:
-        _guardar_estado(cid, {"memoria": e.args[1] if len(e.args) > 1 else est.get("memoria", {}), "intento": ahora, "error": ""})
+        _guardar_estado(cid, {"memoria": e.args[1] if len(e.args) > 1 else est.get("memoria", {}), "intento": ahora, **_SIN_ERROR})
         return {"ok": True, "nombre": mod.INFO["nombre"], "esperando": True, "mensaje": str(e.args[0]) if e.args else "", "nuevos": 0}
     except (conectores.Error, ErrorRed) as e:
-        _guardar_estado(cid, {"intento": ahora, "error": str(e)})
-        return {"ok": False, "error": str(e)}
+        r = _fallo(e)
+        _guardar_estado(cid, {"intento": ahora, "error": r["error"], "plantilla": r.get("plantilla", ""), "valores": r.get("valores", {})})
+        return r
     movs = a_movimientos(mod, crudos)
     cuentas = {(m.get("cuenta") or "") for m in crudos}
     registrar_cuentas(mod, [{"id": c, "nombre": c or mod.INFO["nombre"], "moneda": ""} for c in sorted(cuentas)])
@@ -245,7 +254,7 @@ def traer(cid, salida, hoy=None):
     if nuevos:
         resultado["detectados"] = importar.detectados({m["id"] for m in movs} - ya)
     _guardar_estado(cid, {"conectado": True, "hasta": hoy.isoformat(), "ultima": ahora, "intento": ahora, "memoria": memoria or {},
-                          "error": "", "nuevos": nuevos})
+                          **_SIN_ERROR, "nuevos": nuevos})
     if nueva:
         resultado["credencial"] = nueva
     return resultado

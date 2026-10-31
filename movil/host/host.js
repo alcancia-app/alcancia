@@ -1,5 +1,5 @@
 // El anfitrión de Alcancía en el celular: atiende las acciones del puente (host.enviar en ui/app.js) igual que Ventana.swift en el Mac,
-// pero solo para mirar. Los datos llegan desde el Mac en la «copia para el celular» (ui/copia.js): un archivo cifrado en la nube de
+// pero solo para mirar. Los datos llegan desde el Mac en la «copia para el celular» (ui/copia.js, sobre la pieza «cifrado»): un archivo cifrado en la nube de
 // la persona que el teléfono lee con el selector de archivos del sistema y abre con su frase. No hay red ni servidores: ni llaves de
 // conectores, ni IA, ni telemetría. Lo que cambia datos (SOLO_MAC) responde «Esto se hace en tu Mac por ahora».
 //
@@ -48,19 +48,19 @@
 
   // ───────────── Abrir la copia ─────────────
   function aceptar(texto, r, sal, guardar) {
-    contenido = r.contenido; llave = { raw: r.raw, sal }; pendiente = null;
+    contenido = r.contenido; llave = { raw: r.llaves.raw, sal }; pendiente = null;
     if (guardar) llamar("Carpeta", "guardarCache", { texto }).catch(() => {});
   }
   /** Intenta abrir un archivo con la llave de la sesión o la recordada. {ok} si se abrió o si espera la frase; {ok:false, error} si no sirve. */
   async function intentar(texto, guardar) {
     let sal;
-    try { sal = C.salDe(texto); } catch (e) { return { ok: false, error: e.message }; }
+    try { sal = C.salDe(texto); } catch (e) { return { ok: false, error: C.mensaje(e) }; }
     const k = (llave && llave.sal === sal && llave) || (await llaveRecordada(sal));
     if (!k) { pendiente = texto; contenido = null; return { ok: true, frase: true }; }
     try { aceptar(texto, await C.abrir(texto, { raw: k.raw }), sal, guardar); return { ok: true }; }
     catch (e) {
       if (e.codigo === "frase") { pendiente = texto; contenido = null; return { ok: true, frase: true }; }
-      return { ok: false, error: e.message };
+      return { ok: false, error: C.mensaje(e) };
     }
   }
   /** Lee el archivo de la nube; si no se puede (sin conexión, a medio subir, de una versión más nueva), queda lo último que se abrió bien. */
@@ -173,14 +173,14 @@
             const r = await C.abrir(texto, { frase: String(d.frase || "") });
             aceptar(texto, r, sal, true);
             if (d.recordar) {
-              try { await llamar("Carpeta", "guardarLlave", { valor: JSON.stringify({ raw: r.raw, sal }) }); recordada = true; }
+              try { await llamar("Carpeta", "guardarLlave", { valor: JSON.stringify({ raw: r.llaves.raw, sal }) }); recordada = true; }
               catch { aviso = "No pude guardar la frase en este teléfono: te la pido la próxima vez."; }
             }
             error = ""; desactualizada = false;
             A().traerRespuesta({ ok: true, aviso });
             enviarEstado();
             return programarAvisos();
-          } catch (e) { return A().traerRespuesta({ ok: false, error: e.message }); }
+          } catch (e) { return A().traerRespuesta({ ok: false, error: C.mensaje(e) }); }
         }
         case "releer":
           await cargar();

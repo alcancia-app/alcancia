@@ -1,8 +1,10 @@
-// Pruebas de la «copia para el celular» (ui/copia.js) en Node, sin navegador: el mismo archivo que corre en el Mac y en el teléfono.
+// Pruebas de la «copia para el celular» (ui/copia.js sobre la pieza «cifrado», ui/cifrado.js) en Node, sin navegador: los mismos
+// archivos que corren en el Mac y en el teléfono.
 // Uso: node pruebas/copia.mjs
 // Revisa: el Mac cifra y el teléfono abre (con la frase o con la llave recordada); que el formato sea AES-256-GCM + PBKDF2 estándar
 // (se abre con node:crypto, otra implementación); frase incorrecta; archivo dañado, cortado, de otra versión o que no es una copia;
-// cabecera con menos vueltas; IV distinto en cada escritura; lo que viaja (sin llaves, rutas del Mac, IA ni chat); la frase.
+// cabecera con menos vueltas; IV distinto en cada escritura; lo que viaja (sin llaves, rutas del Mac, IA ni chat); la frase; y que
+// una copia y una llave de antes de la pieza (pruebas/datos/copia-antes-de-pieza.json) se sigan abriendo.
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
@@ -10,7 +12,7 @@ import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-vm.runInThisContext(fs.readFileSync(path.join(RAIZ, "ui", "copia.js"), "utf8"), { filename: "ui/copia.js" });
+for (const f of ["cifrado.js", "copia.js"]) vm.runInThisContext(fs.readFileSync(path.join(RAIZ, "ui", f), "utf8"), { filename: "ui/" + f });
 const C = globalThis.AlcanciaCopia;
 const demo = JSON.parse(fs.readFileSync(path.join(RAIZ, "ui", "demo.json"), "utf8"));
 const errores = [];
@@ -42,30 +44,32 @@ const ESTADO_MAC = {
 };
 
 await paso("El Mac cifra y el teléfono abre con la frase (y después con la llave recordada)", async () => {
-  const { cabecera, llave, raw } = await C.nuevaCabecera(FRASE);
+  const { cabecera, llaves } = await C.nuevaCabecera(FRASE);
+  const raw = llaves.raw;
+  if (C._interno.deBase64(raw).length !== 64) falla("la llave nueva no es de 64 bytes");
   const contenido = C.paraCelular(ESTADO_MAC, { generado: "2026-10-18T12:00:00.000Z", version: "0.1.0" });
-  const texto = await C.armar(contenido, cabecera, llave);
+  const texto = await C.armar(contenido, cabecera, llaves);
   const a = JSON.parse(texto);
   if (a.alcancia !== "copia-celular" || a.version !== 1 || a.kdf.iteraciones !== 600000 || a.kdf.alg !== "PBKDF2-SHA256" || a.cifrado !== "AES-256-GCM") falla("cabecera: " + texto.slice(0, 200));
   if (C._interno.deBase64(a.kdf.sal).length !== 16 || C._interno.deBase64(a.datos.iv).length !== 12) falla("sal o IV de largo incorrecto");
   if (texto.includes("ARRIENDO") || texto.includes("Banco Ejemplo")) falla("el archivo trae texto sin cifrar");
   const abierto = await C.abrir(texto, { frase: FRASE });
   if (JSON.stringify(abierto.contenido) !== JSON.stringify(contenido)) falla("lo que abre el teléfono no es lo que cifró el Mac");
-  if (abierto.raw !== raw) falla("la llave derivada en el teléfono no es la del Mac");
+  if (abierto.llaves.raw !== raw) falla("la llave derivada en el teléfono no es la del Mac");
   if (C.salDe(texto) !== a.kdf.sal) falla("salDe");
   const conLlave = await C.abrir(texto, { raw });
   if (conLlave.contenido.estado.movimientos.length !== demo.movimientos.length) falla("con la llave recordada no abre todo");
   // La frase se normaliza: «canción» compuesta o descompuesta es la misma.
   const tilde = "canción del mar en la noche";
   const k = await C.nuevaCabecera(tilde);
-  const t2 = await C.armar({ formato: 1, estado: {} }, k.cabecera, k.llave);
+  const t2 = await C.armar({ formato: 1, estado: {} }, k.cabecera, k.llaves);
   await C.abrir(t2, { frase: tilde.normalize("NFD") });
 });
 
 await paso("Formato estándar: otra implementación (node:crypto) lo abre", async () => {
-  const { cabecera, llave } = await C.nuevaCabecera(FRASE);
+  const { cabecera, llaves } = await C.nuevaCabecera(FRASE);
   const contenido = C.paraCelular(ESTADO_MAC, { generado: "2026-10-18T12:00:00.000Z" });
-  const a = JSON.parse(await C.armar(contenido, cabecera, llave));
+  const a = JSON.parse(await C.armar(contenido, cabecera, llaves));
   const clave = crypto.pbkdf2Sync(Buffer.from(FRASE.normalize("NFC"), "utf8"), Buffer.from(a.kdf.sal, "base64"), a.kdf.iteraciones, 32, "sha256");
   const abrirCon = (sobre, aad) => {
     const d = Buffer.from(sobre.datos, "base64");
@@ -88,12 +92,12 @@ await paso("Formato estándar: otra implementación (node:crypto) lo abre", asyn
 });
 
 await paso("Frase incorrecta, archivo dañado o cortado, otra versión y lo que no es una copia", async () => {
-  const { cabecera, llave } = await C.nuevaCabecera(FRASE);
+  const { cabecera, llaves: llave } = await C.nuevaCabecera(FRASE);
   const texto = await C.armar(C.paraCelular(ESTADO_MAC), cabecera, llave);
   await lanza(() => C.abrir(texto, { frase: "caballo pila grapa correcto" }), "frase", "frase incorrecta");
   await lanza(() => C.abrir(texto, { frase: "" }), "frase", "frase vacía");
   const otra = await C.nuevaCabecera("otra frase cualquiera larga");
-  await lanza(() => C.abrir(texto, { raw: otra.raw }), "frase", "llave recordada de otra frase");
+  await lanza(() => C.abrir(texto, { raw: otra.llaves.raw }), "frase", "llave recordada de otra frase");
   const a = JSON.parse(texto);
   const bytes = C._interno.deBase64(a.datos.datos);
   bytes[40] ^= 1;
@@ -112,10 +116,16 @@ await paso("Frase incorrecta, archivo dañado o cortado, otra versión y lo que 
   await lanza(() => C.abrir(JSON.stringify({ alcancia: "otra-cosa" }), { frase: FRASE }), "no_es", "otro JSON");
   await lanza(() => C.abrir(fs.readFileSync(path.join(RAIZ, "ui", "demo.json"), "utf8"), { frase: FRASE }), "no_es", "demo.json");
   if (C.MENSAJES.version.includes("undefined")) falla("mensaje");
+  // Las frases de la copia (las que la interfaz traduce), no las genéricas de la pieza.
+  const e = await lanza(() => C.abrir(JSON.stringify({ ...a, version: 2 }), { frase: FRASE }), "version", "versión futura (mensaje)");
+  if (C.mensaje(e) !== "Esta copia viene de una versión más nueva de Alcancía. Actualiza la app del celular.") falla("mensaje de versión: " + C.mensaje(e));
+  // Descifra bien pero no es una copia completa (sin estado): dañada.
+  const sinEstado = await C.armar({ formato: 1 }, cabecera, llave);
+  await lanza(() => C.abrir(sinEstado, { frase: FRASE }), "danado", "contenido sin estado");
 });
 
 await paso("Cada escritura lleva su propio IV; la huella no cambia si no cambió nada", async () => {
-  const { cabecera, llave } = await C.nuevaCabecera(FRASE);
+  const { cabecera, llaves: llave } = await C.nuevaCabecera(FRASE);
   const c1 = C.paraCelular(ESTADO_MAC, { generado: "2026-10-18T12:00:00.000Z" }), c2 = C.paraCelular(ESTADO_MAC, { generado: "2026-10-18T18:00:00.000Z" });
   const [t1, t2] = [await C.armar(c1, cabecera, llave), await C.armar(c1, cabecera, llave)];
   if (JSON.parse(t1).datos.iv === JSON.parse(t2).datos.iv) falla("dos escrituras con el mismo IV");
@@ -144,13 +154,32 @@ await paso("Lo que viaja: lo que pinta la interfaz, nunca llaves, rutas del Mac,
 await paso("La frase: al menos 12 caracteres, y cuánto cuesta adivinarla", async () => {
   if (!C.revisarFrase("corta")) falla("acepta una frase corta");
   if (C.revisarFrase(FRASE)) falla("rechaza una buena frase");
-  await lanza(() => C.nuevaCabecera("corta"), "frase", "nuevaCabecera con frase corta");
+  const corta = await lanza(() => C.nuevaCabecera("corta"), "corta", "nuevaCabecera con frase corta");
+  if (corta && C.mensaje(corta) !== C.revisarFrase("corta")) falla("el mensaje de una frase corta");
   const n = (f) => C.fuerzaFrase(f).nivel;
   if (n("abc") !== 0) falla("«abc» no es muy corta");
   if (n("aaaaaaaaaaaa") !== 1) falla("«aaaaaaaaaaaa» debería ser solo aceptable: " + JSON.stringify(C.fuerzaFrase("aaaaaaaaaaaa")));
   if (n("perro gato casa") >= 3) falla("tres palabras no es muy buena");
   if (n(FRASE) < 2) falla("cuatro palabras debería ser al menos buena: " + JSON.stringify(C.fuerzaFrase(FRASE)));
   if (n("el kiltro Firulais come 3 sopaipillas!") !== 3) falla("una frase larga y variada debería ser muy buena");
+});
+
+await paso("Una copia y una llave de antes de la pieza «cifrado» (32 bytes) se siguen abriendo", async () => {
+  const v = JSON.parse(fs.readFileSync(path.join(RAIZ, "pruebas", "datos", "copia-antes-de-pieza.json"), "utf8"));
+  if (C._interno.deBase64(v.raw).length !== 32) falla("la llave de antes no es de 32 bytes");
+  // En el teléfono, con la frase (la llave nueva es de 64 bytes y abre igual) o con la llave de 32 que recordó.
+  const conFrase = await C.abrir(v.texto, { frase: v.frase });
+  if (conFrase.contenido.estado.movimientos.length !== 5) falla("la copia de antes no abre con la frase");
+  if (C._interno.deBase64(conFrase.llaves.raw).length !== 64) falla("con la frase, la llave nueva debería ser de 64 bytes");
+  const conLlave = await C.abrir(v.texto, { raw: v.raw });
+  if (JSON.stringify(conLlave.contenido) !== JSON.stringify(conFrase.contenido)) falla("con la llave de antes no abre lo mismo");
+  if (!(await C.abrir(v.texto, { raw: conFrase.llaves.raw })).contenido) falla("la llave nueva no abre la copia de antes");
+  // En el Mac: la llave de 32 que quedó en el Llavero sigue armando copias que el teléfono abre con la frase o con cualquiera de las dos llaves.
+  const nueva = await C.armar(C.paraCelular(ESTADO_MAC), v.cabecera, await C.importarLlave(v.raw));
+  for (const clave of [{ frase: v.frase }, { raw: v.raw }, { raw: conFrase.llaves.raw }]) {
+    if ((await C.abrir(nueva, clave)).contenido.estado.movimientos.length !== demo.movimientos.length) falla("copia nueva con la llave de antes: " + Object.keys(clave));
+  }
+  await lanza(() => C.importarLlave(C._interno.aBase64(new Uint8Array(48))), "frase", "una llave de 48 bytes");
 });
 
 console.log(errores.length ? `✗ Copia para el celular: ${errores.length} problemas` : "✓ Copia para el celular OK");

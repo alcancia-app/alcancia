@@ -5,7 +5,7 @@ import Security
 
 /// El Mac sigue siendo la fuente: lee cartolas y conectores y guarda las llaves. Para que el celular vea los números, deja en una
 /// carpeta de la nube que elige la persona (iCloud Drive, Google Drive, OneDrive, Dropbox…) el archivo `Alcancia-celular.alcancia`,
-/// cifrado con una frase que la persona elige una vez (formato en el README, «Copia para el celular»; código en ui/copia.js).
+/// cifrado con una frase que la persona elige una vez (formato en el README, «Copia para el celular»; código en ui/copia.js, sobre la pieza «cifrado» de ui/cifrado.js).
 /// La interfaz deriva la llave de la frase con WebCrypto (PBKDF2-SHA256, 600.000 vueltas) y la manda aquí: se guarda **la llave, no
 /// la frase**, en el Llavero (solo este Mac). Cuando toca copiar, la llave vuelve a la interfaz, que arma y cifra el contenido
 /// (AES-256-GCM) con el estado que acaba de recibir y devuelve el texto; aquí solo se escribe el archivo.
@@ -125,9 +125,12 @@ enum Celular {
         }
     }
 
-    /// La llave (32 bytes en base64) y la cabecera llegan de la interfaz recién derivadas de la frase; se revisan antes de guardarlas.
+    /// La llave (en base64) y la cabecera llegan de la interfaz recién derivadas de la frase; se revisan antes de guardarlas.
+    /// Pieza «cifrado»: las llaves nuevas son de 64 bytes (AES + HMAC); una de 32 (solo AES, de antes) sigue sirviendo.
+    static let largosLlave: Set<Int> = [32, 64]
+
     private static func activar(_ d: [String: Any]) {
-        guard let llave = d["llave"] as? String, Data(base64Encoded: llave)?.count == 32,
+        guard let llave = d["llave"] as? String, let bytes = Data(base64Encoded: llave), largosLlave.contains(bytes.count),
               let cabecera = d["cabecera"] as? [String: Any], cabeceraValida(cabecera) else {
             return Ventana.shared.llamar("celularEscrito", ["ok": false, "error": Idioma.t("No pude crear la copia.")])
         }
