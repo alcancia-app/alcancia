@@ -15,7 +15,7 @@
   const ahora = () => window.ALCANCIA_AHORA || Date.now(); // las pruebas fijan el reloj (pruebas/movil.mjs)
   const hoy = () => window.ALCANCIA_HOY || new Date(ahora() - new Date(ahora()).getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   const cancelado = (e) => e?.code === "CANCELADO" || /cancel/i.test(String(e?.message || e));
-  const AJUSTES = ["idioma_ui", "bienvenida", "avisos"]; // lo único que se guarda en el teléfono (lo demás viene del Mac)
+  const AJUSTES = ["idioma_ui", "bienvenida", "avisos", "tema"]; // lo único que se guarda en el teléfono (lo demás viene del Mac)
   const HORA_AVISO = 9, DIAS_AVISOS = 35, MAX_AVISOS = 60; // iOS guarda hasta 64 avisos programados por app
 
   let ajustes = {};

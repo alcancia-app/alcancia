@@ -4,15 +4,18 @@
 // Todo el dinero y los textos de la persona se muestran con esc() y data-sin-traducir.
 (() => {
   "use strict";
-  const HOST = window.ALCANCIA_HOST || "web";
-  document.documentElement.dataset.host = HOST;
+  // ───────────── Puente con la app: pieza «host-ui» (ui/host.js) ─────────────
+  // host.enviar(accion, datos) llega a WKWebView (Mac), al preload de Electron o al anfitrión del celular; en el navegador responde
+  // simular() con demo.json. La plataforma sale de window.ALCANCIA_HOST y queda en <html data-host>.
+  const host = PiezaHost.crearHost({ nombre: "alcancia", global: "Alcancia", simular: (accion, d) => simular(accion, d) });
+  const HOST = host.plataforma;
   /** En el celular (fase 1) se mira: lo que cambia datos (categorizar, marcar pagado, importar, conectar, la IA) se hace en el Mac. */
   const LECTURA = HOST === "movil";
   const E = {
     vista: "resumen", mes: "", hoy: "", config: {}, ias: [], movimientos: [], categorias: [], presupuesto: { mensual: {} }, reglas: [],
-    consejos: [], cuentas: [], version: "", carpeta: "", actualizacion: { hay: false }, filtro: { texto: "", categoria: "" },
-    aprender: null, presEdit: null, importar: null, bv: null, bvCerrada: false, ajustes: false, probando: {}, resultadoIA: {},
-    consejoSel: null, pidiendoConsejos: false, errorConsejos: "", act: null, buscando: null, idioma: "es",
+    consejos: [], cuentas: [], version: "", carpeta: "", filtro: { texto: "", categoria: "" },
+    aprender: null, presEdit: null, importar: null, bv: null, bvCerrada: false, ajustes: false,
+    consejoSel: null, pidiendoConsejos: false, errorConsejos: "", idioma: "es",
     conectores: [], conexiones: {}, vigilar: { activo: false, recientes: [] }, conectar: null, sincronizando: {}, iaExterna: [], mcpOcupado: {}, mcpError: {},
     histCat: null, compromisos: { compromisos: [], descartados: [] }, sugerencias: [], compEdit: null, sugTodas: false,
     chat: { mensajes: [], texto: "", pensando: false, bajar: false, confirmarBorrar: false },
@@ -22,21 +25,11 @@
     celular: {}, celularConfig: null, traer: { frase: "", recordar: false, abriendo: false, error: "" },
   };
   const ENLACES = { sitio: "https://alcancia-app.github.io/alcancia/", codigo: "https://github.com/alcancia-app/alcancia",
-    comunidad: "https://github.com/alcancia-app/alcancia/discussions", guiaIA: "https://alcancia-app.github.io/alcancia/ia.html",
+    comunidad: "https://github.com/alcancia-app/alcancia/discussions",
+    aportar: "https://github.com/alcancia-app/alcancia/blob/main/CONTRIBUTING.md", guiaIA: "https://alcancia-app.github.io/alcancia/ia.html",
     nuevaReceta: "https://github.com/alcancia-app/alcancia-catalogo/issues/new" };
   const $ = (s, r = document) => r.querySelector(s);
   const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-
-  // ───────────── Puente con la app ─────────────
-  const host = {
-    enviar(accion, datos = {}) {
-      const msg = { accion, datos };
-      if (window.webkit?.messageHandlers?.alcancia) return window.webkit.messageHandlers.alcancia.postMessage(msg);
-      if (window.alcanciaEscritorio) return window.alcanciaEscritorio.enviar(msg);
-      if (window.alcanciaMovil) return window.alcanciaMovil.enviar(msg);
-      return simular(accion, datos);
-    },
-  };
 
   // ───────────── Idiomas: pieza «i18n» (ui/i18n.js; las claves son el texto en español) ─────────────
   // T: frase entera con marcadores ({x}, {n}, {ia}…) en HTML, con la frase y los valores escapados; va dentro de data-sin-traducir
@@ -52,6 +45,22 @@
     await i18n.cargar(i18n.elegir({ config: E.config.idioma_ui }));
     E.idioma = i18n.idioma;
   }
+
+  // ───────────── Tema y componentes: piezas «tema» (ui/tema.css, ui/tema.js) y «componentes» (ui/componentes.*) ─────────────
+  // Sistema, claro u oscuro (Ajustes → Apariencia; ?tema= en la vista previa). Los diálogos, los avisos, las filas de «Tu IA», la
+  // de actualizaciones y «Acerca de» son de la pieza: foco adentro, Tab que no se escapa, Esc y el velo cierran lo de más arriba.
+  const tema = PiezaTema.crear({ guardar: (v) => { E.config.tema = v; host.enviar("config", { tema: v }); } });
+  /** Los avisos que llegan antes de elegir el idioma esperan (nada se dice antes de esa pantalla) y salen después, ya traducidos. */
+  const retenidos = [];
+  const ui = PiezaComponentes.crear({
+    i18n, host, app: "Alcancía", repo: "alcancia-app/alcancia",
+    version: () => E.version,
+    pintar: () => render(),
+    cerrar: () => cerrarDialogo(),
+    retener: (texto, o) => { if (E.bv !== 0) return false; retenidos.push([texto, o]); return true; },
+    elegirIA: (id) => { E.config.ia = id; host.enviar("config", { ia: id }); },
+  });
+  const toast = (texto, o) => ui.aviso(texto, o);
 
   // ───────────── Dinero y fechas ─────────────
   const LOCALES = { NL: "nl-NL", BE: "nl-BE", IE: "en-IE", AT: "de-AT", FI: "fi-FI", SE: "sv-SE", DK: "da-DK", NO: "nb-NO", PL: "pl-PL", AU: "en-AU", CL: "es-CL", AR: "es-AR", MX: "es-MX", CO: "es-CO", PE: "es-PE", UY: "es-UY", ES: "es-ES", US: "en-US", BR: "pt-BR", EC: "es-EC", BO: "es-BO", PY: "es-PY", VE: "es-VE", GB: "en-GB", CA: "en-CA", DE: "de-DE", FR: "fr-FR", IT: "it-IT", PT: "pt-PT" };
@@ -941,14 +950,6 @@
   const mesesConDatos = () => periodosConDatos(E.movimientos, per());
   const mesesCompletos = () => mesesConDatos().filter((m) => m < periodoHoy()).slice(-3);
 
-  function toast(texto) {
-    const t = $("#toast");
-    t.textContent = tr(texto);
-    t.classList.add("visible");
-    clearTimeout(toast._t);
-    toast._t = setTimeout(() => t.classList.remove("visible"), 2200);
-  }
-
   /** Markdown mínimo y seguro (todo se escapa): ### títulos, listas y **negritas**. */
   function mdHTML(texto) {
     const linea = (l) => esc(l).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
@@ -973,15 +974,15 @@
     const activo = document.activeElement, idActivo = activo?.id, cursor = activo?.selectionStart;
     const scrollChat = $(".chat-cuerpo")?.scrollTop;
     E._per = undefined;
-    raiz.innerHTML = `<div class="app">${lateral()}<main class="principal-area">${avisoActualizacion()}${principal()}</main></div>${E.picker ? pickerHTML() : ""}${avisoRegla()}${dialogos()}`;
+    raiz.innerHTML = `<div class="app">${lateral()}<main class="principal-area">${avisoActualizacion()}${principal()}</main></div>${E.picker ? pickerHTML() : ""}${avisoRegla()}${dialogos()}${ui.capas()}`;
     traducirDOM(raiz);
     const area = $(".principal-area"); if (area) area.scrollTop = scroll;
     const chat = $(".chat-cuerpo");
     if (chat) { if (E.chat.bajar || scrollChat == null) { chat.scrollTop = chat.scrollHeight; E.chat.bajar = false; } else chat.scrollTop = scrollChat; }
     if (scrollPagina && window.scrollY !== scrollPagina) window.scrollTo(0, scrollPagina);
     if (idActivo) { const el = document.getElementById(idActivo); if (el) { el.focus(); if (cursor != null && el.setSelectionRange) try { el.setSelectionRange(cursor, cursor); } catch {} } }
-    // En la pantalla de idioma el foco parte en el sugerido: Enter ya elige.
-    if (E.bv === 0 && !E.importar && !E.conectar && !document.activeElement?.closest(".dialogo")) $(`#bv-idioma-${idiomaDelSistema()}`)?.focus();
+    // Foco al abrir un diálogo (en la pantalla de idioma, el sugerido: Enter ya elige), adentro mientras está y de vuelta al cerrarlo.
+    ui.despuesDePintar();
   }
 
   // Iconos de línea (1,8 px, sin relleno): uno por sección y por cada cosa que se puede agregar.
@@ -1058,8 +1059,8 @@
         <div><b>2</b><span>Agrégala aquí: se lee en tu computador y no se duplica si la vuelves a subir.</span></div>
         <div><b>3</b><span>Tu IA pone las categorías y te dice qué va bien y a qué ponerle ojo.</span></div>
       </div>
-      <div class="acciones-vacio"><button class="boton principal" data-accion="importar">＋ <span>Agregar mi primera cartola</span></button>
-        <button class="boton" data-vista="conexiones">🔌 <span>Conectar una cuenta</span></button></div></div>`;
+      <div class="acciones-vacio"><button class="pz-boton pz-principal" data-accion="importar">＋ <span>Agregar mi primera cartola</span></button>
+        <button class="pz-boton" data-vista="conexiones">🔌 <span>Conectar una cuenta</span></button></div></div>`;
   }
 
   // ───────────── Más: lo que se usa de vez en cuando, en una lista simple ─────────────
@@ -1121,74 +1122,78 @@
         <form data-traer-form><label class="campo"><span>Frase</span><input id="traer-frase" class="texto" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-traer-frase value="${esc(t.frase)}" data-sin-traducir></label>
           <label class="marcar"><input type="checkbox" data-traer-recordar ${t.recordar ? "checked" : ""}><span>Recordarla en este teléfono<small>Queda en el llavero del teléfono, protegida por su bloqueo. Si no, te la pido cada vez que abras Alcancía.</small></span></label>
           ${error(t.error)}
-          <div class="pie-dialogo"><button type="button" class="boton" data-accion="traer-elegir">Elegir otro archivo</button><button type="submit" class="boton principal" ${t.abriendo || !t.frase ? "disabled" : ""}>${t.abriendo ? "Abriendo…" : "Abrir"}</button></div></form></section></div>`;
+          <div class="pz-pie"><button type="button" class="pz-boton" data-accion="traer-elegir">Elegir otro archivo</button><button type="submit" class="pz-boton pz-principal" ${t.abriendo || !t.frase ? "disabled" : ""}>${t.abriendo ? "Abriendo…" : "Abrir"}</button></div></form></section></div>`;
     }
     return `<div class="contenido traer"><div class="vacio">${LOGO.replace('class="logo"', 'class="logo" style="width:64px;height:64px"')}<h1>Trae tus datos desde tu Mac</h1>
       <p>Alcancía en el celular muestra lo que tu Mac ya ordenó. Tus datos viajan cerrados con candado por tu propia nube: nada pasa por servidores de Alcancía.</p>
       ${pasosCelular()}${error(c.error)}
-      <div class="acciones-vacio"><button class="boton principal" data-accion="traer-elegir">Elegir el archivo</button><button class="boton" data-accion="ajustes">Ajustes</button></div></div></div>`;
+      <div class="acciones-vacio"><button class="pz-boton pz-principal" data-accion="traer-elegir">Elegir el archivo</button><button class="pz-boton" data-accion="ajustes">Ajustes</button></div></div></div>`;
   }
   /** Ajustes en el celular: tus datos, avisos, idioma y acerca de. */
   function dialogoAjustesMovil() {
     const c = E.celular || {};
-    const datos = c.archivo ? `<div class="fila"><div class="txt"><b data-sin-traducir>${esc(c.archivo)}</b><small data-sin-traducir>${textoCopia() || esc(tr("Aún no la abres."))}</small></div><button class="boton" data-accion="traer-releer">Releer</button></div>
-        ${c.recordada ? `<div class="fila"><div class="txt"><b>Frase recordada en este teléfono</b><small>Si la olvidas aquí, te la pido la próxima vez.</small></div><button class="boton sutil" data-accion="traer-olvidar">Olvidar</button></div>` : ""}
-        <div class="fila"><div class="txt"><b>Desconectar este teléfono</b><small>Borra de aquí la copia, el permiso para leer el archivo y la frase. En tu Mac no cambia nada.</small></div><button class="boton sutil" data-accion="traer-desconectar">Desconectar</button></div>`
-      : `<div class="fila"><div class="txt"><b>Aún no traes tus datos</b><small>Llegan cifrados desde tu Mac, por tu propia nube.</small></div><button class="boton principal" data-accion="traer-elegir">Elegir el archivo</button></div>`;
-    return `<h2 id="t-ajustes">Ajustes</h2><p>En el celular se mira. Lo que cambia tus datos se hace en tu Mac.</p>
+    const datos = c.archivo ? `<div class="fila"><div class="txt"><b data-sin-traducir>${esc(c.archivo)}</b><small data-sin-traducir>${textoCopia() || esc(tr("Aún no la abres."))}</small></div><button class="pz-boton" data-accion="traer-releer">Releer</button></div>
+        ${c.recordada ? `<div class="fila"><div class="txt"><b>Frase recordada en este teléfono</b><small>Si la olvidas aquí, te la pido la próxima vez.</small></div><button class="pz-boton pz-plano" data-accion="traer-olvidar">Olvidar</button></div>` : ""}
+        <div class="fila"><div class="txt"><b>Desconectar este teléfono</b><small>Borra de aquí la copia, el permiso para leer el archivo y la frase. En tu Mac no cambia nada.</small></div><button class="pz-boton pz-plano" data-accion="traer-desconectar">Desconectar</button></div>`
+      : `<div class="fila"><div class="txt"><b>Aún no traes tus datos</b><small>Llegan cifrados desde tu Mac, por tu propia nube.</small></div><button class="pz-boton pz-principal" data-accion="traer-elegir">Elegir el archivo</button></div>`;
+    return { titulo: "Ajustes", cuerpo: `<p>En el celular se mira. Lo que cambia tus datos se hace en tu Mac.</p>
       <div class="seccion"><h3>Tus datos</h3>${datos}</div>
       <div class="seccion"><h3>Avisos</h3><div class="fila"><div class="txt"><b>Avisarme antes de que venza un pago</b><small>Un aviso 3 días antes y el día que vence, solo de lo que pagas tú. Sin montos.</small></div>
         <label class="interruptor"><input type="checkbox" data-avisos ${E.config.avisos ? "checked" : ""}><span class="visual" aria-hidden="true"></span><span class="oculto-accesible">Avisarme antes de que venza un pago</span></label></div></div>
       <div class="seccion"><h3>General</h3>
-        <div class="fila"><div class="txt"><b>Idioma de la app</b></div><select data-config="idioma_ui"><option value="es" ${E.idioma === "es" ? "selected" : ""}>Español</option><option value="en" ${E.idioma === "en" ? "selected" : ""}>English</option></select></div></div>
-      <div class="seccion"><h3>Acerca de Alcancía</h3><p style="margin:0 0 8px;color:var(--suave)">${frase("Alcancía {v} · Gratis y de código abierto (AGPL-3.0).", { v: E.version })}</p>
-        <p class="texto-suave">Por ahora, en el celular se mira: categorizar, marcar pagos, agregar cartolas y conversar con Alcancía se hacen en tu Mac.</p>
-        <div class="enlaces"><a href="#" data-enlace="${ENLACES.sitio}">Sitio web</a><a href="#" data-enlace="${ENLACES.codigo}">Código</a><a href="#" data-enlace="${ENLACES.comunidad}">Comunidad</a></div></div>
-      <div class="pie-dialogo"><button class="boton principal" data-accion="cerrar">Listo</button></div>`;
+        ${filaIdioma()}${filaApariencia()}</div>
+      <div class="seccion"><h3>Acerca de Alcancía</h3>${acercaDe()}
+        <p class="texto-suave">Por ahora, en el celular se mira: categorizar, marcar pagos, agregar cartolas y conversar con Alcancía se hacen en tu Mac.</p></div>`,
+      pie: `<button class="pz-boton pz-principal" data-accion="cerrar">Listo</button>` };
   }
+  const filaIdioma = () => `<div class="fila"><div class="txt"><b>Idioma de la app</b></div><select data-config="idioma_ui" aria-label="Idioma de la app"><option value="es" ${E.idioma === "es" ? "selected" : ""}>Español</option><option value="en" ${E.idioma === "en" ? "selected" : ""}>English</option></select></div>`;
+  /** Sistema, claro u oscuro (pieza «tema»). */
+  const filaApariencia = () => `<div class="fila envuelve"><div class="txt"><b>Apariencia</b></div>${tema.selectorHTML()}</div>`;
+  /** Versión, licencia y enlaces (pieza «componentes»), con «Enviar comentarios» que abre un issue prellenado en GitHub. */
+  const acercaDe = () => ui.acercaDe({ version: E.version, enlaces: { sitio: ENLACES.sitio, codigo: ENLACES.codigo, comunidad: ENLACES.comunidad, aportar: ENLACES.aportar } });
   /** En Ajustes del Mac: la copia para el celular (apagada, o dónde está y cuándo se hizo la última). */
   function seccionCelular() {
     const c = E.celular || {};
     if (!c.activo) {
       return `<div class="seccion"><h3>Alcancía en tu celular</h3>
         <p class="texto-suave intro-campo">Mira tus números en tu iPhone o Android. Tu Mac deja una copia cerrada con candado en una carpeta de tu nube y el celular la abre con una frase que solo tú sabes.</p>
-        <div class="fila"><div class="txt"><b>Copia para el celular</b><small>Apagada</small></div><button class="boton" data-accion="celular-configurar">Activar</button></div></div>`;
+        <div class="fila"><div class="txt"><b>Copia para el celular</b><small>Apagada</small></div><button class="pz-boton" data-accion="celular-configurar">Activar</button></div></div>`;
     }
     const estado = c.error ? `<small class="error-txt" data-sin-traducir>${esc(tr(c.error))}</small>`
       : `<small data-sin-traducir>${c.ultima ? T("Última copia: {f}", { f: hace(c.ultima) || fechaCorta(c.ultima.slice(0, 10)) }) : esc(tr("Preparando la primera copia…"))}</small>`;
     return `<div class="seccion"><h3>Alcancía en tu celular</h3>
-      <div class="fila"><div class="txt"><b data-sin-traducir>${T("En {c}", { c: c.nombre || "" })}${c.nube ? ` · ${esc(c.nube)}` : ""}</b>${estado}</div><button class="boton" data-accion="celular-copiar">Copiar ahora</button></div>
+      <div class="fila"><div class="txt"><b data-sin-traducir>${T("En {c}", { c: c.nombre || "" })}${c.nube ? ` · ${esc(c.nube)}` : ""}</b>${estado}</div><button class="pz-boton" data-accion="celular-copiar">Copiar ahora</button></div>
       <p class="texto-suave intro-campo" data-sin-traducir>${T("Se actualiza al abrir Alcancía, cuando llegan movimientos y cada 6 horas. En el celular: «Elegir el archivo» y busca «{a}».", { a: ARCHIVO_CELULAR })}</p>
-      <div class="fila"><div class="txt"><b>Frase</b><small>Si la cambias, escríbela de nuevo en el celular.</small></div><button class="boton sutil" data-accion="celular-frase">Cambiar</button></div>
-      <div class="fila"><div class="txt"><b>Dejar de copiar</b><small>La copia que ya está en tu nube queda ahí; puedes borrarla tú.</small></div><button class="boton sutil" data-accion="celular-desactivar">Desactivar</button></div></div>`;
+      <div class="fila"><div class="txt"><b>Frase</b><small>Si la cambias, escríbela de nuevo en el celular.</small></div><button class="pz-boton pz-plano" data-accion="celular-frase">Cambiar</button></div>
+      <div class="fila"><div class="txt"><b>Dejar de copiar</b><small>La copia que ya está en tu nube queda ahí; puedes borrarla tú.</small></div><button class="pz-boton pz-plano" data-accion="celular-desactivar">Desactivar</button></div></div>`;
   }
   /** El asistente del Mac: carpeta de la nube → frase (con su fuerza y el aviso de que no se recupera) → listo. */
   function dialogoCelular() {
     const k = E.celularConfig, C = window.AlcanciaCopia;
-    const cab = `<h2 id="t-celular">Alcancía en tu celular</h2>`;
+    const titulo = "Alcancía en tu celular";
     const error = k.error ? `<p class="error-txt" role="alert" data-sin-traducir>${esc(tr(k.error))}</p>` : "";
-    const cerrar = `<button class="boton" data-accion="celular-cerrar">Cancelar</button>`;
+    const cerrar = `<button class="pz-boton" data-accion="celular-cerrar">Cancelar</button>`;
     if (k.paso === "carpeta") {
-      return `${cab}<p>Tu Mac deja una copia de tus números, cerrada con candado, en una carpeta de tu nube. Tu celular la lee desde ahí.</p>
+      return { titulo, cuerpo: `<p>Tu Mac deja una copia de tus números, cerrada con candado, en una carpeta de tu nube. Tu celular la lee desde ahí.</p>
         <div class="candado"><span class="grande-ico" aria-hidden="true">☁️</span><div><b>Elige una carpeta de tu nube</b><br>Una que también veas en el celular: iCloud Drive, Google Drive, OneDrive o Dropbox.</div></div>
-        ${error}<div class="pie-dialogo">${cerrar}<button class="boton principal" data-accion="celular-carpeta">Elegir carpeta</button></div>`;
+        ${error}`, pie: `${cerrar}<button class="pz-boton pz-principal" data-accion="celular-carpeta">Elegir carpeta</button>` };
     }
     if (k.paso === "listo") {
-      return `${cab}<p data-sin-traducir>🎉 ${T("Listo: tu copia está en **{c}**.", { c: k.carpeta?.nombre || E.celular.nombre || "" })}</p>
+      return { titulo, cuerpo: `<p data-sin-traducir>🎉 ${T("Listo: tu copia está en **{c}**.", { c: k.carpeta?.nombre || E.celular.nombre || "" })}</p>
         <div class="pasos-vacio"><div><b>1</b><span>Instala Alcancía en tu celular.</span></div>
           <div><b>2</b><span data-sin-traducir>${T("Toca «Elegir el archivo» y busca «{a}» en esa carpeta.", { a: ARCHIVO_CELULAR })}</span></div>
-          <div><b>3</b><span>Escribe tu frase.</span></div></div>
-        <div class="pie-dialogo"><button class="boton principal" data-accion="celular-cerrar">Listo</button></div>`;
+          <div><b>3</b><span>Escribe tu frase.</span></div></div>`,
+        pie: `<button class="pz-boton pz-principal" data-accion="celular-cerrar">Listo</button>` };
     }
     const f = C.fuerzaFrase(k.frase), problema = C.revisarFrase(k.frase), creando = k.paso === "creando";
     const carpeta = k.carpeta ? `<p data-sin-traducir>${Thtml("Carpeta: {c}", { c: `<b>${esc(k.carpeta.nombre)}</b>${k.carpeta.nube ? " · " + esc(k.carpeta.nube) : ""}` })} <button class="enlace" data-accion="celular-carpeta">${esc(tr("Cambiar"))}</button></p>
       ${k.carpeta.enNube === false ? `<p class="error-txt">Esa carpeta no parece estar en una nube: el celular no la va a ver. Mejor elige una dentro de iCloud Drive, Google Drive, OneDrive o Dropbox.</p>` : ""}` : "";
-    return `${cab}${carpeta}
+    return { titulo, cuerpo: `${carpeta}
       <label class="campo"><span>${k.cambiar ? "Tu nueva frase" : "Crea una frase"}</span><input id="celular-frase" class="texto" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-celular-frase value="${esc(k.frase)}" ${creando ? "disabled" : ""} data-sin-traducir></label>
       <div class="fuerza" data-nivel="${f.nivel}"><span class="fuerza-barra" aria-hidden="true"><i></i><i></i><i></i></span><small>${k.frase ? f.texto : "Al menos 12 caracteres"}</small></div>
       <p class="texto-suave">Cuatro palabras que no tengan que ver entre sí son fáciles de recordar y difíciles de adivinar. Anótala en un lugar seguro: la vas a escribir en tu celular.</p>
       <label class="marcar"><input type="checkbox" data-celular-entiendo ${k.entiendo ? "checked" : ""} ${creando ? "disabled" : ""}><span>Entiendo que sin esta frase no hay forma de abrir la copia<small>Alcancía no la guarda en ninguna parte y no la puede recuperar.</small></span></label>
-      ${error}<div class="pie-dialogo">${cerrar}<button class="boton principal" data-accion="celular-crear" ${problema || !k.entiendo || creando || !k.carpeta ? "disabled" : ""}>${creando ? "Creando la copia…" : "Crear la copia"}</button></div>`;
+      ${error}`, pie: `${cerrar}<button class="pz-boton pz-principal" data-accion="celular-crear" ${problema || !k.entiendo || creando || !k.carpeta ? "disabled" : ""}>${creando ? "Creando la copia…" : "Crear la copia"}</button>` };
   }
   /** «Crear la copia»: la llave sale de la frase aquí mismo (WebCrypto) y la app la guarda en el Llavero; la frase no se guarda. */
   async function crearCopiaCelular() {
@@ -1226,8 +1231,8 @@
     else if (est.conectado) estado = `<small class="ok-txt">${est.ultima ? frase("✓ Conectado · revisado {h}", { h: hace(est.ultima) }) : "✓ Conectado"}</small>`;
     else estado = `<small data-sin-traducir>${esc(paises)}</small>`;
     const botones = est.conectado
-      ? `<button class="boton" data-sincronizar="${esc(c.id)}" ${sinc ? "disabled" : ""}>Revisar ahora</button><button class="icono" data-desconectar="${esc(c.id)}" title="Desconectar" aria-label="Desconectar">✕</button>`
-      : `<button class="boton principal" data-conectar="${esc(c.id)}">Conectar</button>`;
+      ? `<button class="pz-boton" data-sincronizar="${esc(c.id)}" ${sinc ? "disabled" : ""}>Revisar ahora</button><button class="icono" data-desconectar="${esc(c.id)}" title="Desconectar" aria-label="Desconectar">✕</button>`
+      : `<button class="pz-boton pz-principal" data-conectar="${esc(c.id)}">Conectar</button>`;
     return `<div class="conector ${est.conectado ? "conectado" : ""}"><div class="txt"><b><span data-sin-traducir>${esc(tr(c.nombre))}</span>${c.estado === "beta" ? `<span class="chip pronto" title="Funciona con la API oficial, pero aún falta que alguien lo pruebe con su cuenta real">Beta</span>` : ""}</b>${estado}</div>
       <div class="acciones">${botones}</div></div>`;
   }
@@ -1259,8 +1264,8 @@
       const estado = error ? `<small class="error-txt" data-sin-traducir>${esc(error)}</small>`
         : c.conectado ? `<small class="ok-txt">${c.al_dia ? "✓ Conectada: ya puede consultar tus finanzas" : "Conectada (actualizando la ruta…)"}</small>`
           : `<small>Instalada en este computador</small>`;
-      const boton = c.conectado ? `<button class="boton" data-mcp-quitar="${esc(c.id)}" ${ocupado ? "disabled" : ""}>Quitar</button>`
-        : `<button class="boton principal" data-mcp="${esc(c.id)}" ${ocupado ? "disabled" : ""}>${ocupado ? "Conectando…" : "Conectar"}</button>`;
+      const boton = c.conectado ? `<button class="pz-boton" data-mcp-quitar="${esc(c.id)}" ${ocupado ? "disabled" : ""}>Quitar</button>`
+        : `<button class="pz-boton pz-principal" data-mcp="${esc(c.id)}" ${ocupado ? "disabled" : ""}>${ocupado ? "Conectando…" : "Conectar"}</button>`;
       return `<div class="fila"><div class="txt"><b data-sin-traducir>${esc(tr(c.nombre))}</b>${estado}</div>${boton}</div>`;
     }).join("");
     const alguna = lista.some((c) => c.conectado);
@@ -1274,18 +1279,17 @@
   const mdCorto = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`([^`]+)`/g, "<code>$1</code>");
   function dialogoConectar() {
     const c = E.conectores.find((x) => x.id === E.conectar.id);
-    if (!c) return "";
+    if (!c) return null;
     const k = E.conectar;
     const campos = c.campos.map((f) => `<label class="campo"><span data-sin-traducir>${esc(tr(f.etiqueta))}</span>
       <input class="entrada" type="${f.secreto ? "password" : "text"}" id="campo-${esc(f.id)}" data-campo="${esc(f.id)}" autocomplete="off" spellcheck="false" value="${esc(k.campos[f.id] || "")}" ${k.enviando ? "disabled" : ""}></label>`).join("");
-    return `<h2 id="t-conectar">${frase("Conectar {s}", { s: tr(c.nombre) })}</h2>
-      <ol class="pasos-conectar">${c.pasos.map((p) => `<li data-sin-traducir>${mdCorto(tr(p))}</li>`).join("")}</ol>
+    return { titulo: "Conectar {s}", valores: { s: tr(c.nombre) }, cuerpo: `<ol class="pasos-conectar">${c.pasos.map((p) => `<li data-sin-traducir>${mdCorto(tr(p))}</li>`).join("")}</ol>
       ${c.enlace ? `<p><a href="#" data-enlace="${esc(c.enlace)}">${frase("Abrir la página de {s}", { s: c.nombre })} ↗</a></p>` : ""}
       ${c.nota ? `<p class="nota-conector" data-sin-traducir>${mdCorto(tr(c.nota))}</p>` : ""}
       <div class="campos-conectar">${campos}</div>
       <div class="candado"><span class="grande-ico" aria-hidden="true">🔐</span><div>La llave se guarda cifrada en el llavero de tu computador y solo se usa para leer tus movimientos. Puedes desconectar cuando quieras.</div></div>
-      ${k.error ? `<p class="error-txt" data-sin-traducir>${esc(k.error)}</p>` : ""}
-      <div class="pie-dialogo"><button class="boton" data-accion="cerrar-conectar">Cancelar</button><button class="boton principal" data-accion="enviar-conectar" ${k.enviando ? "disabled" : ""}>${k.enviando ? "Revisando…" : "Conectar"}</button></div>`;
+      ${k.error ? `<p class="error-txt" data-sin-traducir>${esc(k.error)}</p>` : ""}`,
+      pie: `<button class="pz-boton" data-accion="cerrar-conectar">Cancelar</button><button class="pz-boton pz-principal" data-accion="enviar-conectar" ${k.enviando ? "disabled" : ""}>${k.enviando ? "Revisando…" : "Conectar"}</button>` };
   }
 
   /** Barras de los últimos meses (HTML y CSS, sin librerías) con la línea del presupuesto. El dibujo es solo para la vista:
@@ -1343,14 +1347,14 @@
       x: (sumables.some((i) => i.rango) ? "≈ " : "") + dinero(sumables.reduce((a, i) => a + i.monto, 0)) }) : "";
     return `<div class="al-dia ${p.estado === "atrasado" ? "atrasado" : "pendiente"}" role="status"><span class="punto" aria-hidden="true"></span>
       <p data-sin-traducir>${texto}${mas}</p>
-      <div class="acciones"><button class="boton sutil" data-comp-pagado="${esc(`${p.id}|${p.periodo}`)}">Ya lo pagué</button>${pend.length > 1 ? `<button class="boton sutil" data-cifra-abrir="debes">Ver todo</button>` : ""}</div></div>`;
+      <div class="acciones"><button class="pz-boton pz-plano" data-comp-pagado="${esc(`${p.id}|${p.periodo}`)}">Ya lo pagué</button>${pend.length > 1 ? `<button class="pz-boton pz-plano" data-cifra-abrir="debes">Ver todo</button>` : ""}</div></div>`;
   }
 
   /** Cuándo empieza tu mes. `pregunta`: lo que pide algo (¿cuándo te pagan?, ¿aún no te pagan?) y va en «Pendientes»;
    *  `info`: lo que detecté de tu sueldo, que va en la explicación de la cifra protagonista. */
   function lineaMes() {
     const im = E.config.inicio_mes, p = per();
-    if (!im) return { pregunta: `<div class="linea-mes"><p>${frase("¿Cuándo te pagan? Así tu mes empieza ese día.", {})}</p><button class="boton sutil" data-accion="ajustes-mes">Elegir</button></div>`, info: "" };
+    if (!im) return { pregunta: `<div class="linea-mes"><p>${frase("¿Cuándo te pagan? Así tu mes empieza ese día.", {})}</p><button class="pz-boton pz-plano" data-accion="ajustes-mes">Elegir</button></div>`, info: "" };
     if (!p) return { pregunta: "", info: "" };
     const sueldoC = listaCompromisos().find((c) => c.activo !== false && c.tipo === "ingreso" && c.frecuencia === "mensual" && c.categoria === "sueldo");
     const prox = proximoSueldo(p, E.hoy, E.feriados || []);
@@ -1358,26 +1362,26 @@
     if (!im.auto) return { pregunta, info: "" };
     const inicio = rango(periodoHoy(), p)[0], f = fechaCorta(inicio);
     const texto = (p.llegadas || []).includes(inicio) ? frase("Tu mes va desde que llegó tu sueldo ({f}).", { f }) : frase("Tu mes va desde el {f}, el día que suele llegar tu sueldo.", { f });
-    return { pregunta, info: `<div class="linea-mes"><p>${texto}</p><button class="boton sutil" data-accion="ajustes-mes">Cambiar</button></div>` };
+    return { pregunta, info: `<div class="linea-mes"><p>${texto}</p><button class="pz-boton pz-plano" data-accion="ajustes-mes">Cambiar</button></div>` };
   }
   /** «¿Aún no te pagan?»: suave, sin aviso del sistema. «Todavía no» no insiste hoy; «Ya me pagaron» busca el movimiento. */
   function preguntaSueldo(c, prox) {
     const f = fechaLarga(prox.fecha);
     if (E.sueldoPregunta !== "pagaron") {
       return `<div class="linea-mes pregunta" role="status"><p>${frase("¿Aún no te pagan? Lo esperaba el {f}.", { f })}</p>
-        <div class="acciones"><button class="boton sutil" data-sueldo="no">Todavía no</button><button class="boton" data-sueldo="pagaron">Ya me pagaron</button>
+        <div class="acciones"><button class="pz-boton pz-plano" data-sueldo="no">Todavía no</button><button class="pz-boton" data-sueldo="pagaron">Ya me pagaron</button>
         <button class="icono" data-sueldo="cerrar" aria-label="${esc(tr("Cerrar"))}" title="${esc(tr("Cerrar"))}" data-sin-traducir>×</button></div></div>`;
     }
     const cand = candidatoSueldo(prox);
     if (cand && E.sueldoCandidatoNo !== cand.id) {
       return `<div class="linea-mes pregunta" role="status"><p>${frase("¿Es este? {d} · {x} · {f}", { d: nombreComercio(cand.descripcion), x: dinero(cand.monto, cand.moneda || monedaPrincipal()), f: fechaCorta(cand.fecha) })}</p>
-        <div class="acciones"><button class="boton principal" data-sueldo="es" data-sueldo-mov="${esc(cand.id)}">Sí, es mi sueldo</button><button class="boton sutil" data-sueldo="noes" data-sueldo-mov="${esc(cand.id)}">No es este</button></div></div>`;
+        <div class="acciones"><button class="pz-boton pz-principal" data-sueldo="es" data-sueldo-mov="${esc(cand.id)}">Sí, es mi sueldo</button><button class="pz-boton pz-plano" data-sueldo="noes" data-sueldo-mov="${esc(cand.id)}">No es este</button></div></div>`;
     }
     const conectados = E.conectores.filter((k) => E.conexiones[k.id]?.conectado);
     return `<div class="linea-mes pregunta" role="status"><p>${frase("Agrega tu cartola o revisa tus cuentas conectadas para verlo.", {})}</p>
-      <div class="acciones"><button class="boton" data-accion="importar">Agregar movimientos</button>
-      ${conectados.map((k) => `<button class="boton sutil" data-sincronizar="${esc(k.id)}">${frase("Revisar {s}", { s: tr(k.nombre) })}</button>`).join("")}
-      <button class="boton sutil" data-sueldo="hoy">Márcalo como recibido hoy</button></div></div>`;
+      <div class="acciones"><button class="pz-boton" data-accion="importar">Agregar movimientos</button>
+      ${conectados.map((k) => `<button class="pz-boton pz-plano" data-sincronizar="${esc(k.id)}">${frase("Revisar {s}", { s: tr(k.nombre) })}</button>`).join("")}
+      <button class="pz-boton pz-plano" data-sueldo="hoy">Márcalo como recibido hoy</button></div></div>`;
   }
   /** El ingreso más probable de ser el sueldo que no se reconoció: el más grande desde 10 días antes de la fecha esperada. */
   function candidatoSueldo(prox) {
@@ -1397,7 +1401,7 @@
     c.pagos = { ...(c.pagos || {}), [o.periodo]: { como: "manual", fecha } };
     host.enviar("compromiso", { accion: "pagado", id: c.id, periodo: o.periodo, hoy: fecha });
     E.sueldoPregunta = null; E._per = undefined; E.mes = periodoHoy();
-    toast(Tp("Listo: tu mes parte el {f}", { f: fechaCorta(fecha) })); render();
+    toast("Listo: tu mes parte el {f}", { valores: { f: fechaCorta(fecha) } }); render();
   }
 
   /** Una de las tres cifras de segundo nivel (fila compacta): etiqueta chica arriba, monto abajo. Tocar abre su desglose. */
@@ -1464,7 +1468,7 @@
       const num = `<span class="heroe-num" data-sin-traducir>${esc(dinero(r.gastado))}${codigo}</span>`;
       return `<section class="heroe"><p class="heroe-frase" data-sin-traducir>${Thtml("Llevas gastado {x}", { x: num })}</p>
         <p class="heroe-sub">${frase("Anota cuánto tienes en tus cuentas y te digo cuánto te queda hasta tu sueldo.", {})}</p>
-        <div class="acciones"><button class="boton" data-cifra-abrir="tienes">Anotar lo que tengo</button></div>${ritmo}</section>`;
+        <div class="acciones"><button class="pz-boton" data-cifra-abrir="tienes">Anotar lo que tengo</button></div>${ritmo}</section>`;
     }
     const negativo = q.queda < 0, abierta = E.cifra === "queda";
     const num = `<span class="heroe-num ${negativo ? "rojo-txt" : ""}" data-sin-traducir>${q.aprox ? '<span class="aprox-signo">≈</span>' : ""}${esc(dinero(Math.abs(q.queda)))}${codigo}</span>`;
@@ -1530,10 +1534,10 @@
       }
       const editor = `<form class="saldo-editor" data-saldo-form="${esc(c.id)}"><label class="oculto-accesible" data-sin-traducir for="saldo-${esc(c.id)}">${T("¿Cuánto tienes hoy en {c}?", { c: c.nombre })}</label>
         <input class="texto" id="saldo-${esc(c.id)}" inputmode="numeric" data-saldo-input="${esc(c.id)}" value="${esc(E.saldoEdit?.cuenta === c.id ? E.saldoEdit.texto : "")}" placeholder="${esc(tr("Monto de hoy"))}" data-sin-traducir>
-        <button class="boton principal" type="submit">Guardar</button>${c.saldo != null ? `<button class="boton sutil" type="button" data-saldo-cancelar>Cancelar</button>` : ""}</form>`;
+        <button class="pz-boton pz-principal" type="submit">Guardar</button>${c.saldo != null ? `<button class="pz-boton pz-plano" type="button" data-saldo-cancelar>Cancelar</button>` : ""}</form>`;
       return `<div class="cuenta-fila ${c.saldo == null ? "sin" : ""}">
         <div class="txt"><b data-sin-traducir>${esc(c.nombre)}</b>${c.saldo == null ? `<small data-sin-traducir>${LECTURA ? esc(tr("Anota cuánto tienes en tu Mac.")) : T("¿Cuánto tienes hoy en {c}?", { c: c.nombre })}</small>` : `<small data-sin-traducir>${origen}</small>`}</div>
-        ${c.saldo != null && !editando ? `<span class="valor" data-sin-traducir>${esc(dinero(c.saldo, c.moneda))}</span>${LECTURA ? "" : `<button class="boton sutil" data-saldo-editar="${esc(c.id)}">Corregir</button>`}` : LECTURA ? "" : editor}</div>`;
+        ${c.saldo != null && !editando ? `<span class="valor" data-sin-traducir>${esc(dinero(c.saldo, c.moneda))}</span>${LECTURA ? "" : `<button class="pz-boton pz-plano" data-saldo-editar="${esc(c.id)}">Corregir</button>`}` : LECTURA ? "" : editor}</div>`;
     };
     const aviso = E.saldoAviso ? `<p class="saldo-aviso ${E.saldoAviso.cuadra ? "ok" : ""}" role="status" data-sin-traducir>${E.saldoAviso.texto}</p>` : "";
     const lista = t.cuentas.filter((c) => c.moneda === t.moneda || c.saldo != null);
@@ -1558,7 +1562,7 @@
         <span class="monto" data-sin-traducir>${esc(dinero(g))}${tope ? ` <small>${T("de {x}", { x: dinero(tope) })}</small>` : ""}</span>
         <span class="barra ${clase}"><i style="width:${(tope ? Math.min(100, g / tope * 100) : g / max * 100).toFixed(1)}%"></i></span></button>`;
     }).join("");
-    return `<section class="seccion-inicio"><div class="cabeza-seccion"><h2 class="titulo-seccion">En qué se fue</h2><button class="boton sutil" data-vista="presupuesto">${LECTURA ? "Ver topes" : "Editar topes"}</button></div>
+    return `<section class="seccion-inicio"><div class="cabeza-seccion"><h2 class="titulo-seccion">En qué se fue</h2><button class="pz-boton pz-plano" data-vista="presupuesto">${LECTURA ? "Ver topes" : "Editar topes"}</button></div>
       ${filas}
       ${ids.length > 5 ? `<button class="enlace mas" data-accion="ver-todas-cat" aria-expanded="${!!E.verTodasCat}">${E.verTodasCat ? "Ver menos" : frase("Ver las {n} categorías", { n: ids.length })}</button>` : ""}</section>`;
   }
@@ -1593,7 +1597,7 @@
       .sort((a, b) => ORDEN_ESTADO[a.estado] - ORDEN_ESTADO[b.estado] || cmp(a.vence, b.vence));
     const filaComp = (p) => `<div class="comp-fila ${esc(p.estado)}"><span class="emoji" aria-hidden="true">${esc(p.categoria && cat(p.categoria).id ? cat(p.categoria).emoji : "🧾")}</span>
       <div class="txt"><b data-sin-traducir>${esc(p.nombre)}</b><small data-sin-traducir><span class="punto" aria-hidden="true"></span>${textoEstado({ ...p, signo: "gasto", pago: null })}</small></div>
-      <span class="valor" data-sin-traducir>${p.max != null && p.max !== p.monto ? "≈ " : ""}${esc(dinero(p.monto))}</span>${seCobraSolo({ ...p, signo: "gasto" }) ? "" : `<div class="acciones"><button class="boton" data-comp-pagado="${esc(p.clave)}">Ya lo pagué</button></div>`}</div>`;
+      <span class="valor" data-sin-traducir>${p.max != null && p.max !== p.monto ? "≈ " : ""}${esc(dinero(p.monto))}</span>${seCobraSolo({ ...p, signo: "gasto" }) ? "" : `<div class="acciones"><button class="pz-boton" data-comp-pagado="${esc(p.clave)}">Ya lo pagué</button></div>`}</div>`;
     const fila = (ico, nombre, detalle, monto) => `<div class="debe-fila"><span class="emoji" aria-hidden="true">${ico}</span>
       <div class="txt"><b data-sin-traducir>${nombre}</b><small data-sin-traducir>${detalle}</small></div><span class="valor" data-sin-traducir>${esc(dinero(monto))}</span></div>`;
     const otras = d.partes.filter((p) => p.tipo !== "compromiso").map((p) => {
@@ -1639,9 +1643,9 @@
     const filas = [...reglas.map((r) => {
       const c = cat(r.categoria);
       return `<div class="aprendi-fila"><span class="emoji" aria-hidden="true">${esc(c.emoji)}</span><div class="txt">${frase(r.n === 1 ? "«{r}» siempre fue **{c}**. ¿Se lo pongo al que no tiene categoría y a los que vengan?" : "«{r}» siempre fue **{c}**. ¿Se lo pongo a los {n} que no tienen categoría y a los que vengan?", { r: r.contiene, c: nombreCat(c), n: r.n })}</div>
-        <div class="acciones"><button class="boton sutil" data-regla-no="${esc(r.contiene)}">No</button><button class="boton" data-regla-si="${esc(r.contiene)}" data-regla-cat="${esc(r.categoria)}">Sí, siempre</button></div></div>`;
+        <div class="acciones"><button class="pz-boton pz-plano" data-regla-no="${esc(r.contiene)}">No</button><button class="pz-boton" data-regla-si="${esc(r.contiene)}" data-regla-cat="${esc(r.categoria)}">Sí, siempre</button></div></div>`;
     }), ...sug.slice(0, reglas.length ? 1 : 2).map((s) => `<div class="aprendi-fila"><span class="emoji" aria-hidden="true">${iconoComp(s)}</span><div class="txt">${textoSugerencia(s)}</div>
-        <div class="acciones"><button class="boton sutil" data-sug-no="${esc(s.clave)}">No es</button><button class="boton" data-sug-agregar="${esc(s.clave)}">¿Lo agrego?</button></div></div>`)];
+        <div class="acciones"><button class="pz-boton pz-plano" data-sug-no="${esc(s.clave)}">No es</button><button class="pz-boton" data-sug-agregar="${esc(s.clave)}">¿Lo agrego?</button></div></div>`)];
     if (!filas.length) return "";
     return `<div class="aprendi"><h3 class="grupo">Aprendí esto de tus movimientos</h3>${filas.join("")}
       ${sug.length > 2 ? `<button class="enlace" data-vista="compromisos">${frase("Ver {n} más en Pagos", { n: sug.length - (reglas.length ? 1 : 2) })}</button>` : ""}</div>`;
@@ -1652,9 +1656,9 @@
   function pendientesHTML(preguntaMes) {
     const sinCat = E.movimientos.filter((m) => !m.categoria).length;
     const ordenar = sinCat ? `<div class="pendiente-fila"><span class="ico">${icono("ordenar", 20)}</span><p>${frase(sinCat === 1 ? "**1 movimiento** sin categoría" : "**{n} movimientos** sin categoría", { n: sinCat })}</p>
-      <button class="boton" data-vista="ordenar">Ordenar</button></div>` : "";
+      <button class="pz-boton" data-vista="ordenar">Ordenar</button></div>` : "";
     const anotar = !listaCompromisos().length && !LECTURA ? `<div class="pendiente-fila"><span class="ico">${icono("compromisos", 20)}</span><p>${frase("Anota lo que pagas seguido (arriendo, créditos, cuentas) y te digo si te falta pagar algo.", {})}</p>
-      <button class="boton" data-accion="agregar-contar">Anotar</button></div>` : "";
+      <button class="pz-boton" data-accion="agregar-contar">Anotar</button></div>` : "";
     const pagoMora = moraDelAnio(listaCompromisos(), E.movimientos, E.hoy, monedaPrincipal(), ufCfg(), E.palabrasMora || []);
     const mora = pagoMora > 0 ? `<div class="pendiente-fila"><span class="ico rojo-txt" aria-hidden="true">!</span><p class="mora-anio">${frase("Este año pagaste {x} en intereses por atraso.", { x: dinero(pagoMora) })}</p></div>` : "";
     const partes = [preguntaMes, ordenar, aprendiHTML(), anotar, mora].filter(Boolean);
@@ -1741,7 +1745,7 @@
         <div class="emojis" role="radiogroup" aria-label="Emoji">${[...new Set([k.nueva.emoji || sugerirEmoji(k.nueva.nombre), ...EMOJIS])].slice(0, 12).map((e) =>
           `<button type="button" role="radio" aria-checked="${e === (k.nueva.emoji || sugerirEmoji(k.nueva.nombre))}" data-nueva-emoji="${e}" data-lugar="${lugar}" data-sin-traducir>${e}</button>`).join("")}</div>
         ${k.nueva.error ? `<p class="error-txt" data-sin-traducir>${esc(k.nueva.error)}</p>` : ""}
-        <div class="pie-dialogo"><button type="button" class="boton" data-nueva-cancelar="${lugar}">Cancelar</button><button type="button" class="boton principal" data-nueva-guardar="${lugar}">Crear y usar</button></div></div>` : "";
+        <div class="pz-pie"><button type="button" class="pz-boton" data-nueva-cancelar="${lugar}">Cancelar</button><button type="button" class="pz-boton pz-principal" data-nueva-guardar="${lugar}">Crear y usar</button></div></div>` : "";
     return `<input class="texto buscar-cat" id="${lugar}-buscar" type="search" data-buscar-cat="${lugar}" value="${esc(k.buscar || "")}" placeholder="${esc(tr("Buscar o crear categoría"))}" aria-label="${esc(tr("Buscar o crear categoría"))}" autocomplete="off" data-sin-traducir>
       ${nueva || `<div class="opciones-cat">${botones}${crear}</div>`}`;
   }
@@ -1788,7 +1792,7 @@
     const c = { id: idNuevaCategoria(nombre), nombre, emoji: k.nueva?.emoji || sugerirEmoji(nombre), tipo: m.monto > 0 ? "ingreso" : "gasto" };
     E.categorias = [...E.categorias, c];
     host.enviar("categoriaNueva", { categoria: c, mes: mesDe(m.fecha), id: m.id });
-    toast(Tp("Creé «{c}»", { c: nombre }));
+    toast("Creé «{c}»", { valores: { c: nombre } });
     elegirCategoria(m, c.id, lugar, true);
   }
 
@@ -1800,12 +1804,12 @@
     if (!cola.length) {
       return `<div class="contenido vista-ordenar" tabindex="-1">${cab()}<section class="tarjeta ordenado"><p class="grande">🎉</p><h2>Todo ordenado</h2>
         <p class="texto-suave">Cada movimiento tiene su categoría. Lo que agregues después y calce con lo que aprendí se ordena solo.</p>
-        <button class="boton principal" data-vista="movimientos">Ver mis movimientos</button></section></div>`;
+        <button class="pz-boton pz-principal" data-vista="movimientos">Ver mis movimientos</button></section></div>`;
     }
     if (k.i >= cola.length) {
       return `<div class="contenido vista-ordenar" tabindex="-1">${cab()}<section class="tarjeta ordenado"><h2>${frase(cola.length === 1 ? "Te saltaste 1" : "Te saltaste {n}", { n: cola.length })}</h2>
         <p class="texto-suave">Quedan sin categoría. Puedes volver a mirarlos cuando quieras.</p>
-        <button class="boton principal" data-accion="ordenar-inicio">Volver al primero</button></section></div>`;
+        <button class="pz-boton pz-principal" data-accion="ordenar-inicio">Volver al primero</button></section></div>`;
     }
     k.i = Math.max(0, k.i);
     const m = cola[k.i], cuentas = Object.fromEntries(E.cuentas.map((c) => [c.id, c.nombre])), medio = medioTexto(m);
@@ -1817,9 +1821,9 @@
         <p class="texto-suave" data-sin-traducir>${esc(primeraMayuscula(nombreDia(m.fecha)))} · ${esc(cuentas[m.cuenta] || m.cuenta)}${medio ? ` · ${medio}` : ""}</p>
         ${nombreComercio(m.descripcion) !== m.descripcion ? `<p class="original" data-sin-traducir>${esc(m.descripcion)}</p>` : ""}</section>
       <section class="tarjeta elegir-ordenar">${elegidor(m, k, "ordenar")}</section>
-      <div class="pie-ordenar"><button class="boton" data-accion="ordenar-atras" ${k.i ? "" : "disabled"}>‹ <span>Anterior</span></button>
+      <div class="pie-ordenar"><button class="pz-boton" data-accion="ordenar-atras" ${k.i ? "" : "disabled"}>‹ <span>Anterior</span></button>
         <p class="atajos">${frase("Atajos: **1–9** elige · **→** salta · **←** vuelve · **/** busca", {})}</p>
-        <button class="boton" data-accion="ordenar-saltar"><span>Saltar</span> ›</button></div></div>`;
+        <button class="pz-boton" data-accion="ordenar-saltar"><span>Saltar</span> ›</button></div></div>`;
   }
 
   function vistaMovimientos() {
@@ -1867,10 +1871,10 @@
           <label class="chip-filtro select ${c ? "activo" : ""}"><span class="oculto-accesible">Filtrar por categoría</span><select data-filtro="categoria" aria-label="${esc(tr("Filtrar por categoría"))}" data-sin-traducir><option value="">${esc(tr("Todas las categorías"))}</option>
             ${E.categorias.map((x) => `<option value="${esc(x.id)}" ${f.categoria === x.id ? "selected" : ""} data-sin-traducir>${esc(x.emoji)} ${esc(x.nombre)}</option>`).join("")}</select></label>
           <button class="chip-filtro" data-accion="agrupar-mov" aria-pressed="${!!E.agruparMov}">Agrupar por comercio</button></div></div>
-      ${soloSin && lista.length ? `<div class="barra-ordenar"><p>${frase(lista.length === 1 ? "**1** sin categoría este mes." : "**{n}** sin categoría este mes.", { n: lista.length })}</p><button class="boton principal" data-vista="ordenar">Ordenar uno a uno</button></div>` : ""}
+      ${soloSin && lista.length ? `<div class="barra-ordenar"><p>${frase(lista.length === 1 ? "**1** sin categoría este mes." : "**{n}** sin categoría este mes.", { n: lista.length })}</p><button class="pz-boton pz-principal" data-vista="ordenar">Ordenar uno a uno</button></div>` : ""}
       ${hist}
       <div class="lista-mov">${html || `<div class="vacio corto"><p>${f.texto || f.categoria ? "Nada calza con ese filtro." : "No hay movimientos este mes."}</p>
-        ${f.texto || f.categoria ? `<button class="boton" data-accion="limpiar-filtro">Ver todos</button>` : ""}</div>`}</div></div>`;
+        ${f.texto || f.categoria ? `<button class="pz-boton" data-accion="limpiar-filtro">Ver todos</button>` : ""}</div>`}</div></div>`;
   }
 
   /** El aviso discreto después de elegir una categoría: «¿Siempre para este comercio?». */
@@ -1880,7 +1884,7 @@
     const c = cat(a.categoria);
     return `<div class="aviso-regla" role="status"><p>${frase(a.parecidos ? (a.parecidos === 1 ? "¿Siempre {c} para «{r}»? También hay 1 parecido." : "¿Siempre {c} para «{r}»? También hay {n} parecidos.") : "¿Siempre {c} para «{r}»?",
       { c: c.emoji + " " + nombreCat(c), r: a.contiene, n: a.parecidos })}</p>
-      <button class="boton principal" data-accion="aprender-si">Sí, siempre</button><button class="icono" data-accion="aprender-no" title="Solo este" aria-label="Solo este">✕</button></div>`;
+      <button class="pz-boton pz-principal" data-accion="aprender-si">Sí, siempre</button><button class="icono" data-accion="aprender-no" title="Solo este" aria-label="Solo este">✕</button></div>`;
   }
 
   function vistaPresupuesto() {
@@ -1895,11 +1899,11 @@
     const total = Object.values(E.presEdit).filter((v) => v > 0).reduce((a, b) => a + b, 0);
     const cambio = JSON.stringify(limpiarPres(E.presEdit)) !== JSON.stringify(limpiarPres(E.presupuesto.mensual || {}));
     return `<div class="contenido">${volver("mas", "Más")}<div class="encabezado"><h1>Presupuesto mensual</h1>
-        <button class="boton" data-accion="sugerir" ${completos.length ? "" : "disabled"} title="${completos.length ? "Usa lo que gastas normalmente en cada categoría" : "Necesito al menos un mes completo de movimientos"}">✨ <span>Sugerir con lo que gastas</span></button></div>
+        <button class="pz-boton" data-accion="sugerir" ${completos.length ? "" : "disabled"} title="${completos.length ? "Usa lo que gastas normalmente en cada categoría" : "Necesito al menos un mes completo de movimientos"}">✨ <span>Sugerir con lo que gastas</span></button></div>
       <p class="intro-vista">${LECTURA ? "Cuánto quieres gastar como máximo cada mes en cada cosa. Los topes se cambian en tu Mac." : "Cuánto quieres gastar como máximo cada mes en cada cosa. Alcancía te avisa cuando vas muy rápido, antes de que sea tarde."}</p>
       ${tarjetaGastoMaximo()}
       <section class="tarjeta">${filas}<div class="total-pres"><span>Total al mes</span><span id="total-pres" data-sin-traducir>${esc(dinero(total))}</span></div></section>
-      <div class="pie-dialogo"><button class="boton principal" data-accion="guardar-pres" ${cambio ? "" : "disabled"}>Guardar presupuesto</button></div></div>`;
+      <div class="pz-pie"><button class="pz-boton pz-principal" data-accion="guardar-pres" ${cambio ? "" : "disabled"}>Guardar presupuesto</button></div></div>`;
   }
   const limpiarPres = (p) => Object.fromEntries(Object.entries(p).filter(([, v]) => v > 0).sort());
 
@@ -1913,31 +1917,26 @@
       cuerpo = `<section class="tarjeta"><p class="intro-tarjeta">${frase("Cuando pidas consejos a {ia} en tu Mac, aparecen aquí.", { ia })}</p></section>`;
     } else if (!elegido) {
       cuerpo = `<section class="tarjeta"><p class="intro-tarjeta">${frase("Cuando quieras, {ia} mira tus gastos del mes y te deja tres cosas: lo que va bien, a qué ponerle ojo y algo concreto para esta semana.", { ia })}</p>
-        <button class="boton principal" data-accion="pedir-consejos">✦ <span>Pedir mis primeros consejos</span></button></section>`;
+        <button class="pz-boton pz-principal" data-accion="pedir-consejos">✦ <span>Pedir mis primeros consejos</span></button></section>`;
     } else {
       cuerpo = `<section class="tarjeta"><div class="tarjeta-cabeza"><h2 data-sin-traducir>${esc(primeraMayuscula(nombreDia(elegido.fecha)))}</h2></div>
         <div class="md" data-sin-traducir>${mdHTML(elegido.texto)}</div></section>
         ${E.consejos.length > 1 ? `<div class="historial" aria-label="Consejos anteriores">${E.consejos.map((c) => `<button class="chip" data-consejo="${esc(c.fecha)}" aria-pressed="${c === elegido}" data-sin-traducir>${esc(c.fecha)}</button>`).join("")}</div>` : ""}`;
     }
     return `<div class="contenido">${volver("mas", "Más")}<div class="encabezado"><h1>Consejos</h1>
-        ${elegido && !E.pidiendoConsejos ? `<button class="boton principal" data-accion="pedir-consejos">✦ <span>Pedir consejos nuevos</span></button>` : ""}</div>
+        ${elegido && !E.pidiendoConsejos ? `<button class="pz-boton pz-principal" data-accion="pedir-consejos">✦ <span>Pedir consejos nuevos</span></button>` : ""}</div>
       ${E.errorConsejos ? `<p class="error-txt" data-sin-traducir>${esc(E.errorConsejos)}</p>` : ""}${cuerpo}
       <p class="nota-mcp">${frase("{ia} trabaja con tu propia cuenta y solo ve totales por categoría y los comercios donde más gastaste. Nunca ve tus cuentas ni tus claves.", { ia })}</p></div>`;
   }
 
-  /** Versión nueva: aviso discreto arriba (nunca una alerta del sistema) y, al actualizar, el avance por pasos. */
+  /** Versión nueva: aviso discreto arriba (nunca una alerta del sistema) con la fila de la pieza «componentes» («Actualizar ahora»
+   *  y, al actualizar, «Paso n de 3» con su barra). «Después» lo esconde hasta la próxima vez que se revise. En el celular, nada. */
   function avisoActualizacion() {
-    const a = E.act;
-    const caja = (contenido, error) => `<div class="contenido" style="padding-bottom:0"><div class="aprender" role="status" style="${error ? "background:var(--rojo-suave)" : ""}">${contenido}</div></div>`;
-    if (a) {
-      const error = a.paso === "error", pct = a.pct ?? (Number(a.paso) || 0) / 3 * 100;
-      return caja(`<div style="flex:1;min-width:0"><b>${error ? "No se pudo actualizar" : "Actualizando Alcancía"}</b><br><small data-sin-traducir>${esc(a.texto || "")}</small>
-        ${error ? "" : `<div class="barra" style="margin-top:8px"><i style="width:${Math.round(pct)}%"></i></div>`}</div>
-        ${error ? `<button class="boton" data-accion="act-cerrar">Cerrar</button><button class="boton principal" data-accion="actualizar">Reintentar</button>` : ""}`, error);
-    }
-    if (!E.actualizacion?.hay || E.actOculto) return "";
-    return caja(`<p><b>Hay una versión nueva de Alcancía</b> <small data-sin-traducir>${esc((E.actualizacion.detalle || "").split("\n")[0])}</small></p>
-      <button class="boton" data-accion="act-despues">Después</button><button class="boton principal" data-accion="actualizar">Actualizar</button>`);
+    if (LECTURA) return "";
+    const enCurso = ui.act.estado && typeof ui.act.estado === "object";
+    if (!enCurso && (!ui.act.disponible || E.actOculto)) return "";
+    return `<div class="contenido aviso-act"><div class="aprender" role="status">${ui.filaActualizacion()}
+      ${enCurso ? "" : `<button class="pz-boton pz-plano" data-accion="act-despues">Después</button>`}</div></div>`;
   }
 
   // ───────────── Compromisos: lo que se paga o se recibe seguido ─────────────
@@ -2034,9 +2033,9 @@
     const clave = esc(`${i.id}|${i.periodo}`);
     let acciones = "";
     if (seCobraSolo(i)) acciones = "";
-    else if (i.estado !== "pagado") acciones = `<button class="boton" data-comp-pagado="${clave}">${i.signo === "ingreso" ? "Ya llegó" : "Ya lo pagué"}</button>`;
-    else if (completa && i.pago.como === "automatico") acciones = `<button class="boton sutil" data-comp-noes="${clave}|${esc(i.pago.movimiento)}" title="Ese movimiento no es el pago de este compromiso">No es este</button>`;
-    else if (completa) acciones = `<button class="boton sutil" data-comp-desmarcar="${clave}">Desmarcar</button>`;
+    else if (i.estado !== "pagado") acciones = `<button class="pz-boton" data-comp-pagado="${clave}">${i.signo === "ingreso" ? "Ya llegó" : "Ya lo pagué"}</button>`;
+    else if (completa && i.pago.como === "automatico") acciones = `<button class="pz-boton pz-plano" data-comp-noes="${clave}|${esc(i.pago.movimiento)}" title="Ese movimiento no es el pago de este compromiso">No es este</button>`;
+    else if (completa) acciones = `<button class="pz-boton pz-plano" data-comp-desmarcar="${clave}">Desmarcar</button>`;
     const detalle = [textoEstado(i)];
     if (i.cuota) detalle.push(T("cuota {n} de {t}", { n: i.cuota.numero, t: i.cuota.total }));
     if (completa && i.estado === "pagado" && i.pago.como === "automatico") detalle.push(T("lo reconocí en tu cartola: {d}", { d: i.pago.descripcion }));
@@ -2113,7 +2112,7 @@
     return `<h2 class="subtitulo">Parece que pagas esto seguido</h2><section class="tarjeta">
       ${GRUPOS_COMP.map(([g, titulo]) => [titulo, ver.filter((s) => grupoDe(s) === g)]).filter(([, l]) => l.length).map(([titulo, l]) => `<h3 class="grupo">${titulo}</h3>` + l.map((s) => `<div class="sugerencia"><span class="emoji" aria-hidden="true">${iconoComp(s)}</span><div class="txt">${textoSugerencia(s)}
         ${s.cuotas_total ? `<small data-sin-traducir>${T("Según tu cartola vas en la cuota {n} de {t}.", { n: s.cuotas_pagadas, t: s.cuotas_total })}</small>` : ""}</div>
-        <div class="acciones"><button class="boton sutil" data-sug-no="${esc(s.clave)}">No es</button><button class="boton principal" data-sug-agregar="${esc(s.clave)}">¿Lo agrego?</button></div></div>`).join("")).join("")}
+        <div class="acciones"><button class="pz-boton pz-plano" data-sug-no="${esc(s.clave)}">No es</button><button class="pz-boton pz-principal" data-sug-agregar="${esc(s.clave)}">¿Lo agrego?</button></div></div>`).join("")).join("")}
       ${lista.length > 3 ? `<button class="enlace" data-accion="sug-todas">${E.sugTodas ? "Ver menos" : frase("Ver {n} más", { n: lista.length - 3 })}</button>` : ""}</section>`;
   }
   // ───────────── Conversar con Alcancía (el chanchito): bin/chat.py con la IA de la persona ─────────────
@@ -2156,7 +2155,7 @@
     return partes.join(" · ");
   }
   const botonesChat = (ref, opciones) => `<div class="acciones-chat">${opciones.map(([que, texto, principal]) =>
-    `<button class="boton ${principal ? "principal" : que === "no" ? "sutil" : ""}" data-sin-traducir data-chat="${que}" data-msg="${esc(ref.id)}" data-i="${ref.i}" ${ref.j != null ? `data-j="${ref.j}"` : ""}>${texto}</button>`).join("")}</div>`;
+    `<button class="pz-boton ${principal ? "pz-principal" : que === "no" ? "pz-plano" : ""}" data-sin-traducir data-chat="${que}" data-msg="${esc(ref.id)}" data-i="${ref.i}" ${ref.j != null ? `data-j="${ref.j}"` : ""}>${texto}</button>`).join("")}</div>`;
   const hechoChat = (estado) => `<p class="accion-estado ${estado === "hecha" ? "hecha" : ""}">${estado === "hecha" ? "✓ Listo" : "Descartado"}</p>`;
   /** Una propuesta de compromiso (crear o una del plan): «Agregar», «Cambiar» (abre el editor) o «No».
    *  `x.parecido` (y sin respuesta): primero «¿Es el mismo?». `x.actualiza`: es el préstamo que ya estaba, con el plan nuevo
@@ -2245,7 +2244,7 @@
   function mensajeChat(m) {
     if (m.rol === "persona") return `<div class="msg persona"><div class="globo" data-sin-traducir>${textoChat(m.texto)}</div></div>`;
     const notas = (m.notas || []).filter((n) => NOTAS_CHAT[n] && !(n === "no_encontre_movimientos" && m.busqueda)).map((n) => `<p class="nota-chat" data-sin-traducir>${esc(tr(NOTAS_CHAT[n]))}</p>`).join("");
-    const extra = m.sin_ia ? `<div class="acciones-chat"><button class="boton" data-accion="chat-ajustes">Abrir Ajustes</button></div>` : "";
+    const extra = m.sin_ia ? `<div class="acciones-chat"><button class="pz-boton" data-accion="chat-ajustes">Abrir Ajustes</button></div>` : "";
     return `<div class="msg alcancia ${m.error ? "error" : ""}">${avatarChat()}<div class="cuerpo-msg"><div class="globo" data-sin-traducir>${m.busqueda ? textoBusqueda(m.busqueda) : textoChat(m.texto)}</div>
       ${(m.acciones || []).map((a, i) => tarjetaAccion(m, a, i)).join("")}${notas}${extra}</div></div>`;
   }
@@ -2253,8 +2252,8 @@
   function dialogoChat() {
     const k = E.chat, ia = nombreIA(), msgs = k.mensajes || [], conIA = hayIA();
     const borrar = !msgs.length ? "" : k.confirmarBorrar
-      ? `<span class="confirmar-borrar"><button class="boton sutil" data-accion="chat-no-borrar">Cancelar</button><button class="boton" data-accion="chat-borrar-si">Borrar la conversación</button></span>`
-      : `<button class="boton sutil" data-accion="chat-borrar">Borrar</button>`;
+      ? `<span class="confirmar-borrar"><button class="pz-boton pz-plano" data-accion="chat-no-borrar">Cancelar</button><button class="pz-boton" data-accion="chat-borrar-si">Borrar la conversación</button></span>`
+      : `<button class="pz-boton pz-plano" data-accion="chat-borrar">Borrar</button>`;
     const cabeza = `<header class="chat-cabeza">${avatarChat()}<div class="txt"><h2 id="t-chat">Alcancía</h2><small>${frase("Con {ia}, en tu computador", { ia })}</small></div>
       ${borrar}<button class="icono" data-accion="cerrar-agregar" aria-label="Cerrar" title="Cerrar">✕</button></header>`;
     const hola = `<div class="msg alcancia">${avatarChat()}<div class="cuerpo-msg"><div class="globo">${frase(conIA
@@ -2267,21 +2266,20 @@
     const pensando = k.pensando ? `<div class="msg alcancia pensando" role="status">${avatarChat()}<div class="cuerpo-msg"><div class="globo"><span class="puntos" aria-hidden="true"><i></i><i></i><i></i></span>
       ${frase("{ia} está pensando. Puede tardar un poco.", { ia })}</div></div></div>` : "";
     const pie = conIA ? `<form class="chat-pie" data-chat-form><label class="oculto-accesible" for="chat-texto">Escríbele a Alcancía</label>
-        <textarea id="chat-texto" class="texto" rows="1" maxlength="500" data-chat-texto data-sin-traducir placeholder="${esc(tr("Escríbele a Alcancía…"))}" ${k.pensando ? "disabled" : ""}>${esc(k.texto)}</textarea>
-        <button class="boton principal enviar" type="button" data-accion="chat-enviar" aria-label="Enviar" title="Enviar" ${k.pensando ? "disabled" : ""}>${icono("enviar")}</button></form>`
-      : `<div class="chat-pie sin-ia"><button class="boton" data-accion="comp-nuevo">Agregar a mano</button><button class="boton principal" data-accion="chat-ajustes">Abrir Ajustes</button></div>`;
+        <textarea id="chat-texto" class="texto" rows="1" data-autofoco maxlength="500" data-chat-texto data-sin-traducir placeholder="${esc(tr("Escríbele a Alcancía…"))}" ${k.pensando ? "disabled" : ""}>${esc(k.texto)}</textarea>
+        <button class="pz-boton pz-principal enviar" type="button" data-accion="chat-enviar" aria-label="Enviar" title="Enviar" ${k.pensando ? "disabled" : ""}>${icono("enviar")}</button></form>`
+      : `<div class="chat-pie sin-ia"><button class="pz-boton" data-accion="comp-nuevo">Agregar a mano</button><button class="pz-boton pz-principal" data-accion="chat-ajustes">Abrir Ajustes</button></div>`;
     return `${cabeza}<div class="chat-cuerpo" role="log" aria-live="polite">${hola}${sugerencias}${msgs.map(mensajeChat).join("")}${pensando}</div>${pie}`;
   }
   /** «+ Agregar»: lo único que se agrega en Alcancía, en un solo lugar (una cartola, un pago que se repite o una cuenta conectada). */
   function dialogoAgregar() {
     const op = (accion, ico, titulo, detalle, extra = "") => `<button class="opcion-agregar" ${accion} ${extra}><span class="ico">${icono(ico)}</span>
       <span class="txt"><b>${titulo}</b><small>${detalle}</small></span><span class="cf-flecha" aria-hidden="true">›</span></button>`;
-    return `<h2 id="t-agregar">Agregar</h2>
-      <div class="opciones-agregar">
+    return { titulo: "Agregar", cuerpo: `<div class="opciones-agregar">
         ${op('data-accion="importar"', "cartola", "Una cartola", "CSV, Excel, PDF u OFX que descargas de tu banco o billetera.")}
         ${op('data-accion="agregar-contar"', "repetir", "Un pago que se repite", "Arriendo, créditos, cuentas, suscripciones o tu sueldo. Con tus palabras.")}
-        ${op('data-vista="conexiones"', "conexiones", "Conectar una cuenta", "Que tus movimientos lleguen solos.")}</div>
-      <div class="pie-dialogo"><button class="boton" data-accion="cerrar-agregar">Cancelar</button></div>`;
+        ${op('data-vista="conexiones"', "conexiones", "Conectar una cuenta", "Que tus movimientos lleguen solos.")}</div>`,
+      pie: `<button class="pz-boton" data-accion="cerrar-agregar">Cancelar</button>` };
   }
   const nuevoIdComp = () => "c-" + Array.from({ length: 10 }, () => "abcdefghijklmnopqrstuvwxyz0123456789"[Math.floor(Math.random() * 36)]).join("");
   function borradorDe(c = {}) {
@@ -2309,7 +2307,7 @@
             <label class="campo"><span>O la fecha en que termina</span><input class="texto" id="ce-fecha_fin" type="date" data-ce="fecha_fin" value="${esc(c.fecha_fin || "")}"></label>`}
         ${campoNum("saldo", c.saldo, tr("Saldo que te queda por pagar"))}</fieldset>` : "";
     const existe = listaCompromisos().some((x) => x.id === c.id);
-    return `<h2 id="t-comp">${existe ? "Editar compromiso" : k.origen === "ia" ? "¿Quedó bien?" : "Nuevo compromiso"}</h2>
+    return { titulo: existe ? "Editar compromiso" : k.origen === "ia" ? "¿Quedó bien?" : "Nuevo compromiso", cuerpo: `<div class="editor-comp" id="editor-comp">
       ${k.origen === "ia" ? frase("Así lo entendió {ia}. Revisa y corrige lo que haga falta antes de guardar.", { ia: nombreIA() }, "p") : ""}
       <div class="campos-comp">
         <label class="campo ancho"><span>Nombre</span><input class="texto" id="ce-nombre" maxlength="60" data-ce="nombre" value="${esc(c.nombre)}" data-sin-traducir></label>
@@ -2324,11 +2322,11 @@
         ${deuda}
         ${existe ? `<label class="marcar"><input type="checkbox" data-ce-activo ${c.activo !== false ? "checked" : ""}><span>Activo<small>Si lo pausas, no te lo recuerdo ni lo busco en tus cartolas.</small></span></label>` : ""}
       </div>
-      ${k.error ? `<p class="error-txt" data-sin-traducir>${esc(k.error)}</p>` : ""}
-      <div class="pie-dialogo">${existe ? `<button class="boton izq peligro" data-accion="comp-borrar">Borrar</button>` : ""}
-        <button class="boton" data-accion="comp-cancelar">Cancelar</button>
-        ${c.tipo === "deuda" && !existe ? `<button class="boton" data-accion="comp-despues">Lo completo después</button>` : ""}
-        <button class="boton principal" data-accion="comp-guardar">Guardar</button></div>`;
+      ${k.error ? `<p class="error-txt" data-sin-traducir>${esc(k.error)}</p>` : ""}</div>`,
+      pie: `${existe ? `<button class="pz-boton pz-izq pz-peligro" data-accion="comp-borrar">Borrar</button>` : ""}
+        <button class="pz-boton" data-accion="comp-cancelar">Cancelar</button>
+        ${c.tipo === "deuda" && !existe ? `<button class="pz-boton" data-accion="comp-despues">Lo completo después</button>` : ""}
+        <button class="pz-boton pz-principal" data-accion="comp-guardar">Guardar</button>` };
   }
   /** Lo que muestra (y guarda) «¿Cómo se paga?»: lo que eligió la persona o, si no, lo que se infiere (modoPago); si no se sabe, «Lo pago yo». */
   const pagoDelEditor = (c) => c.pago || modoPago({ ...c, buscar: String(c.buscarTexto || "").split(",") }, E.palabrasAuto || []) || "manual";
@@ -2485,12 +2483,12 @@
     const ordenar = (l) => [...l].sort((a, b) => orden[a.estado] - orden[b.estado] || (a.vence < b.vence ? -1 : a.vence > b.vence ? 1 : 0));
     const g = gastoMaximo(E.movimientos, listaCompromisos(), E.mes, E.hoy, E.categorias, mesesCompletos(), monedaPrincipal(), per(), ufCfg());
     const hay = listaCompromisos().length;
-    const anotar = `<button class="boton sutil" data-accion="agregar-contar">＋ <span>Anotar un pago</span></button>`;
+    const anotar = `<button class="pz-boton pz-plano" data-accion="agregar-contar">＋ <span>Anotar un pago</span></button>`;
     if (!hay && !(E.sugerencias || []).length) {
       return `<div class="contenido"><div class="encabezado"><h1>Pagos</h1></div>
         <section class="vacio corto"><p>${frase("Lo que pagas o recibes seguido: deudas, cuentas, suscripciones, transferencias y tu sueldo. Alcancía **reconoce el pago en tu cartola** y te recuerda lo que falta, para que no se te olvide nada.", {})}</p>
           ${LECTURA ? `<p class="texto-suave">Anótalos en tu Mac y aparecen aquí.</p>` : ""}
-          <button class="boton principal" data-accion="agregar-contar">＋ <span>Anotar un pago</span></button></section></div>`;
+          <button class="pz-boton pz-principal" data-accion="agregar-contar">＋ <span>Anotar un pago</span></button></section></div>`;
     }
     // Lo que pagas tú (y lo automático sin cargo pasada la gracia) arriba; lo que se paga solo, aparte y sin «Ya lo pagué».
     const falta = ordenar(gastos.filter((i) => i.estado !== "pagado" && !seCobraSolo(i))), solos = ordenar(gastos.filter(seCobraSolo));
@@ -2537,7 +2535,7 @@
     return `<section class="tarjeta maximo">${cab}<p class="maximo-cifra">${frase("Este mes puedes gastar hasta **{x}** en lo variable.", { x: dinero(g.disponible) })}</p>
       <p class="pie-maximo">${desglose} <small data-sin-traducir>${esc(origen)}</small>${aprox}</p>
       ${filas ? `<p class="pista-cat">Máximo por categoría, según lo que gastas normalmente, y lo que llevas este mes:</p>${filas}
-        <div class="pie-dialogo"><button class="boton" data-accion="usar-maximos">Usar estos máximos como topes</button></div>` : ""}</section>`;
+        <div class="pz-pie"><button class="pz-boton" data-accion="usar-maximos">Usar estos máximos como topes</button></div>` : ""}</section>`;
   }
   /** Tras importar (o sincronizar): lo que parece un compromiso en lo nuevo, para agregarlo con un toque. */
   function detectadosHTML(r) {
@@ -2549,20 +2547,12 @@
       ${lista.map((s, n) => `<div class="sugerencia"><span class="emoji" aria-hidden="true">${iconoComp(s)}</span><div class="txt">${textoSugerencia(s)}
         ${s.cuotas_total ? `<small data-sin-traducir>${T("Según tu cartola vas en la cuota {n} de {t}.", { n: s.cuotas_pagadas, t: s.cuotas_total })}</small>` : ""}</div>
         <div class="acciones">${hechos[n] === "agregado" ? `<span class="ok-txt">✓ Agregado</span>` : hechos[n] === "no" ? `<span class="texto-suave">No es</span>`
-          : `<button class="boton sutil" data-det-no="${n}">No es</button><button class="boton principal" data-det-agregar="${n}">Agregar</button>`}</div></div>`).join("")}</div>`;
+          : `<button class="pz-boton pz-plano" data-det-no="${n}">No es</button><button class="pz-boton pz-principal" data-det-agregar="${n}">Agregar</button>`}</div></div>`).join("")}</div>`;
   }
 
   // ───────────── Diálogos ─────────────
-  function filasIA() {
-    return E.ias.map((ia) => {
-      const enUso = E.config.ia === ia.id, probando = E.probando[ia.id], r = E.resultadoIA[ia.id];
-      const estado = !ia.instalada ? `<small>No está instalada · <a href="#" data-enlace="${ENLACES.guiaIA}#${ia.id}">Cómo instalarla</a></small>`
-        : r && !r.ok ? `<small class="error-txt" data-sin-traducir>${esc(tr(r.texto || "No respondió."))}</small>` : `<small>Instalada</small>`;
-      const accion = enUso ? `<span class="ok">✓ En uso</span>` : ia.instalada
-        ? `<button class="boton" data-probar="${esc(ia.id)}" ${probando ? "disabled" : ""}>${probando ? "Probando…" : "Usar"}</button>` : "";
-      return `<div class="fila"><div class="txt"><b data-sin-traducir>${esc(ia.nombre)}</b>${estado}</div>${accion}</div>`;
-    }).join("");
-  }
+  /** «Tu IA» (pieza «componentes»): probarIA {ia} y, si responde bien, queda elegida (elegirIA). */
+  const filasIA = () => ui.filasIA({ ias: E.ias, elegida: E.config.ia, guia: ENLACES.guiaIA });
   function camposPais() {
     return `<div class="dos"><label class="campo"><span>País</span><select data-config="pais">${PAISES.map(([id, n]) =>
       `<option value="${id}" ${E.config.pais === id ? "selected" : ""}>${n}</option>`).join("")}</select></label>
@@ -2580,61 +2570,56 @@
 
   function dialogoImportar() {
     const im = E.importar, ia = nombreIA();
-    const cab = `<h2 id="t-importar">Agregar movimientos</h2>`;
-    const cerrar = `<button class="boton" data-accion="cerrar-importar">Cancelar</button>`;
+    const titulo = "Agregar movimientos";
+    const cerrar = `<button class="pz-boton" data-accion="cerrar-importar">Cancelar</button>`;
     const muestra = (lista) => `<table class="tabla-muestra" data-sin-traducir>${(lista || []).map((m) => `<tr><td>${esc(m.fecha)}</td><td>${esc(m.descripcion)}</td>
       <td class="${m.monto > 0 ? "ingreso" : ""}">${esc(dinero(m.monto, m.moneda, true))}</td></tr>`).join("")}</table>`;
     switch (im.paso) {
       case "leyendo": case "aprendiendo": case "guardando": {
         const p = im.progreso;
         const texto = im.paso === "leyendo" ? T("Leyendo {x}…", { x: im.nombre }) : im.paso === "aprendiendo" ? T("{ia} está aprendiendo a leer este archivo…", { ia }) : esc(p?.texto || tr("Guardando…"));
-        return `${cab}<div class="progreso"><p data-sin-traducir>${texto}</p><div class="barra ${p?.paso ? "" : "indef"}"><i style="width:${p?.paso ? Math.round(p.paso / p.total * 100) : 0}%"></i></div>
-          ${p?.paso ? `<small>${frase("Paso {n} de {t}", { n: p.paso, t: p.total })}</small>` : ""}</div>`;
+        return { titulo, cuerpo: `<div class="progreso"><p data-sin-traducir>${texto}</p><div class="barra ${p?.paso ? "" : "indef"}"><i style="width:${p?.paso ? Math.round(p.paso / p.total * 100) : 0}%"></i></div>
+          ${p?.paso ? `<small>${frase("Paso {n} de {t}", { n: p.paso, t: p.total })}</small>` : ""}</div>` };
       }
       case "vista": {
         const v = im.vista;
-        return `${cab}<p>${frase("Encontré **{n} movimientos** de {b}, del {d} al {h}.", { n: v.total, b: v.receta.institucion || v.receta.nombre, d: v.desde, h: v.hasta })}</p>
+        return { titulo, cuerpo: `<p>${frase("Encontré **{n} movimientos** de {b}, del {d} al {h}.", { n: v.total, b: v.receta.institucion || v.receta.nombre, d: v.desde, h: v.hasta })}</p>
           ${muestra(v.muestra)}
           <label class="marcar"><input type="checkbox" data-importar-ia ${im.ia ? "checked" : ""}><span>${frase("Que {ia} ponga las categorías que falten", { ia })}<small>Usa tu propia cuenta. Solo ve la descripción y el monto de cada movimiento.</small></span></label>
-          ${(v.avisos || []).length ? `<details class="texto-suave" style="color:var(--suave);font-size:12.5px"><summary>${frase("{n} filas no eran movimientos", { n: v.avisos.length })}</summary><ul data-sin-traducir>${v.avisos.map((a) => `<li>${esc(a)}</li>`).join("")}</ul></details>` : ""}
-          <div class="pie-dialogo">${cerrar}<button class="boton principal" data-accion="importar-guardar">Agregar</button></div>`;
+          ${(v.avisos || []).length ? `<details class="texto-suave" style="color:var(--texto-suave);font-size:12.5px"><summary>${frase("{n} filas no eran movimientos", { n: v.avisos.length })}</summary><ul data-sin-traducir>${v.avisos.map((a) => `<li>${esc(a)}</li>`).join("")}</ul></details>` : ""}`, pie: `${cerrar}<button class="pz-boton pz-principal" data-accion="importar-guardar">Agregar</button>` };
       }
       case "sin_receta":
-        return `${cab}<p>${frase("Todavía no sé leer «{x}». Pasa con bancos nuevos: cada uno arma su cartola a su manera.", { x: im.nombre })}</p>
+        return { titulo, cuerpo: `<p>${frase("Todavía no sé leer «{x}». Pasa con bancos nuevos: cada uno arma su cartola a su manera.", { x: im.nombre })}</p>
           <div class="candado"><span class="grande-ico" aria-hidden="true">🧠</span><div>${frase("{ia} puede mirar las primeras filas y aprender a leerlo. Después te muestro cómo quedó antes de guardar nada.", { ia })}</div></div>
-          ${im.error ? `<p class="error-txt" data-sin-traducir>${esc(im.error)}</p>` : ""}
-          <div class="pie-dialogo">${cerrar}<button class="boton principal" data-accion="aprender-receta">${frase("Que {ia} aprenda a leerlo", { ia })}</button></div>`;
+          ${im.error ? `<p class="error-txt" data-sin-traducir>${esc(im.error)}</p>` : ""}`, pie: `${cerrar}<button class="pz-boton pz-principal" data-accion="aprender-receta">${frase("Que {ia} aprenda a leerlo", { ia })}</button>` };
       case "receta": {
         const v = im.vista;
-        return `${cab}<p>${frase("{ia} aprendió a leerlo: encontré **{n} movimientos**. ¿Se ven bien?", { ia, n: v.total })}</p>${muestra(v.muestra)}
+        return { titulo, cuerpo: `<p>${frase("{ia} aprendió a leerlo: encontré **{n} movimientos**. ¿Se ven bien?", { ia, n: v.total })}</p>${muestra(v.muestra)}
           <label class="marcar"><input type="checkbox" data-importar-ia ${im.ia ? "checked" : ""}><span>${frase("Que {ia} ponga las categorías que falten", { ia })}</span></label>
-          <label class="marcar"><input type="checkbox" data-compartir ${im.compartir ? "checked" : ""}><span>Compartir la receta con la comunidad<small>Solo cómo se lee este tipo de archivo (nombres de columnas y formatos), nunca tus movimientos. Así la próxima persona con este banco no tiene que esperar.</small></span></label>
-          <div class="pie-dialogo"><button class="boton izq" data-accion="receta-mal">No, se ven mal</button>${cerrar}<button class="boton principal" data-accion="importar-guardar">Sí, agregar</button></div>`;
+          <label class="marcar"><input type="checkbox" data-compartir ${im.compartir ? "checked" : ""}><span>Compartir la receta con la comunidad<small>Solo cómo se lee este tipo de archivo (nombres de columnas y formatos), nunca tus movimientos. Así la próxima persona con este banco no tiene que esperar.</small></span></label>`, pie: `<button class="pz-boton pz-izq" data-accion="receta-mal">No, se ven mal</button>${cerrar}<button class="pz-boton pz-principal" data-accion="importar-guardar">Sí, agregar</button>` };
       }
       case "listo": {
         const r = im.resultado;
-        return `${cab}<p style="font-size:16px;color:var(--texto)">🎉 ${frase(r.nuevos === 1 ? "Listo: 1 movimiento nuevo." : "Listo: {n} movimientos nuevos.", { n: r.nuevos })}
+        return { titulo, cuerpo: `<p style="font-size:16px;color:var(--texto)">🎉 ${frase(r.nuevos === 1 ? "Listo: 1 movimiento nuevo." : "Listo: {n} movimientos nuevos.", { n: r.nuevos })}
           ${r.repetidos ? " " + frase("{n} ya estaban y no se duplicaron.", { n: r.repetidos }) : ""}</p>
           ${r.error_ia ? `<p class="error-txt" data-sin-traducir>${esc(r.error_ia)}</p>` : ""}
           ${r.sin_categoria ? `<p>${frase("Quedaron {n} sin categoría: ponles una en Movimientos.", { n: r.sin_categoria })}</p>` : ""}
-          ${detectadosHTML(r)}
-          <div class="pie-dialogo"><button class="boton" data-accion="importar">Agregar otra</button><button class="boton principal" data-accion="ver-movimientos">Ver movimientos</button></div>`;
+          ${detectadosHTML(r)}`, pie: `<button class="pz-boton" data-accion="importar">Agregar otra</button><button class="pz-boton pz-principal" data-accion="ver-movimientos">Ver movimientos</button>` };
       }
       case "compromiso":
-        return E.compEdit ? editorCompromiso().replace('id="t-comp"', 'id="t-importar"') : "";
+        return E.compEdit ? editorCompromiso() : null;
       case "error":
-        return `${cab}<p class="error-txt" data-sin-traducir>${esc(im.error || "")}</p><div class="pie-dialogo">${cerrar}<button class="boton principal" data-accion="elegir-cartola">Elegir otro archivo</button></div>`;
+        return { titulo, cuerpo: `<p class="error-txt" data-sin-traducir>${esc(im.error || "")}</p>`, pie: `${cerrar}<button class="pz-boton pz-principal" data-accion="elegir-cartola">Elegir otro archivo</button>` };
       default:
-        return `${cab}<p>Descarga la cartola desde la página de tu banco o billetera y elígela aquí. Se lee en tu computador: nada sale de aquí.</p>
-          <div class="zona-archivo"><span class="grande-ico" aria-hidden="true">📄</span><button class="boton principal" data-accion="elegir-cartola">Elegir archivo</button>
-            <small>CSV, Excel (.xlsx), PDF con texto, OFX, QIF o CAMT.053. Si la subes dos veces, no se duplica nada.</small></div>
-          <div class="pie-dialogo">${cerrar}</div>`;
+        return { titulo, cuerpo: `<p>Descarga la cartola desde la página de tu banco o billetera y elígela aquí. Se lee en tu computador: nada sale de aquí.</p>
+          <div class="zona-archivo"><span class="grande-ico" aria-hidden="true">📄</span><button class="pz-boton pz-principal" data-accion="elegir-cartola">Elegir archivo</button>
+            <small>CSV, Excel (.xlsx), PDF con texto, OFX, QIF o CAMT.053. Si la subes dos veces, no se duplica nada.</small></div>`, pie: `${cerrar}` };
     }
   }
 
   function dialogoAjustes() {
     if (LECTURA) return dialogoAjustesMovil();
-    return `<h2 id="t-ajustes">Ajustes</h2><p>Todo se procesa en tu computador. La IA usa tu propia cuenta.</p>
+    return { titulo: "Ajustes", cuerpo: `<p>Todo se procesa en tu computador. La IA usa tu propia cuenta.</p>
       <div class="seccion"><h3>Tu IA</h3>${filasIA()}</div>
       <div class="seccion"><h3>País y moneda</h3>${camposPais()}</div>
       <div class="seccion"><h3>Tu mes</h3>${campoInicioMes()}</div>
@@ -2642,13 +2627,11 @@
       <div class="seccion"><h3>Respaldo</h3>${opcionesRespaldo()}</div>
       ${seccionCelular()}
       <div class="seccion"><h3>General</h3>
-        <div class="fila"><div class="txt"><b>Idioma de la app</b></div><select data-config="idioma_ui"><option value="es" ${E.idioma === "es" ? "selected" : ""}>Español</option><option value="en" ${E.idioma === "en" ? "selected" : ""}>English</option></select></div>
-        <div class="fila"><div class="txt"><b>Carpeta de tus datos</b><small data-sin-traducir>${esc(E.carpeta)}</small></div><button class="boton" data-accion="abrir-carpeta">Abrir</button></div></div>
-      <div class="seccion"><h3>Acerca de Alcancía</h3><p style="margin:0 0 8px;color:var(--suave)">${frase("Alcancía {v} · Gratis y de código abierto (AGPL-3.0).", { v: E.version })}</p>
-        <div class="fila"><div class="txt"><b>Actualizaciones</b><small>${E.buscando === "buscando" ? "Buscando…" : E.buscando === "alDia" ? "Estás en la última versión." : E.buscando === "sinConexion" ? "No pude revisar: ¿hay internet?" : E.actualizacion?.hay ? "Hay una versión nueva." : "Alcancía revisa sola cada 6 horas."}</small></div>
-          ${E.actualizacion?.hay ? `<button class="boton principal" data-accion="actualizar">Actualizar</button>` : `<button class="boton" data-accion="buscar-act" ${E.buscando === "buscando" ? "disabled" : ""}>Buscar actualizaciones</button>`}</div>
-        <div class="enlaces"><a href="#" data-enlace="${ENLACES.sitio}">Sitio web</a><a href="#" data-enlace="${ENLACES.codigo}">Código</a><a href="#" data-enlace="${ENLACES.comunidad}">Comunidad</a></div></div>
-      <div class="pie-dialogo"><button class="boton principal" data-accion="cerrar">Listo</button></div>`;
+        ${filaIdioma()}${filaApariencia()}
+        <div class="fila"><div class="txt"><b>Carpeta de tus datos</b><small data-sin-traducir>${esc(E.carpeta)}</small></div><button class="pz-boton" data-accion="abrir-carpeta">Abrir</button></div></div>
+      <div class="seccion"><h3>Actualizaciones</h3>${ui.filaActualizacion()}</div>
+      <div class="seccion"><h3>Acerca de Alcancía</h3>${acercaDe()}</div>`,
+      pie: `<button class="pz-boton pz-principal" data-accion="cerrar">Listo</button>` };
   }
 
   /** Paso 0 de la bienvenida: lo primero es el idioma, antes de cualquier otra pregunta. Cada opción va escrita en su propio idioma
@@ -2657,7 +2640,7 @@
     const sugerido = idiomaDelSistema();
     const opcion = (codigo, nombre, nota) => {
       const es = codigo === sugerido;
-      return `<button type="button" id="bv-idioma-${codigo}" class="boton opcion-idioma ${es ? "principal" : ""}" data-idioma-bv="${codigo}" lang="${codigo}" data-sin-traducir>
+      return `<button type="button" id="bv-idioma-${codigo}" class="pz-boton opcion-idioma${es ? " pz-principal" : ""}" data-idioma-bv="${codigo}" lang="${codigo}"${es ? " data-autofoco" : ""} data-sin-traducir>
         <b>${nombre}</b>${es ? `<small>${nota}</small>` : ""}</button>`;
     };
     return `${marcas}<div class="paso-idioma">${LOGO}<h2 id="t-bv" tabindex="-1" data-sin-traducir><span lang="es">Elige tu idioma</span> <span aria-hidden="true">·</span> <span lang="en">Choose your language</span></h2>
@@ -2676,7 +2659,7 @@
         <div><b>🔐</b><span>Tus datos viajan cerrados con candado por tu propia nube. Sin cuentas ni servidores de Alcancía.</span></div>
         <div><b>🔔</b><span>Si quieres, te aviso antes de que venza un pago.</span></div></div>`, true],
       ["Trae tus datos", `<p>Tu Mac deja una copia cifrada en tu nube; aquí la abres con tu frase.</p>${pasosCelular()}
-        <button class="boton principal grande" data-accion="bv-traer">Elegir el archivo</button>`, true],
+        <button class="pz-boton pz-principal grande" data-accion="bv-traer">Elegir el archivo</button>`, true],
     ] : [
       null,
       ["Hola, esto es Alcancía", `<p>Para quienes nos cuesta medirnos en los gastos. Juntas tus cartolas, Alcancía las ordena y tu IA te avisa a tiempo cuando algo se está pasando.</p>
@@ -2687,39 +2670,63 @@
       ["Elige tu IA", `<p>Alcancía usa la IA que ya tienes, con tu cuenta. La probamos con una pregunta corta.</p><div class="seccion">${filasIA()}</div>`, !!E.config.ia],
       ["Tu respaldo", opcionesRespaldo(), true],
       ["Tu primera cartola", `<p>Descarga la cartola de tu banco o billetera (CSV, Excel o PDF) y agrégala. Si tu banco aún no está, tu IA aprende a leerlo.</p>
-        <button class="boton principal grande" data-accion="bv-importar">＋ <span>Agregar mi primera cartola</span></button>`, true],
+        <button class="pz-boton pz-principal grande" data-accion="bv-importar">＋ <span>Agregar mi primera cartola</span></button>`, true],
     ];
     const [titulo, cuerpo, puede] = pasos[paso];
-    return `${marcas}<h2 id="t-bv" tabindex="-1">${titulo}</h2>${cuerpo}
-      <div class="pie-dialogo" style="margin-top:18px">${paso > 0 ? `<button class="boton izq" data-bv="${paso - 1}">Atrás</button>` : ""}
-        ${paso < total - 1 ? `<button class="boton" data-accion="bv-despues">Lo hago después</button><button class="boton principal" data-bv="${paso + 1}" ${puede ? "" : "disabled"}>Siguiente</button>`
-          : `<button class="boton" data-accion="bv-fin">${LECTURA ? "Lo hago después" : "Empezar sin cartola"}</button>`}</div>`;
+    return { titulo, cuerpo: marcas + cuerpo,
+      pie: `${paso > 0 ? `<button class="pz-boton pz-izq" data-bv="${paso - 1}">Atrás</button>` : ""}
+        ${paso < total - 1 ? `<button class="pz-boton" data-accion="bv-despues">Lo hago después</button><button class="pz-boton pz-principal" data-bv="${paso + 1}" ${puede ? "" : "disabled"}>Siguiente</button>`
+          : `<button class="pz-boton" data-accion="bv-fin">${LECTURA ? "Lo hago después" : "Empezar sin cartola"}</button>`}` };
   }
 
+  /** Un diálogo de la pieza «componentes» (role="dialog", aria-modal, ✕, foco adentro, Esc y el velo cierran). */
+  const caja = (id, d, o = {}) => (d ? ui.dialogo({ id, titulo: d.titulo, valores: d.valores, cuerpo: d.cuerpo, pie: d.pie, ...o }) : "");
+  /** El mismo marco de la pieza (velo, foco, Tab y Esc), con una cabeza propia: la pantalla de idioma (título bilingüe fijo) y el
+   *  chat (avatar y acciones; con su propio estilo, `.dialogo-chat`, a pantalla completa en el celular). */
+  const cajaPropia = (id, html, { clase = "pz-dialogo", capa = "", sinEsc = false } = {}) => `<div class="pz-capa${capa ? " " + capa : ""}" data-pz-capa>
+    <div class="${clase}" role="dialog" aria-modal="true" aria-labelledby="${id}" tabindex="-1"${sinEsc ? " data-pz-sin-esc" : ""}>${html}</div></div>`;
   function dialogos() {
-    const capa = (id, html) => `<div class="capa"><div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="${id}">${html}</div></div>`;
-    if (E.importar) return capa("t-importar", dialogoImportar());
-    if (E.conectar) return capa("t-conectar", dialogoConectar());
-    if (E.bv !== null) return capa("t-bv", bienvenida());
-    if (E.celularConfig && !LECTURA) return capa("t-celular", dialogoCelular());
-    if (E.ajustes) return capa("t-ajustes", dialogoAjustes());
-    if (E.compEdit) return capa("t-comp", `<div class="editor-comp" id="editor-comp">${editorCompromiso()}</div>`);
-    if (E.agregar === "contar") return `<div class="capa capa-chat"><div class="dialogo dialogo-chat" role="dialog" aria-modal="true" aria-labelledby="t-chat">${dialogoChat()}</div></div>`;
-    if (E.agregar) return capa("t-agregar", dialogoAgregar());
+    if (E.importar) return caja("t-importar", dialogoImportar(), { cerrable: !ocupadoImportando() });
+    if (E.conectar) return caja("t-conectar", dialogoConectar(), { cerrable: !E.conectar.enviando });
+    // La bienvenida no se cierra con Esc ni con el velo: se sale con «Lo hago después».
+    if (E.bv === 0) return cajaPropia("t-bv", bienvenida(), { clase: "pz-dialogo dialogo-bv", sinEsc: true });
+    if (E.bv !== null) return caja("t-bv", bienvenida(), { clase: "dialogo-bv", cerrable: false, sinEsc: true });
+    if (E.celularConfig && !LECTURA) return caja("t-celular", dialogoCelular(), { cerrable: E.celularConfig.paso !== "creando" });
+    if (E.ajustes) return caja("t-ajustes", dialogoAjustes());
+    if (E.compEdit) return caja("t-comp", editorCompromiso());
+    if (E.agregar === "contar") return cajaPropia("t-chat", dialogoChat(), { clase: "dialogo-chat", capa: "capa-chat" });
+    if (E.agregar) return caja("t-agregar", dialogoAgregar());
     return "";
+  }
+  /** Esc, el velo o ✕ (pieza «componentes»): cierra el diálogo de más arriba, salvo mientras trabaja. */
+  function cerrarDialogo() {
+    if (E.importar) {
+      if (ocupadoImportando()) return;
+      if (E.importar.paso === "compromiso") { E.importar.paso = "listo"; E.compEdit = null; } else E.importar = null;
+    } else if (E.conectar) { if (E.conectar.enviando) return; E.conectar = null; }
+    else if (E.bv !== null) return;
+    else if (E.celularConfig && !LECTURA) { if (E.celularConfig.paso === "creando") return; E.celularConfig = null; E.ajustes = true; }
+    else if (E.ajustes) E.ajustes = false;
+    else if (E.compEdit) E.compEdit = null;
+    else if (E.agregar) E.agregar = null;
+    else return;
+    render();
   }
 
   // ───────────── Eventos ─────────────
   const ocupadoImportando = () => ["leyendo", "aprendiendo", "guardando"].includes(E.importar?.paso);
   /** En el celular (fase 1) esto no se ofrece (queda oculto en app.css); si igual llega un toque, un aviso discreto y nada más. */
   const ACCIONES_MAC = ["agregar", "agregar-contar", "abrir-chat", "importar", "bv-importar", "elegir-cartola", "comp-nuevo", "pedir-consejos", "sugerir",
-    "guardar-pres", "usar-maximos", "ajustes-mes", "abrir-carpeta", "actualizar", "buscar-act", "aprender-si", "celular-configurar"];
-  const SOLO_MAC = ["[data-elegir]", "[data-pick]", "[data-probar]", "[data-respaldo]", "[data-conectar]", "[data-sincronizar]", "[data-desconectar]", "[data-mcp]",
+    "guardar-pres", "usar-maximos", "ajustes-mes", "abrir-carpeta", "aprender-si", "celular-configurar"];
+  const SOLO_MAC = ["[data-elegir]", "[data-pick]", "[data-pz-probar-ia]", "[data-pz-act]", "[data-respaldo]", "[data-conectar]", "[data-sincronizar]", "[data-desconectar]", "[data-mcp]",
     "[data-mcp-quitar]", "[data-comp-pagado]", "[data-comp-noes]", "[data-comp-desmarcar]", "[data-comp-editar]", "[data-sug-agregar]", "[data-sug-no]", "[data-det-agregar]",
     "[data-det-no]", "[data-saldo-editar]", "[data-regla-si]", "[data-sueldo]", "[data-chat]", "[data-chat-sugerencia]", '[data-ir-cat=""]', '[data-vista="ordenar"]',
     '[data-vista="conexiones"]', ...ACCIONES_MAC.map((a) => `[data-accion="${a}"]`)].join(",");
   document.addEventListener("click", (ev) => {
-    const el = ev.target.closest("[data-accion],[data-vista],[data-mes],[data-probar],[data-bv],[data-idioma-bv],[data-enlace],[data-respaldo],[data-consejo],[data-conectar],[data-sincronizar],[data-desconectar],[data-mcp],[data-mcp-quitar],[data-historia],[data-comp-pagado],[data-comp-noes],[data-comp-desmarcar],[data-comp-editar],[data-sug-agregar],[data-sug-no],[data-det-agregar],[data-det-no],[data-cifra],[data-cifra-abrir],[data-ir-cat],[data-elegir],[data-pick],[data-nueva-cat],[data-nueva-emoji],[data-nueva-cancelar],[data-nueva-guardar],[data-cerrar-picker],[data-saldo-editar],[data-saldo-cancelar],[data-regla-si],[data-regla-no],[data-grupo-mov],[data-sueldo],[data-mov-ver],[data-chat],[data-chat-sugerencia]");
+    if (tema.manejarClic(ev)) return render();
+    if (LECTURA && ev.target.closest?.("[data-pz-probar-ia],[data-pz-act]")) { ev.preventDefault(); return soloEnMac(); }
+    if (ui.manejarClic(ev)) return;
+    const el = ev.target.closest("[data-accion],[data-vista],[data-mes],[data-bv],[data-idioma-bv],[data-enlace],[data-respaldo],[data-consejo],[data-conectar],[data-sincronizar],[data-desconectar],[data-mcp],[data-mcp-quitar],[data-historia],[data-comp-pagado],[data-comp-noes],[data-comp-desmarcar],[data-comp-editar],[data-sug-agregar],[data-sug-no],[data-det-agregar],[data-det-no],[data-cifra],[data-cifra-abrir],[data-ir-cat],[data-elegir],[data-pick],[data-nueva-cat],[data-nueva-emoji],[data-nueva-cancelar],[data-nueva-guardar],[data-cerrar-picker],[data-saldo-editar],[data-saldo-cancelar],[data-regla-si],[data-regla-no],[data-grupo-mov],[data-sueldo],[data-mov-ver],[data-chat],[data-chat-sugerencia]");
     if (!el) return;
     const d = el.dataset;
     if (LECTURA && el.matches(SOLO_MAC)) { ev.preventDefault(); return soloEnMac(d.chat || d.accion === "abrir-chat" || d.accion === "agregar-contar" ? "Conversar con Alcancía se hace en tu Mac por ahora" : undefined); }
@@ -2770,7 +2777,6 @@
     if (d.reglaNo) { E.reglasNo = [...(E.reglasNo || []), d.reglaNo]; return render(); }
     if (d.mes) { E.mes = d.mes; E.aprender = null; return render(); }
     if (d.historia != null) { E.histCat = E.histCat === d.historia ? null : d.historia; render(); $(`[data-historia="${CSS.escape(d.historia)}"]`)?.focus(); return; }
-    if (d.probar) { E.probando[d.probar] = true; delete E.resultadoIA[d.probar]; host.enviar("probarIA", { id: d.probar }); return render(); }
     if (d.bv) { E.bv = Number(d.bv); return render(); }
     if (d.idiomaBv) return elegirIdioma(d.idiomaBv);
     if (d.respaldo) { if (d.respaldo !== "local") return toast("Muy pronto: el respaldo con candado llega en la próxima versión"); E.config.respaldo = d.respaldo; host.enviar("config", { respaldo: d.respaldo }); return render(); }
@@ -2808,10 +2814,11 @@
     switch (d.accion) {
       case "ajustes": E.ajustes = true; E.agregar = null; return render();
       case "agregar": E.agregar = "menu"; render(); return $(".opcion-agregar")?.focus();
-      case "agregar-contar": case "abrir-chat": E.agregar = "contar"; E.chat.bajar = true; E.chat.confirmarBorrar = false; render(); return ($("#chat-texto") || $('.dialogo [data-accion="chat-ajustes"]'))?.focus();
+      case "agregar-contar": case "abrir-chat": E.agregar = "contar"; E.chat.bajar = true; E.chat.confirmarBorrar = false; render(); return ($("#chat-texto") || $('.dialogo-chat [data-accion="chat-ajustes"]'))?.focus();
       case "chat-enviar": return enviarChat();
       case "chat-ajustes": E.agregar = null; E.ajustes = true; return render();
-      case "chat-borrar": E.chat.confirmarBorrar = true; render(); return $('[data-accion="chat-borrar-si"]')?.focus();
+      // Borrar no se deshace: el foco queda en «Cancelar» (un Enter apurado no borra).
+      case "chat-borrar": E.chat.confirmarBorrar = true; render(); return $('[data-accion="chat-no-borrar"]')?.focus();
       case "chat-no-borrar": E.chat.confirmarBorrar = false; return render();
       case "chat-borrar-si": E.chat = { ...E.chat, mensajes: [], confirmarBorrar: false }; host.enviar("chat", { accion: "borrar" }); toast("Conversación borrada"); render(); return $("#chat-texto")?.focus();
       case "cerrar-agregar": E.agregar = null; render(); return $(".nav-agregar")?.focus();
@@ -2858,10 +2865,7 @@
       }
       case "pedir-consejos": E.pidiendoConsejos = true; E.errorConsejos = ""; host.enviar("pedirConsejos", { hoy: E.hoy }); return render();
       case "abrir-carpeta": return host.enviar("abrirCarpeta", {});
-      case "actualizar": E.act = { paso: "1", texto: tr("Descargando la versión nueva…") }; E.ajustes = false; host.enviar("actualizar"); return render();
-      case "act-cerrar": E.act = null; return render();
       case "act-despues": E.actOculto = true; return render();
-      case "buscar-act": E.buscando = "buscando"; host.enviar("buscarActualizacion"); return render();
       case "comp-nuevo": E.agregar = null; E.compEdit = { c: borradorDe(), origen: "manual", error: "" }; render(); return enfocarEditor();
       case "comp-guardar": return guardarCompromiso(false);
       case "comp-despues": return guardarCompromiso(true);
@@ -2869,9 +2873,13 @@
         if (E.importar && E.importar.paso === "compromiso") E.importar.paso = "listo";
         E.compEdit = null; return render();
       case "comp-borrar": {
-        const id = E.compEdit?.c?.id;
-        E.compromisos.compromisos = listaCompromisos().filter((x) => x.id !== id);
-        host.enviar("compromiso", { accion: "borrar", id }); E.compEdit = null; toast("Compromiso borrado"); return render();
+        const id = E.compEdit?.c?.id, nombre = E.compEdit?.c?.nombre || "";
+        // Antes de borrar, la pieza pregunta con el foco en «Cancelar».
+        return ui.confirmar({ titulo: "¿Borrar «{n}»?", valores: { n: nombre }, texto: "Sale de tus pagos. Tus movimientos no cambian.", si: "Borrar", peligro: true }).then((si) => {
+          if (!si || E.compEdit?.c?.id !== id) return;
+          E.compromisos.compromisos = listaCompromisos().filter((x) => x.id !== id);
+          host.enviar("compromiso", { accion: "borrar", id }); E.compEdit = null; toast("Compromiso borrado"); render();
+        });
       }
       case "sug-todas": E.sugTodas = !E.sugTodas; return render();
       case "agrupar-mov": E.agruparMov = !E.agruparMov; E.grupoMov = null; render(); return $('[data-accion="agrupar-mov"]')?.focus();
@@ -2895,7 +2903,11 @@
       case "traer-elegir": E.ajustes = false; E.traer = { ...E.traer, error: "", frase: "" }; host.enviar("traer", { accion: "elegir" }); return render();
       case "traer-releer": host.enviar("traer", { accion: "releer" }); return toast("Buscando la copia más nueva…");
       case "traer-olvidar": host.enviar("traer", { accion: "olvidar" }); E.celular = { ...E.celular, recordada: false }; toast("Listo: te la pido la próxima vez"); return render();
-      case "traer-desconectar": host.enviar("traer", { accion: "desconectar" }); E.ajustes = false; return render();
+      case "traer-desconectar":
+        return ui.confirmar({ titulo: "¿Desconectar este teléfono?", texto: "Borra de aquí la copia, el permiso para leer el archivo y la frase. En tu Mac no cambia nada.", si: "Desconectar", peligro: true }).then((si) => {
+          if (!si) return;
+          host.enviar("traer", { accion: "desconectar" }); E.ajustes = false; render();
+        });
     }
   });
   document.addEventListener("input", (ev) => {
@@ -3024,15 +3036,11 @@
       if (ev.key === "ArrowLeft") { ev.preventDefault(); E.ordenar.i = Math.max(0, E.ordenar.i - 1); render(); return $(".vista-ordenar")?.focus(); }
       if (ev.key === "/") { ev.preventDefault(); return $("#ordenar-buscar")?.focus(); }
     }
+    if (ev.key === "Escape" && E.picker) { const id = E.picker.id; if (E.picker.nueva) { E.picker.nueva = null; render(); return $("#picker-buscar")?.focus(); } E.picker = null; render(); return document.getElementById("chip-" + id)?.focus(); }
+    // Los diálogos (pieza «componentes»): Tab no se escapa del de más arriba y Esc lo cierra (cerrarDialogo).
+    if (ui.manejarTecla(ev)) return;
     if (ev.key !== "Escape") return;
-    if (E.picker) { const id = E.picker.id; if (E.picker.nueva) { E.picker.nueva = null; render(); return $("#picker-buscar")?.focus(); } E.picker = null; render(); return document.getElementById("chip-" + id)?.focus(); }
     if (E.vista === "ordenar" && E.ordenar.nueva) { E.ordenar.nueva = null; render(); return $("#ordenar-buscar")?.focus(); }
-    if (E.importar && !ocupadoImportando()) { E.importar = null; return render(); }
-    if (E.conectar && !E.conectar.enviando) { E.conectar = null; return render(); }
-    if (E.celularConfig && E.celularConfig.paso !== "creando") { E.celularConfig = null; E.ajustes = true; return render(); }
-    if (E.ajustes) { E.ajustes = false; return render(); }
-    if (E.compEdit) { E.compEdit = null; return render(); }
-    if (E.agregar) { E.agregar = null; render(); return $(".nav-agregar")?.focus(); }
     if (E.aprender) { E.aprender = null; return render(); }
   });
   document.addEventListener("submit", (ev) => {
@@ -3076,6 +3084,7 @@
     E.bv = 1;
     render();
     $("#t-bv")?.focus();
+    for (const [texto, o] of retenidos.splice(0)) toast(texto, o);
   }
   function enfocarEditor() { const el = $("#editor-comp"); if (el) { el.scrollIntoView?.({ block: "start" }); $("#ce-nombre")?.focus(); } }
   /** Manda lo que escribió la persona (con los últimos mensajes, para que la IA tenga el hilo). La respuesta llega a chatRespuesta. */
@@ -3207,17 +3216,20 @@
     for (const m of E.movimientos) if (llegadas.has(m.fecha) && m.monto > 0 && Math.abs(m.monto - d.monto) <= d.monto * 0.5 && !m.categoria) m.categoria = "sueldo";
   }
 
-  // ───────────── Lo que manda la app ─────────────
-  window.Alcancia = {
+  // ───────────── Lo que manda la app (window.Alcancia.<funcion>, pieza «host-ui») ─────────────
+  host.responder({
     async estado(e) {
       if (!LECTURA) E._crudo = e; // lo que llegó de la app, tal cual: de aquí sale la copia para el celular (copiaCelular)
       Object.assign(E, { hoy: e.hoy, config: e.config || {}, ias: e.ias || [], movimientos: e.movimientos || [], categorias: e.categorias || [],
         presupuesto: e.presupuesto || { mensual: {} }, reglas: e.reglas || [], consejos: (e.consejos || []).slice().sort((a, b) => b.fecha.localeCompare(a.fecha)),
-        cuentas: e.cuentas || [], version: e.version || "", carpeta: e.carpeta || "", actualizacion: e.actualizacion || { hay: false },
+        cuentas: e.cuentas || [], version: e.version || "", carpeta: e.carpeta || "",
         conectores: e.conectores || [], conexiones: e.conexiones || {}, vigilar: e.vigilar || { activo: false, recientes: [] }, iaExterna: e.ia_externa || [],
         compromisos: e.compromisos || { compromisos: [], descartados: [] }, sugerencias: e.sugerencias || [], feriados: e.feriados || [], palabrasMora: e.palabras_mora || [], palabrasAuto: e.palabras_automatico || [], celular: e.celular || {} });
       if (!E.chat.pensando) E.chat.mensajes = mezclarChat(Array.isArray(e.chat) ? e.chat : [], E.chat.mensajes);
       if (!E.presupuesto.moneda) E.presupuesto.moneda = E.config.moneda || "CLP";
+      // La versión nueva que ya se conoce (Actualizaciones.disponible): la fila de la pieza la muestra en Ajustes y arriba.
+      if (!LECTURA) ui.actualizacionDisponible(e.actualizacion, { pintar: false });
+      tema.aplicar(tema.elegir({ config: E.config.tema }));
       sueldoSolo();
       E._per = undefined;
       // Si estaba mirando el mes en curso, sigue en el mes en curso (aunque haya cambiado el día o el periodo).
@@ -3239,7 +3251,7 @@
       render();
       if (E.agregar === "contar") $("#chat-texto")?.focus();
     },
-    iaProbada(r) { delete E.probando[r.id]; E.resultadoIA[r.id] = r; if (r.ok) { E.config.ia = r.id; toast("Lista para usar"); } render(); },
+    iaProbada: (r) => ui.iaProbada(r),
     cartolaElegida(r) {
       if (!E.importar || !r?.ruta) return;
       Object.assign(E.importar, { paso: "leyendo", ruta: r.ruta, nombre: r.nombre, receta: null, error: "" });
@@ -3270,21 +3282,21 @@
       else E.errorConsejos = r.error || tr("No se pudieron crear los consejos.");
       render();
     },
-    actualizacionRevisada(r) { E.buscando = r.hay ? null : r.sinConexion ? "sinConexion" : "alDia"; if (r.hay) { E.actualizacion = r; E.actOculto = false; } render(); },
-    actualizacionProgreso(d) { E.act = d; render(); },
+    actualizacionRevisada(r) { if (r.hay) E.actOculto = false; ui.actualizacionRevisada(r); },
+    actualizacionProgreso: (a) => ui.actualizacionProgreso(a),
     conectado(r) {
       if (!E.conectar || E.conectar.id !== r.conector) return;
       if (r.ok) {
         const c = E.conectores.find((x) => x.id === r.conector);
         E.conectar = null; E.conexiones[r.conector] = { conectado: true }; E.sincronizando[r.conector] = true;
-        toast(Tp("{s} conectado. Trayendo tus movimientos…", { s: c ? c.nombre : "" }));
+        toast("{s} conectado. Trayendo tus movimientos…", { valores: { s: c ? c.nombre : "" } });
       } else Object.assign(E.conectar, { enviando: false, error: r.error || tr("No se pudo conectar.") });
       render();
     },
     sincronizado(r) {
       delete E.sincronizando[r.conector];
-      if (r.ok && (r.detectados || []).length) toast(Tp(r.detectados.length === 1 ? "Encontré 1 pago que parece un compromiso: revísalo en Pagos" : "Encontré {n} pagos que parecen compromisos: revísalos en Pagos", { n: r.detectados.length }));
-      if (r.ok && r.nuevos) toast(Tp(r.nuevos === 1 ? "1 movimiento nuevo de {s}" : "{n} movimientos nuevos de {s}", { n: r.nuevos, s: r.nombre || "" }));
+      if (r.ok && (r.detectados || []).length) toast(r.detectados.length === 1 ? "Encontré 1 pago que parece un compromiso: revísalo en Pagos" : "Encontré {n} pagos que parecen compromisos: revísalos en Pagos", { valores: { n: r.detectados.length } });
+      if (r.ok && r.nuevos) toast(r.nuevos === 1 ? "1 movimiento nuevo de {s}" : "{n} movimientos nuevos de {s}", { valores: { n: r.nuevos, s: r.nombre || "" } });
       else if (r.ok && !r.esperando && r.manual) toast("Todo al día");
       render();
     },
@@ -3292,12 +3304,12 @@
       delete E.mcpOcupado[r.cliente];
       if (r.clientes) E.iaExterna = r.clientes;
       if (!r.ok) E.mcpError[r.cliente] = r.error || tr("No se pudo conectar.");
-      else if (!r.quitar) toast(r.nota ? tr(r.nota) : tr("Listo: tu IA ya puede consultar Alcancía"));
+      else if (!r.quitar) toast(r.nota || "Listo: tu IA ya puede consultar Alcancía");
       render();
     },
     importadoSolo(r) {
-      for (const x of r.importados || []) toast(Tp(x.nuevos === 1 ? "Agregué tu cartola de {b}: 1 movimiento nuevo" : "Agregué tu cartola de {b}: {n} movimientos nuevos", { b: x.institucion, n: x.nuevos }));
-      if ((r.sin_receta || []).length) toast(Tp("Descargaste «{x}», pero todavía no sé leerla. Agrégala a mano y tu IA aprende.", { x: r.sin_receta[0] }));
+      for (const x of r.importados || []) toast(x.nuevos === 1 ? "Agregué tu cartola de {b}: 1 movimiento nuevo" : "Agregué tu cartola de {b}: {n} movimientos nuevos", { valores: { b: x.institucion, n: x.nuevos } });
+      if ((r.sin_receta || []).length) toast("Descargaste «{x}», pero todavía no sé leerla. Agrégala a mano y tu IA aprende.", { valores: { x: r.sin_receta[0] } });
     },
     // ── Alcancía en tu celular ──
     /** Mac: después de mandar el estado, la app pide la copia (Celular.swift). Se arma con lo que acaba de llegar (paraCelular), se cifra
@@ -3353,9 +3365,10 @@
     /** Celular: una acción que por ahora solo existe en el Mac (si llegó a pedirse). */
     soloEnMac(t) { soloEnMac(t); },
     _probar(f) { f(E); render(); },
-    _pruebas: { calcularPrestamo, resumen, historia, redondearArriba, presupuestoSugerido, reglaPara, estadoCompromisos, gastoMaximo, rango, periodoDe, periodoConfig, detectarSueldo, reglaHabil, proximoSueldo, correrHabil, moraDelAnio, loQueTienes, loQueDebes, cargos, modoPago,
-      margenMensual, planPrestamos, inicioPlan, pagoReasignable, reasignarPago, clavesPersona, prestamosParecidos, planVariante, prestamoActualizado, palabrasBusqueda, buscarSerie, avisosPagos },
-  };
+  });
+  // Para las pruebas (pruebas/interfaz.mjs): la lógica compartida con Python. No es una función, así que va aparte de responder().
+  window.Alcancia._pruebas = { calcularPrestamo, resumen, historia, redondearArriba, presupuestoSugerido, reglaPara, estadoCompromisos, gastoMaximo, rango, periodoDe, periodoConfig, detectarSueldo, reglaHabil, proximoSueldo, correrHabil, moraDelAnio, loQueTienes, loQueDebes, cargos, modoPago,
+      margenMensual, planPrestamos, inicioPlan, pagoReasignable, reasignarPago, clavesPersona, prestamosParecidos, planVariante, prestamoActualizado, palabrasBusqueda, buscarSerie, avisosPagos };
 
   // ───────────── Vista previa en el navegador (datos ficticios de demo.json) ─────────────
   let DEMO = null;
@@ -3366,7 +3379,7 @@
     switch (accion) {
       case "listo": return enviar();
       case "config": Object.assign(DEMO.config, d); return;
-      case "probarIA": return luego(500, () => { DEMO.config.ia = d.id; A.iaProbada({ id: d.id, ok: true }); });
+      case "probarIA": return luego(500, () => { DEMO.config.ia = d.ia; A.iaProbada({ ia: d.ia, ok: true }); });
       case "elegirCartola": return luego(200, () => A.cartolaElegida({ ruta: "/demo/cartola-octubre.csv", nombre: "cartola-octubre.csv" }));
       case "vistaCartola": return luego(600, () => {
         const muestra = DEMO.movimientos.filter((m) => m.cuenta === "banco-ejemplo").slice(-6).reverse();
@@ -3435,7 +3448,7 @@
         return;
       }
       case "traer": return toast("En el celular, aquí eliges el archivo de tu nube");
-      case "buscarActualizacion": return luego(500, () => A.actualizacionRevisada({ hay: false }));
+      case "buscarActualizacion": return luego(500, () => A.actualizacionRevisada({ hay: false, version: "", notas: "" }));
       case "actualizar": { let n = 1; const iv = setInterval(() => { A.actualizacionProgreso({ paso: String(n), texto: ["", "Descargando la versión nueva…", "Preparando la versión nueva…", "Instalando: Alcancía se cerrará y volverá a abrirse sola"][n], pct: n * 33 }); if (++n > 3) clearInterval(iv); }, 700); return; }
     }
   }

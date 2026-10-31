@@ -27,6 +27,11 @@
   "respaldo": "texto",
   "vigilar": "bool",
   "ia_en_conexiones": "bool",
-  "avisos": "bool"
+  "avisos": "bool",
+  "tema": [
+   "sistema",
+   "claro",
+   "oscuro"
+  ]
  }
 }

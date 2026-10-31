@@ -31,7 +31,7 @@ app del celular (iPhone y Android, `movil/`, fase 1: para mirar, con la copia ci
 | `bin/conectores/` | Un módulo por servicio con API oficial (`INFO`, `probar`, `movimientos`). `bin/red.py` hace los pedidos HTTPS (solo a los dominios de cada conector). `bin/sincronizar.py probar|traer <conector>` los usa; `bin/vigilar.py` es la carpeta vigilada. |
 | `bin/mcp_servidor.py`, `bin/mcp_conectar.py` | Servidor MCP de solo lectura (stdio, JSON-RPC, sin dependencias) para que la IA de la persona consulte sus finanzas, y el script que lo registra en Claude Desktop, Claude Code, Codex/ChatGPT, Gemini CLI y Antigravity (con su comando oficial o editando su JSON con respaldo). |
 | `recetas/` | Recetas incluidas en la app (solo las probadas con una cartola real) y `README.md` con el formato. |
-| `ui/` | Interfaz web única (`app.js`, `app.css`), `i18n.js` (pieza «i18n»: `T`, `Thtml`, `Tp`, `tr`, `traducirDOM`, paquetes de idioma validados), `copia.js` (la copia cifrada para el celular: el mismo código cifra en el Mac y abre en el teléfono), `demo.json` (ficticio, se genera con `herramientas/generar_demo.py`) e `idiomas/en.json`. |
+| `ui/` | Interfaz web única (`app.js`, `app.css`), `i18n.js` (pieza «i18n»: `T`, `Thtml`, `Tp`, `tr`, `traducirDOM`, paquetes de idioma validados), `host.js`, `tema.css`/`tema.js` y `componentes.css`/`componentes.js` (piezas de interfaz, ver «Piezas»), `copia.js` (la copia cifrada para el celular: el mismo código cifra en el Mac y abre en el teléfono), `demo.json` (ficticio, se genera con `herramientas/generar_demo.py`) e `idiomas/en.json`. |
 | `docs/` | Página pública (GitHub Pages). `pagina.yml` la publica junto a `ui/` en `/demo/`. |
 | `CHANGELOG.md` | Lo que cambia para quien usa la app, en palabras simples (ver «Lo que rodea a un cambio»). |
 | `pruebas/` | `correr.sh` (todo), `test_python.py`, `interfaz.mjs` (Playwright), `copia.mjs` (cifrado de la copia para el celular, en Node), `movil.mjs` (la app del celular de punta a punta con `capacitor_falso.js`), `contrato.py`, `casos.json` (casos compartidos Python ↔ JS), `ia_falsa.py`, `datos/` (cartola ficticia). |
@@ -45,11 +45,14 @@ app del celular (iPhone y Android, `movil/`, fase 1: para mirar, con la copia ci
 ## Piezas (de [Pieza](https://github.com/pieza-app/pieza))
 Alcancía usa piezas de Pieza, la base de la familia de apps: código probado que se copia a la app (modelo «copiar y adueñarse»).
 
-| Pieza | Archivos | Qué usa Alcancía |
-|---|---|---|
-| `nucleo` | `bin/nucleo.py` | `app.json`, carpeta de datos, config validada por `app.json` (`limpiar_config`), escritura atómica, `recursos()`. `datos.py` lo envuelve con lo propio: `~/Alcancia` 0700, archivos **siempre** 0600 (`nucleo.PRIVADO`), `CONFIG_INICIAL` y los ajustes con forma propia (`CONFIG_OBJETOS`: `inicio_mes`, `uf`, que valida quien los usa). |
-| `ia` | `bin/ia.py` | La IA de la persona (`preguntar`, `probar`, `comando`, `elegida`, `nombre`, `frase`). Los errores son `{codigo, plantilla, valores}`: los scripts responden con `tu_ia.respuesta(error)` / `tu_ia.frase(error)` (`bin/tu_ia.py`: la frase de la pieza más dónde se elige la IA en Alcancía) y el código. Un CLI que no conoce `--strict-mcp-config` o `--disallowedTools` no corre (error `actualizar`). Lo propio (prompts, `limpiar_texto`, validar respuestas) sigue en `categorizar.py`, `consejos.py`, `chat.py`, `compromiso_ia.py` y `receta_ia.py`. El Mac prueba la IA con `ia.py probar <entrada {ia}> <salida>` (`Procesador.conEntrada`). |
-| `i18n` | `ui/i18n.js` | `T`, `Thtml`, `Tp`, `tr`, `frase`, `traducirDOM` (`app.js` crea la instancia; `E.idioma` es un espejo de `i18n.idioma`). `ui/index.html` la carga antes de `app.js`; `movil/armar.mjs` copia `ui/` entera y revisa que esté. `ui/idiomas/en.json` lleva `codigo` y `nombre`. |
+| Pieza | Versión | Archivos | Qué usa Alcancía |
+|---|---|---|---|
+| `nucleo` | 0.7.0 | `bin/nucleo.py` | `app.json`, carpeta de datos, config validada por `app.json` (`limpiar_config`), escritura atómica, `recursos()`. `datos.py` lo envuelve con lo propio: `~/Alcancia` 0700, archivos **siempre** 0600 (`nucleo.PRIVADO`), `CONFIG_INICIAL` y los ajustes con forma propia (`CONFIG_OBJETOS`: `inicio_mes`, `uf`, que valida quien los usa). |
+| `ia` | 0.6.0 | `bin/ia.py` | La IA de la persona (`preguntar`, `probar`, `comando`, `elegida`, `nombre`, `frase`). Los errores son `{codigo, plantilla, valores}`: los scripts responden con `tu_ia.respuesta(error)` / `tu_ia.frase(error)` (`bin/tu_ia.py`: la frase de la pieza más dónde se elige la IA en Alcancía) y el código. Un CLI que no conoce `--strict-mcp-config` o `--disallowedTools` no corre (error `actualizar`). Lo propio (prompts, `limpiar_texto`, validar respuestas) sigue en `categorizar.py`, `consejos.py`, `chat.py`, `compromiso_ia.py` y `receta_ia.py`. El Mac prueba la IA con `ia.py probar <entrada {ia}> <salida>` (`Procesador.conEntrada`). |
+| `i18n` | 0.3.0 | `ui/i18n.js` | `T`, `Thtml`, `Tp`, `tr`, `frase`, `traducirDOM` (`app.js` crea la instancia; `E.idioma` es un espejo de `i18n.idioma`). `ui/index.html` la carga antes de `app.js`; `movil/armar.mjs` copia `ui/` entera y revisa que esté. `ui/idiomas/en.json` lleva `codigo` y `nombre`. |
+| `host-ui` | 0.2.0 | `ui/host.js` | El puente: `host = PiezaHost.crearHost({nombre: "alcancia", global: "Alcancia", simular})`, `HOST = host.plataforma` (de `window.ALCANCIA_HOST`, queda en `<html data-host>`). Las respuestas van con `host.responder({…})` (quedan en `window.Alcancia`); `_pruebas` (no es función) va aparte. Mensaje `{accion, datos}`; en la vista previa los datos llegan a `simular()` como copia JSON. |
+| `tema` | 0.2.0 | `ui/tema.css`, `ui/tema.js` | Tokens con `light-dark()` (el modo queda en `<html data-pz-modo>`; la app no lo lee, usa `tema`): `app.css` solo define los pares de Alcancía (`--fondo-claro`/`--fondo-oscuro`…, la tabla está en el README de la pieza). `--texto-suave` (antes `--suave`), `--panel-2` (antes `--lateral`); `--acento-suave`, `--rojo-suave` y `--hover` son derivados. «Apariencia» en Ajustes (`config.tema`: sistema, claro u oscuro; en el celular es un ajuste del teléfono) y `?tema=` en la vista previa. |
+| `componentes` | 0.2.0 | `ui/componentes.css`, `ui/componentes.js` | `ui = PiezaComponentes.crear({…})`: diálogos (`caja()` → `ui.dialogo`; la pantalla de idioma y el chat usan el mismo marco con su cabeza, `cajaPropia()`), Esc/velo/✕ → `cerrarDialogo()`, foco con `ui.despuesDePintar()` en cada `render()`, avisos en cola (`toast(frase, {valores})` = `ui.aviso`, sobre la barra inferior con `--pz-toast-abajo`; los que llegan antes de elegir el idioma esperan), «Tu IA» (`ui.filasIA`, `probarIA {ia}`), actualizaciones (`ui.filaActualizacion` en Ajustes y en el aviso de arriba) y «Acerca de» con «Enviar comentarios». Clases `pz-boton`, `pz-principal`, `pz-plano`, `pz-peligro`, `pz-pie`, `pz-izq`; `app.css` solo ajusta (botones de 44 px también en escritorio con `--pz-boton-alto`; `filasIA` deja un solo botón naranjo). Algo que no se deshace (borrar un compromiso, desconectar el teléfono) pregunta con `ui.confirmar({peligro: true})`: el foco parte en «Cancelar». La versión nueva llega con `ui.actualizacionDisponible(…, {pintar: false})` en el estado; el Mac manda `version` y `desarrollo` (sin `version`, la pieza la anuncia como «cambios en el código»). En el celular (`LECTURA`) no se pintan «Tu IA» ni actualizaciones. |
 
 - **La carpeta de siempre:** `app.json` dice `"datos": {"carpeta": "~/Alcancia/.alcancia"}` (donde siempre estuvo `config.json`) y
   `"privado": true` (todo archivo 0600). Con `ALCANCIA_CARPETA` (pruebas, desarrollo) `datos.py` le pasa la misma carpeta a
@@ -291,7 +294,7 @@ Diseño mobile first (la misma interfaz va a ir en una app de celular): pensar p
 - **Primer uso:** idioma (el mismo `pasoIdioma`), saludo y «Trae tus datos» (`vistaTraer`, `bv-traer`). Acción `traer`
   {accion: elegir | abrir {frase, recordar} | releer | olvidar | desconectar} → `traerRespuesta` y el estado (con `celular`:
   {estado: nuevo | frase | listo, archivo, generado, recordada, desactualizada, error}). Los ajustes del teléfono son solo
-  `idioma_ui`, `bienvenida` y `avisos` (plugin, no `localStorage`); el resto de `config` llega del Mac.
+  `idioma_ui`, `bienvenida`, `avisos` y `tema` (plugin, no `localStorage`); el resto de `config` llega del Mac.
 - **Avisos:** `avisosPagos` (lógica pura, en `_pruebas`) y `window.Alcancia.avisosCelular` (con el texto en el idioma elegido);
   el anfitrión los programa con `@capacitor/local-notifications` (ids de 31 bits, 9:00, máximo 60, `registerActionTypes` con el
   texto genérico de la pantalla bloqueada). El permiso se pide al activar «Avisarme antes de que venza un pago».
@@ -303,10 +306,12 @@ Diseño mobile first (la misma interfaz va a ir en una app de celular): pensar p
   workflow hace `npm ci`, `npm audit --audit-level=high` y `cap sync`.
 
 ## Puente interfaz ↔ app
-La UI llama `host.enviar(accion, datos)` y la app responde con `window.Alcancia.<funcion>(json)`. En el navegador, `simular()` responde
+La UI llama `host.enviar(accion, datos)` (pieza «host-ui») y la app responde con `window.Alcancia.<funcion>(json)`. En el navegador, `simular()` responde
 con datos ficticios. Acciones: `listo, config, probarIA, elegirCartola, vistaCartola, aprenderReceta, guardarReceta, importar,
 categoria, categoriaNueva, saldo, regla, presupuesto, pedirConsejos, abrirEnlace, abrirCarpeta, conectar, sincronizar, desconectar, vigilar, mcpConectar,
-buscarActualizacion, actualizar, chat, compromiso, avisos, celular` (Mac) y `traer` (solo celular). Respuestas: `estado, iaProbada,
+buscarActualizacion, actualizar, chat, compromiso, avisos, celular` (Mac) y `traer` (solo celular). `probarIA {ia}` → `iaProbada {ia, ok,
+codigo, plantilla, valores, ayuda, texto}` y `actualizacionRevisada` lleva `notas`, `version` y `desarrollo` (forma de la pieza «componentes», que manda
+`probarIA`, `buscarActualizacion`, `actualizar` y `abrirEnlace` por su cuenta; el contrato también lee `ui/componentes.js`). Respuestas: `estado, iaProbada,
 cartolaElegida, vistaLista, recetaAprendida, importarProgreso, importado, consejosListos, conectado, sincronizado, importadoSolo, mcpListo,
 actualizacionRevisada, actualizacionProgreso, chatRespuesta, copiaCelular, celularCarpeta, celularEscrito` y, del celular,
 `traerRespuesta, avisosRespuesta, avisosCelular, soloEnMac`. Solo el marco principal cargado desde `ui/` puede usar el puente (`Ventana.swift`
@@ -333,7 +338,7 @@ seguridad de la app del celular. Una acción nueva va en `ui/app.js`, en `Ventan
 - Contenido del usuario y dinero con `esc()` y `data-sin-traducir`. `T()` ya escapa sus valores (no les pongas `esc()`); `Thtml()`
   es solo para HTML que arma el código (un monto en `<span>`, una cifra en `<b>`) con lo de la persona ya escapado, y `Tp()` es
   texto plano (avisos con `toast`, que usa `textContent`).
-- Archivos de piezas (`bin/nucleo.py`, `bin/ia.py`, `ui/i18n.js`): no se editan aquí; ver «Piezas».
+- Archivos de piezas (`bin/nucleo.py`, `bin/ia.py`, `ui/i18n.js`, `ui/host.js`, `ui/tema.*`, `ui/componentes.*`): no se editan aquí; ver «Piezas».
 - No cambies el formato de los datos (README, "Formato de los datos") sin compatibilidad. Hay gente con scripts que dependen de él.
 - Antes de cerrar un cambio: `bash pruebas/correr.sh` y mirar la interfaz (`cd ui && python3 -m http.server 8765`, `?idioma=en`,
   `?bienvenida`, `?vacio`, `window.Alcancia._probar(E => …)`), también a ancho de celular.

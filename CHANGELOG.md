@@ -6,6 +6,18 @@ Lo que cambia para quien usa Alcancía, en palabras simples. Las versiones anter
 
 ## Sin publicar · Unreleased
 
+- Antes de borrar un pago que se repite (o de desconectar el celular), Alcancía te pregunta, con «Cancelar» ya elegido: un Enter
+  apurado no borra nada. Lo mismo al borrar la conversación con Alcancía.
+  *Before deleting a recurring payment (or disconnecting your phone), Alcancía asks you, with «Cancel» already selected: a hurried
+  Enter deletes nothing. The same when you delete your conversation with Alcancía.*
+- **Apariencia:** en Ajustes eliges si Alcancía se ve clara, oscura o como el sistema (también en el celular).
+  *Appearance: in Settings you choose whether Alcancía looks light, dark or matches your system (on your phone too).*
+- Los diálogos se manejan mejor con el teclado: el foco queda adentro, Esc o tocar fuera los cierra y vuelves a donde estabas.
+  Los avisos ya no se pisan: salen uno después del otro. Al actualizar ves el paso y una barra de avance, y en Ajustes puedes
+  enviarnos un comentario o una idea (se abre GitHub con tu mensaje listo; nada tuyo se incluye).
+  *Dialogs work better with the keyboard: focus stays inside, Esc or tapping outside closes them and you're back where you were.
+  Notices no longer overwrite each other: they show one after another. While updating you see the step and a progress bar, and in
+  Settings you can send us feedback or an idea (GitHub opens with your message ready; nothing of yours is included).*
 - **Por dentro, piezas de Pieza:** tu IA, los ajustes y los idiomas ahora usan las piezas compartidas de la familia (`nucleo`, `ia`,
   `i18n`). Probar tu IA en Ajustes usa las mismas protecciones que todo lo demás (sin herramientas, sin tu memoria) y, si tu IA es
   muy antigua para correr con ellas, Alcancía te pide actualizarla en vez de usarla sin protección. Tus datos siguen en `~/Alcancia`.

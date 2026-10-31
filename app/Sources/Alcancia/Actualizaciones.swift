@@ -41,19 +41,24 @@ enum Actualizaciones {
         do { try p.run() } catch { fin(false, "") }
     }
 
-    /// Revisa si hay versión nueva: (hay, detalle). Si no pudo consultar, detalle = sinConexion.
+    /// Revisa si hay versión nueva: (hay, detalle). Si no pudo consultar, detalle = sinConexion. `disponible` lleva además la forma
+    /// de la pieza «componentes»: `version` (la nueva) y `desarrollo` (en un checkout: las notas son los commits nuevos).
     static func revisar(_ fin: @escaping @MainActor (Bool, String) -> Void) {
-        let terminar: @MainActor (Bool, String) -> Void = { hay, detalle in
-            disponible = ["hay": hay, "detalle": hay ? detalle : ""]
+        let terminar: @MainActor (Bool, String, String) -> Void = { hay, detalle, nueva in
+            if hay {
+                disponible = ["hay": true, "detalle": detalle, "notas": detalle, "version": nueva, "desarrollo": nueva.isEmpty] as [String: Any]
+            } else {
+                disponible = ["hay": false, "detalle": ""] as [String: Any]
+            }
             fin(hay, detalle)
         }
         if let raiz = checkout {
             git(["fetch", "--quiet", "origin", "main"], en: raiz) { ok, _ in
-                guard ok else { terminar(false, sinConexion); return }
+                guard ok else { terminar(false, sinConexion, ""); return }
                 git(["rev-list", "--count", "HEAD..origin/main"], en: raiz) { _, n in
-                    guard (Int(n.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0) > 0 else { terminar(false, ""); return }
+                    guard (Int(n.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0) > 0 else { terminar(false, "", ""); return }
                     git(["log", "--format=%s", "-n", "3", "HEAD..origin/main"], en: raiz) { _, log in
-                        terminar(true, log.split(separator: "\n").map { "• " + $0 }.joined(separator: "\n"))
+                        terminar(true, log.split(separator: "\n").map { "• " + $0 }.joined(separator: "\n"), "")
                     }
                 }
             }
@@ -70,12 +75,12 @@ enum Actualizaciones {
             let url = { (n: String) in (assets.first { $0["name"] as? String == n }?["browser_download_url"] as? String).flatMap(URL.init(string:)) }
             let notas = (o["body"] as? String ?? "").split(separator: "\n").prefix(4).joined(separator: "\n")
             Task { @MainActor in
-                guard codigo == 200 || codigo == 404 else { terminar(false, sinConexion); return }  // 404: aún no hay versiones
+                guard codigo == 200 || codigo == 404 else { terminar(false, sinConexion, ""); return }  // 404: aún no hay versiones
                 guard !tag.isEmpty, tag.compare(version, options: .numeric) == .orderedDescending,
                       let z = url("Alcancia-macOS.zip"), let h = url("Alcancia-macOS.zip.sha256"),
-                      esDescargaNuestra(z), esDescargaNuestra(h) else { terminar(false, ""); return }
+                      esDescargaNuestra(z), esDescargaNuestra(h) else { terminar(false, "", ""); return }
                 zip = z; huella = h
-                terminar(true, Idioma.t("Versión") + " \(tag)\n" + notas)
+                terminar(true, Idioma.t("Versión") + " \(tag)\n" + notas, tag)
             }
         }.resume()
     }

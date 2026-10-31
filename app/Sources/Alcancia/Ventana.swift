@@ -155,14 +155,20 @@ final class Ventana: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNavig
         case "probarIA":
             // La prueba la hace la pieza «ia» (bin/ia.py) con las mismas protecciones que todo pedido: sin herramientas, sin MCP,
             // sin la memoria de la persona y en una carpeta temporal. La IA va en el archivo de entrada, nunca como argumento.
-            let id = d["id"] as? String ?? ""
+            // Forma común de la familia (pieza «host-ui»): probarIA {ia} → iaProbada {ia, ok, codigo, plantilla, valores, ayuda, texto}.
+            let id = d["ia"] as? String ?? ""
             guard IA.conocidas.contains(where: { $0.id == id }) else {
-                return llamar("iaProbada", ["id": id, "ok": false, "texto": Idioma.t("No conozco esa IA.")])
+                return llamar("iaProbada", ["ia": String(id.prefix(30)), "ok": false, "codigo": "desconocida", "texto": Idioma.t("No conozco esa IA.")])
             }
             Procesador.conEntrada("ia.py", "probar", ["ia": id]) { r in
                 let ok = r["ok"] as? Bool == true
                 if ok { Config.guardar(["ia": id]) }
-                Ventana.shared.llamar("iaProbada", ["id": id, "ok": ok, "texto": r["error"] as? String ?? "", "codigo": r["codigo"] as? String ?? ""])
+                var respuesta: [String: Any] = ["ia": id, "ok": ok, "texto": r["error"] as? String ?? "", "codigo": r["codigo"] as? String ?? ""]
+                // La frase con sus marcadores: la interfaz la muestra en el idioma elegido.
+                if let p = r["plantilla"] as? String { respuesta["plantilla"] = p }
+                if let v = r["valores"] as? [String: Any] { respuesta["valores"] = v }
+                if let a = r["ayuda"] as? String { respuesta["ayuda"] = a }
+                Ventana.shared.llamar("iaProbada", respuesta)
             }
         case "elegirCartola":
             let panel = NSOpenPanel()
@@ -273,8 +279,11 @@ final class Ventana: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNavig
                 Ventana.shared.llamar("mcpListo", x)
             }
         case "buscarActualizacion":
-            Actualizaciones.revisar { hay, detalle in
-                Ventana.shared.llamar("actualizacionRevisada", ["hay": hay, "detalle": detalle, "sinConexion": detalle == Actualizaciones.sinConexion])
+            Actualizaciones.revisar { _, detalle in
+                // La forma de la pieza «componentes» (`notas`, `version`, `desarrollo`); `detalle` queda por compatibilidad.
+                var r = Actualizaciones.disponible
+                r["sinConexion"] = detalle == Actualizaciones.sinConexion
+                Ventana.shared.llamar("actualizacionRevisada", r)
             }
         case "actualizar":
             // Nunca en medio de una importación: cerrar la app la cortaría.

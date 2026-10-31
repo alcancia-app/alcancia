@@ -34,9 +34,12 @@ def juntar(patron):
 
 
 ui = leer("ui/app.js")
-acciones = set(re.findall(r'host\.enviar\("(\w+)"', ui))
-cuerpo = ui.split("window.Alcancia = {", 1)[1].split("\n  };", 1)[0]
-funciones_ui = set(re.findall(r"^\s{4}(?:async\s+)?(\w+)\(", cuerpo, re.M))
+# Lo que manda la interfaz: app.js y las piezas de interfaz (componentes: probarIA, buscarActualizacion, actualizar, abrirEnlace).
+piezas_ui = "\n".join(filter(None, (leer(f"ui/{f}") for f in ("componentes.js", "tema.js"))))
+acciones = set(re.findall(r'host\.enviar\("(\w+)"', ui)) | set(re.findall(r'(?<![\w.])enviar\("(\w+)"', piezas_ui))
+# Lo que la app puede llamar: las funciones de host.responder({...}) (pieza «host-ui»), como método o como propiedad.
+cuerpo = ui.split("host.responder({", 1)[1].split("\n  });", 1)[0]
+funciones_ui = set(re.findall(r"^\s{4}(?:async\s+)?(\w+)(?:\(|: )", cuerpo, re.M))
 problemas = []
 
 # Acciones que solo existen en una plataforma (con el motivo). El resto tiene que estar en todas.
@@ -52,6 +55,10 @@ else:
     problemas += [f'Mac (Ventana.swift) no atiende la acción "{a}"' for a in sorted(acciones - casos_mac - set(SOLO_MOVIL))]
     swift = juntar("app/Sources/Alcancia/*.swift")
     problemas += [f"Mac llama window.Alcancia.{f} y la interfaz no la tiene" for f in sorted(set(re.findall(r'llamar\("(\w+)"', swift)) - funciones_ui)]
+    # probarIA lleva {ia} y responde iaProbada {ia, …} (forma común de la familia, pieza «host-ui»).
+    caso = mac.split('case "probarIA":', 1)[1].split("\n        case ", 1)[0] if 'case "probarIA":' in mac else ""
+    if 'd["ia"]' not in caso or '"ia": id' not in caso:
+        problemas.append('Mac (Ventana.swift): probarIA tiene que leer d["ia"] y responder iaProbada {ia, …}')
     scripts = set(re.findall(r'(?:correrJSON|conEntrada)\("(\w+\.py)"', swift))
     problemas += [f"La app llama bin/{s} y no existe" for s in sorted(scripts) if not os.path.exists(os.path.join(RAIZ, "bin", s))]
 escritorio = leer("escritorio/src/main.js")
