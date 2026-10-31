@@ -12,7 +12,7 @@
     vista: "resumen", mes: "", hoy: "", config: {}, ias: [], movimientos: [], categorias: [], presupuesto: { mensual: {} }, reglas: [],
     consejos: [], cuentas: [], version: "", carpeta: "", actualizacion: { hay: false }, filtro: { texto: "", categoria: "" },
     aprender: null, presEdit: null, importar: null, bv: null, bvCerrada: false, ajustes: false, probando: {}, resultadoIA: {},
-    consejoSel: null, pidiendoConsejos: false, errorConsejos: "", act: null, buscando: null, idioma: "es", textos: {},
+    consejoSel: null, pidiendoConsejos: false, errorConsejos: "", act: null, buscando: null, idioma: "es",
     conectores: [], conexiones: {}, vigilar: { activo: false, recientes: [] }, conectar: null, sincronizando: {}, iaExterna: [], mcpOcupado: {}, mcpError: {},
     histCat: null, compromisos: { compromisos: [], descartados: [] }, sugerencias: [], compEdit: null, sugTodas: false,
     chat: { mensajes: [], texto: "", pensando: false, bajar: false, confirmarBorrar: false },
@@ -38,72 +38,19 @@
     },
   };
 
-  // ───────────── Idiomas (las claves son el texto en español) ─────────────
-  function tr(t) {
-    if (E.idioma === "es" || !t) return t;
-    const limpio = String(t).replace(/\s+/g, " ").trim();
-    if (!limpio) return t;
-    if (E.textos[limpio]) return t.replace(limpio, E.textos[limpio]);
-    const numeros = limpio.match(/\d+/g);
-    if (numeros) {
-      const plantilla = E.textos[limpio.replace(/\d+/g, "{n}")];
-      if (plantilla) { let i = 0; return t.replace(limpio, plantilla.replace(/\{n\}/g, () => numeros[i++] ?? "")); }
-    }
-    if (window._faltantes && /\p{L}{2}/u.test(limpio)) window._faltantes.add(limpio);
-    return t;
-  }
-  /** Frase completa con marcadores ({x}, {n}, {ia}…): se traduce entera y después se ponen los valores (ya escapados o en HTML).
-   *  El resultado va dentro de un elemento con data-sin-traducir (ya está traducido). */
-  function T(plantilla, valores = {}) {
-    let t = plantilla;
-    if (E.idioma !== "es") {
-      if (E.textos[plantilla]) t = E.textos[plantilla];
-      else if (window._faltantes) window._faltantes.add(plantilla);
-    }
-    t = esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
-    // Los valores son texto: se escapan aquí (un nombre, una descripción de la cartola o lo que dijo la IA nunca entra como HTML).
-    for (const [k, v] of Object.entries(valores)) t = t.split(`{${k}}`).join(esc(String(v)));
-    return t;
-  }
-  /** Como T(), pero los valores van tal cual: SOLO para HTML que arma el propio código (un monto en <span>, una cifra en <b>), con
-   *  todo lo de la persona ya pasado por esc(). */
-  function Thtml(plantilla, html = {}) {
-    return T(plantilla).replace(/\{(\w+)\}/g, (m, k) => (k in html ? String(html[k]) : m));
-  }
-  /** Como T(), pero en texto plano (para textContent, como el aviso de abajo): ni escapa ni pone <b>. */
-  function Tp(plantilla, valores = {}) {
-    let t = plantilla;
-    if (E.idioma !== "es") { if (E.textos[plantilla]) t = E.textos[plantilla]; else if (window._faltantes) window._faltantes.add(plantilla); }
-    for (const [k, v] of Object.entries(valores)) t = t.split(`{${k}}`).join(String(v));
-    return t;
-  }
-  const frase = (plantilla, valores, etiqueta = "span") => `<${etiqueta} data-sin-traducir>${T(plantilla, valores)}</${etiqueta}>`;
-  function traducirDOM(raiz) {
-    if (E.idioma === "es") return;
-    const w = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT);
-    const nodos = []; let n; while ((n = w.nextNode())) nodos.push(n);
-    for (const t of nodos) {
-      const el = t.parentElement;
-      if (!el || el.closest("[data-sin-traducir], script, style") || !/\p{L}/u.test(t.nodeValue)) continue;
-      const v = tr(t.nodeValue); if (v !== t.nodeValue) t.nodeValue = v;
-    }
-    for (const el of raiz.querySelectorAll("[title],[aria-label],[placeholder]")) {
-      if (el.closest("[data-sin-traducir]")) continue;
-      for (const a of ["title", "aria-label", "placeholder"]) { const v = el.getAttribute(a); if (v) el.setAttribute(a, tr(v)); }
-    }
-  }
+  // ───────────── Idiomas: pieza «i18n» (ui/i18n.js; las claves son el texto en español) ─────────────
+  // T: frase entera con marcadores ({x}, {n}, {ia}…) en HTML, con la frase y los valores escapados; va dentro de data-sin-traducir
+  // (frase() ya lo hace). Thtml: SOLO para valores que son HTML armado por el propio código (un monto en <span>, una cifra en <b>),
+  // con todo lo de la persona ya pasado por esc(). Tp: texto plano (avisos con toast, que usa textContent). tr y traducirDOM
+  // traducen lo ya pintado (nunca [data-sin-traducir]). E.idioma es solo un espejo de i18n.idioma para el resto de la interfaz.
+  const i18n = PiezaI18n.crear();
+  const { tr, T, Thtml, Tp, frase, traducirDOM } = i18n;
   /** Idioma del equipo («es» o «en»): el que se sugiere en el primer paso. */
-  const idiomaDelSistema = () => ((navigator.language || "es").toLowerCase().startsWith("es") ? "es" : "en");
+  const idiomaDelSistema = () => i18n.idiomaDelSistema();
   async function cargarIdioma() {
-    const pedido = new URLSearchParams(location.search).get("idioma");
-    const codigo = pedido || E.config.idioma_ui || idiomaDelSistema();
-    if (codigo === E.idioma && (codigo === "es" || Object.keys(E.textos).length)) return;
-    E.idioma = codigo;
-    E.textos = {};
-    if (codigo !== "es") {
-      try { E.textos = (await (await fetch(`idiomas/${codigo}.json`)).json()).textos || {}; } catch { E.idioma = "es"; }
-    }
-    document.documentElement.lang = E.idioma;
+    // ?idioma= (vista previa y pruebas) > lo guardado > el del sistema.
+    await i18n.cargar(i18n.elegir({ config: E.config.idioma_ui }));
+    E.idioma = i18n.idioma;
   }
 
   // ───────────── Dinero y fechas ─────────────
@@ -2610,7 +2557,7 @@
     return E.ias.map((ia) => {
       const enUso = E.config.ia === ia.id, probando = E.probando[ia.id], r = E.resultadoIA[ia.id];
       const estado = !ia.instalada ? `<small>No está instalada · <a href="#" data-enlace="${ENLACES.guiaIA}#${ia.id}">Cómo instalarla</a></small>`
-        : r && !r.ok ? `<small class="error-txt" data-sin-traducir>${esc(r.texto || tr("No respondió."))}</small>` : `<small>Instalada</small>`;
+        : r && !r.ok ? `<small class="error-txt" data-sin-traducir>${esc(tr(r.texto || "No respondió."))}</small>` : `<small>Instalada</small>`;
       const accion = enUso ? `<span class="ok">✓ En uso</span>` : ia.instalada
         ? `<button class="boton" data-probar="${esc(ia.id)}" ${probando ? "disabled" : ""}>${probando ? "Probando…" : "Usar"}</button>` : "";
       return `<div class="fila"><div class="txt"><b data-sin-traducir>${esc(ia.nombre)}</b>${estado}</div>${accion}</div>`;
@@ -3396,11 +3343,7 @@
     },
     /** Celular: los avisos de pagos de los próximos días, con su texto en el idioma elegido (sin montos). Los programa movil/host. */
     avisosCelular(d = {}) {
-      const plano = (plantilla, valores = {}) => {
-        let t = E.idioma !== "es" && E.textos[plantilla] ? E.textos[plantilla] : plantilla;
-        for (const [k, v] of Object.entries(valores)) t = t.split(`{${k}}`).join(String(v));
-        return t;
-      };
+      const plano = Tp;
       return avisosPagos(listaCompromisos(), E.movimientos, d.hoy || E.hoy, monedaPrincipal(), ufCfg(), E.palabrasMora || [], E.palabrasAuto || [], d.dias || 35).map((a) => ({
         ...a, titulo: plano(a.tipo === "hoy" ? "Un pago vence hoy" : "Pago por vencer"),
         cuerpo: plano(a.tipo === "hoy" ? "{c} vence hoy." : a.dias === 1 ? "{c} vence mañana." : "{c} vence en {n} días.", { c: a.nombre, n: a.dias }) + " " + plano("Si ya lo pagaste, márcalo en tu Mac."),

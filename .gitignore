@@ -14,6 +14,9 @@
 !/escritorio/
 !/movil/
 !/build.sh
+# Pieza: la descripción de la app y las piezas que usa (las leen bin/nucleo.py y pieza.py).
+!/app.json
+!/piezas.json
 !/README.md
 !/AGENTS.md
 !/CLAUDE.md

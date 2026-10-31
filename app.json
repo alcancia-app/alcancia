@@ -1,0 +1,32 @@
+{
+ "nombre": "Alcancía",
+ "id": "alcancia",
+ "datos": {
+  "carpeta": "~/Alcancia/.alcancia"
+ },
+ "privado": true,
+ "icono": "docs/favicon.svg",
+ "plataformas": [
+  "mac",
+  "ios",
+  "android"
+ ],
+ "config": {
+  "idioma_ui": [
+   "es",
+   "en"
+  ],
+  "bienvenida": "bool",
+  "ia": [
+   "claude",
+   "codex",
+   "gemini"
+  ],
+  "pais": "texto",
+  "moneda": "texto",
+  "respaldo": "texto",
+  "vigilar": "bool",
+  "ia_en_conexiones": "bool",
+  "avisos": "bool"
+ }
+}

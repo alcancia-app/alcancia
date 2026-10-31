@@ -19,14 +19,19 @@ import hashlib
 import json
 import os
 import re
-import tempfile
 import unicodedata
+
+import nucleo
 
 BASE = os.environ.get("ALCANCIA_CARPETA") or os.path.join(os.path.expanduser("~"), "Alcancia")
 INTERNO = os.path.join(BASE, ".alcancia")
 MOVIMIENTOS = os.path.join(BASE, "movimientos")
 CONSEJOS = os.path.join(BASE, "consejos")
-RECURSOS = os.environ.get("ALCANCIA_RECURSOS") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+#: La pieza «nucleo» guarda la config en su carpeta de datos: app.json dice ~/Alcancia/.alcancia («datos»: {«carpeta»}), la de
+#: siempre. Si ALCANCIA_CARPETA cambia la carpeta (pruebas, desarrollo), la de nucleo la sigue (ALCANCIA_DATOS).
+if os.environ.get("ALCANCIA_CARPETA"):
+    os.environ.setdefault("ALCANCIA_DATOS", INTERNO)
+RECURSOS = nucleo.recursos()
 
 CAMPOS = ["id", "fecha", "descripcion", "monto", "moneda", "categoria", "cuenta", "origen", "nota"]
 #: Columnas opcionales, al final: cómo se pagó (lo dice el conector). `medio` = saldo | debito | credito | otro (vacío = no se sabe);
@@ -57,13 +62,9 @@ CATEGORIAS_BASE = [
 ]
 
 
-# ───────────── JSON y escritura segura ─────────────
+# ───────────── JSON y escritura segura (pieza «nucleo») ─────────────
 def leer_json(ruta, defecto):
-    try:
-        with open(ruta, encoding="utf-8") as f:
-            return json.load(f)
-    except (OSError, ValueError):
-        return defecto
+    return nucleo.leer_json(ruta, defecto)
 
 
 _PRIVADA = False
@@ -71,7 +72,7 @@ _PRIVADA = False
 
 def carpeta_privada():
     """~/Alcancia solo para la persona (0700): en un Mac, la carpeta de usuario deja entrar al grupo «staff», que son todas las
-    cuentas del equipo. Los archivos ya se escriben 0600 (mkstemp). Una vez por proceso; en Windows no aplica."""
+    cuentas del equipo. Los archivos ya se escriben 0600 (nucleo.escribir_atomico). Una vez por proceso; en Windows no aplica."""
     global _PRIVADA
     if _PRIVADA or os.name == "nt":
         return
@@ -85,22 +86,30 @@ def carpeta_privada():
 
 
 def escribir_atomico(ruta, texto):
-    """Escribe en un temporal y lo renombra: si algo se corta a la mitad, el archivo anterior queda intacto."""
+    """Escribe en un temporal y lo renombra (nucleo): si algo se corta a la mitad, el archivo anterior queda intacto. Siempre
+    0600, también si el archivo de antes era más abierto (un CSV editado con otro programa): son datos financieros."""
     if os.path.abspath(ruta).startswith(os.path.abspath(BASE) + os.sep):
         carpeta_privada()
-    os.makedirs(os.path.dirname(ruta), exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(ruta), prefix=".tmp-")
-    with os.fdopen(fd, "w", encoding="utf-8", newline="") as f:
-        f.write(texto)
-    os.replace(tmp, ruta)
+    nucleo.escribir_atomico(ruta, texto, modo=nucleo.PRIVADO)
 
 
 def escribir_json(ruta, valor):
     escribir_atomico(ruta, json.dumps(valor, ensure_ascii=False, indent=2) + "\n")
 
 
+#: Lo que se usa si la persona aún no eligió nada.
+CONFIG_INICIAL = {"ia": "claude", "idioma_ui": "", "pais": "CL", "moneda": "CLP"}
+#: Ajustes con forma propia de Alcancía (no son un valor simple de app.json): se validan donde se usan
+#: (`compromisos.uf_config`, `resumen.rango`) y en el host al guardarlos.
+CONFIG_OBJETOS = ("inicio_mes", "uf")
+
+
 def config():
-    return {"ia": "claude", "idioma_ui": "", "pais": "CL", "moneda": "CLP", **leer_json(os.path.join(INTERNO, "config.json"), {})}
+    """Los ajustes (~/Alcancia/.alcancia/config.json): las claves simples validadas por app.json (nucleo) más las de CONFIG_OBJETOS.
+    Lo desconocido o con un valor que no corresponde se descarta."""
+    crudo = leer_json(os.path.join(INTERNO, "config.json"), {})
+    crudo = crudo if isinstance(crudo, dict) else {}
+    return {**CONFIG_INICIAL, **nucleo.limpiar_config(crudo), **{k: crudo[k] for k in CONFIG_OBJETOS if isinstance(crudo.get(k), dict)}}
 
 
 #: Nombres de las categorías base en inglés (las de la persona se guardan en su idioma y ella las puede renombrar).

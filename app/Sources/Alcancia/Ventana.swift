@@ -153,10 +153,16 @@ final class Ventana: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNavig
             // Primer uso: recién elegido el idioma, parte lo que esperaba (conexiones, carpeta vigilada, actualizaciones, MCP).
             if Idioma.elegido { AlcanciaApp.iniciarTareas() }
         case "probarIA":
+            // La prueba la hace la pieza «ia» (bin/ia.py) con las mismas protecciones que todo pedido: sin herramientas, sin MCP,
+            // sin la memoria de la persona y en una carpeta temporal. La IA va en el archivo de entrada, nunca como argumento.
             let id = d["id"] as? String ?? ""
-            IA.probar(id) { ok, texto in
+            guard IA.conocidas.contains(where: { $0.id == id }) else {
+                return llamar("iaProbada", ["id": id, "ok": false, "texto": Idioma.t("No conozco esa IA.")])
+            }
+            Procesador.conEntrada("ia.py", "probar", ["ia": id]) { r in
+                let ok = r["ok"] as? Bool == true
                 if ok { Config.guardar(["ia": id]) }
-                Ventana.shared.llamar("iaProbada", ["id": id, "ok": ok, "texto": texto])
+                Ventana.shared.llamar("iaProbada", ["id": id, "ok": ok, "texto": r["error"] as? String ?? "", "codigo": r["codigo"] as? String ?? ""])
             }
         case "elegirCartola":
             let panel = NSOpenPanel()
