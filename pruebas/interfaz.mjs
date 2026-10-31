@@ -137,8 +137,8 @@ const VISTAS = [
   ["importar-listo-uno", "E=>{E.compEdit=null;E.importar={paso:'listo',resultado:{nuevos:1,repetidos:0,sin_categoria:0}}}"],
   ["importar-error", "E=>{E.importar={paso:'error',error:'x'}}"],
   ["ajustes", "E=>{E.importar=null;E.ajustes=true}"],
-  ["ajustes-al-dia", "E=>{E.buscando='alDia'}"],
-  ["ajustes-celular", "E=>{E.buscando=null;E.celular={activo:true,nombre:'Alcancía',nube:'iCloud Drive',ultima:'2026-10-18T12:00:00Z',error:''}}"],
+  ["ajustes-al-dia", "E=>{window.Alcancia.actualizacionRevisada({hay:false})}"],
+  ["ajustes-celular", "E=>{E.celular={activo:true,nombre:'Alcancía',nube:'iCloud Drive',ultima:'2026-10-18T12:00:00Z',error:''}}"],
   ["ajustes-celular-error", "E=>{E.celular.error='No pude escribir la copia en esa carpeta. ¿Sigue existiendo?'}"],
   ["celular-carpeta", "E=>{E.ajustes=false;E.celularConfig={paso:'carpeta',frase:'',entiendo:false,error:'',carpeta:null}}"],
   ["celular-frase-corta", "E=>{E.celularConfig={paso:'frase',frase:'gato',entiendo:false,error:'',carpeta:{nombre:'Alcancía',nube:'iCloud Drive',enNube:true}}}"],
@@ -147,10 +147,11 @@ const VISTAS = [
   ["celular-cambiar-frase", "E=>{E.celularConfig={paso:'frase',frase:'',entiendo:false,error:'',cambiar:true,carpeta:{nombre:'Alcancía',nube:'Google Drive',enNube:true}}}"],
   ["celular-creando", "E=>{E.celularConfig.paso='creando'}"],
   ["celular-listo", "E=>{E.celularConfig.paso='listo'}"],
-  ["actualizacion", "E=>{E.celularConfig=null;E.celular={};E.ajustes=false;E.vista='resumen';E.actualizacion={hay:true,detalle:'Versión 0.2.0'}}"],
-  ["actualizando", "E=>{E.act={paso:'2',texto:'Preparando la versión nueva…',pct:40}}"],
-  ["actualizacion-error", "E=>{E.act={paso:'error',texto:'x'}}"],
-  ["sin-presupuesto", "E=>{E.act=null;E.actualizacion={hay:false};E.presupuesto={moneda:'CLP',mensual:{}}}"],
+  ["actualizacion", "E=>{E.celularConfig=null;E.celular={};E.ajustes=false;E.vista='resumen';window.Alcancia.actualizacionRevisada({hay:true,detalle:'Versión 0.2.0\\n• Algo nuevo'})}"],
+  ["actualizando", "E=>{window.Alcancia.actualizacionProgreso({paso:'2',texto:'Preparando la versión nueva…',pct:40,total:3})}"],
+  ["ajustes-actualizando", "E=>{E.ajustes=true}"],
+  ["actualizacion-error", "E=>{E.ajustes=false;window.Alcancia.actualizacionProgreso({paso:'error',texto:'x',total:3})}"],
+  ["sin-presupuesto", "E=>{window.Alcancia.actualizacionRevisada({hay:false});E.presupuesto={moneda:'CLP',mensual:{}}}"],
   ["conexiones", "E=>{E.vista='conexiones'}"],
   ["conexiones-estados", "E=>{const ids=E.conectores.map(c=>c.id);if(ids[0])E.conexiones[ids[0]]={conectado:true,error:'Mercado Pago no aceptó la llave (puede estar vencida o sin permiso de lectura).'};if(ids[1])E.conexiones[ids[1]]={conectado:true,esperando:true};if(ids[2])E.sincronizando[ids[2]]=true;E.vigilar={activo:true,recientes:[{archivo:'cartola.csv',resultado:'importado',nuevos:1},{archivo:'otra.xlsx',resultado:'sin_receta'}]}}"],
   ["conexiones-otro-pais", "E=>{E.config.pais='US';E.sincronizando={}}"],
@@ -339,7 +340,7 @@ for (const [locale, sugerido] of [["es-CL", "es"], ["en-US", "en"]]) {
     } };
   });
   await p.goto(BASE + "?bienvenida");
-  await p.waitForSelector(".dialogo #t-bv");
+  await p.waitForSelector(".pz-dialogo #t-bv");
   const primera = await p.evaluate(() => ({
     titulo: document.querySelector("#t-bv").textContent.replace(/\s+/g, " ").trim(),
     opciones: [...document.querySelectorAll("[data-idioma-bv]")].map((b) => b.dataset.idiomaBv),
@@ -354,7 +355,7 @@ for (const [locale, sugerido] of [["es-CL", "es"], ["en-US", "en"]]) {
   await p.waitForFunction(() => document.documentElement.lang === "en" && !document.querySelector("[data-idioma-bv]"));
   const despues = await p.evaluate(() => ({
     titulo: document.querySelector("#t-bv")?.textContent.trim(),
-    boton: document.querySelector(".dialogo .boton.principal")?.textContent.trim(),
+    boton: document.querySelector(".pz-dialogo .pz-boton.pz-principal")?.textContent.trim(),
     enviados: window._enviados.map((m) => m.accion),
     config: window._enviados.find((m) => m.accion === "config")?.datos,
   }));
@@ -363,7 +364,7 @@ for (const [locale, sugerido] of [["es-CL", "es"], ["en-US", "en"]]) {
   if (despues.config?.idioma_ui !== "en") falla(`elegir English debe guardar idioma_ui = "en" (se mandó ${JSON.stringify(despues.config)})`);
   if (despues.enviados.slice(0, 2).join() !== "listo,config") falla(`antes de elegir el idioma la interfaz no debe pedir nada más (mandó: ${despues.enviados.join(", ")})`);
   // «Back» vuelve a la pantalla de idioma.
-  await p.click(".dialogo [data-bv='0']");
+  await p.click(".pz-dialogo [data-bv='0']");
   if (!(await p.$("[data-idioma-bv='es']"))) falla("«Atrás» desde el saludo debe volver a la pantalla de idioma");
   await p.close();
 }
@@ -371,7 +372,7 @@ for (const [locale, sugerido] of [["es-CL", "es"], ["en-US", "en"]]) {
   // Quien ya hizo la bienvenida no la repite.
   const p = await navegador.newPage();
   await p.goto(BASE); await p.waitForSelector(".app");
-  if (await p.$("[data-idioma-bv], .dialogo")) falla("la bienvenida (ni la pantalla de idioma) no debe aparecer si ya se hizo");
+  if (await p.$("[data-idioma-bv], .pz-dialogo")) falla("la bienvenida (ni la pantalla de idioma) no debe aparecer si ya se hizo");
   await p.close();
 }
 console.log("  ✓ Primer uso: lo primero es el idioma, se guarda y la bienvenida sigue en ese idioma");
@@ -410,9 +411,9 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     await p.click('.nav [data-vista="compromisos"]');
     // Agregar un pago va en «+»: la acción única para agregar, con su hoja (cartola, pago que se repite o conectar).
     await p.click(".nav-agregar");
-    if ((await p.$$(".dialogo .opcion-agregar")).length !== 3) falla(`«+» ofrece cartola, pago que se repite y conectar ${donde}`);
+    if ((await p.$$(".pz-dialogo .opcion-agregar")).length !== 3) falla(`«+» ofrece cartola, pago que se repite y conectar ${donde}`);
     await ancho("agregar");
-    await p.click('.dialogo .opcion-agregar[data-accion="agregar-contar"]');
+    await p.click('.pz-dialogo .opcion-agregar[data-accion="agregar-contar"]');
     await contarle(p, "el arriendo de la bodega vence el 5 de cada mes, son 85.000");
     await p.waitForSelector("#editor-comp #ce-nombre");
     const editor = await p.evaluate(() => ({ monto: document.querySelector("#ce-monto").value.replace(/\D/g, ""), dia: document.querySelector("#ce-dia").value,
@@ -433,18 +434,18 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     await ancho("gasto máximo");
     // Importar: lo detectado y las preguntas que siguen (la cuota sale de la cartola y no se pregunta).
     await p.click(".nav-agregar");
-    await p.click('.dialogo .opcion-agregar[data-accion="importar"]');
+    await p.click('.pz-dialogo .opcion-agregar[data-accion="importar"]');
     await p.click('[data-accion="elegir-cartola"]');
     await p.click('[data-accion="importar-guardar"]');
     await p.waitForSelector(".detectados [data-det-agregar]", { timeout: 8000 });
     await ancho("detectados");
     await p.click(".detectados [data-det-agregar]");
-    await p.waitForSelector(".dialogo #ce-nombre");
-    const dialogo = await texto(".dialogo");
+    await p.waitForSelector(".pz-dialogo #ce-nombre");
+    const dialogo = await texto(".pz-dialogo");
     if (!dialogo.toLowerCase().includes(t.cuota)) falla(`la cuota sacada de la cartola debe verse ${donde}`);
-    if (await p.$(".dialogo #ce-cuotas_total")) falla(`si la cartola trae la cuota, no se pregunta ${donde}`);
+    if (await p.$(".pz-dialogo #ce-cuotas_total")) falla(`si la cartola trae la cuota, no se pregunta ${donde}`);
     await ancho("preguntas tras importar");
-    await p.click('.dialogo [data-accion="comp-guardar"]');
+    await p.click('.pz-dialogo [data-accion="comp-guardar"]');
     await p.waitForSelector(".detectados .ok-txt");
     if (!(await texto(".detectados")).includes(t.agregado)) falla(`tras guardar, el detectado queda como agregado ${donde}`);
     await p.close();
@@ -584,7 +585,7 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     if (!luz.includes("≈ $32.500") || !luz.replace(/\D/g, "").includes("2920035800")) falla(`la luz aproximada se muestra con su rango (29.200 a 35.800) ${donde}: ${luz}`);
     // Cuéntale con UF (la simulación hace de IA).
     await p.click(".nav-agregar");
-    await p.click('.dialogo [data-accion="agregar-contar"]');
+    await p.click('.pz-dialogo [data-accion="agregar-contar"]');
     await contarle(p, "el dividendo son 12,75 UF los 25");
     await p.waitForSelector("#editor-comp #ce-monto");
     const ed = await p.evaluate(() => ({ moneda: document.querySelector("#ce-moneda").value, monto: document.querySelector("#ce-monto").value }));
@@ -627,7 +628,7 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     // Cuéntale: un préstamo con el monto en palabras; la tarjeta muestra el cálculo en vivo.
     await p.click('.nav [data-vista="compromisos"]');
     await p.click(".nav-agregar");
-    await p.click('.dialogo [data-accion="agregar-contar"]');
+    await p.click('.pz-dialogo [data-accion="agregar-contar"]');
     await contarle(p, "mi tia me prestó 1,8 millones en 12 meses");
     await p.waitForSelector("#editor-comp #ce-con");
     const ed = await p.evaluate(() => ({ tipo: document.querySelector("#ce-tipo").value, con: document.querySelector("#ce-con").value }));
@@ -692,7 +693,7 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     await ancho("tu mes va desde tu sueldo");
     await p.click('.linea-mes [data-accion="ajustes-mes"]');
     if ((await p.evaluate(() => document.activeElement?.id)) !== "inicio-modo") falla(`«Cambiar» lleva a «Tu mes empieza» en Ajustes ${donde}`);
-    if (!(await texto(".dialogo")).includes(t.detecte)) falla(`Ajustes dice que lo detectó ${donde}`);
+    if (!(await texto(".pz-dialogo")).includes(t.detecte)) falla(`Ajustes dice que lo detectó ${donde}`);
     await p.click('[data-accion="cerrar"]');
     // Lo que la persona eligió no se toca.
     await estado((d) => { d.config.inicio_mes = { modo: 'dia', dia: 1 }; });
@@ -832,6 +833,7 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     await p.waitForSelector(".dialogo-chat #chat-texto");
     if ((await p.$$(".chip-sugerencia")).length < 3) falla(`el chat ofrece sugerencias para empezar ${donde}`);
     if (modo === "celular") {
+      await p.waitForTimeout(250); // la entrada del diálogo (pieza «componentes») dura 0,16 s
       const caja = await p.$eval(".dialogo-chat", (el) => { const r = el.getBoundingClientRect(); return [r.top, r.height]; });
       if (caja[0] !== 0 || caja[1] !== 844) falla(`en celular el chat ocupa toda la pantalla ${donde}: ${caja}`);
       const campo = await p.$eval("#chat-texto", (el) => el.getBoundingClientRect().bottom);
@@ -869,14 +871,14 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
     if (!(await texto(".contenido")).includes("Abuela")) falla(`el préstamo agregado desde el chat está en Pagos ${donde}`);
     // Borrar la conversación (con confirmación) y sin IA: lo dice y lleva a Ajustes.
     await p.click('.nav-agregar');
-    await p.click('.dialogo [data-accion="agregar-contar"]');
+    await p.click('.pz-dialogo [data-accion="agregar-contar"]');
     await p.click('[data-accion="chat-borrar"]');
     await p.click('[data-accion="chat-borrar-si"]');
     if ((await p.$$(".msg.persona")).length) falla(`«Borrar la conversación» la deja vacía ${donde}`);
     await p.evaluate(() => window.Alcancia._probar((E) => { E.config.ia = ""; }));
     if (await p.$("#chat-texto")) falla(`sin IA no hay campo para escribir ${donde}`);
     await p.click('.chat-pie [data-accion="chat-ajustes"]');
-    if (!(await p.$(".dialogo #t-ajustes"))) falla(`sin IA, «Abrir Ajustes» lleva a Ajustes ${donde}`);
+    if (!(await p.$(".pz-dialogo #t-ajustes"))) falla(`sin IA, «Abrir Ajustes» lleva a Ajustes ${donde}`);
     await p.close();
   }
 }
@@ -974,7 +976,7 @@ for (const [idioma, consulta, opciones] of [["español", "idioma=es", { viewport
   // Al reabrir se ve igual (la respuesta quedó en `estados`).
   await cerrarChat(p);
   await p.click('.nav-agregar');
-  await p.click('.dialogo [data-accion="agregar-contar"]');
+  await p.click('.pz-dialogo [data-accion="agregar-contar"]');
   await p.waitForSelector(".dialogo-chat .msg.alcancia");
   if (await p.$(".propuesta.pregunta")) falla(`al reabrir, lo respondido no se vuelve a preguntar ${donde}`);
   await p.close();
@@ -992,8 +994,8 @@ for (const esquema of ["light", "dark"]) {
     const v = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
     const color = (x) => { const d = document.createElement("i"); d.style.color = x; document.body.append(d); const c = getComputedStyle(d).color; d.remove(); return c; };
     const cs = getComputedStyle(document.querySelector(".nav-agregar"));
-    return { "botón principal": ratio(cs.color, cs.backgroundColor), "texto suave": ratio(color(v("--suave")), color(v("--fondo"))),
-      "texto suave en tarjeta": ratio(color(v("--suave")), color(v("--panel"))), "rojo": ratio(color(v("--rojo")), color(v("--panel"))), "verde": ratio(color(v("--verde")), color(v("--panel"))) };
+    return { "botón principal": ratio(cs.color, cs.backgroundColor), "texto suave": ratio(color(v("--texto-suave")), color(v("--fondo"))),
+      "texto suave en tarjeta": ratio(color(v("--texto-suave")), color(v("--panel"))), "rojo": ratio(color(v("--rojo")), color(v("--panel"))), "verde": ratio(color(v("--verde")), color(v("--panel"))) };
   });
   for (const [k, r] of Object.entries(c)) if (r < 4.5) falla(`contraste de ${k} en modo ${esquema}: ${r.toFixed(2)} (mínimo 4.5)`);
   console.log(`  ✓ Contraste en modo ${esquema === "light" ? "claro" : "oscuro"}: ${Object.entries(c).map(([k, r]) => `${k} ${r.toFixed(2)}`).join(", ")}`);
@@ -1024,12 +1026,68 @@ for (const [modo, opciones] of [["escritorio", { viewport: { width: 1280, height
   await p.click('.nav [data-vista="mas"]'); await p.click('.lista-mas [data-vista="conexiones"]');
   if ((await p.$eval(".nav [aria-current]", (b) => b.dataset.vista)) !== "mas") falla(`Conexiones vive en «Más» (${modo})`);
   await p.click(".nav-agregar");
-  if (!(await p.$(".dialogo #t-agregar"))) falla(`«+» abre la hoja de agregar (${modo})`);
+  if (!(await p.$(".pz-dialogo #t-agregar"))) falla(`«+» abre la hoja de agregar (${modo})`);
   await p.keyboard.press("Escape");
-  if (await p.$(".dialogo")) falla(`Escape cierra la hoja de agregar (${modo})`);
+  if (await p.$(".pz-dialogo")) falla(`Escape cierra la hoja de agregar (${modo})`);
   await p.close();
 }
 console.log("  ✓ Navegación: 4 secciones, «+» único, barra inferior en celular y lateral en escritorio");
+
+// Piezas de interfaz: diálogos (foco adentro, Tab que no se escapa, Esc y el foco de vuelta), «Tu IA» con probarIA {ia}, la fila de
+// actualizaciones, «Apariencia» (sistema, claro u oscuro) y los avisos que esperan en cola.
+for (const [modo, opciones] of [["escritorio", { viewport: { width: 1200, height: 820 } }], ["celular", { viewport: { width: 390, height: 844 }, colorScheme: "dark" }]]) {
+  const p = await navegador.newPage(opciones), donde = `(${modo})`;
+  p.on("pageerror", (e) => falla(`error de JavaScript en las piezas de interfaz ${donde}: ${e.message}`));
+  await p.goto(BASE + "?idioma=es"); await p.waitForSelector(".nav");
+  await p.click('.nav [data-vista="mas"]'); await p.click('.lista-mas [data-accion="ajustes"]');
+  await p.waitForSelector('.pz-dialogo[aria-modal="true"] #t-ajustes');
+  const dentro = () => p.evaluate(() => !!document.activeElement?.closest(".pz-dialogo"));
+  if (!(await dentro())) falla(`al abrir Ajustes el foco entra al diálogo ${donde}`);
+  for (let i = 0; i < 60; i++) await p.keyboard.press("Tab");
+  if (!(await dentro())) falla(`Tab no se escapa del diálogo ${donde}`);
+  await p.keyboard.press("Shift+Tab");
+  if (!(await dentro())) falla(`Mayúscula + Tab no se escapa del diálogo ${donde}`);
+  // Tu IA: probar otra (la vista previa responde iaProbada {ia}) la deja en uso.
+  await p.click('[data-pz-probar-ia="codex"]');
+  await p.waitForFunction(() => document.querySelector('.pz-fila:has([data-pz-probar-ia="codex"])')?.textContent.includes("En uso"), null, { timeout: 4000 }).catch(() => falla(`probar una IA ({ia}) la deja en uso ${donde}`));
+  // Actualizaciones: buscar y quedar al día.
+  await p.click('[data-pz-act="buscar"]');
+  await p.waitForFunction(() => document.querySelector(".pz-act")?.textContent.includes("Estás en la última versión"), null, { timeout: 4000 }).catch(() => falla(`buscar actualizaciones dice que está al día ${donde}`));
+  // Apariencia: oscuro y claro se aplican al tiro (data-tema) y vuelven a «Como el sistema».
+  await p.click('[data-pz-tema="oscuro"]');
+  const oscuro = await p.evaluate(() => [document.documentElement.dataset.tema, getComputedStyle(document.body).backgroundColor]);
+  await p.click('[data-pz-tema="claro"]');
+  const claro = await p.evaluate(() => [document.documentElement.dataset.tema, getComputedStyle(document.body).backgroundColor]);
+  if (oscuro[0] !== "oscuro" || claro[0] !== "claro" || oscuro[1] === claro[1]) falla(`«Apariencia» cambia entre oscuro y claro ${donde}: ${oscuro} / ${claro}`);
+  await p.click('[data-pz-tema="sistema"]');
+  if (await p.evaluate(() => "tema" in document.documentElement.dataset)) falla(`«Como el sistema» deja de fijar el tema ${donde}`);
+  // Esc cierra y el foco vuelve a quien lo abrió.
+  await p.keyboard.press("Escape");
+  if (await p.$(".pz-dialogo")) falla(`Esc cierra Ajustes ${donde}`);
+  if ((await p.evaluate(() => document.activeElement?.dataset.accion)) !== "ajustes") falla(`al cerrar, el foco vuelve a «Ajustes» ${donde}`);
+  // El velo también cierra (la hoja de agregar), y la bienvenida no se cierra ni con Esc.
+  await p.click(".nav-agregar"); await p.waitForSelector(".pz-capa");
+  await p.mouse.click(5, 5);
+  if (await p.$(".pz-dialogo")) falla(`tocar fuera cierra la hoja de agregar ${donde}`);
+  // Avisos en cola: dos seguidos se muestran uno después del otro (antes el segundo pisaba al primero).
+  await p.evaluate(() => { window.Alcancia.sincronizado({ conector: "x", ok: true, nuevos: 2, nombre: "Banco Ejemplo" }); window.Alcancia.mcpListo({ cliente: "x", ok: true }); });
+  await p.waitForFunction(() => document.querySelector("#toast").textContent.includes("Banco Ejemplo"), null, { timeout: 12000 }).catch(() => falla(`el primer aviso se ve ${donde}`));
+  await p.waitForFunction(() => document.querySelector("#toast").textContent.includes("tu IA ya puede"), null, { timeout: 12000 }).catch(() => falla(`el segundo aviso espera su turno ${donde}`));
+  await p.close();
+}
+{
+  const p = await navegador.newPage({ viewport: { width: 1200, height: 820 } });
+  await p.goto(BASE + "?bienvenida&idioma=es"); await p.waitForSelector(".pz-dialogo #t-bv");
+  await p.evaluate(() => window.Alcancia._probar((E) => { E.bv = 2; }));
+  await p.keyboard.press("Escape"); await p.mouse.click(5, 5);
+  if (!(await p.$(".pz-dialogo #t-bv"))) falla("la bienvenida no se cierra con Esc ni tocando fuera");
+  if (await p.$(".pz-dialogo [data-pz-cerrar]")) falla("la bienvenida no lleva ✕ (se sale con «Lo hago después»)");
+  // ?tema= fija el tema en la vista previa (capturas).
+  await p.goto(BASE + "?tema=oscuro"); await p.waitForSelector(".nav");
+  if ((await p.evaluate(() => document.documentElement.dataset.tema)) !== "oscuro") falla("?tema=oscuro fija el modo oscuro");
+  await p.close();
+}
+console.log("  ✓ Piezas de interfaz: foco y Esc en los diálogos, Tu IA con {ia}, actualizaciones, Apariencia y avisos en cola");
 
 {
   // Seguridad: lo que viene de afuera (la descripción de una transferencia, el nombre o emoji de una categoría, lo que responde la IA)

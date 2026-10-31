@@ -77,7 +77,7 @@ await paso("Teléfono nuevo: idioma primero, elegir el archivo y abrirlo con la 
   if (await visible(p, ".tres, #traer-frase")) falla("se ve algo antes de elegir el idioma");
   await p.click('[data-idioma-bv="es"]');
   await p.click('[data-bv="2"]');
-  const texto = await p.textContent(".dialogo");
+  const texto = await p.textContent(".pz-dialogo");
   if (!texto.includes("Alcancia-celular.alcancia") || !texto.includes("Mac")) falla("el paso de traer los datos no explica dónde está el archivo: " + texto.slice(0, 200));
   if (/Claude|Codex|cartola/i.test(texto)) falla("en el teléfono se habla de IA del computador o de cartolas");
   await p.click('[data-accion="bv-traer"]');
@@ -104,7 +104,7 @@ await paso("Solo para mirar: nada que cambie datos a la vista, y si llega un toq
   await p.waitForSelector(".tres");
   if (await visible(p, ".nav-agregar")) falla("se ve el «+» de agregar");
   if ((await visible(p, ".nav .nav-item")) !== 4) falla("la barra no tiene 4 secciones");
-  const PROHIBIDO = ".nav-agregar, .fila-chat, [data-elegir], [data-comp-pagado], [data-comp-noes], [data-comp-desmarcar], [data-comp-editar], [data-sug-agregar], [data-saldo-editar], [data-sueldo], [data-regla-si], [data-accion=agregar-contar], [data-accion=pedir-consejos], [data-accion=sugerir], [data-accion=guardar-pres], [data-accion=usar-maximos], [data-vista=ordenar], [data-vista=conexiones], [data-probar], [data-conectar], [data-accion=importar], [data-config=pais], [data-inicio], [data-uf], input[data-pres]:not([readonly]), form[data-saldo-form]";
+  const PROHIBIDO = ".nav-agregar, .fila-chat, [data-elegir], [data-comp-pagado], [data-comp-noes], [data-comp-desmarcar], [data-comp-editar], [data-sug-agregar], [data-saldo-editar], [data-sueldo], [data-regla-si], [data-accion=agregar-contar], [data-accion=pedir-consejos], [data-accion=sugerir], [data-accion=guardar-pres], [data-accion=usar-maximos], [data-vista=ordenar], [data-vista=conexiones], [data-pz-probar-ia], [data-pz-act], [data-conectar], [data-accion=importar], [data-config=pais], [data-inicio], [data-uf], input[data-pres]:not([readonly]), form[data-saldo-form]";
   const VISTAS = [["Inicio", "E=>{E.vista='resumen';E.mes='2026-10'}"], ["Lo que tienes", "E=>{E.cifra='tienes'}"], ["Lo que debes", "E=>{E.cifra='debes'}"],
     ["Lo que gastaste", "E=>{E.cifra='gastaste'}"], ["Te quedan", "E=>{E.cifra='queda'}"], ["Movimientos", "E=>{E.cifra=null;E.vista='movimientos'}"],
     ["Movimientos sin categoría", "E=>{E.filtro={texto:'',categoria:'__sin'}}"], ["Movimientos detalle", "E=>{E.filtro={texto:'',categoria:''};E.movVer=E.movimientos.find(m=>m.fecha.startsWith('2026-10')).id}"],
@@ -118,7 +118,7 @@ await paso("Solo para mirar: nada que cambie datos a la vista, y si llega un toq
     const ancho = await p.evaluate(() => document.documentElement.scrollWidth);
     if (ancho > 392) falla(`«${nombre}» se sale de la pantalla (${ancho}px)`);
   }
-  if (!(await p.textContent(".dialogo")).includes("Alcancia-celular.alcancia")) falla("Ajustes no dice qué archivo se lee");
+  if (!(await p.textContent(".pz-dialogo")).includes("Alcancia-celular.alcancia")) falla("Ajustes no dice qué archivo se lee");
   await p.evaluate(() => window.Alcancia._probar((E) => { E.ajustes = false; E.vista = "resumen"; }));
   // Un toque que llegue igual (p. ej. un botón que se coló): solo el aviso, nada se manda al Mac ni se cambia.
   const antes = await p.evaluate(() => JSON.stringify(window._celular.llamadas));
@@ -158,7 +158,7 @@ await paso("Nube sin conexión, copia a medias o de una versión nueva: queda la
     const t = await toast(p);
     if (!t.includes(espera)) falla(`${nombre}: el aviso no dice «${espera}»: ${t}`);
     await p.evaluate(() => window.Alcancia._probar((E) => { E.ajustes = true; }));
-    if (!(await p.textContent(".dialogo")).includes("no pude leer la más nueva")) falla(`${nombre}: Ajustes no dice que la copia no es la más nueva`);
+    if (!(await p.textContent(".pz-dialogo")).includes("no pude leer la más nueva")) falla(`${nombre}: Ajustes no dice que la copia no es la más nueva`);
     await p.close();
   }
   // Sin nada guardado y un archivo que no es una copia: el error, sin datos.
@@ -247,7 +247,7 @@ await paso("Del Mac al teléfono: la vista previa del Mac arma la copia y el tel
   if (!(await m.isDisabled('[data-accion="celular-crear"]'))) falla("deja crear sin aceptar que la frase no se recupera");
   await m.check("[data-celular-entiendo]");
   await m.click('[data-accion="celular-crear"]');
-  await m.waitForFunction(() => document.querySelector(".dialogo")?.textContent.includes("Listo"), null, { timeout: 8000 });
+  await m.waitForFunction(() => document.querySelector(".pz-dialogo")?.textContent.includes("Listo"), null, { timeout: 8000 });
   const texto = await m.evaluate(() => window._copiaCelular);
   if (!texto || !texto.startsWith('{"alcancia":"copia-celular"')) falla("no se escribió la copia");
   const abierto = await C.abrir(texto, { frase: FRASE });
@@ -255,7 +255,7 @@ await paso("Del Mac al teléfono: la vista previa del Mac arma la copia y el tel
   for (const x of ["ia_externa", "\"chat\"", "\"carpeta\"", "vigilar", "/Users/", "\"ias\""]) if (plano.includes(x)) falla(`la copia del Mac lleva «${x}»`);
   if (abierto.contenido.estado.movimientos.length !== demo.movimientos.length) falla("la copia del Mac no trae todos los movimientos");
   await m.click('[data-accion="celular-cerrar"]');
-  if (!(await m.textContent(".dialogo")).includes("Última copia")) falla("Ajustes no muestra la última copia");
+  if (!(await m.textContent(".pz-dialogo")).includes("Última copia")) falla("Ajustes no muestra la última copia");
   // «Copiar ahora» vuelve a escribir (con otro IV).
   await m.click('[data-accion="celular-copiar"]');
   await m.waitForFunction((t) => window._copiaCelular !== t, texto, { timeout: 4000 }).catch(() => falla("«Copiar ahora» no escribió de nuevo"));

@@ -29,11 +29,13 @@ enum Config {
     static func leer() -> [String: Any] { Archivos.leerJSON(Rutas.config) }
 
     /// Solo se aceptan claves conocidas con valores simples (lo que manda la interfaz no puede escribir cualquier cosa).
-    static let permitidas: Set<String> = ["ia", "idioma_ui", "pais", "moneda", "respaldo", "bienvenida", "vigilar", "ia_en_conexiones", "avisos"]
+    static let permitidas: Set<String> = ["ia", "idioma_ui", "pais", "moneda", "respaldo", "bienvenida", "vigilar", "ia_en_conexiones", "avisos", "tema"]
 
     static func guardar(_ cambios: [String: Any]) {
         var d = leer()
-        for (k, v) in cambios where permitidas.contains(k) && (v is String || v is Bool) { d[k] = v }
+        for (k, v) in cambios where permitidas.contains(k) && k != "tema" && (v is String || v is Bool) { d[k] = v }
+        // «Apariencia» (pieza «tema»): solo sistema, claro u oscuro.
+        if let t = cambios["tema"] as? String, ["sistema", "claro", "oscuro"].contains(t) { d["tema"] = t }
         // «Tu mes empieza»: {"modo": "dia" | "sueldo", "dia": 1…31}. Nada más entra en esa clave.
         if let im = cambios["inicio_mes"] as? [String: Any], let modo = im["modo"] as? String, modo == "dia" || modo == "sueldo",
            let dia = (im["dia"] as? NSNumber)?.intValue, (1...31).contains(dia) {
