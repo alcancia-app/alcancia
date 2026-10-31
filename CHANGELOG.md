@@ -6,6 +6,10 @@ Lo que cambia para quien usa Alcancía, en palabras simples. Las versiones anter
 
 ## Sin publicar · Unreleased
 
+- Si tu IA está desactualizada, el aviso ahora te dice dónde elegir otra (Ajustes → Tu IA). Al escribir en un campo mientras
+  Alcancía se pone al día, el cursor queda donde estaba.
+  *If your AI is out of date, the notice now tells you where to pick another one (Settings → Your AI). When you type in a field
+  while Alcancía refreshes, the cursor stays where it was.*
 - Los errores de las conexiones (por ejemplo «Mercado Pago no aceptó la llave») ahora salen en tu idioma, y una respuesta enorme o
   que tarda demasiado se corta en vez de dejar la revisión colgada. Tu copia para el celular y tu frase siguen sirviendo igual.
   *Connection errors (for example «Mercado Pago didn't accept the key») now show in your language, and a huge or very slow answer

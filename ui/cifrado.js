@@ -19,7 +19,14 @@
 //   const texto = await c.armar(contenido, cabecera, llaves);          // un solo archivo, JSON
 //   const { contenido, llaves: l } = await c.abrir(texto, { frase });  // o { raw } con la llave que se guardó (llaves.raw)
 //   const nombre = await c.nombreOpaco(llaves, "perfiles/ana.json");  // 32 hex, siempre el mismo para la misma ruta y frase
-//   try { … } catch (e) { e.codigo /* frase | danado | version | no_es | sin_cifrado */; Tp(e.plantilla, e.valores) }
+//   // Varios sobres en un archivo (cada uno con su contenido), con la marca, la versión y los campos que la app ya usaba:
+//   const texto2 = await c.armarVarios([a, b], cabecera, llaves, { aad: "ana:copia:v1", extra: { creada: "2026-10-31" } });
+//   const { contenidos } = await c.abrirVarios(texto2, { frase }, { aad: "ana:copia:v1" });
+//   try { … } catch (e) { e.codigo /* frase | danado | version | no_es | sin_cifrado | corta */; Tp(e.plantilla, e.valores) }
+//   throw c.error("no_es");   // un error con la marca de la app (para lo que revisa la app misma)
+//
+// Desde un ES module: en el navegador, cargar antes <script src="cifrado.js"> y usar globalThis.PiezaCifrado; en Node,
+// createRequire(import.meta.url)("./cifrado.js").
 (function (raiz, fabrica) {
   const m = fabrica();
   if (typeof module === "object" && module.exports) module.exports = m;
@@ -40,14 +47,23 @@
   };
   const FUERZA = ["Muy corta", "Aceptable", "Buena", "Muy buena"];
 
+  /** Un error para la persona: `codigo`, `plantilla` + `valores` (para traducir con Tp) y `frase` (= message, ya rellena).
+   *  `mensajes`: las frases de la app (opción `mensajes` de crear), si puso las suyas. */
   class ErrorCifrado extends Error {
-    constructor(codigo, valores = {}) {
-      const plantilla = MENSAJES[codigo] || MENSAJES.danado;
-      super(plantilla.replace(/\{(\w+)\}/g, (_, k) => (valores[k] !== undefined ? String(valores[k]) : `{${k}}`)));
-      this.codigo = MENSAJES[codigo] ? codigo : "danado";
+    constructor(codigo, valores = {}, mensajes = MENSAJES) {
+      const conocido = Object.prototype.hasOwnProperty.call(mensajes, codigo);
+      const plantilla = conocido ? mensajes[codigo] : mensajes.danado;
+      const v = {};
+      for (const k of Object.keys(valores || {})) v[k] = String(valores[k]);
+      super(plantilla.replace(/\{(\w+)\}/g, (_, k) => (v[k] !== undefined ? v[k] : `{${k}}`)));
+      this.codigo = conocido ? codigo : "danado";
       this.plantilla = plantilla;
-      this.valores = valores;
+      this.valores = v;
+      this.frase = this.message;
     }
+    /** Lo que se responde a la interfaz: {ok: false, codigo, plantilla, valores, error}. */
+    comoDict() { return { ok: false, codigo: this.codigo, plantilla: this.plantilla, valores: this.valores, error: this.frase }; }
+    toJSON() { return this.comoDict(); }
   }
 
   const subtle = () => {
@@ -104,6 +120,8 @@
    * - contexto: texto que ata todo a esta app y este uso ("ana:copia"): prefijo de los AAD y de los nombres opacos.
    * - verificador / aadVerificador: lo que se cifra para reconocer la frase (por defecto, contexto y contexto + ":verificador").
    * - marca, tipo, formato: cómo se reconoce un archivo de `armar` ({[marca]: tipo, version: formato, …}).
+   * - claveVersion ("version"), claveSobres ("archivos"): los nombres que ya usaba la app en sus archivos (p. ej. "v").
+   * - mensajes: {codigo: frase en español} para usar las frases propias de la app (con {app} si quiere).
    */
   function crear(o = {}) {
     const app = String(o.app || "la app");
@@ -115,7 +133,15 @@
     const FORMATO = Number.isInteger(o.formato) && o.formato > 0 ? o.formato : 1;
     const maximo = Number.isInteger(o.maximo) && o.maximo > 0 ? Math.min(o.maximo, 1024 * 1024 * 1024) : MAXIMO;
     const AAD_DATOS = contexto + ":" + FORMATO;
-    const falla = (codigo) => new ErrorCifrado(codigo, { app });
+    const NOMBRE = /^[a-z][a-z0-9_]{0,30}$/i;
+    const claveVersion = NOMBRE.test(String(o.claveVersion || "")) ? o.claveVersion : "version";
+    const claveSobres = NOMBRE.test(String(o.claveSobres || "")) ? o.claveSobres : "archivos";
+    const M = { ...MENSAJES };
+    for (const [k, v] of Object.entries(o.mensajes && typeof o.mensajes === "object" ? o.mensajes : {})) {
+      if (Object.prototype.hasOwnProperty.call(MENSAJES, k) && typeof v === "string" && v.trim() && v.length <= 300) M[k] = v;
+    }
+    const falla = (codigo) => new ErrorCifrado(codigo, { app }, M);
+    const revisar = (frase) => (revisarFrase(frase) ? M.corta : "");
 
     // ───────────── Llaves ─────────────
     async function desdeBytes(bits) {
@@ -168,7 +194,7 @@
     // ───────────── Cabecera (sal, vueltas y verificador: nada secreto) ─────────────
     /** Cabecera nueva para una frase, con sus llaves. La frase tiene que pasar `revisarFrase` (salvo { revisar: false }). */
     async function nuevaCabecera(frase, { iteraciones = ITERACIONES, revisar = true } = {}) {
-      if (revisar && revisarFrase(frase)) throw Object.assign(falla("frase"), { codigo: "corta", plantilla: MENSAJES.corta, message: MENSAJES.corta });
+      if (revisar && revisarFrase(frase)) throw falla("corta");
       const sal = azar(16);
       const llaves = await derivar(frase, sal, iteraciones);
       const verificador = await cifrar(llaves, aBytes(VERIFICADOR), AAD_VERIFICADOR);
@@ -197,7 +223,22 @@
     async function armar(contenido, cabecera, llaves) {
       revisarCabecera(cabecera);
       const datos = await cifrar(llaves, aBytes(JSON.stringify(contenido)), AAD_DATOS);
-      return JSON.stringify({ [marca]: tipo, version: FORMATO, kdf: cabecera.kdf, cifrado: cabecera.cifrado, verificador: cabecera.verificador, datos });
+      return JSON.stringify({ [marca]: tipo, [claveVersion]: FORMATO, kdf: cabecera.kdf, cifrado: cabecera.cifrado, verificador: cabecera.verificador, datos });
+    }
+    const RESERVADAS = () => new Set([marca, claveVersion, claveSobres, "kdf", "cifrado", "verificador", "datos"]);
+    const aadDe = (aad, version) => (typeof aad === "function" ? String(aad(version)) : aad != null ? String(aad) : contexto + ":" + version);
+    /** Un archivo con varios sobres (`claveSobres`), cada uno con su contenido JSON: {[marca]: tipo, [claveVersion], …extra,
+     *  kdf, cifrado, verificador, [claveSobres]: [{iv, datos}]}. `aad`: texto (o función de la versión) que ata cada sobre;
+     *  por defecto «contexto:versión». `extra`: campos sin secreto que la app ya ponía (p. ej. la fecha). */
+    async function armarVarios(contenidos, cabecera, llaves, { aad = null, extra = {} } = {}) {
+      revisarCabecera(cabecera);
+      if (!Array.isArray(contenidos)) throw falla("danado");
+      const sobres = [];
+      for (const c of contenidos) sobres.push(await cifrar(llaves, aBytes(JSON.stringify(c)), aadDe(aad, FORMATO)));
+      const propios = {};
+      for (const [k, v] of Object.entries(extra && typeof extra === "object" ? extra : {})) if (!RESERVADAS().has(k)) propios[k] = v;
+      return JSON.stringify({ [marca]: tipo, [claveVersion]: FORMATO, ...propios, kdf: cabecera.kdf, cifrado: cabecera.cifrado,
+                              verificador: cabecera.verificador, [claveSobres]: sobres });
     }
     /** Lee el archivo sin abrirlo: lanza no_es, version o danado. Devuelve el objeto con su cabecera. */
     function leer(texto) {
@@ -205,22 +246,35 @@
       let a;
       try { a = JSON.parse(texto); } catch { throw falla(texto.trimStart().startsWith(JSON.stringify({ [marca]: tipo }).slice(0, -1)) ? "danado" : "no_es"); }
       if (!a || typeof a !== "object" || a[marca] !== tipo) throw falla("no_es");
-      if (!Number.isInteger(a.version) || a.version < 1) throw falla("danado");
-      if (a.version > FORMATO) throw falla("version");
+      const version = a[claveVersion];
+      if (!Number.isInteger(version) || version < 1) throw falla("danado");
+      if (version > FORMATO) throw falla("version");
       revisarCabecera(a);
-      if (!a.datos) throw falla("danado");
+      if (!a.datos && !Array.isArray(a[claveSobres])) throw falla("danado");
       return a;
     }
     const cabeceraDe = (a) => ({ kdf: a.kdf, cifrado: a.cifrado, verificador: a.verificador });
     /** Abre el archivo con la frase o con una llave guardada: {contenido, llaves}. */
     async function abrir(texto, clave) {
       const a = leer(texto);
+      if (!a.datos) throw falla("danado");
       const llaves = await abrirCabecera(cabeceraDe(a), clave);
       // Un archivo de una versión anterior se abre con el AAD de su versión.
-      const aad = contexto + ":" + a.version;
+      const aad = contexto + ":" + a[claveVersion];
       let contenido;
       try { contenido = JSON.parse(aTexto(await descifrar(llaves, a.datos, aad))); } catch { throw falla("danado"); }
-      return { contenido, llaves, version: a.version };
+      return { contenido, llaves, version: a[claveVersion] };
+    }
+    /** Abre un archivo de `armarVarios`: {contenidos: [...], llaves, version, archivo (lo que no es secreto, p. ej. la fecha)}. */
+    async function abrirVarios(texto, clave, { aad = null } = {}) {
+      const a = leer(texto);
+      if (!Array.isArray(a[claveSobres])) throw falla("danado");
+      const llaves = await abrirCabecera(cabeceraDe(a), clave);
+      const contenidos = [];
+      for (const sobre of a[claveSobres]) contenidos.push(await descifrarJSON(llaves, sobre, aadDe(aad, a[claveVersion])));
+      const archivo = {};
+      for (const [k, v] of Object.entries(a)) if (!RESERVADAS().has(k)) archivo[k] = v;
+      return { contenidos, llaves, version: a[claveVersion], archivo };
     }
     /** La sal del archivo: si es la misma de la llave que se recordó, no hace falta pedir la frase. */
     const salDe = (texto) => leer(texto).kdf.sal;
@@ -232,8 +286,9 @@
     }
 
     return Object.freeze({
-      FORMATO, ITERACIONES, derivar, importarLlave, cifrar, descifrar, cifrarJSON, descifrarJSON, nombreOpaco,
-      nuevaCabecera, revisarCabecera, abrirCabecera, armar, leer, abrir, salDe, huella, revisarFrase, fuerzaFrase,
+      FORMATO, ITERACIONES, MENSAJES: Object.freeze({ ...M }), derivar, importarLlave, cifrar, descifrar, cifrarJSON,
+      descifrarJSON, nombreOpaco, nuevaCabecera, revisarCabecera, abrirCabecera, armar, armarVarios, leer, abrir, abrirVarios,
+      salDe, huella, revisarFrase: revisar, fuerzaFrase, error: falla,
     });
   }
 

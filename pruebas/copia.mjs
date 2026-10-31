@@ -116,7 +116,7 @@ await paso("Frase incorrecta, archivo dañado o cortado, otra versión y lo que 
   await lanza(() => C.abrir(JSON.stringify({ alcancia: "otra-cosa" }), { frase: FRASE }), "no_es", "otro JSON");
   await lanza(() => C.abrir(fs.readFileSync(path.join(RAIZ, "ui", "demo.json"), "utf8"), { frase: FRASE }), "no_es", "demo.json");
   if (C.MENSAJES.version.includes("undefined")) falla("mensaje");
-  // Las frases de la copia (las que la interfaz traduce), no las genéricas de la pieza.
+  // La frase propia de la versión (opción mensajes de la pieza), no la genérica.
   const e = await lanza(() => C.abrir(JSON.stringify({ ...a, version: 2 }), { frase: FRASE }), "version", "versión futura (mensaje)");
   if (C.mensaje(e) !== "Esta copia viene de una versión más nueva de Alcancía. Actualiza la app del celular.") falla("mensaje de versión: " + C.mensaje(e));
   // Descifra bien pero no es una copia completa (sin estado): dañada.

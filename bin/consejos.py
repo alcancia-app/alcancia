@@ -15,7 +15,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import datos  # noqa: E402
 import compromisos as K  # noqa: E402
 import ia  # noqa: E402
-import tu_ia  # noqa: E402
 import resumen  # noqa: E402
 
 SECCIONES = ["Lo que va bien", "Ojo con", "Para esta semana"]
@@ -147,7 +146,7 @@ def main(hoy, salida):
     per, _ = K.periodo_actual(hoy, movimientos, lista)
     texto, error = ia.preguntar(prompt(hoy, movimientos, datos.presupuesto(), datos.categorias(), lista, per))
     if error:
-        return tu_ia.respuesta(error)
+        return {"ok": False, "error": ia.frase(error), "codigo": error["codigo"]}
     limpio = validar(texto)
     if not limpio:
         return {"ok": False, "error": f"La respuesta de {ia.nombre()} no vino con el formato esperado. Inténtalo de nuevo."}
