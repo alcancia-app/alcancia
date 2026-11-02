@@ -6,8 +6,9 @@ Devuelve config, movimientos, categorías, presupuesto, reglas, cuentas, consejo
 compromisos (los válidos, las sugerencias detectadas en la cartola y las descartadas) y la conversación con Alcancía
 (.alcancia/chat.json, ver bin/chat.py). Antes, si la persona nunca eligió cuándo
 empieza su mes, detecta el sueldo y lo aplica (compromisos.aplicar_sueldo), y anota en compromisos.json los pagos que se reconocieron
-solos (compromisos.fijar_automaticos), para que no cambien después. La app agrega lo suyo (IA instaladas, versión,
-carpeta, actualizaciones). Si ~/Alcancia aún no existe, devuelve todo vacío: la interfaz muestra la bienvenida.
+solos (compromisos.fijar_automaticos), para que no cambien después. También `hoy` (la fecha del computador), `ias` (las IA que
+conoce la pieza «ia» y si están instaladas) y `carpeta` (dónde están tus datos, con ~). La app agrega lo suyo (versión,
+actualizaciones, la copia para el celular). Si ~/Alcancia aún no existe, devuelve todo vacío: la interfaz muestra la bienvenida.
 """
 import json
 import os
@@ -100,7 +101,22 @@ def chat():
         return []
 
 
+def ias():
+    """Las IA que conoce la pieza «ia» y si cada una está instalada. Si algo falla aquí, la app igual se abre."""
+    try:
+        import ia
+        return ia.lista()
+    except Exception:
+        return []
+
+
+def carpeta():
+    casa = os.path.expanduser("~")
+    return "~" + datos.BASE[len(casa):] if datos.BASE.startswith(casa + os.sep) else datos.BASE
+
+
 def estado():
+    from datetime import date
     movimientos = datos.leer_todos()
     if sueldo(movimientos):
         movimientos = datos.leer_todos()  # las llegadas del sueldo quedaron como Sueldo
@@ -111,7 +127,7 @@ def estado():
             "conectores": conectores.info_publica(), "conexiones": conexiones(), "vigilar": vigilar(cfg), "ia_externa": ia_externa(),
             "compromisos": comp, "sugerencias": sugerencias, "feriados": K.feriados(cfg.get("pais")),
             "palabras_mora": K.palabras_mora(cfg.get("pais") or "CL"), "palabras_automatico": K.palabras_automatico(cfg.get("pais") or "CL"),
-            "chat": chat()}
+            "chat": chat(), "hoy": date.today().isoformat(), "ias": ias(), "carpeta": carpeta()}
 
 
 if __name__ == "__main__":

@@ -29,6 +29,8 @@ tar -xzf "$PY_TGZ" -C "$APP/Contents/Resources"   # → Resources/python/bin/pyt
 for d in bin ui recetas; do ditto "$RAIZ/$d" "$APP/Contents/Resources/alcancia/$d"; done
 # app.json: la descripción de la app que leen las piezas (bin/nucleo.py la busca junto a bin/; sin ella ningún script arranca).
 cp "$RAIZ/app.json" "$APP/Contents/Resources/alcancia/app.json"
+# acciones.json: las acciones declaradas que atiende la pieza «host-mac» (lo arma pieza.py; va junto a app.json).
+cp "$RAIZ/acciones.json" "$APP/Contents/Resources/alcancia/acciones.json"
 rm -f "$APP/Contents/Resources/alcancia/ui/demo.json"   # la app usa tus datos, nunca la demo
 find "$APP/Contents/Resources/alcancia" -name "__pycache__" -prune -exec rm -rf {} + 2>/dev/null || true
 chmod +x "$APP/Contents/Resources/alcancia/bin/"*.py

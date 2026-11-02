@@ -1,96 +1,80 @@
 import AppKit
+import PiezaHost
 import Security
-
-// MARK: - Llavero: las llaves de los conectores, cifradas por macOS (nunca en ~/Alcancia ni en ningún archivo)
-
-enum Llavero {
-    static let servicio = "Alcancía · conexiones"
-
-    private static func base(_ cuenta: String) -> [String: Any] {
-        [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: servicio, kSecAttrAccount as String: cuenta]
-    }
-
-    static func guardar(_ conector: String, _ valor: [String: Any]) -> Bool {
-        guard let datos = try? JSONSerialization.data(withJSONObject: valor) else { return false }
-        SecItemDelete(base(conector) as CFDictionary)
-        var item = base(conector)
-        item[kSecValueData as String] = datos
-        item[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly  // no viaja a otros equipos ni a respaldos
-        item[kSecAttrLabel as String] = "Alcancía · \(conector)"
-        return SecItemAdd(item as CFDictionary, nil) == errSecSuccess
-    }
-
-    static func leer(_ conector: String) -> String? {
-        var q = base(conector)
-        q[kSecReturnData as String] = true
-        q[kSecMatchLimit as String] = kSecMatchLimitOne
-        var r: CFTypeRef?
-        guard SecItemCopyMatching(q as CFDictionary, &r) == errSecSuccess, let d = r as? Data else { return nil }
-        return String(data: d, encoding: .utf8)
-    }
-
-    static func borrar(_ conector: String) { SecItemDelete(base(conector) as CFDictionary) }
-
-    /// Los conectores que tienen llave guardada.
-    static func conectados() -> [String] {
-        let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: servicio,
-                                kSecReturnAttributes as String: true, kSecMatchLimit as String: kSecMatchLimitAll]
-        var r: CFTypeRef?
-        guard SecItemCopyMatching(q as CFDictionary, &r) == errSecSuccess, let lista = r as? [[String: Any]] else { return [] }
-        return lista.compactMap { $0[kSecAttrAccount as String] as? String }.sorted()
-    }
-}
 
 // MARK: - Conexiones: probar la llave, traer movimientos y revisar solas cada 6 horas
 
+/// Las llaves de los conectores quedan en el Llavero (pieza «host-mac»: `Secretos`, solo en este Mac), con el servicio y la cuenta
+/// de siempre («Alcancía · conexiones» / el id del conector): quien ya conectó una cuenta no tiene que volver a hacerlo. Nunca van
+/// a ~/Alcancia ni a ningún archivo: llegan a bin/sincronizar.py por la entrada estándar (`Procesador.conSecreto`) y una llave
+/// nueva vuelve por su salida estándar («CREDENCIAL {json}»).
 @MainActor
 enum Conexiones {
+    static let llavero = Secretos(servicio: "Alcancía · conexiones")
     private static var reloj: Timer?
     private static var enCurso = Set<String>()
+    /// Un conector pide varias páginas a su API (cada pedido tiene su tope en bin/red.py).
+    static let limite = 600
 
     static func valido(_ id: String) -> String { String(id.filter { $0.isLowercase || $0.isNumber || $0 == "_" }.prefix(40)) }
 
     static func conectar(_ id: String, campos: [String: Any], fin: @escaping @MainActor ([String: Any]) -> Void) {
         let limpio = campos.compactMapValues { $0 as? String }
-        guard let d = try? JSONSerialization.data(withJSONObject: limpio), let json = String(data: d, encoding: .utf8) else {
+        guard !id.isEmpty, let d = try? JSONSerialization.data(withJSONObject: limpio), let json = String(data: d, encoding: .utf8) else {
             return fin(["ok": false, "error": Idioma.t("No se pudo conectar.")])
         }
-        Procesador.correrJSON("sincronizar.py", ["probar", id], secreto: json) { r in
+        Procesador.conSecreto("sincronizar.py", ["probar", id], secreto: json, limite: 120) { res in
+            let r = res.respuesta
             guard r["ok"] as? Bool == true else { return fin(r) }
             // Si el servicio canjeó la llave por una definitiva, se guarda esa.
-            let cred = (r["credencial"] as? [String: Any]) ?? limpio
-            guard Llavero.guardar(id, cred) else { return fin(["ok": false, "error": Idioma.t("No pude guardar la llave en el Llavero.")]) }
-            var sin = r
-            sin.removeValue(forKey: "credencial")
-            fin(sin)
+            let cred = credencial(res.salidaEstandar) ?? json
+            guard llavero.guardar(cred, cuenta: id) else { return fin(["ok": false, "error": Idioma.t("No pude guardar la llave en el Llavero.")]) }
+            fin(r)
             traer(id, manual: false)
         }
     }
 
     static func desconectar(_ id: String) {
-        Llavero.borrar(id)
-        Procesador.conEntrada("guardar.py", "desconectar", ["conector": id]) { _ in Ventana.shared.enviarEstado() }
+        llavero.borrar(id)
+        Procesador.conEntrada("guardar.py", "desconectar", ["conector": id], limite: 30) { _ in Estado.enviar() }
     }
 
     static func traer(_ id: String, manual: Bool) {
-        guard !enCurso.contains(id), let cred = Llavero.leer(id) else {
-            if Llavero.leer(id) == nil { Ventana.shared.llamar("sincronizado", ["conector": id, "ok": false, "error": Idioma.t("Vuelve a conectar esta cuenta.")]) }
-            return
+        guard !enCurso.contains(id) else { return }
+        guard let cred = llavero.leer(id) else {
+            return Puente.shared.llamar("sincronizado", ["conector": id, "ok": false, "error": Idioma.t("Vuelve a conectar esta cuenta.")])
         }
         enCurso.insert(id)
-        Procesador.correrJSON("sincronizar.py", ["traer", id], secreto: cred) { r in
+        Procesador.conSecreto("sincronizar.py", ["traer", id], secreto: cred, limite: limite) { res in
             enCurso.remove(id)
-            if let nueva = r["credencial"] as? [String: Any] { _ = Llavero.guardar(id, nueva) }
-            var sin = r
-            sin.removeValue(forKey: "credencial")
-            sin["conector"] = id
-            sin["manual"] = manual
-            Ventana.shared.llamar("sincronizado", sin)
-            Ventana.shared.enviarEstado()
+            if let nueva = credencial(res.salidaEstandar) { llavero.guardar(nueva, cuenta: id) }
+            var r = res.respuesta
+            r["conector"] = id
+            r["manual"] = manual
+            Puente.shared.llamar("sincronizado", r)
+            Estado.enviar()
         }
     }
 
-    static func traerTodo() { Llavero.conectados().forEach { traer($0, manual: false) } }
+    /// «CREDENCIAL {json}» en la salida estándar del script: la llave nueva (ya como JSON de texto, tal cual se guarda).
+    private static func credencial(_ salida: String) -> String? {
+        guard let linea = salida.split(separator: "\n").last(where: { $0.hasPrefix("CREDENCIAL ") }) else { return nil }
+        let texto = String(linea.dropFirst("CREDENCIAL ".count))
+        guard let d = texto.data(using: .utf8), (try? JSONSerialization.jsonObject(with: d)) is [String: Any] else { return nil }
+        return texto
+    }
+
+    /// Los conectores que tienen llave guardada. `Secretos` no lista cuentas (pendiente para Pieza): se pregunta al Llavero
+    /// por el mismo servicio.
+    static func conectados() -> [String] {
+        let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: llavero.servicio,
+                                kSecReturnAttributes as String: true, kSecMatchLimit as String: kSecMatchLimitAll]
+        var r: CFTypeRef?
+        guard SecItemCopyMatching(q as CFDictionary, &r) == errSecSuccess, let lista = r as? [[String: Any]] else { return [] }
+        return lista.compactMap { $0[kSecAttrAccount as String] as? String }.sorted()
+    }
+
+    static func traerTodo() { conectados().forEach { traer($0, manual: false) } }
 
     /// Al abrir la app y luego cada 6 horas (los servicios ponen límites de consultas; más seguido no aporta).
     static func revisarCadaRato() {
@@ -102,18 +86,20 @@ enum Conexiones {
 
 // MARK: - Carpeta vigilada: las cartolas que la persona descarga se agregan solas (bin/vigilar.py decide qué importar)
 
+/// El vigilante de la pieza «host-mac» (FSEvents) sobre ~/Downloads, aparte del de la carpeta elegida (Alcancía no tiene una):
+/// cuando la carpeta queda quieta 5 segundos, bin/vigilar.py importa lo nuevo que reconozca una receta.
 @MainActor
-enum Vigilante {
-    private static var fuente: DispatchSourceFileSystemObject?
-    private static var espera: DispatchWorkItem?
+enum Descargas {
+    private static var vigilante: Vigilante?
     private static var revisando = false
+    private static var otraVez = false
 
     static var carpeta: URL { FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads") }
 
     static func activar(_ si: Bool) {
-        Config.guardar(["vigilar": si])
+        Config.guardar(["vigilar": si], desdeInterfaz: false)
         if si {
-            Procesador.correrJSON("vigilar.py", ["activar"]) { _ in empezar() }
+            Procesador.correrJSON("vigilar.py", ["activar"], limite: 30) { _ in empezar() }
         } else {
             detener()
         }
@@ -122,39 +108,29 @@ enum Vigilante {
     static func empezar() {
         detener()
         guard Config.leer()["vigilar"] as? Bool == true else { return }
-        let fd = open(carpeta.path, O_EVTONLY)
-        guard fd >= 0 else { return }
-        let f = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fd, eventMask: [.write, .rename], queue: .main)
-        f.setEventHandler { Task { @MainActor in programar() } }
-        f.setCancelHandler { close(fd) }
-        f.resume()
-        fuente = f
-        programar()
+        let v = Vigilante(extensiones: Cartolas.extensiones, espera: 5)
+        v.alCambiar = { _ in revisar() }
+        v.empezar(carpeta)
+        vigilante = v
+        revisar()
     }
 
     static func detener() {
-        fuente?.cancel()
-        fuente = nil
-    }
-
-    /// Las descargas escriben el archivo de a poco: se espera a que la carpeta quede quieta unos segundos.
-    private static func programar() {
-        espera?.cancel()
-        let t = DispatchWorkItem { Task { @MainActor in revisar() } }
-        espera = t
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: t)
+        vigilante?.detener()
+        vigilante = nil
     }
 
     private static func revisar() {
-        guard !revisando else { return programar() }
+        guard !revisando else { otraVez = true; return }
         revisando = true
-        Procesador.correrJSON("vigilar.py", [carpeta.path]) { r in
+        Procesador.correrJSON("vigilar.py", [carpeta.path], limite: 1800) { r in
             revisando = false
+            if otraVez { otraVez = false; revisar() }
             let importados = r["importados"] as? [[String: Any]] ?? []
             let sinReceta = r["sin_receta"] as? [String] ?? []
             guard !importados.isEmpty || !sinReceta.isEmpty else { return }
-            Ventana.shared.llamar("importadoSolo", r)
-            Ventana.shared.enviarEstado()
+            Puente.shared.llamar("importadoSolo", r)
+            Estado.enviar()
             if !importados.isEmpty, !NSApp.isActive { NSApp.requestUserAttention(.informationalRequest) }
         }
     }

@@ -37,5 +37,168 @@
    "claro",
    "oscuro"
   ]
- }
+ },
+ "acciones": {
+  "guardarReceta": {
+   "script": "guardar.py",
+   "scriptDeLaApp": true,
+   "args": [
+    "receta"
+   ],
+   "entrada": "archivo",
+   "datos": {
+    "*": "pasar"
+   },
+   "cola": "escritura",
+   "responde": "guardado",
+   "limite": 60
+  },
+  "categoria": {
+   "script": "guardar.py",
+   "scriptDeLaApp": true,
+   "args": [
+    "categoria"
+   ],
+   "entrada": "archivo",
+   "datos": {
+    "*": "pasar"
+   },
+   "cola": "escritura",
+   "responde": "guardado",
+   "limite": 60
+  },
+  "categoriaNueva": {
+   "script": "guardar.py",
+   "scriptDeLaApp": true,
+   "args": [
+    "categoriaNueva"
+   ],
+   "entrada": "archivo",
+   "datos": {
+    "*": "pasar"
+   },
+   "cola": "escritura",
+   "responde": "guardado",
+   "limite": 60
+  },
+  "regla": {
+   "script": "guardar.py",
+   "scriptDeLaApp": true,
+   "args": [
+    "regla"
+   ],
+   "entrada": "archivo",
+   "datos": {
+    "*": "pasar"
+   },
+   "cola": "escritura",
+   "responde": "guardado",
+   "limite": 60
+  },
+  "presupuesto": {
+   "script": "guardar.py",
+   "scriptDeLaApp": true,
+   "args": [
+    "presupuesto"
+   ],
+   "entrada": "archivo",
+   "datos": {
+    "*": "pasar"
+   },
+   "cola": "escritura",
+   "responde": "guardado",
+   "limite": 60
+  },
+  "saldo": {
+   "script": "guardar.py",
+   "scriptDeLaApp": true,
+   "args": [
+    "saldo"
+   ],
+   "entrada": "archivo",
+   "datos": {
+    "*": "pasar"
+   },
+   "cola": "escritura",
+   "responde": "guardado",
+   "limite": 60
+  },
+  "chat": {
+   "script": "chat.py",
+   "scriptDeLaApp": true,
+   "args": [
+    "$accion"
+   ],
+   "entrada": "archivo",
+   "datos": {
+    "accion": {
+     "tipo": "enum",
+     "valores": [
+      "enviar",
+      "marcar",
+      "borrar"
+     ]
+    },
+    "*": "pasar"
+   },
+   "eco": [
+    "accion"
+   ],
+   "responde": "chatRespuesta",
+   "limite": 300
+  },
+  "pedirConsejos": {
+   "script": "consejos.py",
+   "scriptDeLaApp": true,
+   "args": [
+    "entrada"
+   ],
+   "entrada": "archivo",
+   "datos": {
+    "hoy": {
+     "tipo": "texto",
+     "max": 10,
+     "requerido": true
+    }
+   },
+   "responde": "consejosListos",
+   "limite": 300
+  },
+  "mcpConectar": {
+   "script": "mcp_conectar.py",
+   "scriptDeLaApp": true,
+   "args": [
+    "$orden",
+    "$cliente"
+   ],
+   "datos": {
+    "orden": {
+     "tipo": "enum",
+     "valores": [
+      "conectar",
+      "quitar"
+     ]
+    },
+    "cliente": {
+     "tipo": "enum",
+     "valores": [
+      "claude_desktop",
+      "claude_code",
+      "codex",
+      "gemini",
+      "antigravity"
+     ]
+    }
+   },
+   "eco": [
+    "orden",
+    "cliente"
+   ],
+   "responde": "mcpListo",
+   "limite": 120
+  }
+ },
+ "sin_acciones": [
+  "listaIA"
+ ]
 }

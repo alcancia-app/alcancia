@@ -281,6 +281,12 @@ class Flujo(unittest.TestCase):
         correr("importar.py", "guardar", CARTOLA, "cl-banco-ejemplo", "0")
         r = correr("consejos.py", "2026-10-12")
         self.assertTrue(r["ok"], r)
+        # Como lo pide el Mac (acción declarada «pedirConsejos»): la fecha en el archivo de entrada.
+        entrada = os.path.join(TMP, "entrada-consejos.json")
+        for hoy, ok in (("2026-10-12", True), ("../../x", False)):
+            with open(entrada, "w", encoding="utf-8") as f:
+                json.dump({"hoy": hoy}, f)
+            self.assertEqual(correr("consejos.py", "entrada", entrada)["ok"], ok)
         self.assertTrue(os.path.exists(os.path.join(datos.CONSEJOS, "2026-10-12.md")))
         texto = consejos.prompt("2026-10-12", datos.leer_todos(), datos.presupuesto(), datos.categorias())
         self.assertIn("Gasto total de los últimos 6 meses", texto)
@@ -300,6 +306,11 @@ class Flujo(unittest.TestCase):
         e = correr("estado.py")
         self.assertEqual((e["movimientos"], e["consejos"], e["cuentas"]), ([], [], []), "sin ~/Alcancia la app muestra la bienvenida")
         self.assertTrue(e["categorias"])
+        # Lo que antes ponía la app de Mac: la fecha, las IA que conoce la pieza «ia» y la carpeta de tus datos.
+        self.assertRegex(e["hoy"], r"^\d{4}-\d{2}-\d{2}$")
+        self.assertEqual([i["id"] for i in e["ias"]], ["claude", "codex", "gemini"])
+        self.assertTrue(all(isinstance(i["instalada"], bool) for i in e["ias"]))
+        self.assertTrue(e["carpeta"])
         datos.escribir_json(os.path.join(datos.INTERNO, "recetas", "cl-banco-ejemplo.json"), RECETA)
         correr("importar.py", "guardar", CARTOLA, "cl-banco-ejemplo", "0")
         correr("consejos.py", "2026-10-12")
@@ -340,6 +351,59 @@ def un_compromiso(**k):
     base = {"nombre": "Arriendo", "tipo": "cuenta", "monto": 420000, "frecuencia": "mensual", "dia": 1, "categoria": "casa",
             "buscar": ["ARRIENDO"]}
     return {**base, **k}
+
+
+class AccionesDeclaradas(unittest.TestCase):
+    """Las acciones de app.json → «acciones» (acciones.json), corridas como las corre el host de Mac (pieza «host-mac»): los
+    `$campo` (enum) en los argumentos, lo demás en el archivo de entrada, y el JSON de salida al final."""
+
+    def setUp(self):
+        limpiar()
+        datos.escribir_json(os.path.join(datos.INTERNO, "recetas", "cl-banco-ejemplo.json"), RECETA)
+        self.acciones = json.loads(_leer(os.path.join(RAIZ, "acciones.json")))["acciones"]
+
+    def correr_como_host(self, nombre, d):
+        a = self.acciones[nombre]
+        args = [d[x[1:]] if x.startswith("$") else x for x in a.get("args", [])]
+        if a.get("entrada") == "archivo":
+            entrada = os.path.join(TMP, "entrada-host.json")
+            with open(entrada, "w", encoding="utf-8") as f:
+                json.dump(d, f)
+            args.append(entrada)
+        return correr(a["script"], *args)
+
+    def test_todas_las_de_la_app_estan_en_acciones_json(self):
+        app = json.loads(_leer(os.path.join(RAIZ, "app.json")))
+        for nombre, a in app["acciones"].items():
+            self.assertIn(nombre, self.acciones)
+            self.assertTrue(os.path.exists(os.path.join(RAIZ, "bin", a["script"])), a["script"])
+        self.assertNotIn("listaIA", self.acciones, "sin_acciones: la interfaz no la pide")
+
+    def test_guardar_py_con_cada_accion(self):
+        correr("importar.py", "guardar", CARTOLA, "cl-banco-ejemplo", "0")
+        m = datos.leer_mes("2026-10")[0]
+        self.assertTrue(self.correr_como_host("categoria", {"mes": "2026-10", "id": m["id"], "categoria": "casa"})["ok"])
+        self.assertTrue(self.correr_como_host("regla", {"contiene": "SUPERMERCADO", "categoria": "comida"})["ok"])
+        self.assertTrue(self.correr_como_host("presupuesto", {"mensual": {"comida": 100000}})["ok"])
+        self.assertTrue(self.correr_como_host("guardarReceta", {"receta": RECETA})["ok"])
+        r = self.correr_como_host("categoria", {"mes": "2026-10", "id": "no-existe", "categoria": "casa"})
+        self.assertFalse(r["ok"])
+        self.assertTrue(r["error"], "lo que no se pudo guardar trae su frase (la interfaz la muestra en «guardado»)")
+        for nombre in ("guardarReceta", "categoria", "categoriaNueva", "regla", "presupuesto", "saldo"):
+            a = self.acciones[nombre]
+            self.assertEqual((a["responde"], a.get("cola")), ("guardado", "escritura"), nombre)
+
+    def test_chat_marcar_y_borrar(self):
+        self.assertTrue(self.correr_como_host("chat", {"accion": "borrar"})["ok"])
+        self.assertFalse(self.correr_como_host("chat", {"accion": "marcar", "id": "x", "i": 0, "estado": "hecha"})["ok"])
+        self.assertEqual(self.acciones["chat"]["eco"], ["accion"], "la interfaz sabe a qué responde")
+
+    def test_mcp_conectar_conoce_los_mismos_clientes(self):
+        import mcp_conectar
+        a = self.acciones["mcpConectar"]
+        self.assertEqual(set(a["datos"]["cliente"]["valores"]), set(mcp_conectar.CLIENTES))
+        self.assertEqual(a["args"], ["$orden", "$cliente"])
+        self.assertNotIn("entrada", a, "mcp_conectar.py recibe solo <orden> <cliente> <salida>")
 
 
 class Compromisos(unittest.TestCase):
@@ -496,12 +560,15 @@ class Compromisos(unittest.TestCase):
         return correr("compromiso_ia.py", "entender", ruta)
 
     def test_el_texto_no_va_como_argumento(self):
-        with open(os.path.join(RAIZ, "app", "Sources", "Alcancia", "Ventana.swift"), encoding="utf-8") as f:
-            swift = f.read()
-        # Lo que escribe la persona (la conversación con Alcancía) va en un archivo de entrada; nunca como argumento.
-        self.assertIn('conEntrada("chat.py", "enviar"', swift)
-        self.assertNotIn('correrJSON("chat.py"', swift)
-        self.assertNotIn('correrJSON("compromiso_ia.py"', swift)
+        swift = "\n".join(_leer(os.path.join(RAIZ, "app", "Sources", "Alcancia", f))
+                          for f in os.listdir(os.path.join(RAIZ, "app", "Sources", "Alcancia")) if f.endswith(".swift"))
+        # Lo que escribe la persona (la conversación con Alcancía) va en un archivo de entrada; nunca como argumento: «chat» es una
+        # acción declarada (el host escribe los datos en el archivo de entrada y solo `accion`, un enum, va en los argumentos).
+        chat = json.loads(_leer(os.path.join(RAIZ, "acciones.json")))["acciones"]["chat"]
+        self.assertEqual((chat["script"], chat["args"], chat["entrada"]), ("chat.py", ["$accion"], "archivo"))
+        self.assertEqual(chat["datos"]["accion"]["tipo"], "enum")
+        self.assertNotIn('"chat.py"', swift)
+        self.assertNotIn('"compromiso_ia.py"', swift)
         p = subprocess.run([sys.executable, os.path.join(RAIZ, "bin", "compromiso_ia.py"), "el arriendo son 450.000", "2026-10-26",
                             os.path.join(TMP, "x.json")], capture_output=True, text=True)
         self.assertEqual(p.returncode, 2, "la firma vieja (texto como argumento) ya no se acepta")
@@ -2261,11 +2328,12 @@ class Piezas(unittest.TestCase):
         self.assertEqual(compromisos.uf_config(c)["valor"], 39000)
 
     def test_las_claves_de_config_son_las_mismas_en_el_mac(self):
-        import re
         app = json.loads(_leer(os.path.join(RAIZ, "app.json")))
-        swift = _leer(os.path.join(RAIZ, "app", "Sources", "Alcancia", "Servicios.swift"))
-        permitidas = set(re.findall(r'"(\w+)"', re.search(r"static let permitidas: Set<String> = \[(.*?)\]", swift).group(1)))
-        self.assertEqual(permitidas, set(app["config"]), "Config.permitidas (Swift) = claves simples de app.json")
+        # El Mac (pieza «host-mac») lee las claves simples de app.json; las de forma propia las guarda AlcanciaApp.guardarConfig.
+        swift = _leer(os.path.join(RAIZ, "app", "Sources", "Alcancia", "AlcanciaApp.swift"))
+        for k in datos.CONFIG_OBJETOS:
+            self.assertIn(f'objetos["{k}"]', swift, f"{k}: lo guarda el Mac (app.json no describe objetos)")
+        self.assertIn('p.registrar("config")', swift)
         self.assertFalse(set(datos.CONFIG_OBJETOS) & set(app["config"]))
         self.assertEqual(app["id"], "alcancia")
         self.assertEqual((app["nombre"], app["datos"], app["privado"]), ("Alcancía", {"carpeta": "~/Alcancia/.alcancia"}, True))
@@ -2273,9 +2341,10 @@ class Piezas(unittest.TestCase):
     def test_app_json_va_dentro_de_la_app(self):
         sh = _leer(os.path.join(RAIZ, "herramientas", "empaquetar.sh"))
         self.assertIn('cp "$RAIZ/app.json" "$APP/Contents/Resources/alcancia/app.json"', sh)
-        ventana = _leer(os.path.join(RAIZ, "app", "Sources", "Alcancia", "Ventana.swift"))
-        self.assertIn('Procesador.conEntrada("ia.py", "probar", ["ia": id])', ventana, "la IA se prueba con la pieza, con entrada")
-        self.assertNotIn("IA.probar(", ventana)
+        self.assertIn('cp "$RAIZ/acciones.json" "$APP/Contents/Resources/alcancia/acciones.json"', sh)
+        probar = json.loads(_leer(os.path.join(RAIZ, "acciones.json")))["acciones"]["probarIA"]
+        self.assertEqual((probar["script"], probar["args"], probar["entrada"]), ("ia.py", ["probar"], "archivo"),
+                         "la IA se prueba con la pieza, con entrada")
 
     def test_escribir_siempre_privado(self):
         ruta = os.path.join(datos.BASE, "reglas.json")

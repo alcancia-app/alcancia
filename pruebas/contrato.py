@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Contrato entre la interfaz (ui/app.js) y las apps, para que ninguna se quede atrás. Solo biblioteca estándar.
 
-1. Mac: cada host.enviar("x") de la interfaz existe en Ventana.swift; cada window.Alcancia.x que llama la app (en cualquier .swift)
-   existe en la interfaz; los scripts de bin/ que llama la app existen. Windows/Linux (escritorio/src/main.js, objeto ACCIONES),
-   cuando exista, igual.
+1. Mac (pieza «host-mac»): cada host.enviar("x") de la interfaz lo atiende la app (registrar), el host (listo, config,
+   abrirEnlace, actualizaciones) o una acción declarada de acciones.json; cada window.Alcancia.x que llaman la app, el host y lo
+   declarado (responde, progreso) existe en la interfaz; los scripts de bin/ que se corren existen y acciones.json va dentro de
+   la app. Windows/Linux (escritorio/src/main.js, objeto ACCIONES), cuando exista, igual.
 2. Celular (movil/host/host.js): cada acción de la interfaz está en ACCIONES o en SOLO_MAC (responde «Esto se hace en tu Mac»);
    cada window.Alcancia.x que llama existe; cada método nativo que llama (llamar("Plugin", "metodo")) existe en el plugin de iOS
    (Swift) y de Android (Kotlin o Java) y en el Capacitor falso de las pruebas (pruebas/capacitor_falso.js).
@@ -46,21 +47,37 @@ problemas = []
 SOLO_MOVIL = {"traer": "traer la copia cifrada desde la nube (solo el celular)"}
 SOLO_ESCRITORIO = {"celular": "armar la copia para el celular (solo el Mac por ahora: Windows y Linux, cuando existan)"}
 
-# 1) Mac (y Windows/Linux)
-mac = leer("app/Sources/Alcancia/Ventana.swift")
-if mac is None:
-    problemas.append("Falta app/Sources/Alcancia/Ventana.swift")
+# 1) Mac (pieza «host-mac»): cada acción la atiende alguno de los tres lados del puente, en este orden: lo que registra la app
+#    (`registrar("x")` en app/Sources/Alcancia), lo que trae el host (listo, config, abrirEnlace, copiar y, con
+#    `p.actualizaciones`, buscarActualizacion y actualizar) y lo declarado en acciones.json (lo arma pieza.py con las piezas y
+#    app.json → «acciones»).
+swift = juntar("app/Sources/Alcancia/*.swift")
+host_mac = juntar("app/Sources/PiezaHost/*.swift")
+declaradas = (json.loads(leer("acciones.json") or "{}").get("acciones") or {})
+if not swift or not host_mac:
+    problemas.append("Falta la app de Mac (app/Sources/Alcancia) o la pieza host-mac (app/Sources/PiezaHost)")
 else:
-    casos_mac = set(re.findall(r'"(\w+)"', " ".join(re.findall(r"case ([^:]+):", mac))))
-    problemas += [f'Mac (Ventana.swift) no atiende la acción "{a}"' for a in sorted(acciones - casos_mac - set(SOLO_MOVIL))]
-    swift = juntar("app/Sources/Alcancia/*.swift")
-    problemas += [f"Mac llama window.Alcancia.{f} y la interfaz no la tiene" for f in sorted(set(re.findall(r'llamar\("(\w+)"', swift)) - funciones_ui)]
-    # probarIA lleva {ia} y responde iaProbada {ia, …} (forma común de la familia, pieza «host-ui»).
-    caso = mac.split('case "probarIA":', 1)[1].split("\n        case ", 1)[0] if 'case "probarIA":' in mac else ""
-    if 'd["ia"]' not in caso or '"ia": id' not in caso:
-        problemas.append('Mac (Ventana.swift): probarIA tiene que leer d["ia"] y responder iaProbada {ia, …}')
-    scripts = set(re.findall(r'(?:correrJSON|conEntrada)\("(\w+\.py)"', swift))
+    registradas = set(re.findall(r'registrar\("(\w+)"', swift))
+    del_host = set(re.findall(r'internas\["(\w+)"\]', host_mac))
+    if "p.actualizaciones = " not in swift:
+        del_host -= {"buscarActualizacion", "actualizar"}
+    mac = registradas | del_host | set(declaradas)
+    problemas += [f'Mac no atiende la acción "{a}" (ni registrada, ni del host, ni en acciones.json)' for a in sorted(acciones - mac - set(SOLO_MOVIL))]
+    problemas += [f'Mac atiende «{a}», que la interfaz no manda' for a in sorted((registradas | set(declaradas)) - acciones)]
+    # Lo que la app y el host llaman en window.Alcancia: llamar("x") en Swift, «responde» y «progreso» de lo declarado, y lo que el
+    # host manda siempre (estado, menu) o con las actualizaciones.
+    llama = set(re.findall(r'llamar\("(\w+)"', swift)) | {"estado", "menu"} | {"actualizacionRevisada", "actualizacionProgreso"}
+    llama |= {a[k] for a in declaradas.values() for k in ("responde", "progreso") if a.get(k)}
+    problemas += [f"Mac llama window.Alcancia.{f} y la interfaz no la tiene" for f in sorted(llama - funciones_ui)]
+    # probarIA lleva {ia} y responde iaProbada {ia, …} (forma común de la familia, pieza «ia»).
+    p_ia = declaradas.get("probarIA") or {}
+    if p_ia.get("responde") != "iaProbada" or "ia" not in (p_ia.get("datos") or {}):
+        problemas.append("acciones.json: probarIA tiene que recibir {ia} y responder iaProbada (pieza «ia»)")
+    scripts = set(re.findall(r'(?:correrJSON|conEntrada|conSecreto)\("(\w+\.py)"', swift)) | {a["script"] for a in declaradas.values()}
     problemas += [f"La app llama bin/{s} y no existe" for s in sorted(scripts) if not os.path.exists(os.path.join(RAIZ, "bin", s))]
+    # El paquete lleva acciones.json junto a app.json (sin él, el host no carga nada declarado).
+    if "acciones.json" not in (leer("herramientas/empaquetar.sh") or ""):
+        problemas.append("herramientas/empaquetar.sh no copia acciones.json dentro de la app")
 escritorio = leer("escritorio/src/main.js")
 if escritorio:
     casos_e = set(re.findall(r"^\s{2}(?:async\s+)?(\w+)\s*\(", escritorio.split("const ACCIONES = {", 1)[1].split("\n};", 1)[0], re.M))

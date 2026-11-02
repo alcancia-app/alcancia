@@ -50,3 +50,6 @@ capturas/
 !/movil/**/*.xml
 *.pdf
 !/pruebas/datos/*.pdf
+
+# Pieza: archivos de la raíz que usa la app
+!/acciones.json
