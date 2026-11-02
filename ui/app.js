@@ -369,7 +369,11 @@
   const sinPuntos = (t) => normalizar(String(t || "").replace(/[.\-_/]/g, " "));
   const escRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   // Una sola expresión para todas las palabras (igual que compromisos._patron_mora): armarla por palabra y movimiento era lo más lento.
-  const patronMora = (palabras) => new RegExp(`(?<![A-Z0-9])(?:${palabras.map((p) => escRe(sinPuntos(p))).join("|")})(?![A-Z0-9])`);
+  const patronMora = (palabras) => {
+    const limpias = (palabras || []).map((p) => sinPuntos(p)).filter(Boolean);
+    // Sin palabras nada es mora (una expresión vacía calzaría con cualquier descripción). Igual que _patron_mora en Python.
+    return limpias.length ? new RegExp(`(?<![A-Z0-9])(?:${limpias.map(escRe).join("|")})(?![A-Z0-9])`) : /(?!)/;
+  };
   function moras(ocs, pagos, movimientos, moneda, uf, palabras, usados) {
     const porId = new Map(movimientos.map((m) => [m.id, m]));
     let cargos = null; // se buscan recién cuando hay un pago atrasado: casi siempre no hay ninguno

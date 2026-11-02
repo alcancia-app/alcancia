@@ -1833,6 +1833,10 @@ class Mora(unittest.TestCase):
                                ("MORADA DEL SOL", False), ("SUPERMERCADO EJEMPLO", False), ("", False), (None, False)]:
             self.assertEqual(compromisos._es_mora({"descripcion": desc}, patron), esperado, desc)
             self.assertEqual(compromisos._es_mora({"descripcion": desc}, palabras), esperado, desc)
+        # Sin palabras (o solo vacías) nada es mora, ni una descripción vacía o de puro signo.
+        for vacias in ([], [""], None):
+            for desc in ("", "-", "INT. MORA"):
+                self.assertFalse(compromisos._es_mora({"descripcion": desc}, vacias), (vacias, desc))
 
     def test_categoria_nueva_en_un_categorias_json_de_antes(self):
         datos.escribir_json(os.path.join(datos.BASE, "categorias.json"), [{"id": "comida", "nombre": "Comida", "emoji": "🍔", "tipo": "gasto"}])
