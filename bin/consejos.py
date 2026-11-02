@@ -1,6 +1,7 @@
 """Los consejos de tu IA: qué va bien, a qué ponerle ojo y qué hacer esta semana. Solo biblioteca estándar.
 
   consejos.py <hoy AAAA-MM-DD> <salida.json>
+  consejos.py entrada <entrada.json {hoy}> <salida.json>     (la acción declarada «pedirConsejos» del Mac)
 
 Le pasa a la IA de la persona solo números agrupados (por categoría, los comercios donde más gastó y el total de sus
 compromisos del mes con lo que queda disponible para lo variable). Guarda el resultado en
@@ -146,7 +147,7 @@ def main(hoy, salida):
     per, _ = K.periodo_actual(hoy, movimientos, lista)
     texto, error = ia.preguntar(prompt(hoy, movimientos, datos.presupuesto(), datos.categorias(), lista, per))
     if error:
-        return {"ok": False, "error": error}
+        return {"ok": False, "error": ia.frase(error), "codigo": error["codigo"]}
     limpio = validar(texto)
     if not limpio:
         return {"ok": False, "error": f"La respuesta de {ia.nombre()} no vino con el formato esperado. Inténtalo de nuevo."}
@@ -156,9 +157,15 @@ def main(hoy, salida):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
+    if len(sys.argv) == 4 and sys.argv[1] == "entrada":
+        e = datos.leer_json(sys.argv[2], {})
+        hoy = e.get("hoy") if isinstance(e, dict) and isinstance(e.get("hoy"), str) else ""
+        salida = sys.argv[3]
+    elif len(sys.argv) == 3:
+        hoy, salida = sys.argv[1], sys.argv[2]
+    else:
         print(__doc__)
         sys.exit(2)
-    r = main(sys.argv[1], sys.argv[2])
-    datos.escribir_json(sys.argv[2], r)
+    r = main(hoy, salida)
+    datos.escribir_json(salida, r)
     print(json.dumps(r, ensure_ascii=False)[:400])

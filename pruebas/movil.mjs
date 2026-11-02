@@ -34,12 +34,12 @@ const demo = JSON.parse(fs.readFileSync(path.join(UI, "demo.json"), "utf8"));
 const HOY = demo.hoy, AHORA = new Date(`${HOY}T08:00:00`).getTime();
 const esDato = (t) => JSON.stringify(demo).includes(t) || /^(Alcancía|English|Español|CLP|USD|iCloud Drive|Alcancia-celular\.alcancia)$/.test(t);
 
-// «El Mac»: la copia armada con el mismo ui/copia.js, en Node.
-vm.runInThisContext(fs.readFileSync(path.join(UI, "copia.js"), "utf8"), { filename: "ui/copia.js" });
+// «El Mac»: la copia armada con los mismos ui/cifrado.js (pieza) y ui/copia.js, en Node.
+for (const f of ["cifrado.js", "copia.js"]) vm.runInThisContext(fs.readFileSync(path.join(UI, f), "utf8"), { filename: "ui/" + f });
 const C = globalThis.AlcanciaCopia;
 const FRASE = "caballo pila grapa correcta";
 const mac = await C.nuevaCabecera(FRASE);
-const copia = (estado) => C.armar(C.paraCelular(estado, { generado: new Date(AHORA - 3600e3).toISOString(), version: "0.1.0" }), mac.cabecera, mac.llave);
+const copia = (estado) => C.armar(C.paraCelular(estado, { generado: new Date(AHORA - 3600e3).toISOString(), version: "0.1.0" }), mac.cabecera, mac.llaves);
 const COPIA = await copia(demo);
 const NUBE = { nombre: "Alcancia-celular.alcancia", texto: COPIA };
 
@@ -69,7 +69,7 @@ const ajustes = (p) => p.evaluate(() => JSON.parse(window._celular.ajustes || "{
 const visible = (p, sel) => p.evaluate((s) => [...document.querySelectorAll(s)].filter((e) => e.offsetParent !== null || e.getClientRects().length).length, sel);
 const toast = (p) => p.waitForFunction(() => document.querySelector("#toast.visible")?.textContent, null, { timeout: 4000 }).then((h) => h.jsonValue());
 const LISTO = { nube: NUBE, elegido: true, ajustes: JSON.stringify({ idioma_ui: "es", bienvenida: true }) };
-const CON_LLAVE = { ...LISTO, llave: JSON.stringify({ raw: mac.raw, sal: mac.cabecera.kdf.sal }) };
+const CON_LLAVE = { ...LISTO, llave: JSON.stringify({ raw: mac.llaves.raw, sal: mac.cabecera.kdf.sal }) };
 
 await paso("Teléfono nuevo: idioma primero, elegir el archivo y abrirlo con la frase (recordándola)", async () => {
   const p = await telefono({ guardado: { nube: NUBE } });
@@ -77,7 +77,7 @@ await paso("Teléfono nuevo: idioma primero, elegir el archivo y abrirlo con la 
   if (await visible(p, ".tres, #traer-frase")) falla("se ve algo antes de elegir el idioma");
   await p.click('[data-idioma-bv="es"]');
   await p.click('[data-bv="2"]');
-  const texto = await p.textContent(".dialogo");
+  const texto = await p.textContent(".pz-dialogo");
   if (!texto.includes("Alcancia-celular.alcancia") || !texto.includes("Mac")) falla("el paso de traer los datos no explica dónde está el archivo: " + texto.slice(0, 200));
   if (/Claude|Codex|cartola/i.test(texto)) falla("en el teléfono se habla de IA del computador o de cartolas");
   await p.click('[data-accion="bv-traer"]');
@@ -91,7 +91,7 @@ await paso("Teléfono nuevo: idioma primero, elegir el archivo y abrirlo con la 
   await p.click('[data-traer-form] [type="submit"]');
   await p.waitForSelector(".tres", { timeout: 8000 });
   const g = await guardadoDe(p);
-  if (!g.llave || JSON.parse(g.llave).raw !== mac.raw) falla("no recordó la llave en el llavero");
+  if (!g.llave || JSON.parse(g.llave).raw !== mac.llaves.raw) falla("no recordó la llave en el llavero");
   if (g.cache !== COPIA) falla("no guardó la última copia");
   const a = await ajustes(p);
   if (a.idioma_ui !== "es" || a.bienvenida !== true) falla("no guardó idioma y bienvenida: " + JSON.stringify(a));
@@ -104,7 +104,7 @@ await paso("Solo para mirar: nada que cambie datos a la vista, y si llega un toq
   await p.waitForSelector(".tres");
   if (await visible(p, ".nav-agregar")) falla("se ve el «+» de agregar");
   if ((await visible(p, ".nav .nav-item")) !== 4) falla("la barra no tiene 4 secciones");
-  const PROHIBIDO = ".nav-agregar, .fila-chat, [data-elegir], [data-comp-pagado], [data-comp-noes], [data-comp-desmarcar], [data-comp-editar], [data-sug-agregar], [data-saldo-editar], [data-sueldo], [data-regla-si], [data-accion=agregar-contar], [data-accion=pedir-consejos], [data-accion=sugerir], [data-accion=guardar-pres], [data-accion=usar-maximos], [data-vista=ordenar], [data-vista=conexiones], [data-probar], [data-conectar], [data-accion=importar], [data-config=pais], [data-inicio], [data-uf], input[data-pres]:not([readonly]), form[data-saldo-form]";
+  const PROHIBIDO = ".nav-agregar, .fila-chat, [data-elegir], [data-comp-pagado], [data-comp-noes], [data-comp-desmarcar], [data-comp-editar], [data-sug-agregar], [data-saldo-editar], [data-sueldo], [data-regla-si], [data-accion=agregar-contar], [data-accion=pedir-consejos], [data-accion=sugerir], [data-accion=guardar-pres], [data-accion=usar-maximos], [data-vista=ordenar], [data-vista=conexiones], [data-pz-probar-ia], [data-pz-act], [data-conectar], [data-accion=importar], [data-config=pais], [data-inicio], [data-uf], input[data-pres]:not([readonly]), form[data-saldo-form]";
   const VISTAS = [["Inicio", "E=>{E.vista='resumen';E.mes='2026-10'}"], ["Lo que tienes", "E=>{E.cifra='tienes'}"], ["Lo que debes", "E=>{E.cifra='debes'}"],
     ["Lo que gastaste", "E=>{E.cifra='gastaste'}"], ["Te quedan", "E=>{E.cifra='queda'}"], ["Movimientos", "E=>{E.cifra=null;E.vista='movimientos'}"],
     ["Movimientos sin categoría", "E=>{E.filtro={texto:'',categoria:'__sin'}}"], ["Movimientos detalle", "E=>{E.filtro={texto:'',categoria:''};E.movVer=E.movimientos.find(m=>m.fecha.startsWith('2026-10')).id}"],
@@ -118,7 +118,7 @@ await paso("Solo para mirar: nada que cambie datos a la vista, y si llega un toq
     const ancho = await p.evaluate(() => document.documentElement.scrollWidth);
     if (ancho > 392) falla(`«${nombre}» se sale de la pantalla (${ancho}px)`);
   }
-  if (!(await p.textContent(".dialogo")).includes("Alcancia-celular.alcancia")) falla("Ajustes no dice qué archivo se lee");
+  if (!(await p.textContent(".pz-dialogo")).includes("Alcancia-celular.alcancia")) falla("Ajustes no dice qué archivo se lee");
   await p.evaluate(() => window.Alcancia._probar((E) => { E.ajustes = false; E.vista = "resumen"; }));
   // Un toque que llegue igual (p. ej. un botón que se coló): solo el aviso, nada se manda al Mac ni se cambia.
   const antes = await p.evaluate(() => JSON.stringify(window._celular.llamadas));
@@ -142,6 +142,30 @@ await paso("Reabrir: la llave recordada abre sola, y al volver a primer plano ll
   await p.close();
 });
 
+await paso("Una copia y una llave recordada de antes de la pieza «cifrado» (32 bytes): abre sola, y el Mac sigue copiando", async () => {
+  const v = JSON.parse(fs.readFileSync(path.join(RAIZ, "pruebas", "datos", "copia-antes-de-pieza.json"), "utf8"));
+  const antes = { ...LISTO, nube: { ...NUBE, texto: v.texto }, llave: JSON.stringify({ raw: v.raw, sal: v.cabecera.kdf.sal }) };
+  const p = await telefono({ guardado: antes });
+  await p.waitForSelector(".tres");
+  if (await visible(p, "#traer-frase")) falla("con la llave de antes pidió la frase");
+  // El Mac con la llave de 32 bytes que tenía en el Llavero arma la copia nueva; el teléfono la abre sola.
+  const nueva = await C.armar(C.paraCelular(demo, { generado: new Date(AHORA).toISOString(), version: "0.1.0" }), v.cabecera, await C.importarLlave(v.raw));
+  await p.evaluate(([t, a]) => { window._celular.nube.texto = t; window.ALCANCIA_AHORA = a; document.dispatchEvent(new Event("visibilitychange")); }, [nueva, AHORA + 120000]);
+  await p.waitForFunction((t) => window._celular.cache === t, nueva, { timeout: 4000 });
+  if (await visible(p, "#traer-frase")) falla("la copia nueva con la llave de antes pidió la frase");
+  await p.close();
+  // Sin llave recordada: con la frase se abre y queda recordada la llave nueva (64 bytes).
+  const q = await telefono({ guardado: { ...LISTO, nube: { ...NUBE, texto: v.texto } } });
+  await q.waitForSelector("#traer-frase");
+  await q.fill("#traer-frase", v.frase);
+  await q.check("[data-traer-recordar]");
+  await q.click('[data-traer-form] [type="submit"]');
+  await q.waitForSelector(".tres", { timeout: 8000 });
+  const g = await guardadoDe(q);
+  if (!g.llave || Buffer.from(JSON.parse(g.llave).raw, "base64").length !== 64) falla("con la frase no recordó la llave nueva de 64 bytes");
+  await q.close();
+});
+
 await paso("Sin recordar la frase: se pide al abrir", async () => {
   const p = await telefono({ guardado: LISTO });
   await p.waitForSelector("#traer-frase");
@@ -158,14 +182,14 @@ await paso("Nube sin conexión, copia a medias o de una versión nueva: queda la
     const t = await toast(p);
     if (!t.includes(espera)) falla(`${nombre}: el aviso no dice «${espera}»: ${t}`);
     await p.evaluate(() => window.Alcancia._probar((E) => { E.ajustes = true; }));
-    if (!(await p.textContent(".dialogo")).includes("no pude leer la más nueva")) falla(`${nombre}: Ajustes no dice que la copia no es la más nueva`);
+    if (!(await p.textContent(".pz-dialogo")).includes("no pude leer la más nueva")) falla(`${nombre}: Ajustes no dice que la copia no es la más nueva`);
     await p.close();
   }
   // Sin nada guardado y un archivo que no es una copia: el error, sin datos.
   const p = await telefono({ guardado: { nube: { nombre: "foto.jpg", texto: "hola" }, ajustes: LISTO.ajustes } });
   await p.click('[data-accion="traer-elegir"]');
   await p.waitForSelector(".vacio .error-txt");
-  if (!(await p.textContent(".vacio .error-txt")).includes("no es la copia de Alcancía")) falla("un archivo cualquiera no dice que no es la copia");
+  if (!(await p.textContent(".vacio .error-txt")).includes("no es una copia de Alcancía")) falla("un archivo cualquiera no dice que no es la copia");
   await p.close();
 });
 
@@ -224,6 +248,13 @@ await paso("Desconectar este teléfono: vuelve a «Trae tus datos» sin copia, l
   await p.waitForFunction(() => window._celular.pendientes.length > 0, null, { timeout: 4000 });
   await p.evaluate(() => window.Alcancia._probar((E) => { E.ajustes = true; }));
   await p.click('[data-accion="traer-desconectar"]');
+  // Pregunta antes (con el foco en «Cancelar»: un Enter apurado no borra nada).
+  await p.waitForSelector('[data-pz-confirmar="si"]');
+  if ((await p.evaluate(() => document.activeElement?.dataset.pzConfirmar)) !== "no") falla("al desconectar, el foco debe quedar en «Cancelar»");
+  await p.keyboard.press("Escape");
+  if (!(await p.$('[data-accion="traer-desconectar"]')) || (await guardadoDe(p)).llave === null) falla("«Cancelar» no desconecta");
+  await p.click('[data-accion="traer-desconectar"]');
+  await p.click('[data-pz-confirmar="si"]');
   await p.waitForSelector('[data-accion="traer-elegir"]');
   await p.waitForFunction(() => !window._celular.pendientes.length, null, { timeout: 3000 }).catch(() => {});
   const g = await guardadoDe(p);
@@ -247,7 +278,7 @@ await paso("Del Mac al teléfono: la vista previa del Mac arma la copia y el tel
   if (!(await m.isDisabled('[data-accion="celular-crear"]'))) falla("deja crear sin aceptar que la frase no se recupera");
   await m.check("[data-celular-entiendo]");
   await m.click('[data-accion="celular-crear"]');
-  await m.waitForFunction(() => document.querySelector(".dialogo")?.textContent.includes("Listo"), null, { timeout: 8000 });
+  await m.waitForFunction(() => document.querySelector(".pz-dialogo")?.textContent.includes("Listo"), null, { timeout: 8000 });
   const texto = await m.evaluate(() => window._copiaCelular);
   if (!texto || !texto.startsWith('{"alcancia":"copia-celular"')) falla("no se escribió la copia");
   const abierto = await C.abrir(texto, { frase: FRASE });
@@ -255,7 +286,7 @@ await paso("Del Mac al teléfono: la vista previa del Mac arma la copia y el tel
   for (const x of ["ia_externa", "\"chat\"", "\"carpeta\"", "vigilar", "/Users/", "\"ias\""]) if (plano.includes(x)) falla(`la copia del Mac lleva «${x}»`);
   if (abierto.contenido.estado.movimientos.length !== demo.movimientos.length) falla("la copia del Mac no trae todos los movimientos");
   await m.click('[data-accion="celular-cerrar"]');
-  if (!(await m.textContent(".dialogo")).includes("Última copia")) falla("Ajustes no muestra la última copia");
+  if (!(await m.textContent(".pz-dialogo")).includes("Última copia")) falla("Ajustes no muestra la última copia");
   // «Copiar ahora» vuelve a escribir (con otro IV).
   await m.click('[data-accion="celular-copiar"]');
   await m.waitForFunction((t) => window._copiaCelular !== t, texto, { timeout: 4000 }).catch(() => falla("«Copiar ahora» no escribió de nuevo"));
@@ -274,7 +305,7 @@ await paso("En inglés: todo lo del celular traducido", async () => {
     const p = await telefono({ guardado, consulta: "?idioma=en" });
     const pasos = guardado === CON_LLAVE
       ? ["E=>{E.vista='resumen'}", "E=>{E.cifra='tienes'}", "E=>{E.cifra='debes'}", "E=>{E.cifra=null;E.vista='movimientos'}", "E=>{E.vista='compromisos'}", "E=>{E.vista='mas'}", "E=>{E.vista='presupuesto'}", "E=>{E.vista='consejos';E.consejos=[]}", "E=>{E.ajustes=true}"]
-      : guardado === LISTO ? ["E=>{}", "E=>{E.traer.error='La frase no es la correcta.'}", "E=>{E.ajustes=true}"] : ["E=>{E.bv=0}", "E=>{E.bv=1}", "E=>{E.bv=2}", "E=>{E.bv=null;E.celular.error='Ese archivo no es la copia de Alcancía para el celular.'}", "E=>{E.ajustes=true}"];
+      : guardado === LISTO ? ["E=>{}", "E=>{E.traer.error='La frase no es la correcta.'}", "E=>{E.ajustes=true}"] : ["E=>{E.bv=0}", "E=>{E.bv=1}", "E=>{E.bv=2}", "E=>{E.bv=null;E.celular.error='Ese archivo no es una copia de Alcancía.'}", "E=>{E.ajustes=true}"];
     await p.waitForTimeout(300);
     for (const f of pasos) { await p.evaluate(`window.Alcancia._probar(${f})`); await p.waitForTimeout(40); }
     for (const t of await p.evaluate(() => [...window._faltantes])) if (!esDato(t)) faltan.add(t);

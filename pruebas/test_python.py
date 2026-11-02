@@ -281,6 +281,12 @@ class Flujo(unittest.TestCase):
         correr("importar.py", "guardar", CARTOLA, "cl-banco-ejemplo", "0")
         r = correr("consejos.py", "2026-10-12")
         self.assertTrue(r["ok"], r)
+        # Como lo pide el Mac (acción declarada «pedirConsejos»): la fecha en el archivo de entrada.
+        entrada = os.path.join(TMP, "entrada-consejos.json")
+        for hoy, ok in (("2026-10-12", True), ("../../x", False)):
+            with open(entrada, "w", encoding="utf-8") as f:
+                json.dump({"hoy": hoy}, f)
+            self.assertEqual(correr("consejos.py", "entrada", entrada)["ok"], ok)
         self.assertTrue(os.path.exists(os.path.join(datos.CONSEJOS, "2026-10-12.md")))
         texto = consejos.prompt("2026-10-12", datos.leer_todos(), datos.presupuesto(), datos.categorias())
         self.assertIn("Gasto total de los últimos 6 meses", texto)
@@ -300,6 +306,11 @@ class Flujo(unittest.TestCase):
         e = correr("estado.py")
         self.assertEqual((e["movimientos"], e["consejos"], e["cuentas"]), ([], [], []), "sin ~/Alcancia la app muestra la bienvenida")
         self.assertTrue(e["categorias"])
+        # Lo que antes ponía la app de Mac: la fecha, las IA que conoce la pieza «ia» y la carpeta de tus datos.
+        self.assertRegex(e["hoy"], r"^\d{4}-\d{2}-\d{2}$")
+        self.assertEqual([i["id"] for i in e["ias"]], ["claude", "codex", "gemini"])
+        self.assertTrue(all(isinstance(i["instalada"], bool) for i in e["ias"]))
+        self.assertTrue(e["carpeta"])
         datos.escribir_json(os.path.join(datos.INTERNO, "recetas", "cl-banco-ejemplo.json"), RECETA)
         correr("importar.py", "guardar", CARTOLA, "cl-banco-ejemplo", "0")
         correr("consejos.py", "2026-10-12")
@@ -340,6 +351,59 @@ def un_compromiso(**k):
     base = {"nombre": "Arriendo", "tipo": "cuenta", "monto": 420000, "frecuencia": "mensual", "dia": 1, "categoria": "casa",
             "buscar": ["ARRIENDO"]}
     return {**base, **k}
+
+
+class AccionesDeclaradas(unittest.TestCase):
+    """Las acciones de app.json → «acciones» (acciones.json), corridas como las corre el host de Mac (pieza «host-mac»): los
+    `$campo` (enum) en los argumentos, lo demás en el archivo de entrada, y el JSON de salida al final."""
+
+    def setUp(self):
+        limpiar()
+        datos.escribir_json(os.path.join(datos.INTERNO, "recetas", "cl-banco-ejemplo.json"), RECETA)
+        self.acciones = json.loads(_leer(os.path.join(RAIZ, "acciones.json")))["acciones"]
+
+    def correr_como_host(self, nombre, d):
+        a = self.acciones[nombre]
+        args = [d[x[1:]] if x.startswith("$") else x for x in a.get("args", [])]
+        if a.get("entrada") == "archivo":
+            entrada = os.path.join(TMP, "entrada-host.json")
+            with open(entrada, "w", encoding="utf-8") as f:
+                json.dump(d, f)
+            args.append(entrada)
+        return correr(a["script"], *args)
+
+    def test_todas_las_de_la_app_estan_en_acciones_json(self):
+        app = json.loads(_leer(os.path.join(RAIZ, "app.json")))
+        for nombre, a in app["acciones"].items():
+            self.assertIn(nombre, self.acciones)
+            self.assertTrue(os.path.exists(os.path.join(RAIZ, "bin", a["script"])), a["script"])
+        self.assertNotIn("listaIA", self.acciones, "sin_acciones: la interfaz no la pide")
+
+    def test_guardar_py_con_cada_accion(self):
+        correr("importar.py", "guardar", CARTOLA, "cl-banco-ejemplo", "0")
+        m = datos.leer_mes("2026-10")[0]
+        self.assertTrue(self.correr_como_host("categoria", {"mes": "2026-10", "id": m["id"], "categoria": "casa"})["ok"])
+        self.assertTrue(self.correr_como_host("regla", {"contiene": "SUPERMERCADO", "categoria": "comida"})["ok"])
+        self.assertTrue(self.correr_como_host("presupuesto", {"mensual": {"comida": 100000}})["ok"])
+        self.assertTrue(self.correr_como_host("guardarReceta", {"receta": RECETA})["ok"])
+        r = self.correr_como_host("categoria", {"mes": "2026-10", "id": "no-existe", "categoria": "casa"})
+        self.assertFalse(r["ok"])
+        self.assertTrue(r["error"], "lo que no se pudo guardar trae su frase (la interfaz la muestra en «guardado»)")
+        for nombre in ("guardarReceta", "categoria", "categoriaNueva", "regla", "presupuesto", "saldo"):
+            a = self.acciones[nombre]
+            self.assertEqual((a["responde"], a.get("cola")), ("guardado", "escritura"), nombre)
+
+    def test_chat_marcar_y_borrar(self):
+        self.assertTrue(self.correr_como_host("chat", {"accion": "borrar"})["ok"])
+        self.assertFalse(self.correr_como_host("chat", {"accion": "marcar", "id": "x", "i": 0, "estado": "hecha"})["ok"])
+        self.assertEqual(self.acciones["chat"]["eco"], ["accion"], "la interfaz sabe a qué responde")
+
+    def test_mcp_conectar_conoce_los_mismos_clientes(self):
+        import mcp_conectar
+        a = self.acciones["mcpConectar"]
+        self.assertEqual(set(a["datos"]["cliente"]["valores"]), set(mcp_conectar.CLIENTES))
+        self.assertEqual(a["args"], ["$orden", "$cliente"])
+        self.assertNotIn("entrada", a, "mcp_conectar.py recibe solo <orden> <cliente> <salida>")
 
 
 class Compromisos(unittest.TestCase):
@@ -496,12 +560,15 @@ class Compromisos(unittest.TestCase):
         return correr("compromiso_ia.py", "entender", ruta)
 
     def test_el_texto_no_va_como_argumento(self):
-        with open(os.path.join(RAIZ, "app", "Sources", "Alcancia", "Ventana.swift"), encoding="utf-8") as f:
-            swift = f.read()
-        # Lo que escribe la persona (la conversación con Alcancía) va en un archivo de entrada; nunca como argumento.
-        self.assertIn('conEntrada("chat.py", "enviar"', swift)
-        self.assertNotIn('correrJSON("chat.py"', swift)
-        self.assertNotIn('correrJSON("compromiso_ia.py"', swift)
+        swift = "\n".join(_leer(os.path.join(RAIZ, "app", "Sources", "Alcancia", f))
+                          for f in os.listdir(os.path.join(RAIZ, "app", "Sources", "Alcancia")) if f.endswith(".swift"))
+        # Lo que escribe la persona (la conversación con Alcancía) va en un archivo de entrada; nunca como argumento: «chat» es una
+        # acción declarada (el host escribe los datos en el archivo de entrada y solo `accion`, un enum, va en los argumentos).
+        chat = json.loads(_leer(os.path.join(RAIZ, "acciones.json")))["acciones"]["chat"]
+        self.assertEqual((chat["script"], chat["args"], chat["entrada"]), ("chat.py", ["$accion"], "archivo"))
+        self.assertEqual(chat["datos"]["accion"]["tipo"], "enum")
+        self.assertNotIn('"chat.py"', swift)
+        self.assertNotIn('"compromiso_ia.py"', swift)
         p = subprocess.run([sys.executable, os.path.join(RAIZ, "bin", "compromiso_ia.py"), "el arriendo son 450.000", "2026-10-26",
                             os.path.join(TMP, "x.json")], capture_output=True, text=True)
         self.assertEqual(p.returncode, 2, "la firma vieja (texto como argumento) ya no se acepta")
@@ -843,7 +910,7 @@ class IaSinArgumentos(unittest.TestCase):
         """Lo que va a la IA trae texto de afuera (descripciones de la cartola): Claude Code corre sin herramientas ni MCP."""
         import ia
         datos.escribir_json(os.path.join(datos.INTERNO, "config.json"), {"ia": "claude"})
-        r = ia.ejecutar_ia("Clasifica cada movimiento\nMovimientos (número|descripción|monto):\n1|X|-1", timeout=30)
+        r = ia.ejecutar("Clasifica cada movimiento\nMovimientos (número|descripción|monto):\n1|X|-1", timeout=30)
         i = r.args.index("--disallowedTools")
         self.assertEqual(r.args[i + 1], "*")
         self.assertIn("--strict-mcp-config", r.args)
@@ -860,10 +927,10 @@ class IaSinArgumentos(unittest.TestCase):
         for proveedor in ("gemini", "codex", "claude"):
             datos.escribir_json(os.path.join(datos.INTERNO, "config.json"), {"ia": proveedor})
             if proveedor == "claude":  # la IA falsa de siempre: lee la entrada estándar
-                r = ia.ejecutar_ia(pedido, timeout=30)
+                r = ia.ejecutar(pedido, timeout=30)
                 self.assertNotIn("SECRETO", " ".join(r.args), proveedor)
                 continue
-            r = ia.ejecutar_ia(pedido, timeout=30)
+            r = ia.ejecutar(pedido, timeout=30)
             visto = json.loads(r.stdout)
             self.assertNotIn("SECRETO", " ".join(visto["argv"]), proveedor)
             self.assertIn("SECRETO", visto["archivo"], f"{proveedor} recibe el pedido por archivo o entrada estándar")
@@ -1431,7 +1498,7 @@ class Conectores(unittest.TestCase):
         import ia
         os.environ["ALCANCIA_RED_PRUEBA"] = "http://127.0.0.1:1"
         try:
-            self.assertFalse(any(k.startswith("ALCANCIA_") for k in ia._entorno_ia()))
+            self.assertFalse(any(k.startswith("ALCANCIA_") for k in ia._entorno()))
         finally:
             del os.environ["ALCANCIA_RED_PRUEBA"]
 
@@ -1442,6 +1509,31 @@ class Conectores(unittest.TestCase):
         self.assertFalse(r["ok"])
         e = datos.leer_json(os.path.join(datos.INTERNO, "conexiones.json"), None)["mercadopago"]
         self.assertIn("esperar", e["error"])
+        # Pieza «red»: el error trae su código y su plantilla (la interfaz lo traduce) y la plantilla está en inglés.
+        self.assertEqual((r["codigo"], r["valores"]["servicio"]), ("esperar", "Mercado Pago"))
+        self.assertEqual(e["plantilla"], r["plantilla"])
+        en = datos.leer_json(os.path.join(RAIZ, "ui", "idiomas", "en.json"), {})["textos"]
+        import red
+        self.assertTrue(all(f in en for f in red.ERRORES.values()), "cada error de la red tiene su traducción")
+        self.assertTrue(all("{servicio}" in en[f] for f in red.ERRORES.values() if "{servicio}" in f))
+
+    def test_red_agente_y_tope(self):
+        """User-Agent con el repo de app.json, y una respuesta más grande que el tope no se lee entera."""
+        from red import ErrorRed, Red
+        from servidor_falso import ServidorFalso
+        rutas = {("GET", "api.ejemplo.com/chico"): lambda q, b, h: (200, {"ok": True}),
+                 ("GET", "api.ejemplo.com/grande"): lambda q, b, h: (200, "x" * 5000)}
+        with ServidorFalso(rutas) as srv:
+            os.environ["ALCANCIA_RED_PRUEBA"] = srv.url
+            try:
+                red = Red(["api.ejemplo.com"], "Ejemplo", maximo=1000)
+                self.assertEqual(red.get("https://api.ejemplo.com/chico"), {"ok": True})
+                with self.assertRaises(ErrorRed) as e:
+                    red.get("https://api.ejemplo.com/grande", crudo=True)
+                self.assertEqual(e.exception.codigo, "grande")
+            finally:
+                del os.environ["ALCANCIA_RED_PRUEBA"]
+        self.assertIn("alcancia-app/alcancia", srv.pedidos[0][4]["user-agent"])
 
 
     def test_mercadopago_como_se_pago_devolucion_y_saldo(self):
@@ -2125,6 +2217,164 @@ class Chat(unittest.TestCase):
         self.assertTrue(correr("chat.py", "borrar", entrada)["ok"])
         self.assertEqual(chat.historial(), [])
         self.assertEqual(json.loads(json.dumps(__import__("estado").estado()["chat"])), [])
+
+
+AYUDA_CLAUDE = "Usage: claude [options]\n  --strict-mcp-config\n  --disallowedTools <tools...>"
+
+
+class SeguridadIA(unittest.TestCase):
+    """Cómo se llama a Claude: sin memoria de la persona y con --safe-mode solo si su versión lo conoce; y T() escapa."""
+
+    def _con_claude(self, ayuda):
+        import ia
+        carpeta = tempfile.mkdtemp(dir=TMP)
+        anotado = os.path.join(carpeta, "anotado.json")
+        ruta = os.path.join(carpeta, "claude")
+        with open(ruta, "w", encoding="utf-8") as f:
+            f.write("#!" + sys.executable + "\nimport json, os, sys\n"
+                    f"if '--help' in sys.argv: print({ayuda!r}); sys.exit(0)\n"
+                    f"json.dump({{'argv': sys.argv[1:], 'env': dict(os.environ)}}, open({anotado!r}, 'w'))\n"
+                    "print('listo')\n")
+        os.chmod(ruta, 0o755)
+        antes_path, antes_elegida = os.environ["PATH"], ia.elegida
+        os.environ["PATH"] = carpeta + os.pathsep + antes_path
+        ia.elegida = lambda: "claude"
+        ia._ayuda.clear()
+        try:
+            r = ia.ejecutar("hola", timeout=60)
+        finally:
+            os.environ["PATH"], ia.elegida = antes_path, antes_elegida
+            ia._ayuda.clear()
+        self.assertEqual(r.returncode, 0, r.stderr)
+        with open(anotado, encoding="utf-8") as f:
+            return json.load(f)
+
+    def test_claude_sin_memoria_y_safe_mode_si_existe(self):
+        x = self._con_claude(AYUDA_CLAUDE + "\n  --safe-mode  Sin extensiones")
+        self.assertEqual((x["env"].get("CLAUDE_CODE_DISABLE_CLAUDE_MDS"), x["env"].get("CLAUDE_CODE_DISABLE_AUTO_MEMORY")), ("1", "1"))
+        self.assertIn("--safe-mode", x["argv"])
+        self.assertEqual(x["argv"][x["argv"].index("--disallowedTools") + 1], "*")
+        self.assertFalse([k for k in x["env"] if k.startswith("ALCANCIA_")])
+
+    def test_claude_viejo_sin_safe_mode(self):
+        x = self._con_claude(AYUDA_CLAUDE)
+        self.assertNotIn("--safe-mode", x["argv"], "una versión que no la conoce fallaría con la opción")
+
+    def test_claude_sin_las_protecciones_no_corre(self):
+        """Un CLI que no conoce --strict-mcp-config o --disallowedTools nunca corre sin ellas: se pide actualizarlo."""
+        import ia
+        with self.assertRaises(ia.VersionVieja):
+            self._con_claude("Usage: claude [options]\n  --disallowedTools <tools...>")
+        antes = ia.ejecutar
+        ia.ejecutar = lambda *a, **k: (_ for _ in ()).throw(ia.VersionVieja("--strict-mcp-config"))
+        try:
+            texto, error = ia.preguntar("hola")
+        finally:
+            ia.ejecutar = antes
+        self.assertEqual((texto, error["codigo"]), ("", "actualizar"))
+
+    def test_T_escapa_los_valores(self):
+        import re
+        if not shutil.which("node"):
+            self.skipTest("falta node")
+        js = open(os.path.join(RAIZ, "ui", "app.js"), encoding="utf-8").read()
+        # T, Thtml y Tp son de la pieza «i18n» (ui/i18n.js): se prueban tal como los usa app.js.
+        prueba = (f"const {{ T, Thtml, Tp }} = require({os.path.join(RAIZ, 'ui', 'i18n.js')!r}).crear();\n"
+                  "console.log(T('Pagaste **{x}** ({m})', { x: '$1.000', m: '<img src=x onerror=alert(1)>' }));"
+                  "console.log(Thtml('Te faltan {m} al mes', { m: '<span class=\"monto-chat\">$5</span>' }));"
+                  "console.log(Tp('Creé «{c}»', { c: '<b>' }));")
+        self.assertIn("const { tr, T, Thtml, Tp, frase, traducirDOM } = i18n;", js, "app.js usa los de la pieza")
+        r = subprocess.run(["node", "-e", prueba], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stdout.strip().splitlines(), ["Pagaste <b>$1.000</b> (&lt;img src=x onerror=alert(1)&gt;)",
+                                                         'Te faltan <span class="monto-chat">$5</span> al mes', "Creé «<b>»"])
+        self.assertNotRegex(js, r"esc\((T|Thtml|frase)\(", "T ya escapa: no escapar dos veces")
+        self.assertNotRegex(js, r"toast\((T|Thtml|frase)\(", "el aviso es texto plano (textContent): va con Tp")
+
+
+def _leer(ruta):
+    with open(ruta, encoding="utf-8") as f:
+        return f.read()
+
+
+class Piezas(unittest.TestCase):
+    """Las piezas de Pieza (nucleo, ia, i18n): la carpeta de siempre, la config validada por app.json y la IA probada con entrada."""
+
+    def setUp(self):
+        limpiar()
+
+    def test_app_json_apunta_a_la_carpeta_de_siempre(self):
+        """Sin variables, la carpeta de datos de nucleo es ~/Alcancia/.alcancia: la de siempre (nadie pierde ni mueve datos)."""
+        casa = tempfile.mkdtemp(dir=TMP)
+        env = {k: v for k, v in os.environ.items() if not k.startswith("ALCANCIA_")}
+        env["HOME"] = casa
+        codigo = "import sys; sys.path.insert(0, 'bin'); import nucleo, datos; print(nucleo.carpeta_datos()); print(datos.INTERNO)"
+        r = subprocess.run([sys.executable, "-c", codigo], cwd=RAIZ, env=env, capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stdout.split(), [os.path.join(casa, "Alcancia", ".alcancia")] * 2)
+        self.assertFalse(os.path.exists(os.path.join(casa, "Alcancia")), "solo leer no crea carpetas")
+        import nucleo
+        self.assertEqual(nucleo.carpeta_datos(), datos.INTERNO, "con ALCANCIA_CARPETA (pruebas), nucleo la sigue")
+
+    def test_config_validada_por_app_json(self):
+        datos.escribir_json(os.path.join(datos.INTERNO, "config.json"), {
+            "ia": "otra", "idioma_ui": "fr", "pais": "AR", "moneda": "ARS", "vigilar": "sí", "avisos": True, "clave_rara": 1,
+            "inicio_mes": {"modo": "dia", "dia": 5}, "uf": {"valor": 39000, "fecha": "2026-10-01"}})
+        c = datos.config()
+        self.assertEqual((c["ia"], c["idioma_ui"], c["pais"], c["moneda"], c["avisos"]), ("claude", "", "AR", "ARS", True))
+        self.assertNotIn("vigilar", c)
+        self.assertNotIn("clave_rara", c)
+        self.assertEqual(c["inicio_mes"], {"modo": "dia", "dia": 5})
+        self.assertEqual(compromisos.uf_config(c)["valor"], 39000)
+
+    def test_las_claves_de_config_son_las_mismas_en_el_mac(self):
+        app = json.loads(_leer(os.path.join(RAIZ, "app.json")))
+        # El Mac (pieza «host-mac») lee las claves simples de app.json; las de forma propia las guarda AlcanciaApp.guardarConfig.
+        swift = _leer(os.path.join(RAIZ, "app", "Sources", "Alcancia", "AlcanciaApp.swift"))
+        for k in datos.CONFIG_OBJETOS:
+            self.assertIn(f'objetos["{k}"]', swift, f"{k}: lo guarda el Mac (app.json no describe objetos)")
+        self.assertIn('p.registrar("config")', swift)
+        self.assertFalse(set(datos.CONFIG_OBJETOS) & set(app["config"]))
+        self.assertEqual(app["id"], "alcancia")
+        self.assertEqual((app["nombre"], app["datos"], app["privado"]), ("Alcancía", {"carpeta": "~/Alcancia/.alcancia"}, True))
+
+    def test_app_json_va_dentro_de_la_app(self):
+        sh = _leer(os.path.join(RAIZ, "herramientas", "empaquetar.sh"))
+        self.assertIn('cp "$RAIZ/app.json" "$APP/Contents/Resources/alcancia/app.json"', sh)
+        self.assertIn('cp "$RAIZ/acciones.json" "$APP/Contents/Resources/alcancia/acciones.json"', sh)
+        probar = json.loads(_leer(os.path.join(RAIZ, "acciones.json")))["acciones"]["probarIA"]
+        self.assertEqual((probar["script"], probar["args"], probar["entrada"]), ("ia.py", ["probar"], "archivo"),
+                         "la IA se prueba con la pieza, con entrada")
+
+    def test_escribir_siempre_privado(self):
+        ruta = os.path.join(datos.BASE, "reglas.json")
+        datos.escribir_json(ruta, [])
+        os.chmod(ruta, 0o644)
+        datos.escribir_json(ruta, [{"contiene": "X", "categoria": "otros"}])
+        if os.name != "nt":
+            self.assertEqual(os.stat(ruta).st_mode & 0o777, 0o600, "datos financieros: siempre 0600")
+        self.assertFalse([f for f in os.listdir(datos.BASE) if f.startswith(".alcancia-")], "sin temporales huérfanos")
+
+    def test_probar_la_ia_con_entrada(self):
+        entrada = os.path.join(TMP, "entrada-ia.json")
+        with open(entrada, "w", encoding="utf-8") as f:
+            json.dump({"ia": "claude"}, f)
+        r = correr("ia.py", "probar", entrada)
+        self.assertEqual((r["ia"], r["ok"]), ("claude", True), r)
+        with open(entrada, "w", encoding="utf-8") as f:
+            json.dump({"ia": "otra"}, f)
+        r = correr("ia.py", "probar", entrada)
+        self.assertEqual((r["ok"], r["codigo"]), (False, "desconocida"))
+
+    def test_error_de_la_ia_en_palabras_y_con_codigo(self):
+        import ia
+        antes = ia.comando
+        ia.comando = lambda _ia: None
+        try:
+            self.assertEqual(categorizar.por_ia([{"descripcion": "X", "monto": -1, "categoria": ""}], datos.categorias())[1],
+                             f"No encontré {ia.nombre()} en este computador. Revisa en Ajustes → Tu IA.")
+        finally:
+            ia.comando = antes
 
 
 if __name__ == "__main__":

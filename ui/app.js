@@ -4,15 +4,18 @@
 // Todo el dinero y los textos de la persona se muestran con esc() y data-sin-traducir.
 (() => {
   "use strict";
-  const HOST = window.ALCANCIA_HOST || "web";
-  document.documentElement.dataset.host = HOST;
+  // ───────────── Puente con la app: pieza «host-ui» (ui/host.js) ─────────────
+  // host.enviar(accion, datos) llega a WKWebView (Mac), al preload de Electron o al anfitrión del celular; en el navegador responde
+  // simular() con demo.json. La plataforma sale de window.ALCANCIA_HOST y queda en <html data-host>.
+  const host = PiezaHost.crearHost({ nombre: "alcancia", global: "Alcancia", simular: (accion, d) => simular(accion, d) });
+  const HOST = host.plataforma;
   /** En el celular (fase 1) se mira: lo que cambia datos (categorizar, marcar pagado, importar, conectar, la IA) se hace en el Mac. */
   const LECTURA = HOST === "movil";
   const E = {
     vista: "resumen", mes: "", hoy: "", config: {}, ias: [], movimientos: [], categorias: [], presupuesto: { mensual: {} }, reglas: [],
-    consejos: [], cuentas: [], version: "", carpeta: "", actualizacion: { hay: false }, filtro: { texto: "", categoria: "" },
-    aprender: null, presEdit: null, importar: null, bv: null, bvCerrada: false, ajustes: false, probando: {}, resultadoIA: {},
-    consejoSel: null, pidiendoConsejos: false, errorConsejos: "", act: null, buscando: null, idioma: "es", textos: {},
+    consejos: [], cuentas: [], version: "", carpeta: "", filtro: { texto: "", categoria: "" },
+    aprender: null, presEdit: null, importar: null, bv: null, bvCerrada: false, ajustes: false,
+    consejoSel: null, pidiendoConsejos: false, errorConsejos: "", idioma: "es",
     conectores: [], conexiones: {}, vigilar: { activo: false, recientes: [] }, conectar: null, sincronizando: {}, iaExterna: [], mcpOcupado: {}, mcpError: {},
     histCat: null, compromisos: { compromisos: [], descartados: [] }, sugerencias: [], compEdit: null, sugTodas: false,
     chat: { mensajes: [], texto: "", pensando: false, bajar: false, confirmarBorrar: false },
@@ -22,76 +25,43 @@
     celular: {}, celularConfig: null, traer: { frase: "", recordar: false, abriendo: false, error: "" },
   };
   const ENLACES = { sitio: "https://alcancia-app.github.io/alcancia/", codigo: "https://github.com/alcancia-app/alcancia",
-    comunidad: "https://github.com/alcancia-app/alcancia/discussions", guiaIA: "https://alcancia-app.github.io/alcancia/ia.html",
+    comunidad: "https://github.com/alcancia-app/alcancia/discussions",
+    aportar: "https://github.com/alcancia-app/alcancia/blob/main/CONTRIBUTING.md", guiaIA: "https://alcancia-app.github.io/alcancia/ia.html",
     nuevaReceta: "https://github.com/alcancia-app/alcancia-catalogo/issues/new" };
   const $ = (s, r = document) => r.querySelector(s);
   const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-  // ───────────── Puente con la app ─────────────
-  const host = {
-    enviar(accion, datos = {}) {
-      const msg = { accion, datos };
-      if (window.webkit?.messageHandlers?.alcancia) return window.webkit.messageHandlers.alcancia.postMessage(msg);
-      if (window.alcanciaEscritorio) return window.alcanciaEscritorio.enviar(msg);
-      if (window.alcanciaMovil) return window.alcanciaMovil.enviar(msg);
-      return simular(accion, datos);
-    },
-  };
-
-  // ───────────── Idiomas (las claves son el texto en español) ─────────────
-  function tr(t) {
-    if (E.idioma === "es" || !t) return t;
-    const limpio = String(t).replace(/\s+/g, " ").trim();
-    if (!limpio) return t;
-    if (E.textos[limpio]) return t.replace(limpio, E.textos[limpio]);
-    const numeros = limpio.match(/\d+/g);
-    if (numeros) {
-      const plantilla = E.textos[limpio.replace(/\d+/g, "{n}")];
-      if (plantilla) { let i = 0; return t.replace(limpio, plantilla.replace(/\{n\}/g, () => numeros[i++] ?? "")); }
-    }
-    if (window._faltantes && /\p{L}{2}/u.test(limpio)) window._faltantes.add(limpio);
-    return t;
-  }
-  /** Frase completa con marcadores ({x}, {n}, {ia}…): se traduce entera y después se ponen los valores (ya escapados o en HTML).
-   *  El resultado va dentro de un elemento con data-sin-traducir (ya está traducido). */
-  function T(plantilla, valores = {}) {
-    let t = plantilla;
-    if (E.idioma !== "es") {
-      if (E.textos[plantilla]) t = E.textos[plantilla];
-      else if (window._faltantes) window._faltantes.add(plantilla);
-    }
-    t = esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
-    for (const [k, v] of Object.entries(valores)) t = t.split(`{${k}}`).join(String(v));
-    return t;
-  }
-  const frase = (plantilla, valores, etiqueta = "span") => `<${etiqueta} data-sin-traducir>${T(plantilla, valores)}</${etiqueta}>`;
-  function traducirDOM(raiz) {
-    if (E.idioma === "es") return;
-    const w = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT);
-    const nodos = []; let n; while ((n = w.nextNode())) nodos.push(n);
-    for (const t of nodos) {
-      const el = t.parentElement;
-      if (!el || el.closest("[data-sin-traducir], script, style") || !/\p{L}/u.test(t.nodeValue)) continue;
-      const v = tr(t.nodeValue); if (v !== t.nodeValue) t.nodeValue = v;
-    }
-    for (const el of raiz.querySelectorAll("[title],[aria-label],[placeholder]")) {
-      if (el.closest("[data-sin-traducir]")) continue;
-      for (const a of ["title", "aria-label", "placeholder"]) { const v = el.getAttribute(a); if (v) el.setAttribute(a, tr(v)); }
-    }
-  }
+  // ───────────── Idiomas: pieza «i18n» (ui/i18n.js; las claves son el texto en español) ─────────────
+  // T: frase entera con marcadores ({x}, {n}, {ia}…) en HTML, con la frase y los valores escapados; va dentro de data-sin-traducir
+  // (frase() ya lo hace). Thtml: SOLO para valores que son HTML armado por el propio código (un monto en <span>, una cifra en <b>),
+  // con todo lo de la persona ya pasado por esc(). Tp: texto plano (avisos con toast, que usa textContent). tr y traducirDOM
+  // traducen lo ya pintado (nunca [data-sin-traducir]). E.idioma es solo un espejo de i18n.idioma para el resto de la interfaz.
+  const i18n = PiezaI18n.crear();
+  const { tr, T, Thtml, Tp, frase, traducirDOM } = i18n;
   /** Idioma del equipo («es» o «en»): el que se sugiere en el primer paso. */
-  const idiomaDelSistema = () => ((navigator.language || "es").toLowerCase().startsWith("es") ? "es" : "en");
+  const idiomaDelSistema = () => i18n.idiomaDelSistema();
   async function cargarIdioma() {
-    const pedido = new URLSearchParams(location.search).get("idioma");
-    const codigo = pedido || E.config.idioma_ui || idiomaDelSistema();
-    if (codigo === E.idioma && (codigo === "es" || Object.keys(E.textos).length)) return;
-    E.idioma = codigo;
-    E.textos = {};
-    if (codigo !== "es") {
-      try { E.textos = (await (await fetch(`idiomas/${codigo}.json`)).json()).textos || {}; } catch { E.idioma = "es"; }
-    }
-    document.documentElement.lang = E.idioma;
+    // ?idioma= (vista previa y pruebas) > lo guardado > el del sistema.
+    await i18n.cargar(i18n.elegir({ config: E.config.idioma_ui }));
+    E.idioma = i18n.idioma;
   }
+
+  // ───────────── Tema y componentes: piezas «tema» (ui/tema.css, ui/tema.js) y «componentes» (ui/componentes.*) ─────────────
+  // Sistema, claro u oscuro (Ajustes → Apariencia; ?tema= en la vista previa). Los diálogos, los avisos, las filas de «Tu IA», la
+  // de actualizaciones y «Acerca de» son de la pieza: foco adentro, Tab que no se escapa, Esc y el velo cierran lo de más arriba.
+  const tema = PiezaTema.crear({ guardar: (v) => { E.config.tema = v; host.enviar("config", { tema: v }); } });
+  /** Los avisos que llegan antes de elegir el idioma esperan (nada se dice antes de esa pantalla) y salen después, ya traducidos. */
+  const retenidos = [];
+  const ui = PiezaComponentes.crear({
+    i18n, host, app: "Alcancía", repo: "alcancia-app/alcancia",
+    version: () => E.version,
+    pintar: () => render(),
+    mantenerCampos: true,  // un campo donde se escribe (el buscador, montos) conserva el foco y el cursor al repintar
+    cerrar: () => cerrarDialogo(),
+    retener: (texto, o) => { if (E.bv !== 0) return false; retenidos.push([texto, o]); return true; },
+    elegirIA: (id) => { E.config.ia = id; host.enviar("config", { ia: id }); },
+  });
+  const toast = (texto, o) => ui.aviso(texto, o);
 
   // ───────────── Dinero y fechas ─────────────
   const LOCALES = { NL: "nl-NL", BE: "nl-BE", IE: "en-IE", AT: "de-AT", FI: "fi-FI", SE: "sv-SE", DK: "da-DK", NO: "nb-NO", PL: "pl-PL", AU: "en-AU", CL: "es-CL", AR: "es-AR", MX: "es-MX", CO: "es-CO", PE: "es-PE", UY: "es-UY", ES: "es-ES", US: "en-US", BR: "pt-BR", EC: "es-EC", BO: "es-BO", PY: "es-PY", VE: "es-VE", GB: "en-GB", CA: "en-CA", DE: "de-DE", FR: "fr-FR", IT: "it-IT", PT: "pt-PT" };
@@ -981,14 +951,6 @@
   const mesesConDatos = () => periodosConDatos(E.movimientos, per());
   const mesesCompletos = () => mesesConDatos().filter((m) => m < periodoHoy()).slice(-3);
 
-  function toast(texto) {
-    const t = $("#toast");
-    t.textContent = tr(texto);
-    t.classList.add("visible");
-    clearTimeout(toast._t);
-    toast._t = setTimeout(() => t.classList.remove("visible"), 2200);
-  }
-
   /** Markdown mínimo y seguro (todo se escapa): ### títulos, listas y **negritas**. */
   function mdHTML(texto) {
     const linea = (l) => esc(l).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
@@ -1013,15 +975,16 @@
     const activo = document.activeElement, idActivo = activo?.id, cursor = activo?.selectionStart;
     const scrollChat = $(".chat-cuerpo")?.scrollTop;
     E._per = undefined;
-    raiz.innerHTML = `<div class="app">${lateral()}<main class="principal-area">${avisoActualizacion()}${principal()}</main></div>${E.picker ? pickerHTML() : ""}${avisoRegla()}${dialogos()}`;
+    raiz.innerHTML = `<div class="app">${lateral()}<main class="principal-area">${avisoActualizacion()}${principal()}</main></div>${E.picker ? pickerHTML() : ""}${avisoRegla()}${dialogos()}${ui.capas()}`;
     traducirDOM(raiz);
     const area = $(".principal-area"); if (area) area.scrollTop = scroll;
     const chat = $(".chat-cuerpo");
     if (chat) { if (E.chat.bajar || scrollChat == null) { chat.scrollTop = chat.scrollHeight; E.chat.bajar = false; } else chat.scrollTop = scrollChat; }
     if (scrollPagina && window.scrollY !== scrollPagina) window.scrollTo(0, scrollPagina);
-    if (idActivo) { const el = document.getElementById(idActivo); if (el) { el.focus(); if (cursor != null && el.setSelectionRange) try { el.setSelectionRange(cursor, cursor); } catch {} } }
-    // En la pantalla de idioma el foco parte en el sugerido: Enter ya elige.
-    if (E.bv === 0 && !E.importar && !E.conectar && !document.activeElement?.closest(".dialogo")) $(`#bv-idioma-${idiomaDelSistema()}`)?.focus();
+    // Un botón o una casilla con id vuelve a tener el foco; un campo con cursor lo devuelve la pieza (mantenerCampos).
+    if (idActivo && cursor == null) document.getElementById(idActivo)?.focus();
+    // Foco al abrir un diálogo (en la pantalla de idioma, el sugerido: Enter ya elige), adentro mientras está y de vuelta al cerrarlo.
+    ui.despuesDePintar();
   }
 
   // Iconos de línea (1,8 px, sin relleno): uno por sección y por cada cosa que se puede agregar.
@@ -1098,8 +1061,8 @@
         <div><b>2</b><span>Agrégala aquí: se lee en tu computador y no se duplica si la vuelves a subir.</span></div>
         <div><b>3</b><span>Tu IA pone las categorías y te dice qué va bien y a qué ponerle ojo.</span></div>
       </div>
-      <div class="acciones-vacio"><button class="boton principal" data-accion="importar">＋ <span>Agregar mi primera cartola</span></button>
-        <button class="boton" data-vista="conexiones">🔌 <span>Conectar una cuenta</span></button></div></div>`;
+      <div class="acciones-vacio"><button class="pz-boton pz-principal" data-accion="importar">＋ <span>Agregar mi primera cartola</span></button>
+        <button class="pz-boton" data-vista="conexiones">🔌 <span>Conectar una cuenta</span></button></div></div>`;
   }
 
   // ───────────── Más: lo que se usa de vez en cuando, en una lista simple ─────────────
@@ -1114,23 +1077,23 @@
     return `<div class="contenido"><div class="encabezado"><h1>Más</h1></div>
       <nav class="lista-mas" aria-label="Más">
         ${fila('data-vista="conexiones"', "conexiones", "Conexiones", estadoCon)}
-        ${fila('data-vista="presupuesto"', "presupuesto", "Presupuesto", tope ? `<small data-sin-traducir>${T("{x} al mes, por categoría", { x: esc(dinero(tope)) })}</small>` : `<small>Cuánto quieres gastar como máximo en cada cosa.</small>`)}
-        ${fila('data-vista="consejos"', "consejos", "Consejos", ultimo ? `<small data-sin-traducir>${T("Los últimos, del {f}", { f: esc(fechaCorta(ultimo.fecha)) })}</small>` : `<small data-sin-traducir>${T("Lo que {ia} ve en tus números", { ia: esc(nombreIA()) })}</small>`)}
+        ${fila('data-vista="presupuesto"', "presupuesto", "Presupuesto", tope ? `<small data-sin-traducir>${T("{x} al mes, por categoría", { x: dinero(tope) })}</small>` : `<small>Cuánto quieres gastar como máximo en cada cosa.</small>`)}
+        ${fila('data-vista="consejos"', "consejos", "Consejos", ultimo ? `<small data-sin-traducir>${T("Los últimos, del {f}", { f: fechaCorta(ultimo.fecha) })}</small>` : `<small data-sin-traducir>${T("Lo que {ia} ve en tus números", { ia: nombreIA() })}</small>`)}
         ${fila('data-accion="ajustes"', "ajustes", "Ajustes", `<small>Tu IA, país, tu mes, respaldo e idioma.</small>`)}</nav>
       <footer class="acerca"><p>${frase("**Tus datos son tuyos.** Todo queda en tu computador.", {})}</p>
-        <p data-sin-traducir>${T("Alcancía {v} · Gratis y de código abierto (AGPL-3.0).", { v: esc(E.version) })}</p>
+        <p data-sin-traducir>${T("Alcancía {v} · Gratis y de código abierto (AGPL-3.0).", { v: E.version })}</p>
         <div class="enlaces"><a href="#" data-enlace="${ENLACES.sitio}">Sitio web</a><a href="#" data-enlace="${ENLACES.codigo}">Código</a><a href="#" data-enlace="${ENLACES.comunidad}">Comunidad</a></div></footer></div>`;
   }
 
   // ───────────── Alcancía en tu celular ─────────────
-  // En el Mac: Ajustes → «Alcancía en tu celular» deja una copia cifrada (ui/copia.js) en una carpeta de la nube de la persona.
+  // En el Mac: Ajustes → «Alcancía en tu celular» deja una copia cifrada (ui/copia.js sobre la pieza «cifrado») en una carpeta de la nube de la persona.
   // En el celular: «Traer tus datos» la abre con la frase y la interfaz queda solo para mirar (LECTURA).
   const ARCHIVO_CELULAR = (window.AlcanciaCopia && window.AlcanciaCopia.ARCHIVO) || "Alcancia-celular.alcancia";
   /** «Copia de tu Mac: hace 2 h» (en el celular) */
   function textoCopia() {
     const c = E.celular || {};
     if (!c.generado) return "";
-    return T("Copia de tu Mac: {f}", { f: hace(c.generado) || esc(fechaCorta(c.generado.slice(0, 10))) }) + (c.desactualizada ? " · " + esc(tr("no pude leer la más nueva")) : "");
+    return T("Copia de tu Mac: {f}", { f: hace(c.generado) || fechaCorta(c.generado.slice(0, 10)) }) + (c.desactualizada ? " · " + esc(tr("no pude leer la más nueva")) : "");
   }
   function vistaMasMovil() {
     const tope = Object.values(E.presupuesto.mensual || {}).filter((v) => v > 0).reduce((a, b) => a + b, 0);
@@ -1139,17 +1102,17 @@
     return `<div class="contenido"><div class="encabezado"><h1>Más</h1></div>
       <nav class="lista-mas" aria-label="Más">
         ${fila('data-accion="ajustes"', "conexiones", "Tus datos", `<small data-sin-traducir>${textoCopia() || esc(tr("Llegan cifrados desde tu Mac."))}</small>`)}
-        ${fila('data-vista="presupuesto"', "presupuesto", "Presupuesto", tope ? `<small data-sin-traducir>${T("{x} al mes, por categoría", { x: esc(dinero(tope)) })}</small>` : `<small>Los topes se eligen en tu Mac.</small>`)}
-        ${fila('data-vista="consejos"', "consejos", "Consejos", ultimo ? `<small data-sin-traducir>${T("Los últimos, del {f}", { f: esc(fechaCorta(ultimo.fecha)) })}</small>` : `<small>Los que pidas en tu Mac aparecen aquí.</small>`)}
+        ${fila('data-vista="presupuesto"', "presupuesto", "Presupuesto", tope ? `<small data-sin-traducir>${T("{x} al mes, por categoría", { x: dinero(tope) })}</small>` : `<small>Los topes se eligen en tu Mac.</small>`)}
+        ${fila('data-vista="consejos"', "consejos", "Consejos", ultimo ? `<small data-sin-traducir>${T("Los últimos, del {f}", { f: fechaCorta(ultimo.fecha) })}</small>` : `<small>Los que pidas en tu Mac aparecen aquí.</small>`)}
         ${fila('data-accion="ajustes"', "ajustes", "Ajustes", `<small>Idioma, avisos y tus datos.</small>`)}</nav>
       <footer class="acerca"><p>${frase("**Tus datos son tuyos.** Llegan cerrados con candado desde tu Mac, por tu propia nube.", {})}</p>
         <p>Por ahora, en el celular se mira: categorizar, marcar pagos, agregar cartolas y conversar con Alcancía se hacen en tu Mac.</p>
-        <p data-sin-traducir>${T("Alcancía {v} · Gratis y de código abierto (AGPL-3.0).", { v: esc(E.version) })}</p>
+        <p data-sin-traducir>${T("Alcancía {v} · Gratis y de código abierto (AGPL-3.0).", { v: E.version })}</p>
         <div class="enlaces"><a href="#" data-enlace="${ENLACES.sitio}">Sitio web</a><a href="#" data-enlace="${ENLACES.codigo}">Código</a><a href="#" data-enlace="${ENLACES.comunidad}">Comunidad</a></div></footer></div>`;
   }
   const pasosCelular = () => `<div class="pasos-vacio">
       <div><b>1</b><span>En tu Mac: Alcancía → Ajustes → «Alcancía en tu celular». Elige una carpeta de tu nube y una frase.</span></div>
-      <div><b>2</b><span data-sin-traducir>${T("Aquí: «Elegir el archivo» y busca «{a}» en esa carpeta.", { a: esc(ARCHIVO_CELULAR) })}</span></div>
+      <div><b>2</b><span data-sin-traducir>${T("Aquí: «Elegir el archivo» y busca «{a}» en esa carpeta.", { a: ARCHIVO_CELULAR })}</span></div>
       <div><b>3</b><span>Escribe la frase que elegiste en el Mac.</span></div></div>`;
   /** En el celular, antes de tener datos: elegir el archivo y escribir la frase. */
   function vistaTraer() {
@@ -1157,78 +1120,82 @@
     const error = (x) => (x ? `<p class="error-txt" role="alert" data-sin-traducir>${esc(tr(x))}</p>` : "");
     if (c.estado === "frase") {
       return `<div class="contenido traer"><section class="tarjeta traer-frase"><h1>Escribe tu frase</h1>
-        <p class="texto-suave" data-sin-traducir>${T("La que elegiste en tu Mac para abrir «{a}».", { a: esc(c.archivo || ARCHIVO_CELULAR) })}</p>
+        <p class="texto-suave" data-sin-traducir>${T("La que elegiste en tu Mac para abrir «{a}».", { a: c.archivo || ARCHIVO_CELULAR })}</p>
         <form data-traer-form><label class="campo"><span>Frase</span><input id="traer-frase" class="texto" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-traer-frase value="${esc(t.frase)}" data-sin-traducir></label>
           <label class="marcar"><input type="checkbox" data-traer-recordar ${t.recordar ? "checked" : ""}><span>Recordarla en este teléfono<small>Queda en el llavero del teléfono, protegida por su bloqueo. Si no, te la pido cada vez que abras Alcancía.</small></span></label>
           ${error(t.error)}
-          <div class="pie-dialogo"><button type="button" class="boton" data-accion="traer-elegir">Elegir otro archivo</button><button type="submit" class="boton principal" ${t.abriendo || !t.frase ? "disabled" : ""}>${t.abriendo ? "Abriendo…" : "Abrir"}</button></div></form></section></div>`;
+          <div class="pz-pie"><button type="button" class="pz-boton" data-accion="traer-elegir">Elegir otro archivo</button><button type="submit" class="pz-boton pz-principal" ${t.abriendo || !t.frase ? "disabled" : ""}>${t.abriendo ? "Abriendo…" : "Abrir"}</button></div></form></section></div>`;
     }
     return `<div class="contenido traer"><div class="vacio">${LOGO.replace('class="logo"', 'class="logo" style="width:64px;height:64px"')}<h1>Trae tus datos desde tu Mac</h1>
       <p>Alcancía en el celular muestra lo que tu Mac ya ordenó. Tus datos viajan cerrados con candado por tu propia nube: nada pasa por servidores de Alcancía.</p>
       ${pasosCelular()}${error(c.error)}
-      <div class="acciones-vacio"><button class="boton principal" data-accion="traer-elegir">Elegir el archivo</button><button class="boton" data-accion="ajustes">Ajustes</button></div></div></div>`;
+      <div class="acciones-vacio"><button class="pz-boton pz-principal" data-accion="traer-elegir">Elegir el archivo</button><button class="pz-boton" data-accion="ajustes">Ajustes</button></div></div></div>`;
   }
   /** Ajustes en el celular: tus datos, avisos, idioma y acerca de. */
   function dialogoAjustesMovil() {
     const c = E.celular || {};
-    const datos = c.archivo ? `<div class="fila"><div class="txt"><b data-sin-traducir>${esc(c.archivo)}</b><small data-sin-traducir>${textoCopia() || esc(tr("Aún no la abres."))}</small></div><button class="boton" data-accion="traer-releer">Releer</button></div>
-        ${c.recordada ? `<div class="fila"><div class="txt"><b>Frase recordada en este teléfono</b><small>Si la olvidas aquí, te la pido la próxima vez.</small></div><button class="boton sutil" data-accion="traer-olvidar">Olvidar</button></div>` : ""}
-        <div class="fila"><div class="txt"><b>Desconectar este teléfono</b><small>Borra de aquí la copia, el permiso para leer el archivo y la frase. En tu Mac no cambia nada.</small></div><button class="boton sutil" data-accion="traer-desconectar">Desconectar</button></div>`
-      : `<div class="fila"><div class="txt"><b>Aún no traes tus datos</b><small>Llegan cifrados desde tu Mac, por tu propia nube.</small></div><button class="boton principal" data-accion="traer-elegir">Elegir el archivo</button></div>`;
-    return `<h2 id="t-ajustes">Ajustes</h2><p>En el celular se mira. Lo que cambia tus datos se hace en tu Mac.</p>
+    const datos = c.archivo ? `<div class="fila"><div class="txt"><b data-sin-traducir>${esc(c.archivo)}</b><small data-sin-traducir>${textoCopia() || esc(tr("Aún no la abres."))}</small></div><button class="pz-boton" data-accion="traer-releer">Releer</button></div>
+        ${c.recordada ? `<div class="fila"><div class="txt"><b>Frase recordada en este teléfono</b><small>Si la olvidas aquí, te la pido la próxima vez.</small></div><button class="pz-boton pz-plano" data-accion="traer-olvidar">Olvidar</button></div>` : ""}
+        <div class="fila"><div class="txt"><b>Desconectar este teléfono</b><small>Borra de aquí la copia, el permiso para leer el archivo y la frase. En tu Mac no cambia nada.</small></div><button class="pz-boton pz-plano" data-accion="traer-desconectar">Desconectar</button></div>`
+      : `<div class="fila"><div class="txt"><b>Aún no traes tus datos</b><small>Llegan cifrados desde tu Mac, por tu propia nube.</small></div><button class="pz-boton pz-principal" data-accion="traer-elegir">Elegir el archivo</button></div>`;
+    return { titulo: "Ajustes", cuerpo: `<p>En el celular se mira. Lo que cambia tus datos se hace en tu Mac.</p>
       <div class="seccion"><h3>Tus datos</h3>${datos}</div>
       <div class="seccion"><h3>Avisos</h3><div class="fila"><div class="txt"><b>Avisarme antes de que venza un pago</b><small>Un aviso 3 días antes y el día que vence, solo de lo que pagas tú. Sin montos.</small></div>
         <label class="interruptor"><input type="checkbox" data-avisos ${E.config.avisos ? "checked" : ""}><span class="visual" aria-hidden="true"></span><span class="oculto-accesible">Avisarme antes de que venza un pago</span></label></div></div>
       <div class="seccion"><h3>General</h3>
-        <div class="fila"><div class="txt"><b>Idioma de la app</b></div><select data-config="idioma_ui"><option value="es" ${E.idioma === "es" ? "selected" : ""}>Español</option><option value="en" ${E.idioma === "en" ? "selected" : ""}>English</option></select></div></div>
-      <div class="seccion"><h3>Acerca de Alcancía</h3><p style="margin:0 0 8px;color:var(--suave)">${frase("Alcancía {v} · Gratis y de código abierto (AGPL-3.0).", { v: esc(E.version) })}</p>
-        <p class="texto-suave">Por ahora, en el celular se mira: categorizar, marcar pagos, agregar cartolas y conversar con Alcancía se hacen en tu Mac.</p>
-        <div class="enlaces"><a href="#" data-enlace="${ENLACES.sitio}">Sitio web</a><a href="#" data-enlace="${ENLACES.codigo}">Código</a><a href="#" data-enlace="${ENLACES.comunidad}">Comunidad</a></div></div>
-      <div class="pie-dialogo"><button class="boton principal" data-accion="cerrar">Listo</button></div>`;
+        ${filaIdioma()}${filaApariencia()}</div>
+      <div class="seccion"><h3>Acerca de Alcancía</h3>${acercaDe()}
+        <p class="texto-suave">Por ahora, en el celular se mira: categorizar, marcar pagos, agregar cartolas y conversar con Alcancía se hacen en tu Mac.</p></div>`,
+      pie: `<button class="pz-boton pz-principal" data-accion="cerrar">Listo</button>` };
   }
+  const filaIdioma = () => `<div class="fila"><div class="txt"><b>Idioma de la app</b></div><select data-config="idioma_ui" aria-label="Idioma de la app"><option value="es" ${E.idioma === "es" ? "selected" : ""}>Español</option><option value="en" ${E.idioma === "en" ? "selected" : ""}>English</option></select></div>`;
+  /** Sistema, claro u oscuro (pieza «tema»). */
+  const filaApariencia = () => `<div class="fila envuelve"><div class="txt"><b>Apariencia</b></div>${tema.selectorHTML()}</div>`;
+  /** Versión, licencia y enlaces (pieza «componentes»), con «Enviar comentarios» que abre un issue prellenado en GitHub. */
+  const acercaDe = () => ui.acercaDe({ version: E.version, enlaces: { sitio: ENLACES.sitio, codigo: ENLACES.codigo, comunidad: ENLACES.comunidad, aportar: ENLACES.aportar } });
   /** En Ajustes del Mac: la copia para el celular (apagada, o dónde está y cuándo se hizo la última). */
   function seccionCelular() {
     const c = E.celular || {};
     if (!c.activo) {
       return `<div class="seccion"><h3>Alcancía en tu celular</h3>
         <p class="texto-suave intro-campo">Mira tus números en tu iPhone o Android. Tu Mac deja una copia cerrada con candado en una carpeta de tu nube y el celular la abre con una frase que solo tú sabes.</p>
-        <div class="fila"><div class="txt"><b>Copia para el celular</b><small>Apagada</small></div><button class="boton" data-accion="celular-configurar">Activar</button></div></div>`;
+        <div class="fila"><div class="txt"><b>Copia para el celular</b><small>Apagada</small></div><button class="pz-boton" data-accion="celular-configurar">Activar</button></div></div>`;
     }
     const estado = c.error ? `<small class="error-txt" data-sin-traducir>${esc(tr(c.error))}</small>`
-      : `<small data-sin-traducir>${c.ultima ? T("Última copia: {f}", { f: hace(c.ultima) || esc(fechaCorta(c.ultima.slice(0, 10))) }) : esc(tr("Preparando la primera copia…"))}</small>`;
+      : `<small data-sin-traducir>${c.ultima ? T("Última copia: {f}", { f: hace(c.ultima) || fechaCorta(c.ultima.slice(0, 10)) }) : esc(tr("Preparando la primera copia…"))}</small>`;
     return `<div class="seccion"><h3>Alcancía en tu celular</h3>
-      <div class="fila"><div class="txt"><b data-sin-traducir>${T("En {c}", { c: esc(c.nombre || "") })}${c.nube ? ` · ${esc(c.nube)}` : ""}</b>${estado}</div><button class="boton" data-accion="celular-copiar">Copiar ahora</button></div>
-      <p class="texto-suave intro-campo" data-sin-traducir>${T("Se actualiza al abrir Alcancía, cuando llegan movimientos y cada 6 horas. En el celular: «Elegir el archivo» y busca «{a}».", { a: esc(ARCHIVO_CELULAR) })}</p>
-      <div class="fila"><div class="txt"><b>Frase</b><small>Si la cambias, escríbela de nuevo en el celular.</small></div><button class="boton sutil" data-accion="celular-frase">Cambiar</button></div>
-      <div class="fila"><div class="txt"><b>Dejar de copiar</b><small>La copia que ya está en tu nube queda ahí; puedes borrarla tú.</small></div><button class="boton sutil" data-accion="celular-desactivar">Desactivar</button></div></div>`;
+      <div class="fila"><div class="txt"><b data-sin-traducir>${T("En {c}", { c: c.nombre || "" })}${c.nube ? ` · ${esc(c.nube)}` : ""}</b>${estado}</div><button class="pz-boton" data-accion="celular-copiar">Copiar ahora</button></div>
+      <p class="texto-suave intro-campo" data-sin-traducir>${T("Se actualiza al abrir Alcancía, cuando llegan movimientos y cada 6 horas. En el celular: «Elegir el archivo» y busca «{a}».", { a: ARCHIVO_CELULAR })}</p>
+      <div class="fila"><div class="txt"><b>Frase</b><small>Si la cambias, escríbela de nuevo en el celular.</small></div><button class="pz-boton pz-plano" data-accion="celular-frase">Cambiar</button></div>
+      <div class="fila"><div class="txt"><b>Dejar de copiar</b><small>La copia que ya está en tu nube queda ahí; puedes borrarla tú.</small></div><button class="pz-boton pz-plano" data-accion="celular-desactivar">Desactivar</button></div></div>`;
   }
   /** El asistente del Mac: carpeta de la nube → frase (con su fuerza y el aviso de que no se recupera) → listo. */
   function dialogoCelular() {
     const k = E.celularConfig, C = window.AlcanciaCopia;
-    const cab = `<h2 id="t-celular">Alcancía en tu celular</h2>`;
+    const titulo = "Alcancía en tu celular";
     const error = k.error ? `<p class="error-txt" role="alert" data-sin-traducir>${esc(tr(k.error))}</p>` : "";
-    const cerrar = `<button class="boton" data-accion="celular-cerrar">Cancelar</button>`;
+    const cerrar = `<button class="pz-boton" data-accion="celular-cerrar">Cancelar</button>`;
     if (k.paso === "carpeta") {
-      return `${cab}<p>Tu Mac deja una copia de tus números, cerrada con candado, en una carpeta de tu nube. Tu celular la lee desde ahí.</p>
+      return { titulo, cuerpo: `<p>Tu Mac deja una copia de tus números, cerrada con candado, en una carpeta de tu nube. Tu celular la lee desde ahí.</p>
         <div class="candado"><span class="grande-ico" aria-hidden="true">☁️</span><div><b>Elige una carpeta de tu nube</b><br>Una que también veas en el celular: iCloud Drive, Google Drive, OneDrive o Dropbox.</div></div>
-        ${error}<div class="pie-dialogo">${cerrar}<button class="boton principal" data-accion="celular-carpeta">Elegir carpeta</button></div>`;
+        ${error}`, pie: `${cerrar}<button class="pz-boton pz-principal" data-accion="celular-carpeta">Elegir carpeta</button>` };
     }
     if (k.paso === "listo") {
-      return `${cab}<p data-sin-traducir>🎉 ${T("Listo: tu copia está en **{c}**.", { c: esc(k.carpeta?.nombre || E.celular.nombre || "") })}</p>
+      return { titulo, cuerpo: `<p data-sin-traducir>🎉 ${T("Listo: tu copia está en **{c}**.", { c: k.carpeta?.nombre || E.celular.nombre || "" })}</p>
         <div class="pasos-vacio"><div><b>1</b><span>Instala Alcancía en tu celular.</span></div>
-          <div><b>2</b><span data-sin-traducir>${T("Toca «Elegir el archivo» y busca «{a}» en esa carpeta.", { a: esc(ARCHIVO_CELULAR) })}</span></div>
-          <div><b>3</b><span>Escribe tu frase.</span></div></div>
-        <div class="pie-dialogo"><button class="boton principal" data-accion="celular-cerrar">Listo</button></div>`;
+          <div><b>2</b><span data-sin-traducir>${T("Toca «Elegir el archivo» y busca «{a}» en esa carpeta.", { a: ARCHIVO_CELULAR })}</span></div>
+          <div><b>3</b><span>Escribe tu frase.</span></div></div>`,
+        pie: `<button class="pz-boton pz-principal" data-accion="celular-cerrar">Listo</button>` };
     }
     const f = C.fuerzaFrase(k.frase), problema = C.revisarFrase(k.frase), creando = k.paso === "creando";
-    const carpeta = k.carpeta ? `<p data-sin-traducir>${T("Carpeta: {c}", { c: `<b>${esc(k.carpeta.nombre)}</b>${k.carpeta.nube ? " · " + esc(k.carpeta.nube) : ""}` })} <button class="enlace" data-accion="celular-carpeta">${esc(tr("Cambiar"))}</button></p>
+    const carpeta = k.carpeta ? `<p data-sin-traducir>${Thtml("Carpeta: {c}", { c: `<b>${esc(k.carpeta.nombre)}</b>${k.carpeta.nube ? " · " + esc(k.carpeta.nube) : ""}` })} <button class="enlace" data-accion="celular-carpeta">${esc(tr("Cambiar"))}</button></p>
       ${k.carpeta.enNube === false ? `<p class="error-txt">Esa carpeta no parece estar en una nube: el celular no la va a ver. Mejor elige una dentro de iCloud Drive, Google Drive, OneDrive o Dropbox.</p>` : ""}` : "";
-    return `${cab}${carpeta}
+    return { titulo, cuerpo: `${carpeta}
       <label class="campo"><span>${k.cambiar ? "Tu nueva frase" : "Crea una frase"}</span><input id="celular-frase" class="texto" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-celular-frase value="${esc(k.frase)}" ${creando ? "disabled" : ""} data-sin-traducir></label>
       <div class="fuerza" data-nivel="${f.nivel}"><span class="fuerza-barra" aria-hidden="true"><i></i><i></i><i></i></span><small>${k.frase ? f.texto : "Al menos 12 caracteres"}</small></div>
       <p class="texto-suave">Cuatro palabras que no tengan que ver entre sí son fáciles de recordar y difíciles de adivinar. Anótala en un lugar seguro: la vas a escribir en tu celular.</p>
       <label class="marcar"><input type="checkbox" data-celular-entiendo ${k.entiendo ? "checked" : ""} ${creando ? "disabled" : ""}><span>Entiendo que sin esta frase no hay forma de abrir la copia<small>Alcancía no la guarda en ninguna parte y no la puede recuperar.</small></span></label>
-      ${error}<div class="pie-dialogo">${cerrar}<button class="boton principal" data-accion="celular-crear" ${problema || !k.entiendo || creando || !k.carpeta ? "disabled" : ""}>${creando ? "Creando la copia…" : "Crear la copia"}</button></div>`;
+      ${error}`, pie: `${cerrar}<button class="pz-boton pz-principal" data-accion="celular-crear" ${problema || !k.entiendo || creando || !k.carpeta ? "disabled" : ""}>${creando ? "Creando la copia…" : "Crear la copia"}</button>` };
   }
   /** «Crear la copia»: la llave sale de la frase aquí mismo (WebCrypto) y la app la guarda en el Llavero; la frase no se guarda. */
   async function crearCopiaCelular() {
@@ -1236,10 +1203,10 @@
     if (!k || k.paso === "creando") return;
     k.paso = "creando"; k.error = ""; render();
     try {
-      const { cabecera, raw } = await window.AlcanciaCopia.nuevaCabecera(k.frase);
+      const { cabecera, llaves } = await window.AlcanciaCopia.nuevaCabecera(k.frase);
       k.frase = "";
-      host.enviar("celular", { accion: "activar", llave: raw, cabecera });
-    } catch (e) { k.paso = "frase"; k.error = e.message || tr("No pude crear la copia."); render(); }
+      host.enviar("celular", { accion: "activar", llave: llaves.raw, cabecera });
+    } catch (e) { k.paso = "frase"; k.error = e && e.codigo ? window.AlcanciaCopia.mensaje(e) : tr("No pude crear la copia."); render(); }
   }
   /** Lo que solo se puede hacer en el Mac (en el celular, fase 1). Un aviso discreto, sin bloquear nada. */
   const soloEnMac = (texto = "Esto se hace en tu Mac por ahora") => toast(texto);
@@ -1252,22 +1219,24 @@
     const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
     if (!(min >= 0)) return "";
     if (min < 2) return tr("recién");
-    if (min < 60) return T("hace {n} min", { n: min });
+    if (min < 60) return Tp("hace {n} min", { n: min });
     const h = Math.round(min / 60);
-    return h < 24 ? T("hace {n} h", { n: h }) : T("hace {n} días", { n: Math.round(h / 24) });
+    return h < 24 ? Tp("hace {n} h", { n: h }) : Tp("hace {n} días", { n: Math.round(h / 24) });
   }
+  /** El error de un conector en el idioma elegido: los de la pieza «red» traen su plantilla y valores; los demás, la frase. */
+  const errorRed = (r) => (r && r.plantilla ? Tp(r.plantilla, r.valores || {}) : (r && r.error) || "");
   function tarjetaConector(c) {
     const est = E.conexiones[c.id] || {}, sinc = E.sincronizando[c.id];
     const paises = c.paises.includes("*") ? tr("Todo el mundo") : c.paises.join(" · ");
     let estado;
     if (sinc) estado = `<small>Trayendo movimientos…</small>`;
-    else if (est.conectado && est.error) estado = `<small class="error-txt" data-sin-traducir>${esc(est.error)}</small>`;
-    else if (est.conectado && est.esperando) estado = `<small>${frase("{s} está preparando tus movimientos. Llegan en la próxima revisión.", { s: esc(c.nombre) })}</small>`;
-    else if (est.conectado) estado = `<small class="ok-txt">${est.ultima ? frase("✓ Conectado · revisado {h}", { h: esc(hace(est.ultima)) }) : "✓ Conectado"}</small>`;
+    else if (est.conectado && est.error) estado = `<small class="error-txt" data-sin-traducir>${esc(errorRed(est))}</small>`;
+    else if (est.conectado && est.esperando) estado = `<small>${frase("{s} está preparando tus movimientos. Llegan en la próxima revisión.", { s: c.nombre })}</small>`;
+    else if (est.conectado) estado = `<small class="ok-txt">${est.ultima ? frase("✓ Conectado · revisado {h}", { h: hace(est.ultima) }) : "✓ Conectado"}</small>`;
     else estado = `<small data-sin-traducir>${esc(paises)}</small>`;
     const botones = est.conectado
-      ? `<button class="boton" data-sincronizar="${esc(c.id)}" ${sinc ? "disabled" : ""}>Revisar ahora</button><button class="icono" data-desconectar="${esc(c.id)}" title="Desconectar" aria-label="Desconectar">✕</button>`
-      : `<button class="boton principal" data-conectar="${esc(c.id)}">Conectar</button>`;
+      ? `<button class="pz-boton" data-sincronizar="${esc(c.id)}" ${sinc ? "disabled" : ""}>Revisar ahora</button><button class="icono" data-desconectar="${esc(c.id)}" title="Desconectar" aria-label="Desconectar">✕</button>`
+      : `<button class="pz-boton pz-principal" data-conectar="${esc(c.id)}">Conectar</button>`;
     return `<div class="conector ${est.conectado ? "conectado" : ""}"><div class="txt"><b><span data-sin-traducir>${esc(tr(c.nombre))}</span>${c.estado === "beta" ? `<span class="chip pronto" title="Funciona con la API oficial, pero aún falta que alguien lo pruebe con su cuenta real">Beta</span>` : ""}</b>${estado}</div>
       <div class="acciones">${botones}</div></div>`;
   }
@@ -1277,14 +1246,14 @@
     const otros = E.conectores.filter((c) => !c.paises.includes(pais) && !c.paises.includes("*"));
     const v = E.vigilar || {};
     const recientes = (v.recientes || []).slice(0, 4).map((r) => `<li data-sin-traducir>${esc(r.archivo)} · ${r.resultado === "importado"
-      ? esc(T(r.nuevos === 1 ? "1 movimiento nuevo" : "{n} movimientos nuevos", { n: r.nuevos })) : esc(tr("no la sé leer todavía"))}</li>`).join("");
+      ? T(r.nuevos === 1 ? "1 movimiento nuevo" : "{n} movimientos nuevos", { n: r.nuevos }) : esc(tr("no la sé leer todavía"))}</li>`).join("");
     return `<div class="contenido">${volver("mas", "Más")}<div class="encabezado"><h1>Conexiones</h1></div>
       <p class="intro-vista">${frase("Que tus movimientos lleguen solos. Alcancía usa la conexión oficial de cada servicio con una llave que creas tú, y la guarda cifrada en tu computador. **Nunca te pide la clave de tu banco.**", {})}</p>
       <section class="tarjeta"><div class="fila sin-borde"><div class="txt"><b>📥 Cartolas que descargues</b>
         <small>Descargas la cartola desde tu banco, como siempre, y Alcancía la agrega sola apenas llega a tu carpeta de Descargas. Sirve para cualquier banco del mundo.</small></div>
         <label class="interruptor"><input type="checkbox" data-vigilar ${v.activo ? "checked" : ""}><span class="visual" aria-hidden="true"></span><span class="oculto-accesible">Importar solas las cartolas que descargue</span></label></div>
         ${v.activo && recientes ? `<ul class="recientes">${recientes}</ul>` : ""}</section>
-      ${delPais.length ? `<h2 class="subtitulo">${frase("En {p}", { p: esc(nombrePais(pais)) })}</h2><div class="conectores">${delPais.map(tarjetaConector).join("")}</div>` : ""}
+      ${delPais.length ? `<h2 class="subtitulo">${frase("En {p}", { p: nombrePais(pais) })}</h2><div class="conectores">${delPais.map(tarjetaConector).join("")}</div>` : ""}
       ${mundo.length ? `<h2 class="subtitulo">En todo el mundo</h2><div class="conectores">${mundo.map(tarjetaConector).join("")}</div>` : ""}
       ${otros.length ? `<details class="otros-paises"><summary>${frase("Otros países ({n})", { n: otros.length })}</summary><div class="conectores">${otros.map(tarjetaConector).join("")}</div></details>` : ""}
       ${seccionIAExterna()}
@@ -1299,8 +1268,8 @@
       const estado = error ? `<small class="error-txt" data-sin-traducir>${esc(error)}</small>`
         : c.conectado ? `<small class="ok-txt">${c.al_dia ? "✓ Conectada: ya puede consultar tus finanzas" : "Conectada (actualizando la ruta…)"}</small>`
           : `<small>Instalada en este computador</small>`;
-      const boton = c.conectado ? `<button class="boton" data-mcp-quitar="${esc(c.id)}" ${ocupado ? "disabled" : ""}>Quitar</button>`
-        : `<button class="boton principal" data-mcp="${esc(c.id)}" ${ocupado ? "disabled" : ""}>${ocupado ? "Conectando…" : "Conectar"}</button>`;
+      const boton = c.conectado ? `<button class="pz-boton" data-mcp-quitar="${esc(c.id)}" ${ocupado ? "disabled" : ""}>Quitar</button>`
+        : `<button class="pz-boton pz-principal" data-mcp="${esc(c.id)}" ${ocupado ? "disabled" : ""}>${ocupado ? "Conectando…" : "Conectar"}</button>`;
       return `<div class="fila"><div class="txt"><b data-sin-traducir>${esc(tr(c.nombre))}</b>${estado}</div>${boton}</div>`;
     }).join("");
     const alguna = lista.some((c) => c.conectado);
@@ -1314,18 +1283,17 @@
   const mdCorto = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`([^`]+)`/g, "<code>$1</code>");
   function dialogoConectar() {
     const c = E.conectores.find((x) => x.id === E.conectar.id);
-    if (!c) return "";
+    if (!c) return null;
     const k = E.conectar;
     const campos = c.campos.map((f) => `<label class="campo"><span data-sin-traducir>${esc(tr(f.etiqueta))}</span>
       <input class="entrada" type="${f.secreto ? "password" : "text"}" id="campo-${esc(f.id)}" data-campo="${esc(f.id)}" autocomplete="off" spellcheck="false" value="${esc(k.campos[f.id] || "")}" ${k.enviando ? "disabled" : ""}></label>`).join("");
-    return `<h2 id="t-conectar">${frase("Conectar {s}", { s: esc(tr(c.nombre)) })}</h2>
-      <ol class="pasos-conectar">${c.pasos.map((p) => `<li data-sin-traducir>${mdCorto(tr(p))}</li>`).join("")}</ol>
-      ${c.enlace ? `<p><a href="#" data-enlace="${esc(c.enlace)}">${frase("Abrir la página de {s}", { s: esc(c.nombre) })} ↗</a></p>` : ""}
+    return { titulo: "Conectar {s}", valores: { s: tr(c.nombre) }, cuerpo: `<ol class="pasos-conectar">${c.pasos.map((p) => `<li data-sin-traducir>${mdCorto(tr(p))}</li>`).join("")}</ol>
+      ${c.enlace ? `<p><a href="#" data-enlace="${esc(c.enlace)}">${frase("Abrir la página de {s}", { s: c.nombre })} ↗</a></p>` : ""}
       ${c.nota ? `<p class="nota-conector" data-sin-traducir>${mdCorto(tr(c.nota))}</p>` : ""}
       <div class="campos-conectar">${campos}</div>
       <div class="candado"><span class="grande-ico" aria-hidden="true">🔐</span><div>La llave se guarda cifrada en el llavero de tu computador y solo se usa para leer tus movimientos. Puedes desconectar cuando quieras.</div></div>
-      ${k.error ? `<p class="error-txt" data-sin-traducir>${esc(k.error)}</p>` : ""}
-      <div class="pie-dialogo"><button class="boton" data-accion="cerrar-conectar">Cancelar</button><button class="boton principal" data-accion="enviar-conectar" ${k.enviando ? "disabled" : ""}>${k.enviando ? "Revisando…" : "Conectar"}</button></div>`;
+      ${k.error ? `<p class="error-txt" data-sin-traducir>${esc(k.error)}</p>` : ""}`,
+      pie: `<button class="pz-boton" data-accion="cerrar-conectar">Cancelar</button><button class="pz-boton pz-principal" data-accion="enviar-conectar" ${k.enviando ? "disabled" : ""}>${k.enviando ? "Revisando…" : "Conectar"}</button>` };
   }
 
   /** Barras de los últimos meses (HTML y CSS, sin librerías) con la línea del presupuesto. El dibujo es solo para la vista:
@@ -1335,12 +1303,12 @@
     const max = Math.max(1, h.tope, ...h.meses.map((m) => Math.max(m.gastado, m.proyeccion || 0)));
     const alto = (v) => (v / max * 80).toFixed(1);
     let texto;
-    if (ult.en_curso && ult.proyeccion != null) texto = frase("A este ritmo cierras el mes en **{x}**.", { x: esc(dinero(ult.proyeccion)) });
-    else if (ult.en_curso) texto = frase("Llevas **{x}** este mes.", { x: esc(dinero(ult.gastado)) });
-    else texto = frase("En {m} gastaste **{x}**.", { m: esc(nombreMes(ult.mes)), x: esc(dinero(ult.gastado)) });
+    if (ult.en_curso && ult.proyeccion != null) texto = frase("A este ritmo cierras el mes en **{x}**.", { x: dinero(ult.proyeccion) });
+    else if (ult.en_curso) texto = frase("Llevas **{x}** este mes.", { x: dinero(ult.gastado) });
+    else texto = frase("En {m} gastaste **{x}**.", { m: nombreMes(ult.mes), x: dinero(ult.gastado) });
     if (h.promedio == null) texto += " " + frase("Cuando tengas más meses, aquí vas a ver cómo vas comparado con ellos.", {});
     else if (h.promedio > 0 && !(ult.en_curso && ult.proyeccion == null)) {
-      const v = ult.proyeccion ?? ult.gastado, pct = Math.round(Math.abs(v - h.promedio) / h.promedio * 100), p = esc(dinero(h.promedio));
+      const v = ult.proyeccion ?? ult.gastado, pct = Math.round(Math.abs(v - h.promedio) / h.promedio * 100), p = dinero(h.promedio);
       texto += " " + (pct >= 5 && v > h.promedio ? frase("Es {n}% más que tu promedio de los meses anteriores ({x}).", { n: pct, x: p })
         : pct >= 5 ? frase("Es {n}% menos que tu promedio de los meses anteriores ({x}).", { n: pct, x: p })
           : frase("Es parecido a tu promedio de los meses anteriores ({x}).", { x: p }));
@@ -1358,9 +1326,9 @@
         <div class="plot" data-sin-traducir>${cols}${h.tope ? `<div class="tope-linea" style="bottom:${alto(h.tope)}%"></div>` : ""}</div>
         <div class="eje" data-sin-traducir>${eje}</div></div>
       <div class="leyenda" aria-hidden="true"><span><i class="m-real"></i>Gastado</span>${hayProy ? `<span><i class="m-proy"></i>Proyección del mes</span>` : ""}
-        ${h.tope ? `<span><i class="m-tope"></i>${frase("Presupuesto: {x}", { x: esc(dinero(h.tope)) })}</span>` : ""}</div>
+        ${h.tope ? `<span><i class="m-tope"></i>${frase("Presupuesto: {x}", { x: dinero(h.tope) })}</span>` : ""}</div>
       <div class="oculto-accesible"><table><caption data-sin-traducir>${titulo}</caption><thead><tr><th scope="col">Mes</th><th scope="col">Gastado</th><th scope="col">Proyección</th></tr></thead>
-        <tbody>${filas}</tbody></table>${h.tope ? `<p>${frase("Presupuesto: {x}", { x: esc(dinero(h.tope)) })}</p>` : ""}</div>`;
+        <tbody>${filas}</tbody></table>${h.tope ? `<p>${frase("Presupuesto: {x}", { x: dinero(h.tope) })}</p>` : ""}</div>`;
   }
 
   // ───────────── Resumen: tres números (lo que tienes, lo que gastaste, lo que debes) ─────────────
@@ -1374,50 +1342,50 @@
       : frase("**Estás al día.** Pagaste todo lo de este mes.", {})}</p></div>`;
     const p = pend[0], c = esc(p.nombre), x = montoCorto(p);
     let texto;
-    if (p.estado === "atrasado" && p.modo_pago === "automatico") texto = p.dias === 1 ? T("No vimos el cargo de **{c}**: {x}, venció ayer.", { c, x }) : T("No vimos el cargo de **{c}**: {x}, venció hace {n} días.", { c, x, n: p.dias });
-    else if (p.estado === "atrasado") texto = p.dias === 1 ? T("Te falta pagar **{c}**: {x}, venció ayer.", { c, x }) : T("Te falta pagar **{c}**: {x}, vencido hace {n} días.", { c, x, n: p.dias });
-    else if (p.estado === "hoy") texto = T("Te falta pagar **{c}**: {x}, vence hoy.", { c, x });
-    else texto = p.dias === 1 ? T("Te falta pagar **{c}**: {x}, vence mañana.", { c, x }) : T("Te falta pagar **{c}**: {x}, vence en {n} días.", { c, x, n: p.dias });
+    if (p.estado === "atrasado" && p.modo_pago === "automatico") texto = p.dias === 1 ? Thtml("No vimos el cargo de **{c}**: {x}, venció ayer.", { c, x }) : Thtml("No vimos el cargo de **{c}**: {x}, venció hace {n} días.", { c, x, n: p.dias });
+    else if (p.estado === "atrasado") texto = p.dias === 1 ? Thtml("Te falta pagar **{c}**: {x}, venció ayer.", { c, x }) : Thtml("Te falta pagar **{c}**: {x}, vencido hace {n} días.", { c, x, n: p.dias });
+    else if (p.estado === "hoy") texto = Thtml("Te falta pagar **{c}**: {x}, vence hoy.", { c, x });
+    else texto = p.dias === 1 ? Thtml("Te falta pagar **{c}**: {x}, vence mañana.", { c, x }) : Thtml("Te falta pagar **{c}**: {x}, vence en {n} días.", { c, x, n: p.dias });
     const sumables = pend.filter((i) => i.moneda === monedaPrincipal());
     const mas = pend.length > 1 ? " " + T(pend.length === 2 ? "Y 1 cosa más ({x} en total)." : "Y {n} cosas más ({x} en total).", { n: pend.length - 1,
-      x: (sumables.some((i) => i.rango) ? "≈ " : "") + esc(dinero(sumables.reduce((a, i) => a + i.monto, 0))) }) : "";
+      x: (sumables.some((i) => i.rango) ? "≈ " : "") + dinero(sumables.reduce((a, i) => a + i.monto, 0)) }) : "";
     return `<div class="al-dia ${p.estado === "atrasado" ? "atrasado" : "pendiente"}" role="status"><span class="punto" aria-hidden="true"></span>
       <p data-sin-traducir>${texto}${mas}</p>
-      <div class="acciones"><button class="boton sutil" data-comp-pagado="${esc(`${p.id}|${p.periodo}`)}">Ya lo pagué</button>${pend.length > 1 ? `<button class="boton sutil" data-cifra-abrir="debes">Ver todo</button>` : ""}</div></div>`;
+      <div class="acciones"><button class="pz-boton pz-plano" data-comp-pagado="${esc(`${p.id}|${p.periodo}`)}">Ya lo pagué</button>${pend.length > 1 ? `<button class="pz-boton pz-plano" data-cifra-abrir="debes">Ver todo</button>` : ""}</div></div>`;
   }
 
   /** Cuándo empieza tu mes. `pregunta`: lo que pide algo (¿cuándo te pagan?, ¿aún no te pagan?) y va en «Pendientes»;
    *  `info`: lo que detecté de tu sueldo, que va en la explicación de la cifra protagonista. */
   function lineaMes() {
     const im = E.config.inicio_mes, p = per();
-    if (!im) return { pregunta: `<div class="linea-mes"><p>${frase("¿Cuándo te pagan? Así tu mes empieza ese día.", {})}</p><button class="boton sutil" data-accion="ajustes-mes">Elegir</button></div>`, info: "" };
+    if (!im) return { pregunta: `<div class="linea-mes"><p>${frase("¿Cuándo te pagan? Así tu mes empieza ese día.", {})}</p><button class="pz-boton pz-plano" data-accion="ajustes-mes">Elegir</button></div>`, info: "" };
     if (!p) return { pregunta: "", info: "" };
     const sueldoC = listaCompromisos().find((c) => c.activo !== false && c.tipo === "ingreso" && c.frecuencia === "mensual" && c.categoria === "sueldo");
     const prox = proximoSueldo(p, E.hoy, E.feriados || []);
     const pregunta = sueldoC && prox && prox.atrasado && leerLocal("alcancia.sueldoNoHoy") !== E.hoy ? preguntaSueldo(sueldoC, prox) : "";
     if (!im.auto) return { pregunta, info: "" };
-    const inicio = rango(periodoHoy(), p)[0], f = esc(fechaCorta(inicio));
+    const inicio = rango(periodoHoy(), p)[0], f = fechaCorta(inicio);
     const texto = (p.llegadas || []).includes(inicio) ? frase("Tu mes va desde que llegó tu sueldo ({f}).", { f }) : frase("Tu mes va desde el {f}, el día que suele llegar tu sueldo.", { f });
-    return { pregunta, info: `<div class="linea-mes"><p>${texto}</p><button class="boton sutil" data-accion="ajustes-mes">Cambiar</button></div>` };
+    return { pregunta, info: `<div class="linea-mes"><p>${texto}</p><button class="pz-boton pz-plano" data-accion="ajustes-mes">Cambiar</button></div>` };
   }
   /** «¿Aún no te pagan?»: suave, sin aviso del sistema. «Todavía no» no insiste hoy; «Ya me pagaron» busca el movimiento. */
   function preguntaSueldo(c, prox) {
-    const f = esc(fechaLarga(prox.fecha));
+    const f = fechaLarga(prox.fecha);
     if (E.sueldoPregunta !== "pagaron") {
       return `<div class="linea-mes pregunta" role="status"><p>${frase("¿Aún no te pagan? Lo esperaba el {f}.", { f })}</p>
-        <div class="acciones"><button class="boton sutil" data-sueldo="no">Todavía no</button><button class="boton" data-sueldo="pagaron">Ya me pagaron</button>
+        <div class="acciones"><button class="pz-boton pz-plano" data-sueldo="no">Todavía no</button><button class="pz-boton" data-sueldo="pagaron">Ya me pagaron</button>
         <button class="icono" data-sueldo="cerrar" aria-label="${esc(tr("Cerrar"))}" title="${esc(tr("Cerrar"))}" data-sin-traducir>×</button></div></div>`;
     }
     const cand = candidatoSueldo(prox);
     if (cand && E.sueldoCandidatoNo !== cand.id) {
-      return `<div class="linea-mes pregunta" role="status"><p>${frase("¿Es este? {d} · {x} · {f}", { d: esc(nombreComercio(cand.descripcion)), x: esc(dinero(cand.monto, cand.moneda || monedaPrincipal())), f: esc(fechaCorta(cand.fecha)) })}</p>
-        <div class="acciones"><button class="boton principal" data-sueldo="es" data-sueldo-mov="${esc(cand.id)}">Sí, es mi sueldo</button><button class="boton sutil" data-sueldo="noes" data-sueldo-mov="${esc(cand.id)}">No es este</button></div></div>`;
+      return `<div class="linea-mes pregunta" role="status"><p>${frase("¿Es este? {d} · {x} · {f}", { d: nombreComercio(cand.descripcion), x: dinero(cand.monto, cand.moneda || monedaPrincipal()), f: fechaCorta(cand.fecha) })}</p>
+        <div class="acciones"><button class="pz-boton pz-principal" data-sueldo="es" data-sueldo-mov="${esc(cand.id)}">Sí, es mi sueldo</button><button class="pz-boton pz-plano" data-sueldo="noes" data-sueldo-mov="${esc(cand.id)}">No es este</button></div></div>`;
     }
     const conectados = E.conectores.filter((k) => E.conexiones[k.id]?.conectado);
     return `<div class="linea-mes pregunta" role="status"><p>${frase("Agrega tu cartola o revisa tus cuentas conectadas para verlo.", {})}</p>
-      <div class="acciones"><button class="boton" data-accion="importar">Agregar movimientos</button>
-      ${conectados.map((k) => `<button class="boton sutil" data-sincronizar="${esc(k.id)}">${frase("Revisar {s}", { s: esc(tr(k.nombre)) })}</button>`).join("")}
-      <button class="boton sutil" data-sueldo="hoy">Márcalo como recibido hoy</button></div></div>`;
+      <div class="acciones"><button class="pz-boton" data-accion="importar">Agregar movimientos</button>
+      ${conectados.map((k) => `<button class="pz-boton pz-plano" data-sincronizar="${esc(k.id)}">${frase("Revisar {s}", { s: tr(k.nombre) })}</button>`).join("")}
+      <button class="pz-boton pz-plano" data-sueldo="hoy">Márcalo como recibido hoy</button></div></div>`;
   }
   /** El ingreso más probable de ser el sueldo que no se reconoció: el más grande desde 10 días antes de la fecha esperada. */
   function candidatoSueldo(prox) {
@@ -1437,7 +1405,7 @@
     c.pagos = { ...(c.pagos || {}), [o.periodo]: { como: "manual", fecha } };
     host.enviar("compromiso", { accion: "pagado", id: c.id, periodo: o.periodo, hoy: fecha });
     E.sueldoPregunta = null; E._per = undefined; E.mes = periodoHoy();
-    toast(T("Listo: tu mes parte el {f}", { f: fechaCorta(fecha) })); render();
+    toast("Listo: tu mes parte el {f}", { valores: { f: fechaCorta(fecha) } }); render();
   }
 
   /** Una de las tres cifras de segundo nivel (fila compacta): etiqueta chica arriba, monto abajo. Tocar abre su desglose. */
@@ -1469,16 +1437,16 @@
   /** El ritmo del mes, en una línea (dentro de la cifra protagonista). Rojo solo si te pasas del presupuesto. */
   function lineaRitmo(r, enCurso) {
     if (enCurso && r.proyeccion != null) {
-      if (!r.presupuesto) return `<p class="ritmo">${frase("A este ritmo cierras el mes en **{x}**.", { x: esc(dinero(r.proyeccion)) })}</p>`;
+      if (!r.presupuesto) return `<p class="ritmo">${frase("A este ritmo cierras el mes en **{x}**.", { x: dinero(r.proyeccion) })}</p>`;
       const dif = r.presupuesto - r.proyeccion;
-      return dif >= 0 ? `<p class="ritmo">${frase("A este ritmo terminas el mes en {x}: te sobrarían {y}.", { x: esc(dinero(r.proyeccion)), y: esc(dinero(dif)) })}</p>`
-        : r.proyeccion <= r.presupuesto * 1.1 ? `<p class="ritmo">${frase("A este ritmo terminas justo en el límite: {x}.", { x: esc(dinero(r.proyeccion)) })}</p>`
-          : `<p class="ritmo mal">${frase("A este ritmo terminas el mes en {x}: {y} sobre tu presupuesto.", { x: esc(dinero(r.proyeccion)), y: esc(dinero(-dif)) })}</p>`;
+      return dif >= 0 ? `<p class="ritmo">${frase("A este ritmo terminas el mes en {x}: te sobrarían {y}.", { x: dinero(r.proyeccion), y: dinero(dif) })}</p>`
+        : r.proyeccion <= r.presupuesto * 1.1 ? `<p class="ritmo">${frase("A este ritmo terminas justo en el límite: {x}.", { x: dinero(r.proyeccion) })}</p>`
+          : `<p class="ritmo mal">${frase("A este ritmo terminas el mes en {x}: {y} sobre tu presupuesto.", { x: dinero(r.proyeccion), y: dinero(-dif) })}</p>`;
     }
     if (!enCurso && r.presupuesto && r.dia) {
       const dif = r.presupuesto - r.gastado;
-      return dif >= 0 ? `<p class="ritmo">${frase("Terminaste {x} bajo tu presupuesto. ¡Bien hecho!", { x: esc(dinero(dif)) })}</p>`
-        : `<p class="ritmo mal">${frase("Te pasaste {x} del presupuesto. El próximo mes se puede.", { x: esc(dinero(-dif)) })}</p>`;
+      return dif >= 0 ? `<p class="ritmo">${frase("Terminaste {x} bajo tu presupuesto. ¡Bien hecho!", { x: dinero(dif) })}</p>`
+        : `<p class="ritmo mal">${frase("Te pasaste {x} del presupuesto. El próximo mes se puede.", { x: dinero(-dif) })}</p>`;
     }
     return "";
   }
@@ -1495,24 +1463,24 @@
     if (!enCurso) {
       const num = `<span class="heroe-num" data-sin-traducir>${esc(dinero(r.gastado))}${codigo}</span>`;
       const neto = r.ingresos - r.gastado;
-      const sub = r.ingresos ? frase(neto >= 0 ? "Entró {i} · te sobró {s}" : "Entró {i} · te faltó {s}", { i: esc(dinero(r.ingresos)), s: esc(dinero(Math.abs(neto))) }) : "";
-      return `<section class="heroe"><p class="heroe-frase" data-sin-traducir>${T("En {m} gastaste {x}", { m: esc(nombreMes(E.mes)), x: num })}</p>
+      const sub = r.ingresos ? frase(neto >= 0 ? "Entró {i} · te sobró {s}" : "Entró {i} · te faltó {s}", { i: dinero(r.ingresos), s: dinero(Math.abs(neto)) }) : "";
+      return `<section class="heroe"><p class="heroe-frase" data-sin-traducir>${Thtml("En {m} gastaste {x}", { m: esc(nombreMes(E.mes)), x: num })}</p>
         ${sub ? `<p class="heroe-sub">${sub}</p>` : ""}${ritmo}</section>`;
     }
     const q = cuantoQueda(r, t);
     if (!q) {
       const num = `<span class="heroe-num" data-sin-traducir>${esc(dinero(r.gastado))}${codigo}</span>`;
-      return `<section class="heroe"><p class="heroe-frase" data-sin-traducir>${T("Llevas gastado {x}", { x: num })}</p>
+      return `<section class="heroe"><p class="heroe-frase" data-sin-traducir>${Thtml("Llevas gastado {x}", { x: num })}</p>
         <p class="heroe-sub">${frase("Anota cuánto tienes en tus cuentas y te digo cuánto te queda hasta tu sueldo.", {})}</p>
-        <div class="acciones"><button class="boton" data-cifra-abrir="tienes">Anotar lo que tengo</button></div>${ritmo}</section>`;
+        <div class="acciones"><button class="pz-boton" data-cifra-abrir="tienes">Anotar lo que tengo</button></div>${ritmo}</section>`;
     }
     const negativo = q.queda < 0, abierta = E.cifra === "queda";
     const num = `<span class="heroe-num ${negativo ? "rojo-txt" : ""}" data-sin-traducir>${q.aprox ? '<span class="aprox-signo">≈</span>' : ""}${esc(dinero(Math.abs(q.queda)))}${codigo}</span>`;
     const plantilla = negativo ? (q.sueldo ? "Te faltan {x} para llegar a tu sueldo" : "Te faltan {x} para llegar a fin de mes") : (q.sueldo ? "Te quedan {x} hasta tu sueldo" : "Te quedan {x} hasta fin de mes");
     const sub = negativo ? frase(q.dias === 1 ? "1 día" : "{n} días", { n: q.dias })
-      : frase(q.dias === 1 ? "1 día · ~{y} por día" : "{n} días · ~{y} por día", { n: q.dias, y: esc(dinero(q.porDia)) });
+      : frase(q.dias === 1 ? "1 día · ~{y} por día" : "{n} días · ~{y} por día", { n: q.dias, y: dinero(q.porDia) });
     return `<section class="heroe"><button type="button" class="heroe-boton" data-cifra="queda" aria-expanded="${abierta}" ${abierta ? 'aria-controls="desglose"' : ""}>
-        <span class="heroe-frase" data-sin-traducir>${T(plantilla, { x: num })}</span>
+        <span class="heroe-frase" data-sin-traducir>${Thtml(plantilla, { x: num })}</span>
         <span class="heroe-sub">${sub}<span class="heroe-como">Cómo lo calculo</span></span>${escalaDias(q)}</button>${ritmo}</section>`;
   }
   /** Al tocar la cifra protagonista: el cálculo en simple, con lo que detecté de tu mes y el próximo sueldo. */
@@ -1521,7 +1489,7 @@
     const base = q.fuente === "tienes" ? fila(tr("Lo que tienes hoy"), esc(dinero(q.base)))
       : fila(tr("Lo que entró este mes"), esc(dinero(q.r.ingresos))) + fila(tr("Lo que gastaste"), esc(dinero(-q.r.gastado)));
     const p = per(), prox = p ? proximoSueldo(p, E.hoy, E.feriados || []) : null, n = prox ? diasEntre(E.hoy, prox.fecha) : -1;
-    const sueldo = prox && n >= 0 ? `<p class="pista-sueldo">${frase(n === 0 ? "Tu sueldo debería llegar hoy ({f})." : n === 1 ? "Próximo sueldo: {f} (aprox.), mañana." : "Próximo sueldo: {f} (aprox.), en {n} días.", { f: esc(fechaLarga(prox.fecha)), n })}</p>` : "";
+    const sueldo = prox && n >= 0 ? `<p class="pista-sueldo">${frase(n === 0 ? "Tu sueldo debería llegar hoy ({f})." : n === 1 ? "Próximo sueldo: {f} (aprox.), mañana." : "Próximo sueldo: {f} (aprox.), en {n} días.", { f: fechaLarga(prox.fecha), n })}</p>` : "";
     return `<h2 class="desglose-titulo">Cómo lo calculo</h2>
       <div class="calculo">${base}
         ${fila(tr("Lo que falta pagar este mes"), (q.aprox ? "≈ " : "") + esc(dinero(-q.falta)))}
@@ -1555,7 +1523,7 @@
       ${tres}${E.cifra !== "queda" ? caja : ""}
       ${enQueSeFue(r)}${pendientesHTML(LECTURA ? "" : lm.pregunta)}
       ${LECTURA ? "" : `<button class="fila-consejos fila-chat" data-accion="abrir-chat" aria-haspopup="dialog"><span class="ico chanchito">${LOGO}</span><span>Pregúntale a Alcancía</span><span class="cf-flecha" aria-hidden="true">›</span></button>
-      <button class="fila-consejos" data-vista="consejos"><span class="ico">${icono("consejos", 20)}</span><span>${frase("Pídele consejos a {ia} sobre este mes", { ia: esc(nombreIA()) })}</span><span class="cf-flecha" aria-hidden="true">›</span></button>`}</div>`;
+      <button class="fila-consejos" data-vista="consejos"><span class="ico">${icono("consejos", 20)}</span><span>${frase("Pídele consejos a {ia} sobre este mes", { ia: nombreIA() })}</span><span class="cf-flecha" aria-hidden="true">›</span></button>`}</div>`;
   }
 
   function desgloseTienes(t) {
@@ -1564,16 +1532,16 @@
       const b = c.base;
       let origen = "";
       if (b) {
-        const f = esc(fechaCorta(b.fecha));
-        origen = b.origen === "conector" ? T("Según {s}, el {f}", { s: esc(c.nombre), f }) : b.origen === "cartola" ? T("Según tu cartola del {f}", { f }) : T("Lo anotaste el {f}", { f });
+        const f = fechaCorta(b.fecha);
+        origen = b.origen === "conector" ? T("Según {s}, el {f}", { s: c.nombre, f }) : b.origen === "cartola" ? T("Según tu cartola del {f}", { f }) : T("Lo anotaste el {f}", { f });
         if (c.movimientos_despues) origen += " · " + T(c.movimientos_despues === 1 ? "más 1 movimiento después" : "más {n} movimientos después", { n: c.movimientos_despues });
       }
-      const editor = `<form class="saldo-editor" data-saldo-form="${esc(c.id)}"><label class="oculto-accesible" data-sin-traducir for="saldo-${esc(c.id)}">${T("¿Cuánto tienes hoy en {c}?", { c: esc(c.nombre) })}</label>
+      const editor = `<form class="saldo-editor" data-saldo-form="${esc(c.id)}"><label class="oculto-accesible" data-sin-traducir for="saldo-${esc(c.id)}">${T("¿Cuánto tienes hoy en {c}?", { c: c.nombre })}</label>
         <input class="texto" id="saldo-${esc(c.id)}" inputmode="numeric" data-saldo-input="${esc(c.id)}" value="${esc(E.saldoEdit?.cuenta === c.id ? E.saldoEdit.texto : "")}" placeholder="${esc(tr("Monto de hoy"))}" data-sin-traducir>
-        <button class="boton principal" type="submit">Guardar</button>${c.saldo != null ? `<button class="boton sutil" type="button" data-saldo-cancelar>Cancelar</button>` : ""}</form>`;
+        <button class="pz-boton pz-principal" type="submit">Guardar</button>${c.saldo != null ? `<button class="pz-boton pz-plano" type="button" data-saldo-cancelar>Cancelar</button>` : ""}</form>`;
       return `<div class="cuenta-fila ${c.saldo == null ? "sin" : ""}">
-        <div class="txt"><b data-sin-traducir>${esc(c.nombre)}</b>${c.saldo == null ? `<small data-sin-traducir>${LECTURA ? esc(tr("Anota cuánto tienes en tu Mac.")) : T("¿Cuánto tienes hoy en {c}?", { c: esc(c.nombre) })}</small>` : `<small data-sin-traducir>${origen}</small>`}</div>
-        ${c.saldo != null && !editando ? `<span class="valor" data-sin-traducir>${esc(dinero(c.saldo, c.moneda))}</span>${LECTURA ? "" : `<button class="boton sutil" data-saldo-editar="${esc(c.id)}">Corregir</button>`}` : LECTURA ? "" : editor}</div>`;
+        <div class="txt"><b data-sin-traducir>${esc(c.nombre)}</b>${c.saldo == null ? `<small data-sin-traducir>${LECTURA ? esc(tr("Anota cuánto tienes en tu Mac.")) : T("¿Cuánto tienes hoy en {c}?", { c: c.nombre })}</small>` : `<small data-sin-traducir>${origen}</small>`}</div>
+        ${c.saldo != null && !editando ? `<span class="valor" data-sin-traducir>${esc(dinero(c.saldo, c.moneda))}</span>${LECTURA ? "" : `<button class="pz-boton pz-plano" data-saldo-editar="${esc(c.id)}">Corregir</button>`}` : LECTURA ? "" : editor}</div>`;
     };
     const aviso = E.saldoAviso ? `<p class="saldo-aviso ${E.saldoAviso.cuadra ? "ok" : ""}" role="status" data-sin-traducir>${E.saldoAviso.texto}</p>` : "";
     const lista = t.cuentas.filter((c) => c.moneda === t.moneda || c.saldo != null);
@@ -1595,10 +1563,10 @@
       const alerta = r.alertas.find((a) => a.categoria === id);
       const clase = !id ? "falta" : alerta?.tipo === "pasado" ? "pasado" : alerta ? "ojo" : "";
       return `<button type="button" class="cat ${clase}" data-ir-cat="${esc(id)}"><span class="emoji" aria-hidden="true">${esc(c.emoji)}</span><span class="nombre" data-sin-traducir>${esc(nombreCat(c))}</span>
-        <span class="monto" data-sin-traducir>${esc(dinero(g))}${tope ? ` <small>${T("de {x}", { x: esc(dinero(tope)) })}</small>` : ""}</span>
+        <span class="monto" data-sin-traducir>${esc(dinero(g))}${tope ? ` <small>${T("de {x}", { x: dinero(tope) })}</small>` : ""}</span>
         <span class="barra ${clase}"><i style="width:${(tope ? Math.min(100, g / tope * 100) : g / max * 100).toFixed(1)}%"></i></span></button>`;
     }).join("");
-    return `<section class="seccion-inicio"><div class="cabeza-seccion"><h2 class="titulo-seccion">En qué se fue</h2><button class="boton sutil" data-vista="presupuesto">${LECTURA ? "Ver topes" : "Editar topes"}</button></div>
+    return `<section class="seccion-inicio"><div class="cabeza-seccion"><h2 class="titulo-seccion">En qué se fue</h2><button class="pz-boton pz-plano" data-vista="presupuesto">${LECTURA ? "Ver topes" : "Editar topes"}</button></div>
       ${filas}
       ${ids.length > 5 ? `<button class="enlace mas" data-accion="ver-todas-cat" aria-expanded="${!!E.verTodasCat}">${E.verTodasCat ? "Ver menos" : frase("Ver las {n} categorías", { n: ids.length })}</button>` : ""}</section>`;
   }
@@ -1616,7 +1584,7 @@
     if (!d.te_deben || !d.te_deben.length) return "";
     return `<h3 class="grupo">Te deben</h3>${d.te_deben.map((t) => `<div class="debe-fila"><span class="emoji" aria-hidden="true">🤝</span>
       <div class="txt"><b data-sin-traducir>${esc(t.nombre)}</b><small data-sin-traducir>${[t.cuotas ? T(t.cuotas.quedan === 1 ? "le queda 1 cuota" : "le quedan {q} de {t} cuotas", { q: t.cuotas.quedan, t: t.cuotas.total }) : "",
-        t.este_mes ? T("este mes {x}", { x: esc(dinero(t.este_mes)) }) : ""].filter(Boolean).join(" · ")}</small></div>
+        t.este_mes ? T("este mes {x}", { x: dinero(t.este_mes) }) : ""].filter(Boolean).join(" · ")}</small></div>
       <span class="valor ingreso" data-sin-traducir>${esc(dinero(t.monto))}</span></div>`).join("")}
       <div class="total-pres sub"><span>Te deben en total</span><span class="ingreso" data-sin-traducir>${esc(dinero(d.te_deben_total))}</span></div>
       <p class="nota-mcp">Lo que te deben va aparte: no se resta de lo que debes.</p>`;
@@ -1633,23 +1601,23 @@
       .sort((a, b) => ORDEN_ESTADO[a.estado] - ORDEN_ESTADO[b.estado] || cmp(a.vence, b.vence));
     const filaComp = (p) => `<div class="comp-fila ${esc(p.estado)}"><span class="emoji" aria-hidden="true">${esc(p.categoria && cat(p.categoria).id ? cat(p.categoria).emoji : "🧾")}</span>
       <div class="txt"><b data-sin-traducir>${esc(p.nombre)}</b><small data-sin-traducir><span class="punto" aria-hidden="true"></span>${textoEstado({ ...p, signo: "gasto", pago: null })}</small></div>
-      <span class="valor" data-sin-traducir>${p.max != null && p.max !== p.monto ? "≈ " : ""}${esc(dinero(p.monto))}</span>${seCobraSolo({ ...p, signo: "gasto" }) ? "" : `<div class="acciones"><button class="boton" data-comp-pagado="${esc(p.clave)}">Ya lo pagué</button></div>`}</div>`;
+      <span class="valor" data-sin-traducir>${p.max != null && p.max !== p.monto ? "≈ " : ""}${esc(dinero(p.monto))}</span>${seCobraSolo({ ...p, signo: "gasto" }) ? "" : `<div class="acciones"><button class="pz-boton" data-comp-pagado="${esc(p.clave)}">Ya lo pagué</button></div>`}</div>`;
     const fila = (ico, nombre, detalle, monto) => `<div class="debe-fila"><span class="emoji" aria-hidden="true">${ico}</span>
       <div class="txt"><b data-sin-traducir>${nombre}</b><small data-sin-traducir>${detalle}</small></div><span class="valor" data-sin-traducir>${esc(dinero(monto))}</span></div>`;
     const otras = d.partes.filter((p) => p.tipo !== "compromiso").map((p) => {
-      if (p.tipo === "tarjeta") return fila("💳", T("Por pagar en tu tarjeta"), p.desde ? T(p.compras === 1 ? "1 compra con crédito desde tu último pago ({f})" : "{n} compras con crédito desde tu último pago ({f})", { n: p.compras, f: esc(fechaCorta(p.desde)) })
+      if (p.tipo === "tarjeta") return fila("💳", T("Por pagar en tu tarjeta"), p.desde ? T(p.compras === 1 ? "1 compra con crédito desde tu último pago ({f})" : "{n} compras con crédito desde tu último pago ({f})", { n: p.compras, f: fechaCorta(p.desde) })
         : T(p.compras === 1 ? "1 compra con crédito: se paga cuando llegue el estado de cuenta" : "{n} compras con crédito: se pagan cuando llegue el estado de cuenta", { n: p.compras }), p.monto);
       if (p.tipo === "deuda") return fila("🏦", esc(p.nombre), [p.cuotas ? T("Te quedan {q} de {t} cuotas", { q: p.cuotas.quedan, t: p.cuotas.total }) : T("Saldo que anotaste"),
-        p.original ? T("en UF: es una estimación") : p.max !== p.monto ? T("hasta {x}", { x: esc(dinero(p.max)) }) : "",
-        p.este_mes ? T("este mes {x}", { x: esc(dinero(p.este_mes)) }) : ""].filter(Boolean).join(" · "), p.monto);
-      return fila(esc(p.categoria && cat(p.categoria).id ? cat(p.categoria).emoji : "🧾"), esc(nombreComercio(p.nombre)), T(p.quedan === 1 ? "Te queda 1 cuota de {c}" : "Te quedan {q} cuotas de {c}", { q: p.quedan, c: esc(dinero(p.cuota)) }), p.monto);
+        p.original ? T("en UF: es una estimación") : p.max !== p.monto ? T("hasta {x}", { x: dinero(p.max) }) : "",
+        p.este_mes ? T("este mes {x}", { x: dinero(p.este_mes) }) : ""].filter(Boolean).join(" · "), p.monto);
+      return fila(esc(p.categoria && cat(p.categoria).id ? cat(p.categoria).emoji : "🧾"), esc(nombreComercio(p.nombre)), T(p.quedan === 1 ? "Te queda 1 cuota de {c}" : "Te quedan {q} cuotas de {c}", { q: p.quedan, c: dinero(p.cuota) }), p.monto);
     }).join("");
     return `<h2 class="desglose-titulo">Lo que debes</h2>
       ${comp.length ? `<div class="por-pagar"><h3 class="grupo">Por pagar este mes</h3>${comp.map(filaComp).join("")}</div>` : ""}
       ${otras ? `<h3 class="grupo">Tarjeta, cuotas y créditos</h3>${otras}` : ""}
       <div class="total-pres"><span>Este mes</span><span data-sin-traducir>${d.aprox ? "≈ " : ""}${esc(dinero(d.este_mes))}</span></div>
       <div class="total-pres sub"><span>En total</span><span data-sin-traducir>${d.aprox ? "≈ " : ""}${esc(dinero(d.total))}</span></div>
-      ${d.aprox ? `<p class="nota-mcp">${frase("Hay montos aproximados o en UF: podría llegar a {x} este mes.", { x: esc(dinero(d.este_mes_max)) })}</p>` : ""}
+      ${d.aprox ? `<p class="nota-mcp">${frase("Hay montos aproximados o en UF: podría llegar a {x} este mes.", { x: dinero(d.este_mes_max) })}</p>` : ""}
       ${teDebenHTML(d)}
       <p class="nota-mcp"><button class="enlace" data-vista="compromisos">Ver tus pagos</button></p>`;
   }
@@ -1678,10 +1646,10 @@
     const sug = (E.sugerencias || []).filter((s) => !(E.compromisos.descartados || []).includes(s.clave));
     const filas = [...reglas.map((r) => {
       const c = cat(r.categoria);
-      return `<div class="aprendi-fila"><span class="emoji" aria-hidden="true">${esc(c.emoji)}</span><div class="txt">${frase(r.n === 1 ? "«{r}» siempre fue **{c}**. ¿Se lo pongo al que no tiene categoría y a los que vengan?" : "«{r}» siempre fue **{c}**. ¿Se lo pongo a los {n} que no tienen categoría y a los que vengan?", { r: esc(r.contiene), c: esc(nombreCat(c)), n: r.n })}</div>
-        <div class="acciones"><button class="boton sutil" data-regla-no="${esc(r.contiene)}">No</button><button class="boton" data-regla-si="${esc(r.contiene)}" data-regla-cat="${esc(r.categoria)}">Sí, siempre</button></div></div>`;
+      return `<div class="aprendi-fila"><span class="emoji" aria-hidden="true">${esc(c.emoji)}</span><div class="txt">${frase(r.n === 1 ? "«{r}» siempre fue **{c}**. ¿Se lo pongo al que no tiene categoría y a los que vengan?" : "«{r}» siempre fue **{c}**. ¿Se lo pongo a los {n} que no tienen categoría y a los que vengan?", { r: r.contiene, c: nombreCat(c), n: r.n })}</div>
+        <div class="acciones"><button class="pz-boton pz-plano" data-regla-no="${esc(r.contiene)}">No</button><button class="pz-boton" data-regla-si="${esc(r.contiene)}" data-regla-cat="${esc(r.categoria)}">Sí, siempre</button></div></div>`;
     }), ...sug.slice(0, reglas.length ? 1 : 2).map((s) => `<div class="aprendi-fila"><span class="emoji" aria-hidden="true">${iconoComp(s)}</span><div class="txt">${textoSugerencia(s)}</div>
-        <div class="acciones"><button class="boton sutil" data-sug-no="${esc(s.clave)}">No es</button><button class="boton" data-sug-agregar="${esc(s.clave)}">¿Lo agrego?</button></div></div>`)];
+        <div class="acciones"><button class="pz-boton pz-plano" data-sug-no="${esc(s.clave)}">No es</button><button class="pz-boton" data-sug-agregar="${esc(s.clave)}">¿Lo agrego?</button></div></div>`)];
     if (!filas.length) return "";
     return `<div class="aprendi"><h3 class="grupo">Aprendí esto de tus movimientos</h3>${filas.join("")}
       ${sug.length > 2 ? `<button class="enlace" data-vista="compromisos">${frase("Ver {n} más en Pagos", { n: sug.length - (reglas.length ? 1 : 2) })}</button>` : ""}</div>`;
@@ -1692,11 +1660,11 @@
   function pendientesHTML(preguntaMes) {
     const sinCat = E.movimientos.filter((m) => !m.categoria).length;
     const ordenar = sinCat ? `<div class="pendiente-fila"><span class="ico">${icono("ordenar", 20)}</span><p>${frase(sinCat === 1 ? "**1 movimiento** sin categoría" : "**{n} movimientos** sin categoría", { n: sinCat })}</p>
-      <button class="boton" data-vista="ordenar">Ordenar</button></div>` : "";
+      <button class="pz-boton" data-vista="ordenar">Ordenar</button></div>` : "";
     const anotar = !listaCompromisos().length && !LECTURA ? `<div class="pendiente-fila"><span class="ico">${icono("compromisos", 20)}</span><p>${frase("Anota lo que pagas seguido (arriendo, créditos, cuentas) y te digo si te falta pagar algo.", {})}</p>
-      <button class="boton" data-accion="agregar-contar">Anotar</button></div>` : "";
+      <button class="pz-boton" data-accion="agregar-contar">Anotar</button></div>` : "";
     const pagoMora = moraDelAnio(listaCompromisos(), E.movimientos, E.hoy, monedaPrincipal(), ufCfg(), E.palabrasMora || []);
-    const mora = pagoMora > 0 ? `<div class="pendiente-fila"><span class="ico rojo-txt" aria-hidden="true">!</span><p class="mora-anio">${frase("Este año pagaste {x} en intereses por atraso.", { x: esc(dinero(pagoMora)) })}</p></div>` : "";
+    const mora = pagoMora > 0 ? `<div class="pendiente-fila"><span class="ico rojo-txt" aria-hidden="true">!</span><p class="mora-anio">${frase("Este año pagaste {x} en intereses por atraso.", { x: dinero(pagoMora) })}</p></div>` : "";
     const partes = [preguntaMes, ordenar, aprendiHTML(), anotar, mora].filter(Boolean);
     if (!partes.length) return "";
     return `<section class="tarjeta pendientes"><h2 class="titulo-seccion">Pendientes</h2>${partes.join("")}</section>`;
@@ -1711,7 +1679,7 @@
   /** Cómo se pagó, en palabras: «Crédito · 6 cuotas de $61.000», «Débito», «Con saldo». */
   function medioTexto(m) {
     const n = cuotasDe(m);
-    if (n) return T("Crédito · {n} cuotas de {c}", { n, c: esc(dinero(valorCuota(m), m.moneda || monedaPrincipal())) });
+    if (n) return T("Crédito · {n} cuotas de {c}", { n, c: dinero(valorCuota(m), m.moneda || monedaPrincipal()) });
     return { credito: T("Crédito"), debito: T("Débito"), saldo: T("Con saldo") }[m.medio] || "";
   }
   /** La categoría de un movimiento: icono y nombre corto en gris (un toque la cambia). Sin categoría: un «+» gris discreto. */
@@ -1719,7 +1687,7 @@
     const c = cat(m.categoria), falta = !m.categoria;
     if (LECTURA) return falta ? "" : `<span class="chip-cat solo-ver" data-sin-traducir><span aria-hidden="true">${esc(c.emoji)}</span><span class="n">${esc(nombreCat(c))}</span></span>`;
     return `<button type="button" class="chip-cat ${falta ? "falta" : ""}" id="chip-${esc(m.id)}" data-elegir="${esc(m.id)}" aria-haspopup="dialog"
-      aria-label="${falta ? esc(tr("Ponle categoría")) : T("Categoría: {c}. Cambiar", { c: esc(nombreCat(c)) })}" ${falta ? `title="${esc(tr("Ponle categoría"))}"` : ""} data-sin-traducir>${falta
+      aria-label="${falta ? esc(tr("Ponle categoría")) : T("Categoría: {c}. Cambiar", { c: nombreCat(c) })}" ${falta ? `title="${esc(tr("Ponle categoría"))}"` : ""} data-sin-traducir>${falta
         ? `<span class="mas-cat" aria-hidden="true">+</span>` : `<span aria-hidden="true">${esc(c.emoji)}</span><span class="n">${esc(nombreCat(c))}</span>`}</button>`;
   }
   /** Una fila de movimiento: el comercio legible a la izquierda (tocarlo muestra la descripción original), la categoría en gris
@@ -1774,14 +1742,14 @@
     const sug = categoriaSugerida(m);
     const botones = ops.map((c, i) => `<button type="button" class="op-cat ${c.id === m.categoria ? "actual" : ""} ${c.id === sug && !m.categoria ? "sugerida" : ""}" data-pick="${esc(c.id)}" data-lugar="${lugar}" ${c.id === sug && !m.categoria ? `title="La que sueles usar para este comercio"` : ""}>
         ${atajos && i < 9 ? `<kbd aria-hidden="true">${i + 1}</kbd>` : ""}<span class="e" aria-hidden="true">${esc(c.emoji)}</span><span class="n" data-sin-traducir>${esc(nombreCat(c))}</span></button>`).join("");
-    const crear = q && !exacta ? `<button type="button" class="op-cat crear" data-nueva-cat="${lugar}" data-con-nombre="1"><span class="e" aria-hidden="true">＋ ${sugerirEmoji(q)}</span><span class="n" data-sin-traducir>${T("Crear «{x}»", { x: esc(q) })}</span></button>`
+    const crear = q && !exacta ? `<button type="button" class="op-cat crear" data-nueva-cat="${lugar}" data-con-nombre="1"><span class="e" aria-hidden="true">＋ ${sugerirEmoji(q)}</span><span class="n" data-sin-traducir>${T("Crear «{x}»", { x: q })}</span></button>`
       : `<button type="button" class="op-cat nueva" data-nueva-cat="${lugar}"><span class="e" aria-hidden="true">＋</span><span class="n">Nueva</span></button>`;
     const nueva = k.nueva ? `<div class="nueva-cat" role="group" aria-label="Nueva categoría">
         <label class="campo"><span>Nombre de la categoría</span><input class="texto" id="${lugar}-nueva" data-nueva-nombre="${lugar}" maxlength="40" value="${esc(k.nueva.nombre)}" placeholder="${esc(tr("p. ej. Cine o Comida atípica"))}" data-sin-traducir></label>
         <div class="emojis" role="radiogroup" aria-label="Emoji">${[...new Set([k.nueva.emoji || sugerirEmoji(k.nueva.nombre), ...EMOJIS])].slice(0, 12).map((e) =>
           `<button type="button" role="radio" aria-checked="${e === (k.nueva.emoji || sugerirEmoji(k.nueva.nombre))}" data-nueva-emoji="${e}" data-lugar="${lugar}" data-sin-traducir>${e}</button>`).join("")}</div>
         ${k.nueva.error ? `<p class="error-txt" data-sin-traducir>${esc(k.nueva.error)}</p>` : ""}
-        <div class="pie-dialogo"><button type="button" class="boton" data-nueva-cancelar="${lugar}">Cancelar</button><button type="button" class="boton principal" data-nueva-guardar="${lugar}">Crear y usar</button></div></div>` : "";
+        <div class="pz-pie"><button type="button" class="pz-boton" data-nueva-cancelar="${lugar}">Cancelar</button><button type="button" class="pz-boton pz-principal" data-nueva-guardar="${lugar}">Crear y usar</button></div></div>` : "";
     return `<input class="texto buscar-cat" id="${lugar}-buscar" type="search" data-buscar-cat="${lugar}" value="${esc(k.buscar || "")}" placeholder="${esc(tr("Buscar o crear categoría"))}" aria-label="${esc(tr("Buscar o crear categoría"))}" autocomplete="off" data-sin-traducir>
       ${nueva || `<div class="opciones-cat">${botones}${crear}</div>`}`;
   }
@@ -1828,7 +1796,7 @@
     const c = { id: idNuevaCategoria(nombre), nombre, emoji: k.nueva?.emoji || sugerirEmoji(nombre), tipo: m.monto > 0 ? "ingreso" : "gasto" };
     E.categorias = [...E.categorias, c];
     host.enviar("categoriaNueva", { categoria: c, mes: mesDe(m.fecha), id: m.id });
-    toast(T("Creé «{c}»", { c: nombre }));
+    toast("Creé «{c}»", { valores: { c: nombre } });
     elegirCategoria(m, c.id, lugar, true);
   }
 
@@ -1840,12 +1808,12 @@
     if (!cola.length) {
       return `<div class="contenido vista-ordenar" tabindex="-1">${cab()}<section class="tarjeta ordenado"><p class="grande">🎉</p><h2>Todo ordenado</h2>
         <p class="texto-suave">Cada movimiento tiene su categoría. Lo que agregues después y calce con lo que aprendí se ordena solo.</p>
-        <button class="boton principal" data-vista="movimientos">Ver mis movimientos</button></section></div>`;
+        <button class="pz-boton pz-principal" data-vista="movimientos">Ver mis movimientos</button></section></div>`;
     }
     if (k.i >= cola.length) {
       return `<div class="contenido vista-ordenar" tabindex="-1">${cab()}<section class="tarjeta ordenado"><h2>${frase(cola.length === 1 ? "Te saltaste 1" : "Te saltaste {n}", { n: cola.length })}</h2>
         <p class="texto-suave">Quedan sin categoría. Puedes volver a mirarlos cuando quieras.</p>
-        <button class="boton principal" data-accion="ordenar-inicio">Volver al primero</button></section></div>`;
+        <button class="pz-boton pz-principal" data-accion="ordenar-inicio">Volver al primero</button></section></div>`;
     }
     k.i = Math.max(0, k.i);
     const m = cola[k.i], cuentas = Object.fromEntries(E.cuentas.map((c) => [c.id, c.nombre])), medio = medioTexto(m);
@@ -1857,9 +1825,9 @@
         <p class="texto-suave" data-sin-traducir>${esc(primeraMayuscula(nombreDia(m.fecha)))} · ${esc(cuentas[m.cuenta] || m.cuenta)}${medio ? ` · ${medio}` : ""}</p>
         ${nombreComercio(m.descripcion) !== m.descripcion ? `<p class="original" data-sin-traducir>${esc(m.descripcion)}</p>` : ""}</section>
       <section class="tarjeta elegir-ordenar">${elegidor(m, k, "ordenar")}</section>
-      <div class="pie-ordenar"><button class="boton" data-accion="ordenar-atras" ${k.i ? "" : "disabled"}>‹ <span>Anterior</span></button>
+      <div class="pie-ordenar"><button class="pz-boton" data-accion="ordenar-atras" ${k.i ? "" : "disabled"}>‹ <span>Anterior</span></button>
         <p class="atajos">${frase("Atajos: **1–9** elige · **→** salta · **←** vuelve · **/** busca", {})}</p>
-        <button class="boton" data-accion="ordenar-saltar"><span>Saltar</span> ›</button></div></div>`;
+        <button class="pz-boton" data-accion="ordenar-saltar"><span>Saltar</span> ›</button></div></div>`;
   }
 
   function vistaMovimientos() {
@@ -1897,8 +1865,8 @@
       html += filaMov(m, cuentas);
     }
     const c = f.categoria && f.categoria !== "__sin" ? cat(f.categoria) : null;
-    const hist = c && c.id ? `<section class="tarjeta"><div class="tarjeta-cabeza">${frase("Últimos 6 meses de {c}", { c: esc(nombreCat(c)) }, "h2")}</div>
-      ${bloqueHistoria(historia(E.movimientos, E.mes, E.hoy, E.presupuesto, E.categorias, c.id, 6, per()), T("Gasto en {c} de los últimos 6 meses", { c: esc(nombreCat(c)) }), true)}</section>` : "";
+    const hist = c && c.id ? `<section class="tarjeta"><div class="tarjeta-cabeza">${frase("Últimos 6 meses de {c}", { c: nombreCat(c) }, "h2")}</div>
+      ${bloqueHistoria(historia(E.movimientos, E.mes, E.hoy, E.presupuesto, E.categorias, c.id, 6, per()), T("Gasto en {c} de los últimos 6 meses", { c: nombreCat(c) }), true)}</section>` : "";
     const sinCat = E.movimientos.filter((m) => !m.categoria).length, soloSin = f.categoria === "__sin";
     return `<div class="contenido"><div class="encabezado"><h1>Movimientos</h1>${selectorMes()}</div>
       <div class="filtros"><input id="buscar" class="texto buscar" type="search" placeholder="${esc(tr("Buscar"))}" value="${esc(f.texto)}" data-filtro="texto" aria-label="${esc(tr("Buscar"))}" data-sin-traducir>
@@ -1907,10 +1875,10 @@
           <label class="chip-filtro select ${c ? "activo" : ""}"><span class="oculto-accesible">Filtrar por categoría</span><select data-filtro="categoria" aria-label="${esc(tr("Filtrar por categoría"))}" data-sin-traducir><option value="">${esc(tr("Todas las categorías"))}</option>
             ${E.categorias.map((x) => `<option value="${esc(x.id)}" ${f.categoria === x.id ? "selected" : ""} data-sin-traducir>${esc(x.emoji)} ${esc(x.nombre)}</option>`).join("")}</select></label>
           <button class="chip-filtro" data-accion="agrupar-mov" aria-pressed="${!!E.agruparMov}">Agrupar por comercio</button></div></div>
-      ${soloSin && lista.length ? `<div class="barra-ordenar"><p>${frase(lista.length === 1 ? "**1** sin categoría este mes." : "**{n}** sin categoría este mes.", { n: lista.length })}</p><button class="boton principal" data-vista="ordenar">Ordenar uno a uno</button></div>` : ""}
+      ${soloSin && lista.length ? `<div class="barra-ordenar"><p>${frase(lista.length === 1 ? "**1** sin categoría este mes." : "**{n}** sin categoría este mes.", { n: lista.length })}</p><button class="pz-boton pz-principal" data-vista="ordenar">Ordenar uno a uno</button></div>` : ""}
       ${hist}
       <div class="lista-mov">${html || `<div class="vacio corto"><p>${f.texto || f.categoria ? "Nada calza con ese filtro." : "No hay movimientos este mes."}</p>
-        ${f.texto || f.categoria ? `<button class="boton" data-accion="limpiar-filtro">Ver todos</button>` : ""}</div>`}</div></div>`;
+        ${f.texto || f.categoria ? `<button class="pz-boton" data-accion="limpiar-filtro">Ver todos</button>` : ""}</div>`}</div></div>`;
   }
 
   /** El aviso discreto después de elegir una categoría: «¿Siempre para este comercio?». */
@@ -1919,8 +1887,8 @@
     if (!a || !cat(a.categoria).id) return "";
     const c = cat(a.categoria);
     return `<div class="aviso-regla" role="status"><p>${frase(a.parecidos ? (a.parecidos === 1 ? "¿Siempre {c} para «{r}»? También hay 1 parecido." : "¿Siempre {c} para «{r}»? También hay {n} parecidos.") : "¿Siempre {c} para «{r}»?",
-      { c: esc(c.emoji + " " + nombreCat(c)), r: esc(a.contiene), n: a.parecidos })}</p>
-      <button class="boton principal" data-accion="aprender-si">Sí, siempre</button><button class="icono" data-accion="aprender-no" title="Solo este" aria-label="Solo este">✕</button></div>`;
+      { c: c.emoji + " " + nombreCat(c), r: a.contiene, n: a.parecidos })}</p>
+      <button class="pz-boton pz-principal" data-accion="aprender-si">Sí, siempre</button><button class="icono" data-accion="aprender-no" title="Solo este" aria-label="Solo este">✕</button></div>`;
   }
 
   function vistaPresupuesto() {
@@ -1930,21 +1898,21 @@
     const promedio = presupuestoSugerido(E.movimientos, completos, E.categorias, E.presupuesto.moneda, per());
     const filas = E.categorias.filter((c) => c.tipo === "gasto").map((c) => `<div class="fila-pres"><span class="emoji" aria-hidden="true">${esc(c.emoji)}</span>
       <div style="min-width:0"><b data-sin-traducir>${esc(c.nombre)}</b>
-        <small>${frase("Este mes: {x}", { x: esc(dinero(r.por_categoria[c.id] || 0)) })}${promedio[c.id] ? " · " + frase("Lo normal: {x}", { x: esc(dinero(promedio[c.id])) }) : ""}</small></div>
-      <input class="texto" inputmode="numeric" ${LECTURA ? "readonly" : ""} data-pres="${esc(c.id)}" value="${esc(numeroPlano(E.presEdit[c.id]))}" placeholder="${esc(tr("Sin tope"))}" aria-label="${T("Tope para {c}", { c: esc(c.nombre) })}" data-sin-traducir></div>`).join("");
+        <small>${frase("Este mes: {x}", { x: dinero(r.por_categoria[c.id] || 0) })}${promedio[c.id] ? " · " + frase("Lo normal: {x}", { x: dinero(promedio[c.id]) }) : ""}</small></div>
+      <input class="texto" inputmode="numeric" ${LECTURA ? "readonly" : ""} data-pres="${esc(c.id)}" value="${esc(numeroPlano(E.presEdit[c.id]))}" placeholder="${esc(tr("Sin tope"))}" aria-label="${T("Tope para {c}", { c: c.nombre })}" data-sin-traducir></div>`).join("");
     const total = Object.values(E.presEdit).filter((v) => v > 0).reduce((a, b) => a + b, 0);
     const cambio = JSON.stringify(limpiarPres(E.presEdit)) !== JSON.stringify(limpiarPres(E.presupuesto.mensual || {}));
     return `<div class="contenido">${volver("mas", "Más")}<div class="encabezado"><h1>Presupuesto mensual</h1>
-        <button class="boton" data-accion="sugerir" ${completos.length ? "" : "disabled"} title="${completos.length ? "Usa lo que gastas normalmente en cada categoría" : "Necesito al menos un mes completo de movimientos"}">✨ <span>Sugerir con lo que gastas</span></button></div>
+        <button class="pz-boton" data-accion="sugerir" ${completos.length ? "" : "disabled"} title="${completos.length ? "Usa lo que gastas normalmente en cada categoría" : "Necesito al menos un mes completo de movimientos"}">✨ <span>Sugerir con lo que gastas</span></button></div>
       <p class="intro-vista">${LECTURA ? "Cuánto quieres gastar como máximo cada mes en cada cosa. Los topes se cambian en tu Mac." : "Cuánto quieres gastar como máximo cada mes en cada cosa. Alcancía te avisa cuando vas muy rápido, antes de que sea tarde."}</p>
       ${tarjetaGastoMaximo()}
       <section class="tarjeta">${filas}<div class="total-pres"><span>Total al mes</span><span id="total-pres" data-sin-traducir>${esc(dinero(total))}</span></div></section>
-      <div class="pie-dialogo"><button class="boton principal" data-accion="guardar-pres" ${cambio ? "" : "disabled"}>Guardar presupuesto</button></div></div>`;
+      <div class="pz-pie"><button class="pz-boton pz-principal" data-accion="guardar-pres" ${cambio ? "" : "disabled"}>Guardar presupuesto</button></div></div>`;
   }
   const limpiarPres = (p) => Object.fromEntries(Object.entries(p).filter(([, v]) => v > 0).sort());
 
   function vistaConsejos() {
-    const ia = esc(nombreIA());
+    const ia = nombreIA();
     const elegido = E.consejos.find((c) => c.fecha === E.consejoSel) || E.consejos[0];
     let cuerpo;
     if (E.pidiendoConsejos) {
@@ -1953,31 +1921,26 @@
       cuerpo = `<section class="tarjeta"><p class="intro-tarjeta">${frase("Cuando pidas consejos a {ia} en tu Mac, aparecen aquí.", { ia })}</p></section>`;
     } else if (!elegido) {
       cuerpo = `<section class="tarjeta"><p class="intro-tarjeta">${frase("Cuando quieras, {ia} mira tus gastos del mes y te deja tres cosas: lo que va bien, a qué ponerle ojo y algo concreto para esta semana.", { ia })}</p>
-        <button class="boton principal" data-accion="pedir-consejos">✦ <span>Pedir mis primeros consejos</span></button></section>`;
+        <button class="pz-boton pz-principal" data-accion="pedir-consejos">✦ <span>Pedir mis primeros consejos</span></button></section>`;
     } else {
       cuerpo = `<section class="tarjeta"><div class="tarjeta-cabeza"><h2 data-sin-traducir>${esc(primeraMayuscula(nombreDia(elegido.fecha)))}</h2></div>
         <div class="md" data-sin-traducir>${mdHTML(elegido.texto)}</div></section>
         ${E.consejos.length > 1 ? `<div class="historial" aria-label="Consejos anteriores">${E.consejos.map((c) => `<button class="chip" data-consejo="${esc(c.fecha)}" aria-pressed="${c === elegido}" data-sin-traducir>${esc(c.fecha)}</button>`).join("")}</div>` : ""}`;
     }
     return `<div class="contenido">${volver("mas", "Más")}<div class="encabezado"><h1>Consejos</h1>
-        ${elegido && !E.pidiendoConsejos ? `<button class="boton principal" data-accion="pedir-consejos">✦ <span>Pedir consejos nuevos</span></button>` : ""}</div>
+        ${elegido && !E.pidiendoConsejos ? `<button class="pz-boton pz-principal" data-accion="pedir-consejos">✦ <span>Pedir consejos nuevos</span></button>` : ""}</div>
       ${E.errorConsejos ? `<p class="error-txt" data-sin-traducir>${esc(E.errorConsejos)}</p>` : ""}${cuerpo}
       <p class="nota-mcp">${frase("{ia} trabaja con tu propia cuenta y solo ve totales por categoría y los comercios donde más gastaste. Nunca ve tus cuentas ni tus claves.", { ia })}</p></div>`;
   }
 
-  /** Versión nueva: aviso discreto arriba (nunca una alerta del sistema) y, al actualizar, el avance por pasos. */
+  /** Versión nueva: aviso discreto arriba (nunca una alerta del sistema) con la fila de la pieza «componentes» («Actualizar ahora»
+   *  y, al actualizar, «Paso n de 3» con su barra). «Después» lo esconde hasta la próxima vez que se revise. En el celular, nada. */
   function avisoActualizacion() {
-    const a = E.act;
-    const caja = (contenido, error) => `<div class="contenido" style="padding-bottom:0"><div class="aprender" role="status" style="${error ? "background:var(--rojo-suave)" : ""}">${contenido}</div></div>`;
-    if (a) {
-      const error = a.paso === "error", pct = a.pct ?? (Number(a.paso) || 0) / 3 * 100;
-      return caja(`<div style="flex:1;min-width:0"><b>${error ? "No se pudo actualizar" : "Actualizando Alcancía"}</b><br><small data-sin-traducir>${esc(a.texto || "")}</small>
-        ${error ? "" : `<div class="barra" style="margin-top:8px"><i style="width:${Math.round(pct)}%"></i></div>`}</div>
-        ${error ? `<button class="boton" data-accion="act-cerrar">Cerrar</button><button class="boton principal" data-accion="actualizar">Reintentar</button>` : ""}`, error);
-    }
-    if (!E.actualizacion?.hay || E.actOculto) return "";
-    return caja(`<p><b>Hay una versión nueva de Alcancía</b> <small data-sin-traducir>${esc((E.actualizacion.detalle || "").split("\n")[0])}</small></p>
-      <button class="boton" data-accion="act-despues">Después</button><button class="boton principal" data-accion="actualizar">Actualizar</button>`);
+    if (LECTURA) return "";
+    const enCurso = ui.act.estado && typeof ui.act.estado === "object";
+    if (!enCurso && (!ui.act.disponible || E.actOculto)) return "";
+    return `<div class="contenido aviso-act"><div class="aprender" role="status">${ui.filaActualizacion()}
+      ${enCurso ? "" : `<button class="pz-boton pz-plano" data-accion="act-despues">Después</button>`}</div></div>`;
   }
 
   // ───────────── Compromisos: lo que se paga o se recibe seguido ─────────────
@@ -2012,13 +1975,13 @@
   function textoEstado(i) {
     const ing = i.signo === "ingreso";
     if (i.estado === "pagado" && !ing && i.pago.mora) return T(i.pago.mora.dias === 1 ? "Pagado el {f} con 1 día de atraso · {x} de interés por mora" : "Pagado el {f} con {n} días de atraso · {x} de interés por mora",
-      { f: esc(fechaCorta(i.pago.fecha)), n: i.pago.mora.dias, x: esc(dinero(i.pago.mora.monto, i.moneda)) });
-    if (i.estado === "pagado") return T(ing ? "Llegó el {f}" : "Pagado el {f}", { f: esc(fechaCorta(i.pago.fecha)) });
+      { f: fechaCorta(i.pago.fecha), n: i.pago.mora.dias, x: dinero(i.pago.mora.monto, i.moneda) });
+    if (i.estado === "pagado") return T(ing ? "Llegó el {f}" : "Pagado el {f}", { f: fechaCorta(i.pago.fecha) });
     if (i.modo_pago === "automatico" && !ing) {
       // Se cobra solo: no se le pide nada a la persona, salvo si pasaron los días de gracia y el cargo no aparece.
       if (i.estado === "atrasado") return i.dias === 1 ? T("No vimos el cargo: venció ayer") : T("No vimos el cargo: venció hace {n} días", { n: i.dias });
       if (i.estado === "esperando") return T("Se paga solo · aún no aparece el cargo");
-      return T("Se paga solo el {f}", { f: esc(fechaCorta(i.vence)) });
+      return T("Se paga solo el {f}", { f: fechaCorta(i.vence) });
     }
     if (i.estado === "hoy") return T(ing ? "Llega hoy" : "Vence hoy");
     if (i.estado === "pendiente") return i.dias === 1 ? T(ing ? "Llega mañana" : "Vence mañana") : T(ing ? "Llega en {n} días" : "Vence en {n} días", { n: i.dias });
@@ -2043,10 +2006,10 @@
   }
   /** El detalle: «entre $465.000 y $495.000», «12,75 UF ≈ $490.000 – $506.000» o «12,75 UF (aún no sé cuánto es en pesos)». */
   function detalleMonto(x) {
-    if (x.original && x.original.sin_valor) return T("{u} (aún no sé cuánto es en pesos)", { u: esc(textoUF(x.original.monto)) });
+    if (x.original && x.original.sin_valor) return T("{u} (aún no sé cuánto es en pesos)", { u: textoUF(x.original.monto) });
     if (!x.rango) return "";
-    const a = esc(dinero(x.rango.min, x.moneda)), b = esc(dinero(x.rango.max, x.moneda));
-    return x.original ? T("{u} ≈ {a} – {b}", { u: esc(textoUF(x.original.monto)), a, b }) : T("entre {a} y {b}", { a, b });
+    const a = dinero(x.rango.min, x.moneda), b = dinero(x.rango.max, x.moneda);
+    return x.original ? T("{u} ≈ {a} – {b}", { u: textoUF(x.original.monto), a, b }) : T("entre {a} y {b}", { a, b });
   }
   /** «≈ $480.000 (entre $465.000 y $495.000)», «12,75 UF ≈ $490.000 – $506.000» o el monto exacto. */
   const montoLargo = (x) => (x.original ? detalleMonto(x) : x.rango ? `≈ ${esc(dinero(x.monto, x.moneda))} (${detalleMonto(x)})` : esc(dinero(x.monto, x.moneda)));
@@ -2063,7 +2026,7 @@
     const u = ufCfg() || {};
     return `<div class="dos"><label class="campo"><span>Valor de la UF hoy</span><input class="texto" id="uf-valor" inputmode="decimal" data-uf="valor" value="${esc(formatoDecimal(u.valor))}" placeholder="${esc(tr("p. ej. 39.500"))}" data-sin-traducir></label>
       <label class="campo"><span>Cuánto puede variar al mes (%)</span><input class="texto" id="uf-variacion" inputmode="decimal" data-uf="variacion_mensual" value="${esc(formatoDecimal(u.variacion_mensual ?? UF_MENSUAL))}" data-sin-traducir></label></div>
-      <p class="nota-mcp">${u.valor && u.fecha ? frase("Anotado el {f}. Cuando reconozca un pago en UF, uso el valor que sale de ese pago.", { f: esc(fechaCorta(u.fecha)) })
+      <p class="nota-mcp">${u.valor && u.fecha ? frase("Anotado el {f}. Cuando reconozca un pago en UF, uso el valor que sale de ese pago.", { f: fechaCorta(u.fecha) })
         : frase("Solo hace falta mientras no reconozca ningún pago en UF: después saco el valor de tus pagos. Es una estimación.", {})}</p>`;
   }
   const hayUF = () => listaCompromisos().some((c) => c.moneda === UF);
@@ -2074,13 +2037,13 @@
     const clave = esc(`${i.id}|${i.periodo}`);
     let acciones = "";
     if (seCobraSolo(i)) acciones = "";
-    else if (i.estado !== "pagado") acciones = `<button class="boton" data-comp-pagado="${clave}">${i.signo === "ingreso" ? "Ya llegó" : "Ya lo pagué"}</button>`;
-    else if (completa && i.pago.como === "automatico") acciones = `<button class="boton sutil" data-comp-noes="${clave}|${esc(i.pago.movimiento)}" title="Ese movimiento no es el pago de este compromiso">No es este</button>`;
-    else if (completa) acciones = `<button class="boton sutil" data-comp-desmarcar="${clave}">Desmarcar</button>`;
+    else if (i.estado !== "pagado") acciones = `<button class="pz-boton" data-comp-pagado="${clave}">${i.signo === "ingreso" ? "Ya llegó" : "Ya lo pagué"}</button>`;
+    else if (completa && i.pago.como === "automatico") acciones = `<button class="pz-boton pz-plano" data-comp-noes="${clave}|${esc(i.pago.movimiento)}" title="Ese movimiento no es el pago de este compromiso">No es este</button>`;
+    else if (completa) acciones = `<button class="pz-boton pz-plano" data-comp-desmarcar="${clave}">Desmarcar</button>`;
     const detalle = [textoEstado(i)];
     if (i.cuota) detalle.push(T("cuota {n} de {t}", { n: i.cuota.numero, t: i.cuota.total }));
-    if (completa && i.estado === "pagado" && i.pago.como === "automatico") detalle.push(T("lo reconocí en tu cartola: {d}", { d: esc(i.pago.descripcion) }));
-    if (i.anterior) detalle.push(T("de {m}", { m: esc(nombreMes(i.vence.slice(0, 7))) }));
+    if (completa && i.estado === "pagado" && i.pago.como === "automatico") detalle.push(T("lo reconocí en tu cartola: {d}", { d: i.pago.descripcion }));
+    if (i.anterior) detalle.push(T("de {m}", { m: nombreMes(i.vence.slice(0, 7)) }));
     // Pagado y reconocido: lo que de verdad se pagó. Si no, el monto (aproximado o en UF, con su rango al lado).
     const pagadoReal = i.estado === "pagado" && i.pago.como === "automatico" && (i.rango || i.original);
     if (!pagadoReal && (i.rango || i.original)) detalle.push(detalleMonto(i));
@@ -2091,9 +2054,9 @@
   }
   function textoFrecuencia(c) {
     if (c.frecuencia === "mensual") return T("el {d} de cada mes", { d: c.dia });
-    if (c.frecuencia === "semanal") return T("cada {d}", { d: esc(tr(DIAS_SEMANA[(c.dia || 1) - 1])) });
-    if (c.frecuencia === "anual") return T("cada año, el {f}", { f: esc(fechaCorta(c.fecha)) });
-    return T("una vez, el {f}", { f: esc(fechaCorta(c.fecha)) });
+    if (c.frecuencia === "semanal") return T("cada {d}", { d: tr(DIAS_SEMANA[(c.dia || 1) - 1]) });
+    if (c.frecuencia === "anual") return T("cada año, el {f}", { f: fechaCorta(c.fecha) });
+    return T("una vez, el {f}", { f: fechaCorta(c.fecha) });
   }
   /** «Lo que estás pagando»: todo junto, con el avance de las deudas y el total mensual comprometido. */
   function seccionLoQuePagas(e) {
@@ -2107,32 +2070,32 @@
       let extra = "";
       if (r.cuotas && r.tipo === "prestamo") {
         const pct = r.cuotas.total ? Math.round(r.cuotas.pagadas / r.cuotas.total * 100) : 0, debe = r.signo !== "ingreso";
-        const x = esc(dinero(r.por_pagar || 0, r.moneda)), p = esc(r.con || ""), cu = esc(dinero(r.monto, r.moneda));
+        const x = dinero(r.por_pagar || 0, r.moneda), p = r.con || "", cu = dinero(r.monto, r.moneda);
         const linea = r.cuotas.quedan === 0 ? T(debe ? "¡Le pagaste todo a {p}!" : "¡{p} te pagó todo!", { p })
           : [T(debe ? "Le debes {x} a {p}" : "{p} te debe {x}", { x, p }), T(debe ? "te quedan {q} de {t} cuotas de {c}" : "le quedan {q} de {t} cuotas de {c}", { q: r.cuotas.quedan, t: r.cuotas.total, c: cu }),
-            r.termina ? T(debe ? "terminas en {m}" : "termina en {m}", { m: esc(mesLargo(r.termina)) }) : ""].filter(Boolean).join(" · ");
+            r.termina ? T(debe ? "terminas en {m}" : "termina en {m}", { m: mesLargo(r.termina) }) : ""].filter(Boolean).join(" · ");
         extra = `<div class="avance-deuda"><div class="barra" role="img" data-sin-traducir aria-label="${T("{p}% pagado", { p: pct })}"><i style="width:${pct}%"></i></div><small data-sin-traducir>${linea}</small></div>`;
       } else if (r.cuotas) {
         const pct = r.cuotas.total ? Math.round(r.cuotas.pagadas / r.cuotas.total * 100) : 0;
         const linea = r.cuotas.quedan === 0 ? T("¡Pagaste las {t} cuotas!", { t: r.cuotas.total })
-          : T("Te quedan {q} de {t} cuotas", { q: r.cuotas.quedan, t: r.cuotas.total }) + (r.termina ? " · " + T("termina en {m}", { m: esc(mesLargo(r.termina)) }) : "");
+          : T("Te quedan {q} de {t} cuotas", { q: r.cuotas.quedan, t: r.cuotas.total }) + (r.termina ? " · " + T("termina en {m}", { m: mesLargo(r.termina) }) : "");
         extra = `<div class="avance-deuda"><div class="barra" role="img" data-sin-traducir aria-label="${T("{p}% pagado", { p: pct })}"><i style="width:${pct}%"></i></div>
-          <small data-sin-traducir>${linea}${r.por_pagar ? " · " + T(r.saldo ? "saldo que anotaste: {x}" : "quedan por pagar {x}", { x: (r.rango ? "≈ " : "") + esc(r.moneda === UF ? textoUF(r.por_pagar) : dinero(r.por_pagar, r.moneda)) }) : ""}</small></div>`;
+          <small data-sin-traducir>${linea}${r.por_pagar ? " · " + T(r.saldo ? "saldo que anotaste: {x}" : "quedan por pagar {x}", { x: (r.rango ? "≈ " : "") + (r.moneda === UF ? textoUF(r.por_pagar) : dinero(r.por_pagar, r.moneda)) }) : ""}</small></div>`;
       } else if (r.tipo === "deuda") {
-        extra = `<div class="avance-deuda"><small data-sin-traducir>${r.termina ? T("termina en {m}", { m: esc(mesLargo(r.termina)) }) + " · " : ""}${r.saldo ? T("saldo que anotaste: {x}", { x: esc(dinero(r.saldo, r.moneda)) }) + " · " : ""}<button class="enlace" data-comp-editar="${esc(r.id)}">${esc(tr("Anotar cuántas cuotas faltan"))}</button></small></div>`;
+        extra = `<div class="avance-deuda"><small data-sin-traducir>${r.termina ? T("termina en {m}", { m: mesLargo(r.termina) }) + " · " : ""}${r.saldo ? T("saldo que anotaste: {x}", { x: dinero(r.saldo, r.moneda) }) + " · " : ""}<button class="enlace" data-comp-editar="${esc(r.id)}">${esc(tr("Anotar cuántas cuotas faltan"))}</button></small></div>`;
       }
       const modo = r.modo_pago !== undefined ? r.modo_pago : modoPago(c, E.palabrasAuto || []);
       const etiqueta = modo ? `<span class="chip etiqueta-pago">${esc(tr(modo === "automatico" ? "Se paga solo" : "Pagas tú"))}</span> ` : "";
       return `<div class="pagando"><span class="emoji" aria-hidden="true">${iconoComp(r)}</span>
         <div class="txt"><b data-sin-traducir>${esc(r.nombre)}</b><small data-sin-traducir>${etiqueta}${r.rango !== undefined ? montoLargo(r) : esc(r.moneda === UF ? textoUF(r.monto) : dinero(r.monto, r.moneda))} ${textoFrecuencia(c)}</small>${extra}</div>
-        <button class="icono" data-comp-editar="${esc(r.id)}" data-sin-traducir title="${esc(tr("Editar"))}" aria-label="${T("Editar {c}", { c: esc(r.nombre) })}">✎</button></div>`;
+        <button class="icono" data-comp-editar="${esc(r.id)}" data-sin-traducir title="${esc(tr("Editar"))}" aria-label="${T("Editar {c}", { c: r.nombre })}">✎</button></div>`;
     };
     const pausados = listaCompromisos().filter((c) => c.activo === false);
     const bloques = GRUPOS_COMP.map(([g, titulo]) => {
       const l = e.compromisos.filter((c) => grupoDe(c) === g);
       if (!l.length) return "";
       const mios = l.filter((c) => c.moneda === moneda), sub = mios.reduce((a, c) => a + c.mensual, 0);
-      return `<h3 class="grupo con-total"><span>${titulo}</span>${sub ? `<span class="sub" data-sin-traducir>${T("{x} al mes", { x: (mios.some((c) => c.rango) ? "≈ " : "") + esc(dinero(sub)) })}</span>` : ""}</h3>${l.map(fila).join("")}`;
+      return `<h3 class="grupo con-total"><span>${titulo}</span>${sub ? `<span class="sub" data-sin-traducir>${T("{x} al mes", { x: (mios.some((c) => c.rango) ? "≈ " : "") + dinero(sub) })}</span>` : ""}</h3>${l.map(fila).join("")}`;
     }).join("");
     return `<h2 class="subtitulo">Lo que estás pagando</h2><section class="tarjeta">${bloques}
       ${pausados.length ? `<h3 class="grupo">En pausa</h3>${pausados.map((c) => fila({ ...c, mensual: 0, cuotas: null })).join("")}` : ""}
@@ -2141,7 +2104,7 @@
   }
   /** Una sugerencia (detectada en la cartola) en palabras: «Parece que pagas X cerca del día 15». */
   function textoSugerencia(s) {
-    const x = (s.aproximado ? "≈ " : "") + esc(dinero(s.monto, s.moneda)), m = esc(s.nombre);
+    const x = (s.aproximado ? "≈ " : "") + dinero(s.monto, s.moneda), m = s.nombre;
     if (s.motivo === "palabra") return frase(s.signo === "ingreso" ? "Recibiste **{x}** ({m}) el día {d} y parece algo que se repite." : "Pagaste **{x}** ({m}) el día {d} y parece un compromiso.", { x, m, d: s.dia });
     return frase(s.signo === "ingreso" ? "Parece que recibes **{x}** cerca del día {d}: {m}." : "Parece que pagas **{x}** cerca del día {d}: {m}.", { x, m, d: s.dia });
   }
@@ -2153,7 +2116,7 @@
     return `<h2 class="subtitulo">Parece que pagas esto seguido</h2><section class="tarjeta">
       ${GRUPOS_COMP.map(([g, titulo]) => [titulo, ver.filter((s) => grupoDe(s) === g)]).filter(([, l]) => l.length).map(([titulo, l]) => `<h3 class="grupo">${titulo}</h3>` + l.map((s) => `<div class="sugerencia"><span class="emoji" aria-hidden="true">${iconoComp(s)}</span><div class="txt">${textoSugerencia(s)}
         ${s.cuotas_total ? `<small data-sin-traducir>${T("Según tu cartola vas en la cuota {n} de {t}.", { n: s.cuotas_pagadas, t: s.cuotas_total })}</small>` : ""}</div>
-        <div class="acciones"><button class="boton sutil" data-sug-no="${esc(s.clave)}">No es</button><button class="boton principal" data-sug-agregar="${esc(s.clave)}">¿Lo agrego?</button></div></div>`).join("")).join("")}
+        <div class="acciones"><button class="pz-boton pz-plano" data-sug-no="${esc(s.clave)}">No es</button><button class="pz-boton pz-principal" data-sug-agregar="${esc(s.clave)}">¿Lo agrego?</button></div></div>`).join("")).join("")}
       ${lista.length > 3 ? `<button class="enlace" data-accion="sug-todas">${E.sugTodas ? "Ver menos" : frase("Ver {n} más", { n: lista.length - 3 })}</button>` : ""}</section>`;
   }
   // ───────────── Conversar con Alcancía (el chanchito): bin/chat.py con la IA de la persona ─────────────
@@ -2185,35 +2148,35 @@
   function lineaPropuesta(c) {
     const partes = [];
     if (c.tipo === "prestamo" && c.prestamo && c.cuotas_total) {
-      const m = (x) => esc(c.moneda === UF ? textoUF(x) : dinero(x, c.moneda));
+      const m = (x) => (c.moneda === UF ? textoUF(x) : dinero(x, c.moneda));
       partes.push(T(c.prestamo.ultima !== c.prestamo.cuota ? "{c} al mes por {n} meses (la última de {u})" : "{c} al mes por {n} meses",
         { c: m(c.prestamo.cuota), n: c.cuotas_total, u: m(c.prestamo.ultima) }));
       const o = primeraCuota(c);
-      if (o) partes.push(T("la primera el {f}", { f: esc(fechaCorta(o.vence)) }));
+      if (o) partes.push(T("la primera el {f}", { f: fechaCorta(o.vence) }));
     } else if (c.monto) partes.push((c.aproximado ? "≈ " : "") + esc(c.moneda === UF ? textoUF(c.monto) : dinero(c.monto, c.moneda)) + (c.frecuencia && (c.dia || c.fecha) ? " " + textoFrecuencia(c) : ""));
     const modo = pagaLaPersona(c) ? c.pago || modoPago(c, E.palabrasAuto || []) : null;
     if (modo) partes.push(T(modo === "automatico" ? "se paga solo" : "lo pagas tú y te aviso"));
     return partes.join(" · ");
   }
   const botonesChat = (ref, opciones) => `<div class="acciones-chat">${opciones.map(([que, texto, principal]) =>
-    `<button class="boton ${principal ? "principal" : que === "no" ? "sutil" : ""}" data-sin-traducir data-chat="${que}" data-msg="${esc(ref.id)}" data-i="${ref.i}" ${ref.j != null ? `data-j="${ref.j}"` : ""}>${texto}</button>`).join("")}</div>`;
+    `<button class="pz-boton ${principal ? "pz-principal" : que === "no" ? "pz-plano" : ""}" data-sin-traducir data-chat="${que}" data-msg="${esc(ref.id)}" data-i="${ref.i}" ${ref.j != null ? `data-j="${ref.j}"` : ""}>${texto}</button>`).join("")}</div>`;
   const hechoChat = (estado) => `<p class="accion-estado ${estado === "hecha" ? "hecha" : ""}">${estado === "hecha" ? "✓ Listo" : "Descartado"}</p>`;
   /** Una propuesta de compromiso (crear o una del plan): «Agregar», «Cambiar» (abre el editor) o «No».
    *  `x.parecido` (y sin respuesta): primero «¿Es el mismo?». `x.actualiza`: es el préstamo que ya estaba, con el plan nuevo
    *  («Actualizar»). `x.espera`: hay una pregunta abierta en el mismo plan y las cifras pueden cambiar (sin botones aún). */
   function tarjetaPropuesta(m, a, i, c, j = null, x = {}) {
     const estado = estadoAccion(m, i, j), ref = { id: m.id, i, j };
-    const titulo = esc(c.nombre || (c.con ? T("Préstamo de {p}", { p: esc(c.con) }) : tr("Un pago nuevo")));
+    const titulo = esc(c.nombre || (c.con ? T("Préstamo de {p}", { p: c.con }) : tr("Un pago nuevo")));
     const icono = `<span class="emoji" aria-hidden="true">${iconoComp(c)}</span>`;
     if (x.parecido && !x.es && !estado) {
-      const p = x.parecido, mo = (v) => esc(c.moneda === UF ? textoUF(v) : dinero(v));
+      const p = x.parecido, mo = (v) => (c.moneda === UF ? textoUF(v) : dinero(v));
       const detalle = p.cuotas && p.cuotas.quedan ? T(p.cuotas.quedan === 1 ? "{c} al mes, queda 1 cuota" : "{c} al mes, quedan {n} cuotas", { c: mo(p.monto), n: p.cuotas.quedan })
         : T("{c} al mes", { c: mo(p.monto) });
       return `<div class="propuesta pregunta">${icono}<div class="txt"><b data-sin-traducir>${titulo}</b>
-        <small data-sin-traducir>${T("Ya tienes anotado «{n}» ({d}). ¿Es el mismo?", { n: esc(p.nombre), d: detalle })}</small></div>
+        <small data-sin-traducir>${Thtml("Ya tienes anotado «{n}» ({d}). ¿Es el mismo?", { n: esc(p.nombre), d: detalle })}</small></div>
         ${botonesChat(ref, [["mismo", tr("Es el mismo")], ["otro", tr("Es otro")]])}</div>`;
     }
-    const linea = a.incompleto && !x.actualiza ? T("Me faltó algo: complétalo y lo guardo.") : x.actualiza ? T("Lo actualizo: {x}", { x: lineaPropuesta(c) }) : lineaPropuesta(c);
+    const linea = a.incompleto && !x.actualiza ? T("Me faltó algo: complétalo y lo guardo.") : x.actualiza ? Thtml("Lo actualizo: {x}", { x: lineaPropuesta(c) }) : lineaPropuesta(c);
     const encontrado = j == null && a.encontrado && !x.actualiza ? `<small class="encontrado" data-sin-traducir>${lineaEncontrado(a.encontrado, c.moneda)}</small>` : "";
     const pie = estado ? hechoChat(estado) : x.espera ? "" : x.actualiza ? botonesChat(ref, [["hacer", tr("Actualizar"), true], ["cambiar", tr("Cambiar")], ["no", tr("No")]])
       : a.incompleto ? botonesChat(ref, [["cambiar", tr("Completar"), true], ["no", tr("No")]])
@@ -2223,18 +2186,18 @@
   }
   /** De dónde salió una propuesta que se completó con los movimientos (bin/chat.py, `encontrado`): solo cifras y fechas. */
   const lineaEncontrado = (e, moneda) => T("Lo encontré en tus movimientos: {x} cada mes, el día ~{d} (últimas: {f})",
-    { x: (e.aproximado ? "≈ " : "") + esc(dinero(e.monto, moneda)), d: esc(e.dia), f: (e.ultimas || []).map((f) => esc(fechaCorta(f))).join(", ") });
+    { x: (e.aproximado ? "≈ " : "") + dinero(e.monto, moneda), d: e.dia, f: (e.ultimas || []).map((f) => fechaCorta(f)).join(", ") });
   /** buscar_pago de algo que ya está anotado: sin botones, con su último pago reconocido. */
   function tarjetaAnotado(a) {
     const c = a.anotado, mo = (v) => esc(c.moneda === UF ? textoUF(v) : dinero(v, c.moneda));
-    const ultimo = c.ultimo ? T("El último pago que vi: {f} ({x}).", { f: esc(fechaCorta(c.ultimo.fecha)), x: esc(dinero(c.ultimo.monto)) }) : T("Aún no veo un pago reconocido.");
+    const ultimo = c.ultimo ? T("El último pago que vi: {f} ({x}).", { f: fechaCorta(c.ultimo.fecha), x: dinero(c.ultimo.monto) }) : T("Aún no veo un pago reconocido.");
     return `<div class="accion-chat sin-caja"><div class="propuesta resuelta"><span class="emoji" aria-hidden="true">${iconoComp(c)}</span>
       <div class="txt"><b data-sin-traducir>${esc(c.nombre)}</b><small data-sin-traducir>${mo(c.monto)} ${textoFrecuencia(c)}</small><small data-sin-traducir>${ultimo}</small></div></div></div>`;
   }
   /** Cuando la búsqueda en los movimientos decidió lo que pasó, la respuesta la armó el código (`busqueda`): aquí, en tu idioma. */
   function textoBusqueda(b) {
-    if (b.resultado === "encontre") return T("Lo encontré en tus movimientos: {n}, {x} el día {d}. ¿Lo agrego?", { n: esc(b.nombre), x: (b.aproximado ? "≈ " : "") + esc(dinero(b.monto)), d: esc(b.dia) });
-    if (b.resultado === "anotado") return T("Ya lo tienes anotado: «{n}».", { n: esc(b.nombre) });
+    if (b.resultado === "encontre") return T("Lo encontré en tus movimientos: {n}, {x} el día {d}. ¿Lo agrego?", { n: b.nombre, x: (b.aproximado ? "≈ " : "") + dinero(b.monto), d: b.dia });
+    if (b.resultado === "anotado") return T("Ya lo tienes anotado: «{n}».", { n: b.nombre });
     return T("No lo vi en tus movimientos de los últimos 12 meses. Si me dices cuánto es y qué día, lo anoto.");
   }
   /** «Es el mismo» y no hay nada que cambiar (o la propuesta venía incompleta): no se agrega otro. */
@@ -2255,10 +2218,10 @@
       const { plan: p, propuestas, mismos } = planElegido(m, a, i), n = p.meses, parecidos = a.parecidos || [];
       const abiertas = parecidos.filter((q, j) => q && !esMismo(m, i, j) && !estadoAccion(m, i, j)).length;
       const intro = p.alcanza === null ? T("Aún no tengo meses completos para saber cuánto te queda libre, así que te propongo {n} meses. Cuando tenga más datos, lo ajustamos.", { n })
-        : p.alcanza ? T("Te quedan libres cerca de {m} al mes. Uso como máximo {d} ({u}) y el resto te queda de colchón. Así terminas en {n} meses:", { m: x(p.margen), d: x(p.disponible), u: `<span class="monto-chat">${p.uso}${E.idioma === "es" ? "\u00a0%" : "%"}</span>`, n })
-          : p.margen <= 0 ? T("Hoy lo que gastas y tus compromisos ya suman más de lo que entra (te faltan {m} al mes). Te dejo la cuota más chica posible, pero para pagarla tendrías que recortar en otra parte:", { m: x(-p.margen) })
-            : T("Con lo que te queda libre (cerca de {m} al mes) no alcanza sin apretarte: aun en {n} meses serían {t} al mes, {f} más de lo que te recomiendo. Te dejo la propuesta más liviana; si puedes, conversa un plazo más largo:", { m: x(p.margen), n, t: x(p.al_mes), f: x(p.falta) });
-      const base = p.base && p.base.ingreso != null && p.base.gasto != null ? `<small class="base-plan" data-sin-traducir>${T("Entra {i} · gastas {g} · compromisos {c}", { i: x(p.base.ingreso), g: x(p.base.gasto), c: x(p.base.compromisos) })}</small>` : "";
+        : p.alcanza ? Thtml("Te quedan libres cerca de {m} al mes. Uso como máximo {d} ({u}) y el resto te queda de colchón. Así terminas en {n} meses:", { m: x(p.margen), d: x(p.disponible), u: `<span class="monto-chat">${p.uso}${E.idioma === "es" ? "\u00a0%" : "%"}</span>`, n })
+          : p.margen <= 0 ? Thtml("Hoy lo que gastas y tus compromisos ya suman más de lo que entra (te faltan {m} al mes). Te dejo la cuota más chica posible, pero para pagarla tendrías que recortar en otra parte:", { m: x(-p.margen) })
+            : Thtml("Con lo que te queda libre (cerca de {m} al mes) no alcanza sin apretarte: aun en {n} meses serían {t} al mes, {f} más de lo que te recomiendo. Te dejo la propuesta más liviana; si puedes, conversa un plazo más largo:", { m: x(p.margen), n, t: x(p.al_mes), f: x(p.falta) });
+      const base = p.base && p.base.ingreso != null && p.base.gasto != null ? `<small class="base-plan" data-sin-traducir>${Thtml("Entra {i} · gastas {g} · compromisos {c}", { i: x(p.base.ingreso), g: x(p.base.gasto), c: x(p.base.compromisos) })}</small>` : "";
       const pendientes = propuestas.filter((c, j) => !estadoAccion(m, i, j)).length;
       const todos = mismos.some((j) => !estadoAccion(m, i, j)) ? "Guardar los {n}" : "Agregar los {n}";
       return `<div class="accion-chat plan"><p data-sin-traducir>${intro}</p>${base}
@@ -2267,17 +2230,17 @@
     }
     if (a.tipo === "buscar_pago") return a.anotado ? tarjetaAnotado(a) : "";
     const nombre = esc(a.nombre), f = (v) => esc(fechaCorta(v));
-    if (a.tipo === "reasignar_pago") return caja(T("«{c}»: el pago del {f} ({x}) era del vencimiento del {a}. Lo paso ahí y el del {d} queda pendiente.",
+    if (a.tipo === "reasignar_pago") return caja(Thtml("«{c}»: el pago del {f} ({x}) era del vencimiento del {a}. Lo paso ahí y el del {d} queda pendiente.",
       { c: nombre, f: f(a.pago.fecha), x: x(a.pago.monto), a: f(a.a.vence), d: f(a.de.vence) }), [["hacer", tr("Sí, corrígelo"), true], no]);
-    if (a.tipo === "marcar_pagado") return caja(T(a.signo === "ingreso" ? "«{c}» (del {f}): ¿lo marco como recibido?" : "«{c}» (vence el {f}): ¿lo marco como pagado?",
+    if (a.tipo === "marcar_pagado") return caja(Thtml(a.signo === "ingreso" ? "«{c}» (del {f}): ¿lo marco como recibido?" : "«{c}» (vence el {f}): ¿lo marco como pagado?",
       { c: nombre, f: f(a.vence) }), [["hacer", tr("Sí, márcalo"), true], no]);
-    if (a.tipo === "marcar_pendiente") return caja(T("«{c}»: quito el pago del {f} y queda pendiente (vence el {v}).", { c: nombre, f: f(a.pago.fecha), v: f(a.vence) }),
+    if (a.tipo === "marcar_pendiente") return caja(Thtml("«{c}»: quito el pago del {f} y queda pendiente (vence el {v}).", { c: nombre, f: f(a.pago.fecha), v: f(a.vence) }),
       [["hacer", tr("Sí, déjalo pendiente"), true], no]);
     if (a.tipo === "editar_compromiso") {
       const valor = (k, v) => (v == null || v === "" ? "—" : k === "monto" ? x(v) : k === "pago" ? esc(tr(v === "automatico" ? "Se paga solo" : "Lo pago yo")) : k === "fecha_fin" ? f(v) : esc(v));
       const etiqueta = { monto: tr("Monto"), dia: tr("Día"), pago: tr("Cómo se paga"), fecha_fin: tr("Termina") };
       const cambios = Object.keys(a.cambios).map((k) => `${esc(etiqueta[k])}: ${valor(k, a.antes[k])} → <b>${valor(k, a.cambios[k])}</b>`).join(" · ");
-      return caja(T("«{c}»: {x}", { c: nombre, x: cambios }), [["hacer", tr("Sí, cámbialo"), true], ["cambiar", tr("Cambiar")], no]);
+      return caja(Thtml("«{c}»: {x}", { c: nombre, x: cambios }), [["hacer", tr("Sí, cámbialo"), true], ["cambiar", tr("Cambiar")], no]);
     }
     return "";
   }
@@ -2285,16 +2248,16 @@
   function mensajeChat(m) {
     if (m.rol === "persona") return `<div class="msg persona"><div class="globo" data-sin-traducir>${textoChat(m.texto)}</div></div>`;
     const notas = (m.notas || []).filter((n) => NOTAS_CHAT[n] && !(n === "no_encontre_movimientos" && m.busqueda)).map((n) => `<p class="nota-chat" data-sin-traducir>${esc(tr(NOTAS_CHAT[n]))}</p>`).join("");
-    const extra = m.sin_ia ? `<div class="acciones-chat"><button class="boton" data-accion="chat-ajustes">Abrir Ajustes</button></div>` : "";
+    const extra = m.sin_ia ? `<div class="acciones-chat"><button class="pz-boton" data-accion="chat-ajustes">Abrir Ajustes</button></div>` : "";
     return `<div class="msg alcancia ${m.error ? "error" : ""}">${avatarChat()}<div class="cuerpo-msg"><div class="globo" data-sin-traducir>${m.busqueda ? textoBusqueda(m.busqueda) : textoChat(m.texto)}</div>
       ${(m.acciones || []).map((a, i) => tarjetaAccion(m, a, i)).join("")}${notas}${extra}</div></div>`;
   }
   /** «Cuéntale a Alcancía»: el chat con el chanchito. En celular ocupa toda la pantalla; el campo queda abajo, en la zona del pulgar. */
   function dialogoChat() {
-    const k = E.chat, ia = esc(nombreIA()), msgs = k.mensajes || [], conIA = hayIA();
+    const k = E.chat, ia = nombreIA(), msgs = k.mensajes || [], conIA = hayIA();
     const borrar = !msgs.length ? "" : k.confirmarBorrar
-      ? `<span class="confirmar-borrar"><button class="boton sutil" data-accion="chat-no-borrar">Cancelar</button><button class="boton" data-accion="chat-borrar-si">Borrar la conversación</button></span>`
-      : `<button class="boton sutil" data-accion="chat-borrar">Borrar</button>`;
+      ? `<span class="confirmar-borrar"><button class="pz-boton pz-plano" data-accion="chat-no-borrar">Cancelar</button><button class="pz-boton" data-accion="chat-borrar-si">Borrar la conversación</button></span>`
+      : `<button class="pz-boton pz-plano" data-accion="chat-borrar">Borrar</button>`;
     const cabeza = `<header class="chat-cabeza">${avatarChat()}<div class="txt"><h2 id="t-chat">Alcancía</h2><small>${frase("Con {ia}, en tu computador", { ia })}</small></div>
       ${borrar}<button class="icono" data-accion="cerrar-agregar" aria-label="Cerrar" title="Cerrar">✕</button></header>`;
     const hola = `<div class="msg alcancia">${avatarChat()}<div class="cuerpo-msg"><div class="globo">${frase(conIA
@@ -2307,21 +2270,20 @@
     const pensando = k.pensando ? `<div class="msg alcancia pensando" role="status">${avatarChat()}<div class="cuerpo-msg"><div class="globo"><span class="puntos" aria-hidden="true"><i></i><i></i><i></i></span>
       ${frase("{ia} está pensando. Puede tardar un poco.", { ia })}</div></div></div>` : "";
     const pie = conIA ? `<form class="chat-pie" data-chat-form><label class="oculto-accesible" for="chat-texto">Escríbele a Alcancía</label>
-        <textarea id="chat-texto" class="texto" rows="1" maxlength="500" data-chat-texto data-sin-traducir placeholder="${esc(tr("Escríbele a Alcancía…"))}" ${k.pensando ? "disabled" : ""}>${esc(k.texto)}</textarea>
-        <button class="boton principal enviar" type="button" data-accion="chat-enviar" aria-label="Enviar" title="Enviar" ${k.pensando ? "disabled" : ""}>${icono("enviar")}</button></form>`
-      : `<div class="chat-pie sin-ia"><button class="boton" data-accion="comp-nuevo">Agregar a mano</button><button class="boton principal" data-accion="chat-ajustes">Abrir Ajustes</button></div>`;
+        <textarea id="chat-texto" class="texto" rows="1" data-autofoco maxlength="500" data-chat-texto data-sin-traducir placeholder="${esc(tr("Escríbele a Alcancía…"))}" ${k.pensando ? "disabled" : ""}>${esc(k.texto)}</textarea>
+        <button class="pz-boton pz-principal enviar" type="button" data-accion="chat-enviar" aria-label="Enviar" title="Enviar" ${k.pensando ? "disabled" : ""}>${icono("enviar")}</button></form>`
+      : `<div class="chat-pie sin-ia"><button class="pz-boton" data-accion="comp-nuevo">Agregar a mano</button><button class="pz-boton pz-principal" data-accion="chat-ajustes">Abrir Ajustes</button></div>`;
     return `${cabeza}<div class="chat-cuerpo" role="log" aria-live="polite">${hola}${sugerencias}${msgs.map(mensajeChat).join("")}${pensando}</div>${pie}`;
   }
   /** «+ Agregar»: lo único que se agrega en Alcancía, en un solo lugar (una cartola, un pago que se repite o una cuenta conectada). */
   function dialogoAgregar() {
     const op = (accion, ico, titulo, detalle, extra = "") => `<button class="opcion-agregar" ${accion} ${extra}><span class="ico">${icono(ico)}</span>
       <span class="txt"><b>${titulo}</b><small>${detalle}</small></span><span class="cf-flecha" aria-hidden="true">›</span></button>`;
-    return `<h2 id="t-agregar">Agregar</h2>
-      <div class="opciones-agregar">
+    return { titulo: "Agregar", cuerpo: `<div class="opciones-agregar">
         ${op('data-accion="importar"', "cartola", "Una cartola", "CSV, Excel, PDF u OFX que descargas de tu banco o billetera.")}
         ${op('data-accion="agregar-contar"', "repetir", "Un pago que se repite", "Arriendo, créditos, cuentas, suscripciones o tu sueldo. Con tus palabras.")}
-        ${op('data-vista="conexiones"', "conexiones", "Conectar una cuenta", "Que tus movimientos lleguen solos.")}</div>
-      <div class="pie-dialogo"><button class="boton" data-accion="cerrar-agregar">Cancelar</button></div>`;
+        ${op('data-vista="conexiones"', "conexiones", "Conectar una cuenta", "Que tus movimientos lleguen solos.")}</div>`,
+      pie: `<button class="pz-boton" data-accion="cerrar-agregar">Cancelar</button>` };
   }
   const nuevoIdComp = () => "c-" + Array.from({ length: 10 }, () => "abcdefghijklmnopqrstuvwxyz0123456789"[Math.floor(Math.random() * 36)]).join("");
   function borradorDe(c = {}) {
@@ -2349,8 +2311,8 @@
             <label class="campo"><span>O la fecha en que termina</span><input class="texto" id="ce-fecha_fin" type="date" data-ce="fecha_fin" value="${esc(c.fecha_fin || "")}"></label>`}
         ${campoNum("saldo", c.saldo, tr("Saldo que te queda por pagar"))}</fieldset>` : "";
     const existe = listaCompromisos().some((x) => x.id === c.id);
-    return `<h2 id="t-comp">${existe ? "Editar compromiso" : k.origen === "ia" ? "¿Quedó bien?" : "Nuevo compromiso"}</h2>
-      ${k.origen === "ia" ? frase("Así lo entendió {ia}. Revisa y corrige lo que haga falta antes de guardar.", { ia: esc(nombreIA()) }, "p") : ""}
+    return { titulo: existe ? "Editar compromiso" : k.origen === "ia" ? "¿Quedó bien?" : "Nuevo compromiso", cuerpo: `<div class="editor-comp" id="editor-comp">
+      ${k.origen === "ia" ? frase("Así lo entendió {ia}. Revisa y corrige lo que haga falta antes de guardar.", { ia: nombreIA() }, "p") : ""}
       <div class="campos-comp">
         <label class="campo ancho"><span>Nombre</span><input class="texto" id="ce-nombre" maxlength="60" data-ce="nombre" value="${esc(c.nombre)}" data-sin-traducir></label>
         <div class="dos"><label class="campo"><span>Tipo</span><select id="ce-tipo" data-ce="tipo" data-sin-traducir>${opc(TIPOS_COMP, c.tipo)}</select></label>
@@ -2364,11 +2326,11 @@
         ${deuda}
         ${existe ? `<label class="marcar"><input type="checkbox" data-ce-activo ${c.activo !== false ? "checked" : ""}><span>Activo<small>Si lo pausas, no te lo recuerdo ni lo busco en tus cartolas.</small></span></label>` : ""}
       </div>
-      ${k.error ? `<p class="error-txt" data-sin-traducir>${esc(k.error)}</p>` : ""}
-      <div class="pie-dialogo">${existe ? `<button class="boton izq peligro" data-accion="comp-borrar">Borrar</button>` : ""}
-        <button class="boton" data-accion="comp-cancelar">Cancelar</button>
-        ${c.tipo === "deuda" && !existe ? `<button class="boton" data-accion="comp-despues">Lo completo después</button>` : ""}
-        <button class="boton principal" data-accion="comp-guardar">Guardar</button></div>`;
+      ${k.error ? `<p class="error-txt" data-sin-traducir>${esc(k.error)}</p>` : ""}</div>`,
+      pie: `${existe ? `<button class="pz-boton pz-izq pz-peligro" data-accion="comp-borrar">Borrar</button>` : ""}
+        <button class="pz-boton" data-accion="comp-cancelar">Cancelar</button>
+        ${c.tipo === "deuda" && !existe ? `<button class="pz-boton" data-accion="comp-despues">Lo completo después</button>` : ""}
+        <button class="pz-boton pz-principal" data-accion="comp-guardar">Guardar</button>` };
   }
   /** Lo que muestra (y guarda) «¿Cómo se paga?»: lo que eligió la persona o, si no, lo que se infiere (modoPago); si no se sabe, «Lo pago yo». */
   const pagoDelEditor = (c) => c.pago || modoPago({ ...c, buscar: String(c.buscarTexto || "").split(",") }, E.palabrasAuto || []) || "manual";
@@ -2393,12 +2355,12 @@
   }
   /** Préstamo entre personas: con quién, quién le prestó a quién, el total y en cuántas cuotas; el cálculo se ve en vivo. */
   function camposPrestamo(c) {
-    const k = calculoPrestamo(c), m = c.moneda, d = (x) => esc(m === UF ? textoUF(x) : dinero(x, m));
+    const k = calculoPrestamo(c), m = c.moneda, d = (x) => (m === UF ? textoUF(x) : dinero(x, m));
     let vivo = "";
     if (k) {
       vivo = T(k.ultima !== k.cuota ? "Son {n} cuotas de {c} (la última de {u})." : "Son {n} cuotas de {c}.", { n: k.cuotas, c: d(k.cuota), u: d(k.ultima) });
       if (k.interes) vivo += " " + T("En total se paga {t}.", { t: d(k.pagar) });
-      if (k.primera) vivo += " " + T(c.signo === "ingreso" ? "La primera el {f} y termina en {m}." : "La primera el {f} y terminas en {m}.", { f: esc(fechaCorta(k.primera)), m: esc(mesLargo(k.ultimaFecha)) });
+      if (k.primera) vivo += " " + T(c.signo === "ingreso" ? "La primera el {f} y termina en {m}." : "La primera el {f} y terminas en {m}.", { f: fechaCorta(k.primera), m: mesLargo(k.ultimaFecha) });
     }
     return `<div class="dos"><label class="campo"><span>¿Con quién?</span><input class="texto" id="ce-con" maxlength="30" data-ce="con" value="${esc(c.con)}" placeholder="${esc(tr("p. ej. Mamá"))}" data-sin-traducir></label>
         <label class="campo"><span>¿Quién le prestó a quién?</span><select id="ce-signo" data-ce="signo" data-sin-traducir>
@@ -2425,7 +2387,7 @@
     if (!c.preguntar_uf) return "";
     return `<fieldset class="preguntas"><legend>¿Se paga en UF? <small>(opcional)</small></legend>
       <label class="marcar"><input type="checkbox" data-ce-uf ${c.moneda === UF ? "checked" : ""}><span>Sí, el monto está en UF<small data-sin-traducir>${c.moneda === UF && c.montoPesos
-        ? T("Escribe cuántas UF son. Tu último pago fue de {x}: de ahí saco cuánto vale la UF.", { x: esc(dinero(c.montoPesos, monedaPrincipal())) })
+        ? T("Escribe cuántas UF son. Tu último pago fue de {x}: de ahí saco cuánto vale la UF.", { x: dinero(c.montoPesos, monedaPrincipal()) })
         : esc(tr("Así te muestro un rango en pesos que sigue a la UF."))}</small></span></label></fieldset>`;
   }
   /** En UF: cuánto sería en pesos con lo último que sé de la UF, o cómo lo voy a saber. */
@@ -2435,7 +2397,7 @@
     if (!ref || !monto) return `<p class="pista-campo">${frase("Es una estimación: saco el valor de la UF de tu primer pago reconocido, o puedes escribirlo en Ajustes.", {})}</p>`;
     const borr = { id: "_", moneda: UF, monto, aproximado: c.aproxActivo ? (c.aproxModo === "rango" ? { min: c.aproxMin || monto, max: c.aproxMax || monto } : { variacion: c.aproxVariacion || 0 }) : null };
     const x = enMoneda(borr, E.hoy, { _: ref }, monedaPrincipal(), (ufCfg() || {}).variacion_mensual ?? UF_MENSUAL);
-    return `<p class="pista-campo" data-sin-traducir>${T("Con la UF a {v}: {r}. Es una estimación.", { v: esc(dinero(ref.valor, monedaPrincipal())), r: detalleMonto(x) })}</p>`;
+    return `<p class="pista-campo" data-sin-traducir>${Thtml("Con la UF a {v}: {r}. Es una estimación.", { v: esc(dinero(ref.valor, monedaPrincipal())), r: detalleMonto(x) })}</p>`;
   }
   /** Lo que se va a guardar (o null y el error en el editor). Mismas reglas que compromisos.validar en Python. */
   function compromisoDelEditor(sinOpcionales) {
@@ -2525,22 +2487,22 @@
     const ordenar = (l) => [...l].sort((a, b) => orden[a.estado] - orden[b.estado] || (a.vence < b.vence ? -1 : a.vence > b.vence ? 1 : 0));
     const g = gastoMaximo(E.movimientos, listaCompromisos(), E.mes, E.hoy, E.categorias, mesesCompletos(), monedaPrincipal(), per(), ufCfg());
     const hay = listaCompromisos().length;
-    const anotar = `<button class="boton sutil" data-accion="agregar-contar">＋ <span>Anotar un pago</span></button>`;
+    const anotar = `<button class="pz-boton pz-plano" data-accion="agregar-contar">＋ <span>Anotar un pago</span></button>`;
     if (!hay && !(E.sugerencias || []).length) {
       return `<div class="contenido"><div class="encabezado"><h1>Pagos</h1></div>
         <section class="vacio corto"><p>${frase("Lo que pagas o recibes seguido: deudas, cuentas, suscripciones, transferencias y tu sueldo. Alcancía **reconoce el pago en tu cartola** y te recuerda lo que falta, para que no se te olvide nada.", {})}</p>
           ${LECTURA ? `<p class="texto-suave">Anótalos en tu Mac y aparecen aquí.</p>` : ""}
-          <button class="boton principal" data-accion="agregar-contar">＋ <span>Anotar un pago</span></button></section></div>`;
+          <button class="pz-boton pz-principal" data-accion="agregar-contar">＋ <span>Anotar un pago</span></button></section></div>`;
     }
     // Lo que pagas tú (y lo automático sin cargo pasada la gracia) arriba; lo que se paga solo, aparte y sin «Ya lo pagué».
     const falta = ordenar(gastos.filter((i) => i.estado !== "pagado" && !seCobraSolo(i))), solos = ordenar(gastos.filter(seCobraSolo));
     const pagados = ordenar(gastos.filter((i) => i.estado === "pagado"));
     const aprox = e.total_max !== e.total || e.arrastre_max !== e.arrastre;
-    const resumenLinea = hay ? `<p class="linea-total" data-sin-traducir>${T("Este mes: {t} en pagos · pagado {p} · falta {f}", { t: (aprox ? "≈ " : "") + esc(dinero(e.total + e.arrastre)), p: esc(dinero(e.pagado)),
-        f: `<b>${e.aprox ? "≈ " : ""}${esc(dinero(e.pendiente))}</b>` })}${e.atrasado ? " · " + `<span class="rojo-txt">${T("{x} atrasado", { x: esc(dinero(e.atrasado)) })}</span>` : ""}</p>
-      ${enCurso && g.disponible != null ? `<p class="linea-maximo">${g.alcanza ? frase("Después de tus compromisos, este mes puedes gastar hasta **{x}** en lo variable.", { x: esc(dinero(g.disponible)) })
+    const resumenLinea = hay ? `<p class="linea-total" data-sin-traducir>${Thtml("Este mes: {t} en pagos · pagado {p} · falta {f}", { t: (aprox ? "≈ " : "") + esc(dinero(e.total + e.arrastre)), p: esc(dinero(e.pagado)),
+        f: `<b>${e.aprox ? "≈ " : ""}${esc(dinero(e.pendiente))}</b>` })}${e.atrasado ? " · " + `<span class="rojo-txt">${T("{x} atrasado", { x: dinero(e.atrasado) })}</span>` : ""}</p>
+      ${enCurso && g.disponible != null ? `<p class="linea-maximo">${g.alcanza ? frase("Después de tus compromisos, este mes puedes gastar hasta **{x}** en lo variable.", { x: dinero(g.disponible) })
         : frase("Este mes tus compromisos y gastos fijos suman más de lo que entra.", {})} <button class="enlace" data-vista="presupuesto">Ver el detalle</button></p>` : ""}` : "";
-    const listaMes = hay ? `<section class="seccion-pagos"><h2 class="titulo-seccion" data-sin-traducir>${falta.length ? T("Falta pagar en {m}", { m: esc(nombreMes(E.mes)) }) : T("En {m}", { m: esc(nombreMes(E.mes)) })}</h2>
+    const listaMes = hay ? `<section class="seccion-pagos"><h2 class="titulo-seccion" data-sin-traducir>${falta.length ? T("Falta pagar en {m}", { m: nombreMes(E.mes) }) : T("En {m}", { m: nombreMes(E.mes) })}</h2>
         ${falta.length ? falta.map((i) => filaCompromiso(i, true)).join("") : `<p class="al-dia ok"><span class="punto" aria-hidden="true"></span><span>${solos.length ? frase("**Estás al día.** Lo que queda se paga solo.", {}) : frase("**Estás al día.** Pagaste todo lo de este mes.", {})}</span></p>`}
         ${solos.length ? `<h3 class="grupo">Se paga solo</h3>${solos.map((i) => filaCompromiso(i, true)).join("")}` : ""}
         ${pagados.length ? `<h3 class="grupo">Pagado</h3>${pagados.map((i) => filaCompromiso(i, true)).join("")}` : ""}
@@ -2561,9 +2523,9 @@
     const cab = `<div class="tarjeta-cabeza"><h2>Gasto máximo sugerido</h2></div>`;
     if (g.ingreso == null) return `<section class="tarjeta maximo">${cab}<p class="texto-suave">Cuando sepa cuánto te entra al mes (anota tu sueldo en Pagos o agrega cartolas con tus ingresos), aquí te digo cuánto puedes gastar en lo variable.</p></section>`;
     const origen = g.fuente === "compromisos" ? tr("Según los ingresos que anotaste en Pagos.") : tr("Según el promedio de lo que te entró los últimos meses.");
-    const desglose = frase("Entra {i} · compromisos {c} · otros gastos fijos {f}", { i: esc(dinero(g.ingreso)), c: esc(dinero(g.compromisos)), f: esc(dinero(g.otros_fijos)) }, "small");
+    const desglose = frase("Entra {i} · compromisos {c} · otros gastos fijos {f}", { i: dinero(g.ingreso), c: dinero(g.compromisos), f: dinero(g.otros_fijos) }, "small");
     if (!g.alcanza) {
-      return `<section class="tarjeta maximo">${cab}<div class="ritmo ojo">🫶 ${frase("Este mes lo comprometido ({c}) es más de lo que entra ({i}): faltan {x}.", { c: esc(dinero(g.compromisos + g.otros_fijos)), i: esc(dinero(g.ingreso)), x: esc(dinero(-(g.disponible || 0))) })}</div>
+      return `<section class="tarjeta maximo">${cab}<div class="ritmo ojo">🫶 ${frase("Este mes lo comprometido ({c}) es más de lo que entra ({i}): faltan {x}.", { c: dinero(g.compromisos + g.otros_fijos), i: dinero(g.ingreso), x: dinero(-(g.disponible || 0)) })}</div>
         <p class="texto-suave">Respira: tenerlo claro ya es avanzar. Mira si algún compromiso se puede mover de fecha o si algún gasto fijo se puede bajar, y anota en Pagos lo que tengas claro.</p>
         <p class="pie-maximo">${desglose} <small data-sin-traducir>${esc(origen)}</small></p></section>`;
     }
@@ -2574,10 +2536,10 @@
         <span class="barra ${x.gastado > x.maximo ? "pasado" : x.gastado > x.maximo * 0.85 ? "ojo" : ""}"><i style="width:${pct.toFixed(1)}%"></i></span></div>`;
     }).join("");
     const aprox = estadoDelMes().aprox ? `<small data-sin-traducir>${esc(tr("Con los montos aproximados o en UF uso el máximo de cada uno, para que no te quedes corto."))}</small>` : "";
-    return `<section class="tarjeta maximo">${cab}<p class="maximo-cifra">${frase("Este mes puedes gastar hasta **{x}** en lo variable.", { x: esc(dinero(g.disponible)) })}</p>
+    return `<section class="tarjeta maximo">${cab}<p class="maximo-cifra">${frase("Este mes puedes gastar hasta **{x}** en lo variable.", { x: dinero(g.disponible) })}</p>
       <p class="pie-maximo">${desglose} <small data-sin-traducir>${esc(origen)}</small>${aprox}</p>
       ${filas ? `<p class="pista-cat">Máximo por categoría, según lo que gastas normalmente, y lo que llevas este mes:</p>${filas}
-        <div class="pie-dialogo"><button class="boton" data-accion="usar-maximos">Usar estos máximos como topes</button></div>` : ""}</section>`;
+        <div class="pz-pie"><button class="pz-boton" data-accion="usar-maximos">Usar estos máximos como topes</button></div>` : ""}</section>`;
   }
   /** Tras importar (o sincronizar): lo que parece un compromiso en lo nuevo, para agregarlo con un toque. */
   function detectadosHTML(r) {
@@ -2589,20 +2551,12 @@
       ${lista.map((s, n) => `<div class="sugerencia"><span class="emoji" aria-hidden="true">${iconoComp(s)}</span><div class="txt">${textoSugerencia(s)}
         ${s.cuotas_total ? `<small data-sin-traducir>${T("Según tu cartola vas en la cuota {n} de {t}.", { n: s.cuotas_pagadas, t: s.cuotas_total })}</small>` : ""}</div>
         <div class="acciones">${hechos[n] === "agregado" ? `<span class="ok-txt">✓ Agregado</span>` : hechos[n] === "no" ? `<span class="texto-suave">No es</span>`
-          : `<button class="boton sutil" data-det-no="${n}">No es</button><button class="boton principal" data-det-agregar="${n}">Agregar</button>`}</div></div>`).join("")}</div>`;
+          : `<button class="pz-boton pz-plano" data-det-no="${n}">No es</button><button class="pz-boton pz-principal" data-det-agregar="${n}">Agregar</button>`}</div></div>`).join("")}</div>`;
   }
 
   // ───────────── Diálogos ─────────────
-  function filasIA() {
-    return E.ias.map((ia) => {
-      const enUso = E.config.ia === ia.id, probando = E.probando[ia.id], r = E.resultadoIA[ia.id];
-      const estado = !ia.instalada ? `<small>No está instalada · <a href="#" data-enlace="${ENLACES.guiaIA}#${ia.id}">Cómo instalarla</a></small>`
-        : r && !r.ok ? `<small class="error-txt" data-sin-traducir>${esc(r.texto || tr("No respondió."))}</small>` : `<small>Instalada</small>`;
-      const accion = enUso ? `<span class="ok">✓ En uso</span>` : ia.instalada
-        ? `<button class="boton" data-probar="${esc(ia.id)}" ${probando ? "disabled" : ""}>${probando ? "Probando…" : "Usar"}</button>` : "";
-      return `<div class="fila"><div class="txt"><b data-sin-traducir>${esc(ia.nombre)}</b>${estado}</div>${accion}</div>`;
-    }).join("");
-  }
+  /** «Tu IA» (pieza «componentes»): probarIA {ia} y, si responde bien, queda elegida (elegirIA). */
+  const filasIA = () => ui.filasIA({ ias: E.ias, elegida: E.config.ia, guia: ENLACES.guiaIA });
   function camposPais() {
     return `<div class="dos"><label class="campo"><span>País</span><select data-config="pais">${PAISES.map(([id, n]) =>
       `<option value="${id}" ${E.config.pais === id ? "selected" : ""}>${n}</option>`).join("")}</select></label>
@@ -2619,62 +2573,57 @@
   }
 
   function dialogoImportar() {
-    const im = E.importar, ia = esc(nombreIA());
-    const cab = `<h2 id="t-importar">Agregar movimientos</h2>`;
-    const cerrar = `<button class="boton" data-accion="cerrar-importar">Cancelar</button>`;
+    const im = E.importar, ia = nombreIA();
+    const titulo = "Agregar movimientos";
+    const cerrar = `<button class="pz-boton" data-accion="cerrar-importar">Cancelar</button>`;
     const muestra = (lista) => `<table class="tabla-muestra" data-sin-traducir>${(lista || []).map((m) => `<tr><td>${esc(m.fecha)}</td><td>${esc(m.descripcion)}</td>
       <td class="${m.monto > 0 ? "ingreso" : ""}">${esc(dinero(m.monto, m.moneda, true))}</td></tr>`).join("")}</table>`;
     switch (im.paso) {
       case "leyendo": case "aprendiendo": case "guardando": {
         const p = im.progreso;
-        const texto = im.paso === "leyendo" ? T("Leyendo {x}…", { x: esc(im.nombre) }) : im.paso === "aprendiendo" ? T("{ia} está aprendiendo a leer este archivo…", { ia }) : esc(p?.texto || tr("Guardando…"));
-        return `${cab}<div class="progreso"><p data-sin-traducir>${texto}</p><div class="barra ${p?.paso ? "" : "indef"}"><i style="width:${p?.paso ? Math.round(p.paso / p.total * 100) : 0}%"></i></div>
-          ${p?.paso ? `<small>${frase("Paso {n} de {t}", { n: p.paso, t: p.total })}</small>` : ""}</div>`;
+        const texto = im.paso === "leyendo" ? T("Leyendo {x}…", { x: im.nombre }) : im.paso === "aprendiendo" ? T("{ia} está aprendiendo a leer este archivo…", { ia }) : esc(p?.texto || tr("Guardando…"));
+        return { titulo, cuerpo: `<div class="progreso"><p data-sin-traducir>${texto}</p><div class="barra ${p?.paso ? "" : "indef"}"><i style="width:${p?.paso ? Math.round(p.paso / p.total * 100) : 0}%"></i></div>
+          ${p?.paso ? `<small>${frase("Paso {n} de {t}", { n: p.paso, t: p.total })}</small>` : ""}</div>` };
       }
       case "vista": {
         const v = im.vista;
-        return `${cab}<p>${frase("Encontré **{n} movimientos** de {b}, del {d} al {h}.", { n: v.total, b: esc(v.receta.institucion || v.receta.nombre), d: esc(v.desde), h: esc(v.hasta) })}</p>
+        return { titulo, cuerpo: `<p>${frase("Encontré **{n} movimientos** de {b}, del {d} al {h}.", { n: v.total, b: v.receta.institucion || v.receta.nombre, d: v.desde, h: v.hasta })}</p>
           ${muestra(v.muestra)}
           <label class="marcar"><input type="checkbox" data-importar-ia ${im.ia ? "checked" : ""}><span>${frase("Que {ia} ponga las categorías que falten", { ia })}<small>Usa tu propia cuenta. Solo ve la descripción y el monto de cada movimiento.</small></span></label>
-          ${(v.avisos || []).length ? `<details class="texto-suave" style="color:var(--suave);font-size:12.5px"><summary>${frase("{n} filas no eran movimientos", { n: v.avisos.length })}</summary><ul data-sin-traducir>${v.avisos.map((a) => `<li>${esc(a)}</li>`).join("")}</ul></details>` : ""}
-          <div class="pie-dialogo">${cerrar}<button class="boton principal" data-accion="importar-guardar">Agregar</button></div>`;
+          ${(v.avisos || []).length ? `<details class="texto-suave" style="color:var(--texto-suave);font-size:12.5px"><summary>${frase("{n} filas no eran movimientos", { n: v.avisos.length })}</summary><ul data-sin-traducir>${v.avisos.map((a) => `<li>${esc(a)}</li>`).join("")}</ul></details>` : ""}`, pie: `${cerrar}<button class="pz-boton pz-principal" data-accion="importar-guardar">Agregar</button>` };
       }
       case "sin_receta":
-        return `${cab}<p>${frase("Todavía no sé leer «{x}». Pasa con bancos nuevos: cada uno arma su cartola a su manera.", { x: esc(im.nombre) })}</p>
+        return { titulo, cuerpo: `<p>${frase("Todavía no sé leer «{x}». Pasa con bancos nuevos: cada uno arma su cartola a su manera.", { x: im.nombre })}</p>
           <div class="candado"><span class="grande-ico" aria-hidden="true">🧠</span><div>${frase("{ia} puede mirar las primeras filas y aprender a leerlo. Después te muestro cómo quedó antes de guardar nada.", { ia })}</div></div>
-          ${im.error ? `<p class="error-txt" data-sin-traducir>${esc(im.error)}</p>` : ""}
-          <div class="pie-dialogo">${cerrar}<button class="boton principal" data-accion="aprender-receta">${frase("Que {ia} aprenda a leerlo", { ia })}</button></div>`;
+          ${im.error ? `<p class="error-txt" data-sin-traducir>${esc(im.error)}</p>` : ""}`, pie: `${cerrar}<button class="pz-boton pz-principal" data-accion="aprender-receta">${frase("Que {ia} aprenda a leerlo", { ia })}</button>` };
       case "receta": {
         const v = im.vista;
-        return `${cab}<p>${frase("{ia} aprendió a leerlo: encontré **{n} movimientos**. ¿Se ven bien?", { ia, n: v.total })}</p>${muestra(v.muestra)}
+        return { titulo, cuerpo: `<p>${frase("{ia} aprendió a leerlo: encontré **{n} movimientos**. ¿Se ven bien?", { ia, n: v.total })}</p>${muestra(v.muestra)}
           <label class="marcar"><input type="checkbox" data-importar-ia ${im.ia ? "checked" : ""}><span>${frase("Que {ia} ponga las categorías que falten", { ia })}</span></label>
-          <label class="marcar"><input type="checkbox" data-compartir ${im.compartir ? "checked" : ""}><span>Compartir la receta con la comunidad<small>Solo cómo se lee este tipo de archivo (nombres de columnas y formatos), nunca tus movimientos. Así la próxima persona con este banco no tiene que esperar.</small></span></label>
-          <div class="pie-dialogo"><button class="boton izq" data-accion="receta-mal">No, se ven mal</button>${cerrar}<button class="boton principal" data-accion="importar-guardar">Sí, agregar</button></div>`;
+          <label class="marcar"><input type="checkbox" data-compartir ${im.compartir ? "checked" : ""}><span>Compartir la receta con la comunidad<small>Solo cómo se lee este tipo de archivo (nombres de columnas y formatos), nunca tus movimientos. Así la próxima persona con este banco no tiene que esperar.</small></span></label>`, pie: `<button class="pz-boton pz-izq" data-accion="receta-mal">No, se ven mal</button>${cerrar}<button class="pz-boton pz-principal" data-accion="importar-guardar">Sí, agregar</button>` };
       }
       case "listo": {
         const r = im.resultado;
-        return `${cab}<p style="font-size:16px;color:var(--texto)">🎉 ${frase(r.nuevos === 1 ? "Listo: 1 movimiento nuevo." : "Listo: {n} movimientos nuevos.", { n: r.nuevos })}
+        return { titulo, cuerpo: `<p style="font-size:16px;color:var(--texto)">🎉 ${frase(r.nuevos === 1 ? "Listo: 1 movimiento nuevo." : "Listo: {n} movimientos nuevos.", { n: r.nuevos })}
           ${r.repetidos ? " " + frase("{n} ya estaban y no se duplicaron.", { n: r.repetidos }) : ""}</p>
           ${r.error_ia ? `<p class="error-txt" data-sin-traducir>${esc(r.error_ia)}</p>` : ""}
           ${r.sin_categoria ? `<p>${frase("Quedaron {n} sin categoría: ponles una en Movimientos.", { n: r.sin_categoria })}</p>` : ""}
-          ${detectadosHTML(r)}
-          <div class="pie-dialogo"><button class="boton" data-accion="importar">Agregar otra</button><button class="boton principal" data-accion="ver-movimientos">Ver movimientos</button></div>`;
+          ${detectadosHTML(r)}`, pie: `<button class="pz-boton" data-accion="importar">Agregar otra</button><button class="pz-boton pz-principal" data-accion="ver-movimientos">Ver movimientos</button>` };
       }
       case "compromiso":
-        return E.compEdit ? editorCompromiso().replace('id="t-comp"', 'id="t-importar"') : "";
+        return E.compEdit ? editorCompromiso() : null;
       case "error":
-        return `${cab}<p class="error-txt" data-sin-traducir>${esc(im.error || "")}</p><div class="pie-dialogo">${cerrar}<button class="boton principal" data-accion="elegir-cartola">Elegir otro archivo</button></div>`;
+        return { titulo, cuerpo: `<p class="error-txt" data-sin-traducir>${esc(im.error || "")}</p>`, pie: `${cerrar}<button class="pz-boton pz-principal" data-accion="elegir-cartola">Elegir otro archivo</button>` };
       default:
-        return `${cab}<p>Descarga la cartola desde la página de tu banco o billetera y elígela aquí. Se lee en tu computador: nada sale de aquí.</p>
-          <div class="zona-archivo"><span class="grande-ico" aria-hidden="true">📄</span><button class="boton principal" data-accion="elegir-cartola">Elegir archivo</button>
-            <small>CSV, Excel (.xlsx), PDF con texto, OFX, QIF o CAMT.053. Si la subes dos veces, no se duplica nada.</small></div>
-          <div class="pie-dialogo">${cerrar}</div>`;
+        return { titulo, cuerpo: `<p>Descarga la cartola desde la página de tu banco o billetera y elígela aquí. Se lee en tu computador: nada sale de aquí.</p>
+          <div class="zona-archivo"><span class="grande-ico" aria-hidden="true">📄</span><button class="pz-boton pz-principal" data-accion="elegir-cartola">Elegir archivo</button>
+            <small>CSV, Excel (.xlsx), PDF con texto, OFX, QIF o CAMT.053. Si la subes dos veces, no se duplica nada.</small></div>`, pie: `${cerrar}` };
     }
   }
 
   function dialogoAjustes() {
     if (LECTURA) return dialogoAjustesMovil();
-    return `<h2 id="t-ajustes">Ajustes</h2><p>Todo se procesa en tu computador. La IA usa tu propia cuenta.</p>
+    return { titulo: "Ajustes", cuerpo: `<p>Todo se procesa en tu computador. La IA usa tu propia cuenta.</p>
       <div class="seccion"><h3>Tu IA</h3>${filasIA()}</div>
       <div class="seccion"><h3>País y moneda</h3>${camposPais()}</div>
       <div class="seccion"><h3>Tu mes</h3>${campoInicioMes()}</div>
@@ -2682,13 +2631,11 @@
       <div class="seccion"><h3>Respaldo</h3>${opcionesRespaldo()}</div>
       ${seccionCelular()}
       <div class="seccion"><h3>General</h3>
-        <div class="fila"><div class="txt"><b>Idioma de la app</b></div><select data-config="idioma_ui"><option value="es" ${E.idioma === "es" ? "selected" : ""}>Español</option><option value="en" ${E.idioma === "en" ? "selected" : ""}>English</option></select></div>
-        <div class="fila"><div class="txt"><b>Carpeta de tus datos</b><small data-sin-traducir>${esc(E.carpeta)}</small></div><button class="boton" data-accion="abrir-carpeta">Abrir</button></div></div>
-      <div class="seccion"><h3>Acerca de Alcancía</h3><p style="margin:0 0 8px;color:var(--suave)">${frase("Alcancía {v} · Gratis y de código abierto (AGPL-3.0).", { v: esc(E.version) })}</p>
-        <div class="fila"><div class="txt"><b>Actualizaciones</b><small>${E.buscando === "buscando" ? "Buscando…" : E.buscando === "alDia" ? "Estás en la última versión." : E.buscando === "sinConexion" ? "No pude revisar: ¿hay internet?" : E.actualizacion?.hay ? "Hay una versión nueva." : "Alcancía revisa sola cada 6 horas."}</small></div>
-          ${E.actualizacion?.hay ? `<button class="boton principal" data-accion="actualizar">Actualizar</button>` : `<button class="boton" data-accion="buscar-act" ${E.buscando === "buscando" ? "disabled" : ""}>Buscar actualizaciones</button>`}</div>
-        <div class="enlaces"><a href="#" data-enlace="${ENLACES.sitio}">Sitio web</a><a href="#" data-enlace="${ENLACES.codigo}">Código</a><a href="#" data-enlace="${ENLACES.comunidad}">Comunidad</a></div></div>
-      <div class="pie-dialogo"><button class="boton principal" data-accion="cerrar">Listo</button></div>`;
+        ${filaIdioma()}${filaApariencia()}
+        <div class="fila"><div class="txt"><b>Carpeta de tus datos</b><small data-sin-traducir>${esc(E.carpeta)}</small></div><button class="pz-boton" data-accion="abrir-carpeta">Abrir</button></div></div>
+      <div class="seccion"><h3>Actualizaciones</h3>${ui.filaActualizacion()}</div>
+      <div class="seccion"><h3>Acerca de Alcancía</h3>${acercaDe()}</div>`,
+      pie: `<button class="pz-boton pz-principal" data-accion="cerrar">Listo</button>` };
   }
 
   /** Paso 0 de la bienvenida: lo primero es el idioma, antes de cualquier otra pregunta. Cada opción va escrita en su propio idioma
@@ -2697,7 +2644,7 @@
     const sugerido = idiomaDelSistema();
     const opcion = (codigo, nombre, nota) => {
       const es = codigo === sugerido;
-      return `<button type="button" id="bv-idioma-${codigo}" class="boton opcion-idioma ${es ? "principal" : ""}" data-idioma-bv="${codigo}" lang="${codigo}" data-sin-traducir>
+      return `<button type="button" id="bv-idioma-${codigo}" class="pz-boton opcion-idioma${es ? " pz-principal" : ""}" data-idioma-bv="${codigo}" lang="${codigo}"${es ? " data-autofoco" : ""} data-sin-traducir>
         <b>${nombre}</b>${es ? `<small>${nota}</small>` : ""}</button>`;
     };
     return `${marcas}<div class="paso-idioma">${LOGO}<h2 id="t-bv" tabindex="-1" data-sin-traducir><span lang="es">Elige tu idioma</span> <span aria-hidden="true">·</span> <span lang="en">Choose your language</span></h2>
@@ -2716,7 +2663,7 @@
         <div><b>🔐</b><span>Tus datos viajan cerrados con candado por tu propia nube. Sin cuentas ni servidores de Alcancía.</span></div>
         <div><b>🔔</b><span>Si quieres, te aviso antes de que venza un pago.</span></div></div>`, true],
       ["Trae tus datos", `<p>Tu Mac deja una copia cifrada en tu nube; aquí la abres con tu frase.</p>${pasosCelular()}
-        <button class="boton principal grande" data-accion="bv-traer">Elegir el archivo</button>`, true],
+        <button class="pz-boton pz-principal grande" data-accion="bv-traer">Elegir el archivo</button>`, true],
     ] : [
       null,
       ["Hola, esto es Alcancía", `<p>Para quienes nos cuesta medirnos en los gastos. Juntas tus cartolas, Alcancía las ordena y tu IA te avisa a tiempo cuando algo se está pasando.</p>
@@ -2727,39 +2674,63 @@
       ["Elige tu IA", `<p>Alcancía usa la IA que ya tienes, con tu cuenta. La probamos con una pregunta corta.</p><div class="seccion">${filasIA()}</div>`, !!E.config.ia],
       ["Tu respaldo", opcionesRespaldo(), true],
       ["Tu primera cartola", `<p>Descarga la cartola de tu banco o billetera (CSV, Excel o PDF) y agrégala. Si tu banco aún no está, tu IA aprende a leerlo.</p>
-        <button class="boton principal grande" data-accion="bv-importar">＋ <span>Agregar mi primera cartola</span></button>`, true],
+        <button class="pz-boton pz-principal grande" data-accion="bv-importar">＋ <span>Agregar mi primera cartola</span></button>`, true],
     ];
     const [titulo, cuerpo, puede] = pasos[paso];
-    return `${marcas}<h2 id="t-bv" tabindex="-1">${titulo}</h2>${cuerpo}
-      <div class="pie-dialogo" style="margin-top:18px">${paso > 0 ? `<button class="boton izq" data-bv="${paso - 1}">Atrás</button>` : ""}
-        ${paso < total - 1 ? `<button class="boton" data-accion="bv-despues">Lo hago después</button><button class="boton principal" data-bv="${paso + 1}" ${puede ? "" : "disabled"}>Siguiente</button>`
-          : `<button class="boton" data-accion="bv-fin">${LECTURA ? "Lo hago después" : "Empezar sin cartola"}</button>`}</div>`;
+    return { titulo, cuerpo: marcas + cuerpo,
+      pie: `${paso > 0 ? `<button class="pz-boton pz-izq" data-bv="${paso - 1}">Atrás</button>` : ""}
+        ${paso < total - 1 ? `<button class="pz-boton" data-accion="bv-despues">Lo hago después</button><button class="pz-boton pz-principal" data-bv="${paso + 1}" ${puede ? "" : "disabled"}>Siguiente</button>`
+          : `<button class="pz-boton" data-accion="bv-fin">${LECTURA ? "Lo hago después" : "Empezar sin cartola"}</button>`}` };
   }
 
+  /** Un diálogo de la pieza «componentes» (role="dialog", aria-modal, ✕, foco adentro, Esc y el velo cierran). */
+  const caja = (id, d, o = {}) => (d ? ui.dialogo({ id, titulo: d.titulo, valores: d.valores, cuerpo: d.cuerpo, pie: d.pie, ...o }) : "");
+  /** El mismo marco de la pieza (velo, foco, Tab y Esc), con una cabeza propia: la pantalla de idioma (título bilingüe fijo) y el
+   *  chat (avatar y acciones; con su propio estilo, `.dialogo-chat`, a pantalla completa en el celular). */
+  const cajaPropia = (id, html, { clase = "pz-dialogo", capa = "", sinEsc = false } = {}) => `<div class="pz-capa${capa ? " " + capa : ""}" data-pz-capa>
+    <div class="${clase}" role="dialog" aria-modal="true" aria-labelledby="${id}" tabindex="-1"${sinEsc ? " data-pz-sin-esc" : ""}>${html}</div></div>`;
   function dialogos() {
-    const capa = (id, html) => `<div class="capa"><div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="${id}">${html}</div></div>`;
-    if (E.importar) return capa("t-importar", dialogoImportar());
-    if (E.conectar) return capa("t-conectar", dialogoConectar());
-    if (E.bv !== null) return capa("t-bv", bienvenida());
-    if (E.celularConfig && !LECTURA) return capa("t-celular", dialogoCelular());
-    if (E.ajustes) return capa("t-ajustes", dialogoAjustes());
-    if (E.compEdit) return capa("t-comp", `<div class="editor-comp" id="editor-comp">${editorCompromiso()}</div>`);
-    if (E.agregar === "contar") return `<div class="capa capa-chat"><div class="dialogo dialogo-chat" role="dialog" aria-modal="true" aria-labelledby="t-chat">${dialogoChat()}</div></div>`;
-    if (E.agregar) return capa("t-agregar", dialogoAgregar());
+    if (E.importar) return caja("t-importar", dialogoImportar(), { cerrable: !ocupadoImportando() });
+    if (E.conectar) return caja("t-conectar", dialogoConectar(), { cerrable: !E.conectar.enviando });
+    // La bienvenida no se cierra con Esc ni con el velo: se sale con «Lo hago después».
+    if (E.bv === 0) return cajaPropia("t-bv", bienvenida(), { clase: "pz-dialogo dialogo-bv", sinEsc: true });
+    if (E.bv !== null) return caja("t-bv", bienvenida(), { clase: "dialogo-bv", cerrable: false, sinEsc: true });
+    if (E.celularConfig && !LECTURA) return caja("t-celular", dialogoCelular(), { cerrable: E.celularConfig.paso !== "creando" });
+    if (E.ajustes) return caja("t-ajustes", dialogoAjustes());
+    if (E.compEdit) return caja("t-comp", editorCompromiso());
+    if (E.agregar === "contar") return cajaPropia("t-chat", dialogoChat(), { clase: "dialogo-chat", capa: "capa-chat" });
+    if (E.agregar) return caja("t-agregar", dialogoAgregar());
     return "";
+  }
+  /** Esc, el velo o ✕ (pieza «componentes»): cierra el diálogo de más arriba, salvo mientras trabaja. */
+  function cerrarDialogo() {
+    if (E.importar) {
+      if (ocupadoImportando()) return;
+      if (E.importar.paso === "compromiso") { E.importar.paso = "listo"; E.compEdit = null; } else E.importar = null;
+    } else if (E.conectar) { if (E.conectar.enviando) return; E.conectar = null; }
+    else if (E.bv !== null) return;
+    else if (E.celularConfig && !LECTURA) { if (E.celularConfig.paso === "creando") return; E.celularConfig = null; E.ajustes = true; }
+    else if (E.ajustes) E.ajustes = false;
+    else if (E.compEdit) E.compEdit = null;
+    else if (E.agregar) E.agregar = null;
+    else return;
+    render();
   }
 
   // ───────────── Eventos ─────────────
   const ocupadoImportando = () => ["leyendo", "aprendiendo", "guardando"].includes(E.importar?.paso);
   /** En el celular (fase 1) esto no se ofrece (queda oculto en app.css); si igual llega un toque, un aviso discreto y nada más. */
   const ACCIONES_MAC = ["agregar", "agregar-contar", "abrir-chat", "importar", "bv-importar", "elegir-cartola", "comp-nuevo", "pedir-consejos", "sugerir",
-    "guardar-pres", "usar-maximos", "ajustes-mes", "abrir-carpeta", "actualizar", "buscar-act", "aprender-si", "celular-configurar"];
-  const SOLO_MAC = ["[data-elegir]", "[data-pick]", "[data-probar]", "[data-respaldo]", "[data-conectar]", "[data-sincronizar]", "[data-desconectar]", "[data-mcp]",
+    "guardar-pres", "usar-maximos", "ajustes-mes", "abrir-carpeta", "aprender-si", "celular-configurar"];
+  const SOLO_MAC = ["[data-elegir]", "[data-pick]", "[data-pz-probar-ia]", "[data-pz-act]", "[data-respaldo]", "[data-conectar]", "[data-sincronizar]", "[data-desconectar]", "[data-mcp]",
     "[data-mcp-quitar]", "[data-comp-pagado]", "[data-comp-noes]", "[data-comp-desmarcar]", "[data-comp-editar]", "[data-sug-agregar]", "[data-sug-no]", "[data-det-agregar]",
     "[data-det-no]", "[data-saldo-editar]", "[data-regla-si]", "[data-sueldo]", "[data-chat]", "[data-chat-sugerencia]", '[data-ir-cat=""]', '[data-vista="ordenar"]',
     '[data-vista="conexiones"]', ...ACCIONES_MAC.map((a) => `[data-accion="${a}"]`)].join(",");
   document.addEventListener("click", (ev) => {
-    const el = ev.target.closest("[data-accion],[data-vista],[data-mes],[data-probar],[data-bv],[data-idioma-bv],[data-enlace],[data-respaldo],[data-consejo],[data-conectar],[data-sincronizar],[data-desconectar],[data-mcp],[data-mcp-quitar],[data-historia],[data-comp-pagado],[data-comp-noes],[data-comp-desmarcar],[data-comp-editar],[data-sug-agregar],[data-sug-no],[data-det-agregar],[data-det-no],[data-cifra],[data-cifra-abrir],[data-ir-cat],[data-elegir],[data-pick],[data-nueva-cat],[data-nueva-emoji],[data-nueva-cancelar],[data-nueva-guardar],[data-cerrar-picker],[data-saldo-editar],[data-saldo-cancelar],[data-regla-si],[data-regla-no],[data-grupo-mov],[data-sueldo],[data-mov-ver],[data-chat],[data-chat-sugerencia]");
+    if (tema.manejarClic(ev)) return render();
+    if (LECTURA && ev.target.closest?.("[data-pz-probar-ia],[data-pz-act]")) { ev.preventDefault(); return soloEnMac(); }
+    if (ui.manejarClic(ev)) return;
+    const el = ev.target.closest("[data-accion],[data-vista],[data-mes],[data-bv],[data-idioma-bv],[data-enlace],[data-respaldo],[data-consejo],[data-conectar],[data-sincronizar],[data-desconectar],[data-mcp],[data-mcp-quitar],[data-historia],[data-comp-pagado],[data-comp-noes],[data-comp-desmarcar],[data-comp-editar],[data-sug-agregar],[data-sug-no],[data-det-agregar],[data-det-no],[data-cifra],[data-cifra-abrir],[data-ir-cat],[data-elegir],[data-pick],[data-nueva-cat],[data-nueva-emoji],[data-nueva-cancelar],[data-nueva-guardar],[data-cerrar-picker],[data-saldo-editar],[data-saldo-cancelar],[data-regla-si],[data-regla-no],[data-grupo-mov],[data-sueldo],[data-mov-ver],[data-chat],[data-chat-sugerencia]");
     if (!el) return;
     const d = el.dataset;
     if (LECTURA && el.matches(SOLO_MAC)) { ev.preventDefault(); return soloEnMac(d.chat || d.accion === "abrir-chat" || d.accion === "agregar-contar" ? "Conversar con Alcancía se hace en tu Mac por ahora" : undefined); }
@@ -2810,13 +2781,12 @@
     if (d.reglaNo) { E.reglasNo = [...(E.reglasNo || []), d.reglaNo]; return render(); }
     if (d.mes) { E.mes = d.mes; E.aprender = null; return render(); }
     if (d.historia != null) { E.histCat = E.histCat === d.historia ? null : d.historia; render(); $(`[data-historia="${CSS.escape(d.historia)}"]`)?.focus(); return; }
-    if (d.probar) { E.probando[d.probar] = true; delete E.resultadoIA[d.probar]; host.enviar("probarIA", { id: d.probar }); return render(); }
     if (d.bv) { E.bv = Number(d.bv); return render(); }
     if (d.idiomaBv) return elegirIdioma(d.idiomaBv);
     if (d.respaldo) { if (d.respaldo !== "local") return toast("Muy pronto: el respaldo con candado llega en la próxima versión"); E.config.respaldo = d.respaldo; host.enviar("config", { respaldo: d.respaldo }); return render(); }
     if (d.consejo) { E.consejoSel = d.consejo; return render(); }
     if (d.conectar) { E.conectar = { id: d.conectar, campos: {}, error: "", enviando: false }; render(); const p = $(".campos-conectar input"); if (p) p.focus(); return; }
-    if (d.mcp || d.mcpQuitar) { const id = d.mcp || d.mcpQuitar; E.mcpOcupado[id] = true; delete E.mcpError[id]; host.enviar("mcpConectar", { cliente: id, quitar: !!d.mcpQuitar }); return render(); }
+    if (d.mcp || d.mcpQuitar) { const id = d.mcp || d.mcpQuitar; E.mcpOcupado[id] = true; delete E.mcpError[id]; host.enviar("mcpConectar", { orden: d.mcpQuitar ? "quitar" : "conectar", cliente: id }); return render(); }
     if (d.sueldo) {
       if (d.sueldo === "no" || d.sueldo === "cerrar") { guardarLocal("alcancia.sueldoNoHoy", E.hoy); E.sueldoPregunta = null; if (d.sueldo === "no") toast("Entendido: vuelvo a mirar mañana"); return render(); }
       if (d.sueldo === "pagaron") { E.sueldoPregunta = "pagaron"; render(); return $(".linea-mes.pregunta button")?.focus(); }
@@ -2848,10 +2818,11 @@
     switch (d.accion) {
       case "ajustes": E.ajustes = true; E.agregar = null; return render();
       case "agregar": E.agregar = "menu"; render(); return $(".opcion-agregar")?.focus();
-      case "agregar-contar": case "abrir-chat": E.agregar = "contar"; E.chat.bajar = true; E.chat.confirmarBorrar = false; render(); return ($("#chat-texto") || $('.dialogo [data-accion="chat-ajustes"]'))?.focus();
+      case "agregar-contar": case "abrir-chat": E.agregar = "contar"; E.chat.bajar = true; E.chat.confirmarBorrar = false; render(); return ($("#chat-texto") || $('.dialogo-chat [data-accion="chat-ajustes"]'))?.focus();
       case "chat-enviar": return enviarChat();
       case "chat-ajustes": E.agregar = null; E.ajustes = true; return render();
-      case "chat-borrar": E.chat.confirmarBorrar = true; render(); return $('[data-accion="chat-borrar-si"]')?.focus();
+      // Borrar no se deshace: el foco queda en «Cancelar» (un Enter apurado no borra).
+      case "chat-borrar": E.chat.confirmarBorrar = true; render(); return $('[data-accion="chat-no-borrar"]')?.focus();
       case "chat-no-borrar": E.chat.confirmarBorrar = false; return render();
       case "chat-borrar-si": E.chat = { ...E.chat, mensajes: [], confirmarBorrar: false }; host.enviar("chat", { accion: "borrar" }); toast("Conversación borrada"); render(); return $("#chat-texto")?.focus();
       case "cerrar-agregar": E.agregar = null; render(); return $(".nav-agregar")?.focus();
@@ -2898,10 +2869,7 @@
       }
       case "pedir-consejos": E.pidiendoConsejos = true; E.errorConsejos = ""; host.enviar("pedirConsejos", { hoy: E.hoy }); return render();
       case "abrir-carpeta": return host.enviar("abrirCarpeta", {});
-      case "actualizar": E.act = { paso: "1", texto: tr("Descargando la versión nueva…") }; E.ajustes = false; host.enviar("actualizar"); return render();
-      case "act-cerrar": E.act = null; return render();
       case "act-despues": E.actOculto = true; return render();
-      case "buscar-act": E.buscando = "buscando"; host.enviar("buscarActualizacion"); return render();
       case "comp-nuevo": E.agregar = null; E.compEdit = { c: borradorDe(), origen: "manual", error: "" }; render(); return enfocarEditor();
       case "comp-guardar": return guardarCompromiso(false);
       case "comp-despues": return guardarCompromiso(true);
@@ -2909,9 +2877,13 @@
         if (E.importar && E.importar.paso === "compromiso") E.importar.paso = "listo";
         E.compEdit = null; return render();
       case "comp-borrar": {
-        const id = E.compEdit?.c?.id;
-        E.compromisos.compromisos = listaCompromisos().filter((x) => x.id !== id);
-        host.enviar("compromiso", { accion: "borrar", id }); E.compEdit = null; toast("Compromiso borrado"); return render();
+        const id = E.compEdit?.c?.id, nombre = E.compEdit?.c?.nombre || "";
+        // Antes de borrar, la pieza pregunta con el foco en «Cancelar».
+        return ui.confirmar({ titulo: "¿Borrar «{n}»?", valores: { n: nombre }, texto: "Sale de tus pagos. Tus movimientos no cambian.", si: "Borrar", peligro: true }).then((si) => {
+          if (!si || E.compEdit?.c?.id !== id) return;
+          E.compromisos.compromisos = listaCompromisos().filter((x) => x.id !== id);
+          host.enviar("compromiso", { accion: "borrar", id }); E.compEdit = null; toast("Compromiso borrado"); render();
+        });
       }
       case "sug-todas": E.sugTodas = !E.sugTodas; return render();
       case "agrupar-mov": E.agruparMov = !E.agruparMov; E.grupoMov = null; render(); return $('[data-accion="agrupar-mov"]')?.focus();
@@ -2935,7 +2907,11 @@
       case "traer-elegir": E.ajustes = false; E.traer = { ...E.traer, error: "", frase: "" }; host.enviar("traer", { accion: "elegir" }); return render();
       case "traer-releer": host.enviar("traer", { accion: "releer" }); return toast("Buscando la copia más nueva…");
       case "traer-olvidar": host.enviar("traer", { accion: "olvidar" }); E.celular = { ...E.celular, recordada: false }; toast("Listo: te la pido la próxima vez"); return render();
-      case "traer-desconectar": host.enviar("traer", { accion: "desconectar" }); E.ajustes = false; return render();
+      case "traer-desconectar":
+        return ui.confirmar({ titulo: "¿Desconectar este teléfono?", texto: "Borra de aquí la copia, el permiso para leer el archivo y la frase. En tu Mac no cambia nada.", si: "Desconectar", peligro: true }).then((si) => {
+          if (!si) return;
+          host.enviar("traer", { accion: "desconectar" }); E.ajustes = false; render();
+        });
     }
   });
   document.addEventListener("input", (ev) => {
@@ -3064,15 +3040,11 @@
       if (ev.key === "ArrowLeft") { ev.preventDefault(); E.ordenar.i = Math.max(0, E.ordenar.i - 1); render(); return $(".vista-ordenar")?.focus(); }
       if (ev.key === "/") { ev.preventDefault(); return $("#ordenar-buscar")?.focus(); }
     }
+    if (ev.key === "Escape" && E.picker) { const id = E.picker.id; if (E.picker.nueva) { E.picker.nueva = null; render(); return $("#picker-buscar")?.focus(); } E.picker = null; render(); return document.getElementById("chip-" + id)?.focus(); }
+    // Los diálogos (pieza «componentes»): Tab no se escapa del de más arriba y Esc lo cierra (cerrarDialogo).
+    if (ui.manejarTecla(ev)) return;
     if (ev.key !== "Escape") return;
-    if (E.picker) { const id = E.picker.id; if (E.picker.nueva) { E.picker.nueva = null; render(); return $("#picker-buscar")?.focus(); } E.picker = null; render(); return document.getElementById("chip-" + id)?.focus(); }
     if (E.vista === "ordenar" && E.ordenar.nueva) { E.ordenar.nueva = null; render(); return $("#ordenar-buscar")?.focus(); }
-    if (E.importar && !ocupadoImportando()) { E.importar = null; return render(); }
-    if (E.conectar && !E.conectar.enviando) { E.conectar = null; return render(); }
-    if (E.celularConfig && E.celularConfig.paso !== "creando") { E.celularConfig = null; E.ajustes = true; return render(); }
-    if (E.ajustes) { E.ajustes = false; return render(); }
-    if (E.compEdit) { E.compEdit = null; return render(); }
-    if (E.agregar) { E.agregar = null; render(); return $(".nav-agregar")?.focus(); }
     if (E.aprender) { E.aprender = null; return render(); }
   });
   document.addEventListener("submit", (ev) => {
@@ -3102,9 +3074,9 @@
     host.enviar("saldo", { cuenta, monto, fecha: E.hoy });
     E.saldoEdit = null;
     const dif = antes && antes.saldo != null ? monto - antes.saldo : null;
-    E.saldoAviso = dif == null ? { cuadra: true, texto: T("Listo: desde hoy sigo tus movimientos en {c}.", { c: esc(c.nombre) }) }
-      : Math.abs(dif) < 1 ? { cuadra: true, texto: T("✓ Cuadra con lo que yo calculaba para {c}.", { c: esc(c.nombre) }) }
-        : { cuadra: false, texto: T(dif > 0 ? "Había una diferencia de {x} (tienes más de lo que yo calculaba): puede ser plata que entró y no veo, como una devolución o un traspaso. Desde ahora parto de lo que me dijiste." : "Había una diferencia de {x} (tienes menos de lo que yo calculaba): puede ser plata en Reservas o movimientos que no veo. Desde ahora parto de lo que me dijiste.", { x: esc(dinero(Math.abs(dif))) }) };
+    E.saldoAviso = dif == null ? { cuadra: true, texto: T("Listo: desde hoy sigo tus movimientos en {c}.", { c: c.nombre }) }
+      : Math.abs(dif) < 1 ? { cuadra: true, texto: T("✓ Cuadra con lo que yo calculaba para {c}.", { c: c.nombre }) }
+        : { cuadra: false, texto: T(dif > 0 ? "Había una diferencia de {x} (tienes más de lo que yo calculaba): puede ser plata que entró y no veo, como una devolución o un traspaso. Desde ahora parto de lo que me dijiste." : "Había una diferencia de {x} (tienes menos de lo que yo calculaba): puede ser plata en Reservas o movimientos que no veo. Desde ahora parto de lo que me dijiste.", { x: dinero(Math.abs(dif)) }) };
     render();
   }
   /** Guarda el idioma por el mismo camino que Ajustes y sigue con la bienvenida, ya en ese idioma. */
@@ -3116,6 +3088,7 @@
     E.bv = 1;
     render();
     $("#t-bv")?.focus();
+    for (const [texto, o] of retenidos.splice(0)) toast(texto, o);
   }
   function enfocarEditor() { const el = $("#editor-comp"); if (el) { el.scrollIntoView?.({ block: "start" }); $("#ce-nombre")?.focus(); } }
   /** Manda lo que escribió la persona (con los últimos mensajes, para que la IA tenga el hilo). La respuesta llega a chatRespuesta. */
@@ -3247,17 +3220,20 @@
     for (const m of E.movimientos) if (llegadas.has(m.fecha) && m.monto > 0 && Math.abs(m.monto - d.monto) <= d.monto * 0.5 && !m.categoria) m.categoria = "sueldo";
   }
 
-  // ───────────── Lo que manda la app ─────────────
-  window.Alcancia = {
+  // ───────────── Lo que manda la app (window.Alcancia.<funcion>, pieza «host-ui») ─────────────
+  host.responder({
     async estado(e) {
       if (!LECTURA) E._crudo = e; // lo que llegó de la app, tal cual: de aquí sale la copia para el celular (copiaCelular)
       Object.assign(E, { hoy: e.hoy, config: e.config || {}, ias: e.ias || [], movimientos: e.movimientos || [], categorias: e.categorias || [],
         presupuesto: e.presupuesto || { mensual: {} }, reglas: e.reglas || [], consejos: (e.consejos || []).slice().sort((a, b) => b.fecha.localeCompare(a.fecha)),
-        cuentas: e.cuentas || [], version: e.version || "", carpeta: e.carpeta || "", actualizacion: e.actualizacion || { hay: false },
+        cuentas: e.cuentas || [], version: e.version || "", carpeta: e.carpeta || "",
         conectores: e.conectores || [], conexiones: e.conexiones || {}, vigilar: e.vigilar || { activo: false, recientes: [] }, iaExterna: e.ia_externa || [],
         compromisos: e.compromisos || { compromisos: [], descartados: [] }, sugerencias: e.sugerencias || [], feriados: e.feriados || [], palabrasMora: e.palabras_mora || [], palabrasAuto: e.palabras_automatico || [], celular: e.celular || {} });
       if (!E.chat.pensando) E.chat.mensajes = mezclarChat(Array.isArray(e.chat) ? e.chat : [], E.chat.mensajes);
       if (!E.presupuesto.moneda) E.presupuesto.moneda = E.config.moneda || "CLP";
+      // La versión nueva que ya se conoce (Actualizaciones.disponible): la fila de la pieza la muestra en Ajustes y arriba.
+      if (!LECTURA) ui.actualizacionDisponible(e.actualizacion, { pintar: false });
+      tema.aplicar(tema.elegir({ config: E.config.tema }));
       sueldoSolo();
       E._per = undefined;
       // Si estaba mirando el mes en curso, sigue en el mes en curso (aunque haya cambiado el día o el periodo).
@@ -3272,6 +3248,8 @@
     },
     /** La respuesta de Alcancía (bin/chat.py). Si la IA falló, igual llega un mensaje honesto: nunca queda sin respuesta. */
     chatRespuesta(r) {
+      // La acción «chat» del Mac (declarada) responde también a «marcar» y «borrar» (con `accion` de eco): solo «enviar» trae respuesta.
+      if (r && r.accion && r.accion !== "enviar") return;
       const k = E.chat, i = k.mensajes.map((m) => !!m.local).lastIndexOf(true);
       k.pensando = false; k.bajar = true;
       if (i >= 0) k.mensajes[i] = r.persona || { ...k.mensajes[i], local: false };
@@ -3279,7 +3257,20 @@
       render();
       if (E.agregar === "contar") $("#chat-texto")?.focus();
     },
-    iaProbada(r) { delete E.probando[r.id]; E.resultadoIA[r.id] = r; if (r.ok) { E.config.ia = r.id; toast("Lista para usar"); } render(); },
+    iaProbada: (r) => ui.iaProbada(r),
+    /** Mac: lo que la interfaz ya pintó (categoría, regla, presupuesto, receta, saldo) se guardó (guardar.py, acción declarada). Si
+     *  no se pudo, se avisa y se vuelve a pedir el estado real. */
+    guardado(r) {
+      if (!r || r.ok !== false) return;
+      toast(r.error || tr("No pude guardar el cambio. Intenta de nuevo."));
+      host.enviar("listo");
+    },
+    /** Mac: un ítem de la barra de menús (o tocar un aviso de pagos). «guardar» llega al cerrar: aquí nada queda sin guardar. */
+    menu(m) {
+      const accion = m && m.accion;
+      if (accion === "ajustes") { E.ajustes = true; return render(); }
+      if (accion === "compromisos") { E.vista = "compromisos"; return render(); }
+    },
     cartolaElegida(r) {
       if (!E.importar || !r?.ruta) return;
       Object.assign(E.importar, { paso: "leyendo", ruta: r.ruta, nombre: r.nombre, receta: null, error: "" });
@@ -3310,21 +3301,21 @@
       else E.errorConsejos = r.error || tr("No se pudieron crear los consejos.");
       render();
     },
-    actualizacionRevisada(r) { E.buscando = r.hay ? null : r.sinConexion ? "sinConexion" : "alDia"; if (r.hay) { E.actualizacion = r; E.actOculto = false; } render(); },
-    actualizacionProgreso(d) { E.act = d; render(); },
+    actualizacionRevisada(r) { if (r.hay) E.actOculto = false; ui.actualizacionRevisada(r); },
+    actualizacionProgreso: (a) => ui.actualizacionProgreso(a),
     conectado(r) {
       if (!E.conectar || E.conectar.id !== r.conector) return;
       if (r.ok) {
         const c = E.conectores.find((x) => x.id === r.conector);
         E.conectar = null; E.conexiones[r.conector] = { conectado: true }; E.sincronizando[r.conector] = true;
-        toast(T("{s} conectado. Trayendo tus movimientos…", { s: c ? c.nombre : "" }));
-      } else Object.assign(E.conectar, { enviando: false, error: r.error || tr("No se pudo conectar.") });
+        toast("{s} conectado. Trayendo tus movimientos…", { valores: { s: c ? c.nombre : "" } });
+      } else Object.assign(E.conectar, { enviando: false, error: errorRed(r) || tr("No se pudo conectar.") });
       render();
     },
     sincronizado(r) {
       delete E.sincronizando[r.conector];
-      if (r.ok && (r.detectados || []).length) toast(T(r.detectados.length === 1 ? "Encontré 1 pago que parece un compromiso: revísalo en Pagos" : "Encontré {n} pagos que parecen compromisos: revísalos en Pagos", { n: r.detectados.length }));
-      if (r.ok && r.nuevos) toast(T(r.nuevos === 1 ? "1 movimiento nuevo de {s}" : "{n} movimientos nuevos de {s}", { n: r.nuevos, s: r.nombre || "" }));
+      if (r.ok && (r.detectados || []).length) toast(r.detectados.length === 1 ? "Encontré 1 pago que parece un compromiso: revísalo en Pagos" : "Encontré {n} pagos que parecen compromisos: revísalos en Pagos", { valores: { n: r.detectados.length } });
+      if (r.ok && r.nuevos) toast(r.nuevos === 1 ? "1 movimiento nuevo de {s}" : "{n} movimientos nuevos de {s}", { valores: { n: r.nuevos, s: r.nombre || "" } });
       else if (r.ok && !r.esperando && r.manual) toast("Todo al día");
       render();
     },
@@ -3332,12 +3323,12 @@
       delete E.mcpOcupado[r.cliente];
       if (r.clientes) E.iaExterna = r.clientes;
       if (!r.ok) E.mcpError[r.cliente] = r.error || tr("No se pudo conectar.");
-      else if (!r.quitar) toast(r.nota ? tr(r.nota) : tr("Listo: tu IA ya puede consultar Alcancía"));
+      else if (r.orden !== "quitar") toast(r.nota || "Listo: tu IA ya puede consultar Alcancía");
       render();
     },
     importadoSolo(r) {
-      for (const x of r.importados || []) toast(T(x.nuevos === 1 ? "Agregué tu cartola de {b}: 1 movimiento nuevo" : "Agregué tu cartola de {b}: {n} movimientos nuevos", { b: x.institucion, n: x.nuevos }));
-      if ((r.sin_receta || []).length) toast(T("Descargaste «{x}», pero todavía no sé leerla. Agrégala a mano y tu IA aprende.", { x: r.sin_receta[0] }));
+      for (const x of r.importados || []) toast(x.nuevos === 1 ? "Agregué tu cartola de {b}: 1 movimiento nuevo" : "Agregué tu cartola de {b}: {n} movimientos nuevos", { valores: { b: x.institucion, n: x.nuevos } });
+      if ((r.sin_receta || []).length) toast("Descargaste «{x}», pero todavía no sé leerla. Agrégala a mano y tu IA aprende.", { valores: { x: r.sin_receta[0] } });
     },
     // ── Alcancía en tu celular ──
     /** Mac: después de mandar el estado, la app pide la copia (Celular.swift). Se arma con lo que acaba de llegar (paraCelular), se cifra
@@ -3350,7 +3341,7 @@
         if (!d.forzar && h === d.anterior) return host.enviar("celular", { accion: "escribir", sinCambios: true });
         const texto = await C.armar(contenido, d.cabecera, await C.importarLlave(d.llave));
         host.enviar("celular", { accion: "escribir", texto, huella: h });
-      } catch (e) { host.enviar("celular", { accion: "escribir", error: (e && e.message) || "No pude preparar la copia." }); }
+      } catch (e) { host.enviar("celular", { accion: "escribir", error: e && e.codigo ? window.AlcanciaCopia.mensaje(e) : "No pude preparar la copia." }); }
     },
     celularCarpeta(r) {
       const k = E.celularConfig;
@@ -3383,11 +3374,7 @@
     },
     /** Celular: los avisos de pagos de los próximos días, con su texto en el idioma elegido (sin montos). Los programa movil/host. */
     avisosCelular(d = {}) {
-      const plano = (plantilla, valores = {}) => {
-        let t = E.idioma !== "es" && E.textos[plantilla] ? E.textos[plantilla] : plantilla;
-        for (const [k, v] of Object.entries(valores)) t = t.split(`{${k}}`).join(String(v));
-        return t;
-      };
+      const plano = Tp;
       return avisosPagos(listaCompromisos(), E.movimientos, d.hoy || E.hoy, monedaPrincipal(), ufCfg(), E.palabrasMora || [], E.palabrasAuto || [], d.dias || 35).map((a) => ({
         ...a, titulo: plano(a.tipo === "hoy" ? "Un pago vence hoy" : "Pago por vencer"),
         cuerpo: plano(a.tipo === "hoy" ? "{c} vence hoy." : a.dias === 1 ? "{c} vence mañana." : "{c} vence en {n} días.", { c: a.nombre, n: a.dias }) + " " + plano("Si ya lo pagaste, márcalo en tu Mac."),
@@ -3397,9 +3384,10 @@
     /** Celular: una acción que por ahora solo existe en el Mac (si llegó a pedirse). */
     soloEnMac(t) { soloEnMac(t); },
     _probar(f) { f(E); render(); },
-    _pruebas: { calcularPrestamo, resumen, historia, redondearArriba, presupuestoSugerido, reglaPara, estadoCompromisos, gastoMaximo, rango, periodoDe, periodoConfig, detectarSueldo, reglaHabil, proximoSueldo, correrHabil, moraDelAnio, loQueTienes, loQueDebes, cargos, modoPago,
-      margenMensual, planPrestamos, inicioPlan, pagoReasignable, reasignarPago, clavesPersona, prestamosParecidos, planVariante, prestamoActualizado, palabrasBusqueda, buscarSerie, avisosPagos },
-  };
+  });
+  // Para las pruebas (pruebas/interfaz.mjs): la lógica compartida con Python. No es una función, así que va aparte de responder().
+  window.Alcancia._pruebas = { calcularPrestamo, resumen, historia, redondearArriba, presupuestoSugerido, reglaPara, estadoCompromisos, gastoMaximo, rango, periodoDe, periodoConfig, detectarSueldo, reglaHabil, proximoSueldo, correrHabil, moraDelAnio, loQueTienes, loQueDebes, cargos, modoPago,
+      margenMensual, planPrestamos, inicioPlan, pagoReasignable, reasignarPago, clavesPersona, prestamosParecidos, planVariante, prestamoActualizado, palabrasBusqueda, buscarSerie, avisosPagos };
 
   // ───────────── Vista previa en el navegador (datos ficticios de demo.json) ─────────────
   let DEMO = null;
@@ -3410,7 +3398,7 @@
     switch (accion) {
       case "listo": return enviar();
       case "config": Object.assign(DEMO.config, d); return;
-      case "probarIA": return luego(500, () => { DEMO.config.ia = d.id; A.iaProbada({ id: d.id, ok: true }); });
+      case "probarIA": return luego(500, () => { DEMO.config.ia = d.ia; A.iaProbada({ ia: d.ia, ok: true }); });
       case "elegirCartola": return luego(200, () => A.cartolaElegida({ ruta: "/demo/cartola-octubre.csv", nombre: "cartola-octubre.csv" }));
       case "vistaCartola": return luego(600, () => {
         const muestra = DEMO.movimientos.filter((m) => m.cuenta === "banco-ejemplo").slice(-6).reverse();
@@ -3462,8 +3450,8 @@
         else if (c) { const e = window.Alcancia && E.compromisos.compromisos.find((x) => x.id === d.id); if (e) c.pagos = JSON.parse(JSON.stringify(e.pagos || {})); }
         return;
       }
-      case "mcpConectar": return luego(700, () => { const c = DEMO.ia_externa.find((x) => x.id === d.cliente); if (c) { c.conectado = !d.quitar; c.al_dia = !d.quitar; }
-        A.mcpListo({ ok: true, cliente: d.cliente, quitar: d.quitar, nota: c && c.nota, clientes: DEMO.ia_externa }); });
+      case "mcpConectar": return luego(700, () => { const c = DEMO.ia_externa.find((x) => x.id === d.cliente); if (c) { c.conectado = d.orden !== "quitar"; c.al_dia = d.orden !== "quitar"; }
+        A.mcpListo({ ok: true, orden: d.orden, cliente: d.cliente, nota: c && c.nota, clientes: DEMO.ia_externa }); });
       case "celular": {
         // La vista previa cifra de verdad (ui/copia.js) y guarda la copia en window._copiaCelular (las pruebas la abren «en el celular»).
         DEMO.celular = DEMO.celular || { activo: false };
@@ -3479,7 +3467,7 @@
         return;
       }
       case "traer": return toast("En el celular, aquí eliges el archivo de tu nube");
-      case "buscarActualizacion": return luego(500, () => A.actualizacionRevisada({ hay: false }));
+      case "buscarActualizacion": return luego(500, () => A.actualizacionRevisada({ hay: false, version: "", notas: "" }));
       case "actualizar": { let n = 1; const iv = setInterval(() => { A.actualizacionProgreso({ paso: String(n), texto: ["", "Descargando la versión nueva…", "Preparando la versión nueva…", "Instalando: Alcancía se cerrará y volverá a abrirse sola"][n], pct: n * 33 }); if (++n > 3) clearInterval(iv); }, 700); return; }
     }
   }

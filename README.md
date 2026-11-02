@@ -74,6 +74,19 @@ En GitHub, **Watch → Custom → Releases** te avisa cuando salga la primera ve
 - *Muy pronto:* respaldo **con candado** en tu nube (iCloud Drive, Google Drive, OneDrive, Dropbox) o en tu GitHub/GitLab: cifrado
   en tu computador, con una llave que solo tú tienes.
 
+### Qué permisos pide y a dónde sale
+| | Para qué |
+|---|---|
+| **Llavero** (Mac) | La llave de cada cuenta que conectas y la de la copia para el celular (nunca tu frase), solo en ese Mac. |
+| **Avisos** | Recién cuando agregas tu primer pago o activas «Avisarme antes de que venza», nunca al abrir. Sin montos. |
+| **Descargas** (Mac) | Solo si activas «Cartolas que descargues». Nunca borra ni mueve nada. |
+| **Tu nube** | La carpeta que eliges: el Mac deja ahí la copia cifrada y el celular la lee. |
+| **Archivos de tus IA** (opcional) | Si conectas tu IA al servidor MCP, Alcancía escribe en su configuración (con respaldo). |
+
+**A internet** el Mac sale solo a GitHub (`api.github.com`, `github.com` y su almacenamiento) para ver si hay una versión nueva y
+bajarla, sin datos tuyos, y a cada servicio que conectas, solo a sus dominios. Tu IA habla con su proveedor con tu cuenta. La app del
+celular no usa internet.
+
 <a id="comunidad"></a>
 ## Cómo aportar
 Alcancía es gratis y abierta, y la hacemos entre todos. Casi nada exige programar:
@@ -248,7 +261,7 @@ y **nada se aplica solo**: lo que propone aparece como una tarjeta («Agregar»,
 ### Copia para el celular
 <a id="copia-celular"></a>
 `Alcancia-celular.alcancia`, en la carpeta de tu nube que elegiste en el Mac (Ajustes → «Alcancía en tu celular»). Es un JSON
-(versión 1) que se abre con cualquier biblioteca estándar de AES-GCM; el código está en [`ui/copia.js`](ui/copia.js):
+(versión 1) que se abre con cualquier biblioteca estándar de AES-GCM; el código está en [`ui/copia.js`](ui/copia.js) y la pieza «cifrado» ([`ui/cifrado.js`](ui/cifrado.js)):
 ```
 {"alcancia": "copia-celular", "version": 1,
  "kdf": {"alg": "PBKDF2-SHA256", "iteraciones": 600000, "sal": "<16 bytes, base64>"},
@@ -256,7 +269,8 @@ y **nada se aplica solo**: lo que propone aparece como una tarjeta («Agregar»,
  "verificador": {"iv": "<12 bytes>", "datos": "<«alcancia» cifrado, AAD «alcancia:celular:verificador»>"},
  "datos": {"iv": "<12 bytes, nuevo en cada escritura>", "datos": "<contenido cifrado + etiqueta de 16 bytes, AAD «alcancia:celular:1»>"}}
 ```
-- **La llave** = PBKDF2-SHA256(frase en NFC, sal, 600.000 vueltas) → 32 bytes. La frase la eliges una vez (12 caracteres o más) y
+- **La llave** = PBKDF2-SHA256(frase en NFC, sal, 600.000 vueltas) → 64 bytes: los primeros 32 son la llave AES (los mismos
+  que daba la versión anterior, que derivaba solo 32; una llave guardada de 32 bytes sigue sirviendo). La frase la eliges una vez (12 caracteres o más) y
   **no se guarda en ninguna parte**: el Mac guarda en su Llavero la llave ya derivada, y el celular, solo si marcas «Recordarla en
   este teléfono», en su Llavero (iOS) o cifrada con el Keystore (Android). Al abrir no se aceptan menos de 100.000 vueltas.
 - **El verificador** permite decir «la frase no es la correcta» sin tocar los datos. Cualquier cambio en el archivo (o un archivo
@@ -340,6 +354,10 @@ open ~/Applications/Alcancia.app
 ```
 La app no está firmada por Apple todavía: si macOS avisa, ve a Ajustes del Sistema → Privacidad y seguridad → «Abrir igualmente».
 
+**Actualizar:** la app revisa sola al abrir y cada 6 horas (Ajustes → Actualizaciones). Instalada con `build.sh`, se actualiza con
+`git pull` y vuelve a armarse; con un Release, baja `Alcancia-macOS.zip`, revisa su huella SHA-256 y se reemplaza. Tus datos
+(`~/Alcancia`), tus conexiones (Llavero) y la copia para el celular siguen igual.
+
 ## Desarrollo
 Necesitas Python 3 (solo biblioteca estándar) y Node para las pruebas de la interfaz.
 ```bash
@@ -375,7 +393,19 @@ learns it and you can share just the recipe with the community. Transactions can
 you create (Mercado Pago, PayPal, Stripe, Buda.com, SimpleFIN for US/Canada banks, Up, Akahu) and a watched Downloads folder. A
 read-only local MCP server lets your own AI (Claude, ChatGPT/Codex, Gemini) answer questions about your finances. Spanish-first, English included. Licensed under AGPL-3.0.
 
+**Permissions and network:** the Keychain (keys of the accounts you connect and of the phone copy, only on that Mac), notifications
+(asked only when you add your first bill or turn on reminders, no amounts), Downloads (only if you turn on “Statements you
+download”), the cloud folder you choose, and, optionally, your AI's config file for the MCP server. The Mac connects only to GitHub
+(to check for and download updates, none of your data) and to each service you connect, only its domains; the phone app has no
+internet access. **Updates** are checked inside the app at launch and every 6 hours, downloaded only from this repo's Releases and
+verified with SHA-256; your data, connections and phone copy stay as they were.
+
 **Try it:** [browser preview with made-up data](https://alcancia-app.github.io/alcancia/demo/) (add `?idioma=en`) · **Mac:**
 [build from source](#instalar-en-mac-desde-el-código) (`bash build.sh`, macOS 15; no signed release yet) · **iPhone and Android:**
 [build from source](movil/README.md) (phase 1, read-only) · **Windows and Linux:** coming. Questions and ideas are welcome in
 [Discussions](https://github.com/alcancia-app/alcancia/discussions), in English or Spanish; see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
+
+[![Hecho con Pieza](https://pieza-app.github.io/pieza/sello.svg)](https://pieza-app.github.io/pieza/) · Las piezas comunes (la app de Mac, tu IA, idiomas, actualizaciones…) viven en [Pieza](https://github.com/pieza-app/pieza).
+[![Made with Pieza](https://pieza-app.github.io/pieza/sello-en.svg)](https://pieza-app.github.io/pieza/) · The shared pieces (the Mac app, your AI, languages, updates…) live in [Pieza](https://github.com/pieza-app/pieza).

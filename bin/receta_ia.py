@@ -58,7 +58,7 @@ def main(archivo, pais, salida):
         return {"ok": False, "error": f"No pude leer el archivo: {e}"}
     texto, error = ia.preguntar(prompt(os.path.basename(archivo), muestra, pais))
     if error:
-        return {"ok": False, "error": error}
+        return {"ok": False, "error": ia.frase(error), "codigo": error["codigo"]}
     receta = recetas.leer_receta_texto(texto)
     problemas = recetas.validar(receta) if receta is not None else [f"{ia.nombre()} no devolvió una receta."]
     if problemas:

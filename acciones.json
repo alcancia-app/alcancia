@@ -1,0 +1,183 @@
+{
+ "formato": 1,
+ "acciones": {
+  "categoria": {
+   "script": "guardar.py",
+   "args": [
+    "categoria"
+   ],
+   "entrada": "archivo",
+   "datos": {
+    "*": "pasar"
+   },
+   "cola": "escritura",
+   "responde": "guardado",
+   "limite": 60,
+   "pieza": "app"
+  },
+  "categoriaNueva": {
+   "script": "guardar.py",
+   "args": [
+    "categoriaNueva"
+   ],
+   "entrada": "archivo",
+   "datos": {
+    "*": "pasar"
+   },
+   "cola": "escritura",
+   "responde": "guardado",
+   "limite": 60,
+   "pieza": "app"
+  },
+  "chat": {
+   "script": "chat.py",
+   "args": [
+    "$accion"
+   ],
+   "entrada": "archivo",
+   "datos": {
+    "accion": {
+     "tipo": "enum",
+     "valores": [
+      "enviar",
+      "marcar",
+      "borrar"
+     ]
+    },
+    "*": "pasar"
+   },
+   "eco": [
+    "accion"
+   ],
+   "responde": "chatRespuesta",
+   "limite": 300,
+   "pieza": "app"
+  },
+  "guardarReceta": {
+   "script": "guardar.py",
+   "args": [
+    "receta"
+   ],
+   "entrada": "archivo",
+   "datos": {
+    "*": "pasar"
+   },
+   "cola": "escritura",
+   "responde": "guardado",
+   "limite": 60,
+   "pieza": "app"
+  },
+  "mcpConectar": {
+   "script": "mcp_conectar.py",
+   "args": [
+    "$orden",
+    "$cliente"
+   ],
+   "datos": {
+    "orden": {
+     "tipo": "enum",
+     "valores": [
+      "conectar",
+      "quitar"
+     ]
+    },
+    "cliente": {
+     "tipo": "enum",
+     "valores": [
+      "claude_desktop",
+      "claude_code",
+      "codex",
+      "gemini",
+      "antigravity"
+     ]
+    }
+   },
+   "eco": [
+    "orden",
+    "cliente"
+   ],
+   "responde": "mcpListo",
+   "limite": 120,
+   "pieza": "app"
+  },
+  "pedirConsejos": {
+   "script": "consejos.py",
+   "args": [
+    "entrada"
+   ],
+   "entrada": "archivo",
+   "datos": {
+    "hoy": {
+     "tipo": "texto",
+     "max": 10,
+     "requerido": true
+    }
+   },
+   "responde": "consejosListos",
+   "limite": 300,
+   "pieza": "app"
+  },
+  "presupuesto": {
+   "script": "guardar.py",
+   "args": [
+    "presupuesto"
+   ],
+   "entrada": "archivo",
+   "datos": {
+    "*": "pasar"
+   },
+   "cola": "escritura",
+   "responde": "guardado",
+   "limite": 60,
+   "pieza": "app"
+  },
+  "probarIA": {
+   "script": "ia.py",
+   "args": [
+    "probar"
+   ],
+   "entrada": "archivo",
+   "datos": {
+    "ia": {
+     "tipo": "enum",
+     "valores": [
+      "claude",
+      "codex",
+      "gemini"
+     ]
+    }
+   },
+   "responde": "iaProbada",
+   "limite": 150,
+   "pieza": "ia"
+  },
+  "regla": {
+   "script": "guardar.py",
+   "args": [
+    "regla"
+   ],
+   "entrada": "archivo",
+   "datos": {
+    "*": "pasar"
+   },
+   "cola": "escritura",
+   "responde": "guardado",
+   "limite": 60,
+   "pieza": "app"
+  },
+  "saldo": {
+   "script": "guardar.py",
+   "args": [
+    "saldo"
+   ],
+   "entrada": "archivo",
+   "datos": {
+    "*": "pasar"
+   },
+   "cola": "escritura",
+   "responde": "guardado",
+   "limite": 60,
+   "pieza": "app"
+  }
+ }
+}

@@ -27,19 +27,51 @@ app del celular (iPhone y Android, `movil/`, fase 1: para mirar, con la copia ci
 
 | Ruta | Qué es |
 |---|---|
-| `bin/` | Python **solo biblioteca estándar**. `datos.py` (formato en disco, ids, escritura atómica), `recetas.py` (validar, detectar y aplicar recetas; lee CSV y .xlsx sin librerías), `pdf.py` (texto de un PDF con posiciones → tabla), `categorizar.py` (reglas, comercios conocidos, IA), `resumen.py` (cuentas del mes, proyección, alertas, presupuesto sugerido, historia de 6 meses, periodos de sueldo a sueldo), `compromisos.py` (validar, reconocer pagos, estado del mes, avance de deudas, gasto máximo, sugerir, avisos; palabras en `compromisos_conocidos.json`), `ia.py` (`preguntar()` con la IA del usuario), `compromiso_ia.py` (`limpiar_texto` y los campos de un compromiso explicados para la IA). Scripts que llama la app: `estado.py` (todo lo que pinta la interfaz), `importar.py`, `receta_ia.py`, `chat.py` (conversar con Alcancía), `consejos.py`, `compromisos.py avisos` y `guardar.py` (categoría, regla, presupuesto, receta, compromiso; lo de la interfaz llega en un archivo JSON de entrada). El último argumento siempre es la ruta del JSON de salida. |
-| `bin/conectores/` | Un módulo por servicio con API oficial (`INFO`, `probar`, `movimientos`). `bin/red.py` hace los pedidos HTTPS (solo a los dominios de cada conector). `bin/sincronizar.py probar|traer <conector>` los usa; `bin/vigilar.py` es la carpeta vigilada. |
+| `bin/` | Python **solo biblioteca estándar**. `nucleo.py` (pieza «nucleo»: `app.json`, carpeta de datos, config validada, escritura atómica), `datos.py` (formato en disco, ids y config de Alcancía sobre `nucleo`), `recetas.py` (validar, detectar y aplicar recetas; lee CSV y .xlsx sin librerías), `pdf.py` (texto de un PDF con posiciones → tabla), `categorizar.py` (reglas, comercios conocidos, IA), `resumen.py` (cuentas del mes, proyección, alertas, presupuesto sugerido, historia de 6 meses, periodos de sueldo a sueldo), `compromisos.py` (validar, reconocer pagos, estado del mes, avance de deudas, gasto máximo, sugerir, avisos; palabras en `compromisos_conocidos.json`), `ia.py` (pieza «ia»: `preguntar()` con la IA del usuario, `probar`, `frase()`; dónde se elige la IA sale de `app.json` → `ia.ayuda`), `compromiso_ia.py` (`limpiar_texto` y los campos de un compromiso explicados para la IA). Scripts que llama la app: `estado.py` (todo lo que pinta la interfaz), `importar.py`, `receta_ia.py`, `chat.py` (conversar con Alcancía), `consejos.py`, `compromisos.py avisos` y `guardar.py` (categoría, regla, presupuesto, receta, compromiso; lo de la interfaz llega en un archivo JSON de entrada). El último argumento siempre es la ruta del JSON de salida. |
+| `bin/conectores/` | Un módulo por servicio con API oficial (`INFO`, `probar`, `movimientos`). `bin/red.py` (pieza «red») hace los pedidos HTTPS (solo a los dominios de cada conector). `bin/sincronizar.py probar|traer <conector>` los usa; `bin/vigilar.py` es la carpeta vigilada. |
 | `bin/mcp_servidor.py`, `bin/mcp_conectar.py` | Servidor MCP de solo lectura (stdio, JSON-RPC, sin dependencias) para que la IA de la persona consulte sus finanzas, y el script que lo registra en Claude Desktop, Claude Code, Codex/ChatGPT, Gemini CLI y Antigravity (con su comando oficial o editando su JSON con respaldo). |
 | `recetas/` | Recetas incluidas en la app (solo las probadas con una cartola real) y `README.md` con el formato. |
-| `ui/` | Interfaz web única (`app.js`, `app.css`), `copia.js` (la copia cifrada para el celular: el mismo código cifra en el Mac y abre en el teléfono), `demo.json` (ficticio, se genera con `herramientas/generar_demo.py`) e `idiomas/en.json`. |
+| `ui/` | Interfaz web única (`app.js`, `app.css`), `i18n.js` (pieza «i18n»: `T`, `Thtml`, `Tp`, `tr`, `traducirDOM`, paquetes de idioma validados), `host.js`, `tema.css`/`tema.js` y `componentes.css`/`componentes.js` (piezas de interfaz, ver «Piezas»), `cifrado.js` (pieza «cifrado»), `copia.js` (la copia para el celular sobre esa pieza: lo que viaja y cómo se reconoce el archivo; el mismo código cifra en el Mac y abre en el teléfono), `demo.json` (ficticio, se genera con `herramientas/generar_demo.py`) e `idiomas/en.json`. |
 | `docs/` | Página pública (GitHub Pages). `pagina.yml` la publica junto a `ui/` en `/demo/`. |
 | `CHANGELOG.md` | Lo que cambia para quien usa la app, en palabras simples (ver «Lo que rodea a un cambio»). |
 | `pruebas/` | `correr.sh` (todo), `test_python.py`, `interfaz.mjs` (Playwright), `copia.mjs` (cifrado de la copia para el celular, en Node), `movil.mjs` (la app del celular de punta a punta con `capacitor_falso.js`), `contrato.py`, `casos.json` (casos compartidos Python ↔ JS), `ia_falsa.py`, `datos/` (cartola ficticia). |
 | `herramientas/` | `revisar_privacidad.sh`, `generar_demo.py`, `generar_pdf_prueba.py` (las cartolas PDF ficticias de `pruebas/datos/`). |
 | `ejemplos/` | Scripts para construir encima del formato abierto. |
-| `app/` | App de Mac (SwiftPM, macOS 15, sin proyecto de Xcode). `AlcanciaApp.swift` (arranque y barra de menú), `Ventana.swift` (WKWebView + puente: un `case` por acción), `Servicios.swift` (rutas, config, idioma, IA del usuario, `Procesador.correrJSON`), `Actualizaciones.swift` (GitHub Releases o `git pull` en un checkout de desarrollo), `Avisos.swift` (notificaciones de compromisos), `Celular.swift` (la copia para el celular: carpeta de la nube, llave en el Llavero y cuándo escribir). |
+| `app/` | App de Mac (SwiftPM, macOS 15, sin proyecto de Xcode) sobre la pieza «host-mac» (target `PiezaHost`: ventana, puente, config, idioma, menús, scripts con límite, secretos, avisos y vigilante) y «actualizaciones» (target `PiezaActualizaciones`), que no se editan aquí. Lo propio de Alcancía, en `Sources/Alcancia`: `AlcanciaApp.swift` (`Host.arrancar`: lo que se registra, el estado, los menús, la ventana sin barra de título y los ajustes con forma propia), `Cartolas.swift` (elegir, leer, aprender la receta e importar con su avance), `Conexiones.swift` (conectores con la llave en el Llavero por la entrada estándar, y la carpeta vigilada en Descargas), `Avisos.swift` (notificaciones de compromisos) y `Celular.swift` (la copia para el celular: carpeta de la nube, llave en el Llavero y cuándo escribir). |
+| `app.json`, `piezas.json`, `acciones.json` | **Pieza** (ver «Piezas» abajo): `app.json` describe la app para las piezas (id, carpeta de datos, plataformas, claves de config y las acciones de Alcancía que solo corren un script, `acciones`); `piezas.json` y `acciones.json` (lo que atiende el host de Mac sin código nativo) los escribe `pieza.py`. |
 | `movil/` | App del celular (Capacitor 7, iOS + Android, `app.alcancia.movil`): `armar.mjs` (arma `www/` con `ui/` y `host/`), `host/` (el anfitrión del teléfono), `plugins/carpeta/` (Swift + Kotlin), `ios/`, `android/`, `README.md` (compilar y probar). Ver «App del celular». |
 | `build.sh`, `herramientas/empaquetar.sh` | Arman `dist/Alcancia.app` (con Python portátil verificado por SHA-256 y bin/, ui/, recetas/ adentro) + zip + `.sha256`; `build.sh` la instala en `~/Applications`. |
+
+## Piezas (de [Pieza](https://github.com/pieza-app/pieza))
+Alcancía usa piezas de Pieza, la base de la familia de apps: código probado que se copia a la app (modelo «copiar y adueñarse»).
+
+| Pieza | Versión | Archivos | Qué usa Alcancía |
+|---|---|---|---|
+| `nucleo` | 0.7.0 | `bin/nucleo.py` | `app.json`, carpeta de datos, config validada por `app.json` (`limpiar_config`), escritura atómica, `recursos()`. `datos.py` lo envuelve con lo propio: `~/Alcancia` 0700, archivos **siempre** 0600 (`nucleo.PRIVADO`), `CONFIG_INICIAL` y los ajustes con forma propia (`CONFIG_OBJETOS`: `inicio_mes`, `uf`, que valida quien los usa). |
+| `ia` | 0.6.3 | `bin/ia.py` | La IA de la persona (`preguntar`, `probar`, `comando`, `elegida`, `nombre`, `frase`). Los errores son `{codigo, plantilla, valores, ayuda?}`: los scripts responden `{"ok": false, "error": ia.frase(error), "codigo"}`. `app.json` → `"ia": {"ayuda": "Revisa en Ajustes → Tu IA."}` suma dónde se elige la IA a `no_instalada` y `actualizar` (no al probarla: ahí ya se está en «Tu IA»); la frase completa va en `en.json`. Un CLI que no conoce `--strict-mcp-config` o `--disallowedTools` no corre (error `actualizar`). Lo propio (prompts, `limpiar_texto`, validar respuestas) sigue en `categorizar.py`, `consejos.py`, `chat.py`, `compromiso_ia.py` y `receta_ia.py`. El Mac prueba la IA con la acción declarada de la pieza, `probarIA` (`ia.py probar <entrada {ia}> <salida>`, límite 150 s); `listaIA` no se adopta (`app.json` → `sin_acciones`): las IA instaladas llegan en el estado (`estado.py` → `ias`, con `ia.lista()`). |
+| `i18n` | 0.3.1 | `ui/i18n.js` | `T`, `Thtml`, `Tp`, `tr`, `frase`, `traducirDOM` (`app.js` crea la instancia; `E.idioma` es un espejo de `i18n.idioma`). `ui/index.html` la carga antes de `app.js`; `movil/armar.mjs` copia `ui/` entera y revisa que esté. `ui/idiomas/en.json` lleva `codigo` y `nombre`. |
+| `host-ui` | 0.2.0 | `ui/host.js` | El puente: `host = PiezaHost.crearHost({nombre: "alcancia", global: "Alcancia", simular})`, `HOST = host.plataforma` (de `window.ALCANCIA_HOST`, queda en `<html data-host>`). Las respuestas van con `host.responder({…})` (quedan en `window.Alcancia`); `_pruebas` (no es función) va aparte. Mensaje `{accion, datos}`; en la vista previa los datos llegan a `simular()` como copia JSON. |
+| `tema` | 0.2.1 | `ui/tema.css`, `ui/tema.js` | Tokens con `light-dark()` (el modo queda en `<html data-pz-modo>`; la app no lo lee, usa `tema`): `app.css` solo define los pares de Alcancía (`--fondo-claro`/`--fondo-oscuro`…, la tabla está en el README de la pieza). `--texto-suave` (antes `--suave`), `--panel-2` (antes `--lateral`); `--acento-suave`, `--rojo-suave` y `--hover` son derivados. «Apariencia» en Ajustes (`config.tema`: sistema, claro u oscuro; en el celular es un ajuste del teléfono) y `?tema=` en la vista previa. |
+| `red` | 0.2.0 | `bin/red.py` | Los pedidos HTTPS de los conectores (`Red(INFO["hosts"], INFO["nombre"])` en `sincronizar.py`): solo `https` a esos dominios, sin redirecciones (la llave nunca sale a otro dominio), tope de 10 MB y de 60 s por pedido. `ErrorRed` trae `codigo`, `plantilla` y `valores`: `sincronizar.py` responde `e.como_dict()` y guarda `plantilla`/`valores` en `conexiones.json` junto a `error`; la interfaz lo traduce con `errorRed()` (`Tp`). El User-Agent sale de `app.json` → `nombre` en ASCII («Alcancia») y `repo` («dueño/repo»). En las pruebas, `ALCANCIA_RED_PRUEBA` (servidor falso, solo fuera de la app). |
+| `cifrado` | 0.2.0 | `ui/cifrado.js` | La copia para el celular: `ui/copia.js` hace `PiezaCifrado.crear({app: "Alcancía", contexto: "alcancia:celular", verificador: "alcancia", marca: "alcancia", tipo: "copia-celular"})` (los nombres de siempre: lo que ya está en la nube se abre igual) y deja solo lo propio: `paraCelular`, `ARCHIVO`, y revisar que el contenido traiga `formato`/`estado` (`C.error("danado")` si no). Los errores son los de la pieza, con `{app}` = Alcancía (menos `version`, propia por la opción `mensajes`: «Actualiza la app del celular»): `AlcanciaCopia.mensaje(e)` da `e.frase` (ya armada; la interfaz la traduce con su plantilla en `en.json`). `fuerzaFrase` se usa en el asistente del Mac (sus cuatro frases quedan en `en.json`). La llave guardada nueva es de 64 bytes (`llaves.raw`); una de 32 de antes sigue sirviendo (`Celular.largosLlave` en el Mac, y el teléfono acepta las dos). `abrir` devuelve `{contenido, llaves}`. Prueba de compatibilidad: `pruebas/datos/copia-antes-de-pieza.json` (copia y llave de 32 bytes hechas con la versión anterior). |
+| `host-mac` | 0.2.0 | `app/Sources/PiezaHost/*.swift` | La app de Mac: `Host.arrancar` lee `app.json` dentro de la app (`Contents/Resources/alcancia/`), abre la ventana con `ui/` (el puente solo atiende el marco principal con un archivo de `ui/`; nunca navega fuera; https al navegador), guarda `config` con las reglas de `app.json`, arma los menús en el idioma elegido, sigue `config.tema` y espera los guardados al salir. Corre los scripts de `bin/` con el Python portátil y **límite de tiempo** (corta también lo que lanzó), sin variables `ALCANCIA_*` de afuera, con la entrada en una carpeta temporal 0700 y el secreto por la entrada estándar (`Procesador.conSecreto`). Atiende solo `listo`, `config` (Alcancía la registra, ver «App de Mac»), `abrirEnlace`, `buscarActualizacion`/`actualizar` y lo declarado en `acciones.json`. Alcancía usa además `Secretos` (Llavero), `CarpetaElegida` (la carpeta de la nube del celular), `Vigilante` (Descargas) y `Notificaciones` (permiso y toque; `avisos: true`). |
+| `actualizaciones` | 0.3.0 | `app/Sources/PiezaActualizaciones/Actualizaciones.swift` | `p.actualizaciones = .init(…)`: el host revisa al abrir y cada 6 h (con idioma elegido), suma `actualizacion` al estado y atiende `buscarActualizacion` → `actualizacionRevisada` y `actualizar` → `actualizacionProgreso` (nunca con algo corriendo: espera 5 s y responde `codigo: "ocupada"`). Solo de los Releases de `alcancia-app/alcancia` (`Alcancia-macOS.zip` + `.sha256`), o `git pull` + `empaquetar.sh` en un checkout de desarrollo (`~/Alcancia/.alcancia/desarrollo`, `ALCANCIA_PROGRESO`). Los textos van con marcadores (`texto`, `valores`): los traduce la interfaz. |
+| `componentes` | 0.3.0 | `ui/componentes.css`, `ui/componentes.js` | `ui = PiezaComponentes.crear({…})`: diálogos (`caja()` → `ui.dialogo`; la pantalla de idioma y el chat usan el mismo marco con su cabeza, `cajaPropia()`), Esc/velo/✕ → `cerrarDialogo()`, foco con `ui.despuesDePintar()` en cada `render()` (`mantenerCampos: true`: un campo donde se escribe conserva foco y cursor; `render()` solo devuelve el foco a botones y casillas con id), avisos en cola (`toast(frase, {valores})` = `ui.aviso`, sobre la barra inferior con `--pz-toast-abajo`; los que llegan antes de elegir el idioma esperan), «Tu IA» (`ui.filasIA`, `probarIA {ia}`), actualizaciones (`ui.filaActualizacion` en Ajustes y en el aviso de arriba) y «Acerca de» con «Enviar comentarios». Clases `pz-boton`, `pz-principal`, `pz-plano`, `pz-peligro`, `pz-pie`, `pz-izq`; `app.css` solo ajusta (botones de 44 px también en escritorio con `--pz-boton-alto`; `filasIA` deja un solo botón naranjo). Algo que no se deshace (borrar un compromiso, desconectar el teléfono) pregunta con `ui.confirmar({peligro: true})`: el foco parte en «Cancelar». La versión nueva llega con `ui.actualizacionDisponible(…, {pintar: false})` en el estado; el Mac manda `version` y `desarrollo` (sin `version`, la pieza la anuncia como «cambios en el código»). En el celular (`LECTURA`) no se pintan «Tu IA» ni actualizaciones. |
+
+- **La carpeta de siempre:** `app.json` dice `"datos": {"carpeta": "~/Alcancia/.alcancia"}` (donde siempre estuvo `config.json`) y
+  `"privado": true` (todo archivo 0600). Con `ALCANCIA_CARPETA` (pruebas, desarrollo) `datos.py` le pasa la misma carpeta a
+  `nucleo` (`ALCANCIA_DATOS`). Nunca cambies `id` ni `datos` sin migrar.
+- Las claves simples de config son las de `app.json` (el Mac las valida con las mismas reglas que `nucleo`); `inicio_mes` y `uf`
+  (objetos, que `app.json` no describe) las valida el Mac al guardarlas (`AlcanciaApp.guardarConfig`) y Python al usarlas.
+- `app.json` y `acciones.json` van dentro de la app (`herramientas/empaquetar.sh`): `bin/nucleo.py` y el host los buscan junto a `bin/`.
+- **No edites a mano los archivos de una pieza.** Se actualizan con «Pieza al día» (`.github/workflows/pieza-al-dia.yml`, una vez por
+  semana abre un PR o un issue) o con `python3 <pieza>/herramientas/pieza.py actualizar .`. Si hay que cambiar algo, el cambio va
+  primero a Pieza (`pieza.py diferencias . <pieza>` lo muestra) y vuelve desde allá; `pieza.py estado .` dice si algo quedó distinto.
+- No adoptada todavía: `bienvenida` 0.3.0. Sus pasos (`sumarPaso`) alcanzarían para el Mac y para el celular («Trae tus datos» con su
+  botón en el cuerpo y `bv.terminar()`), pero el último paso de la pieza siempre es «Todo listo» con «Empezar» como botón principal, y el
+  de Alcancía es la acción («Agregar mi primera cartola» / «Elegir el archivo») con «Empezar sin cartola» / «Lo hago después» al lado;
+  además, el paso de idioma lleva el logo y la bienvenida va en el diálogo de `componentes` con su título arriba. Lo que le falta a la
+  pieza está anotado para Pieza; hasta entonces sigue `bienvenida()`/`pasoIdioma` con sus pruebas.
 
 ## Cómo funciona
 - **Importar:** `importar.py vista <archivo> [receta]` detecta la receta (la que reconoce más encabezados) y devuelve una muestra sin
@@ -130,7 +162,7 @@ app del celular (iPhone y Android, `movil/`, fase 1: para mirar, con la copia ci
   (anterior por defecto; «siguiente» si las llegadas lo muestran) y `proximo_sueldo`/`proximoSueldo` (`atrasado` = pasó un día
   hábil sin llegar → «¿Aún no te pagan?» en el Resumen, que se cierra por ese día).
 - **Conectores:** la app guarda la llave en el Llavero y se la pasa a `sincronizar.py` por la **entrada estándar** (nunca en un
-  archivo, un argumento ni el entorno); una llave nueva vuelve por la salida estándar (`CREDENCIAL {json}`). `red.py` no sigue
+  archivo, un argumento ni el entorno); una llave nueva vuelve por la salida estándar (`CREDENCIAL {json}`). `red.py` (pieza «red») no sigue
   redirecciones (se llevarían la llave a otro dominio) y la IA corre sin variables `ALCANCIA_*`. Al revisar cambios, mirar justo eso. `probar` revisa la llave y registra las cuentas en `cuentas.json` (campo `conector`);
   `traer` pide desde la última vez menos 10 días (o `dias_inicio` la primera vez), guarda sin duplicar con
   `id = sha1(conector|cuenta|id del servicio)` y categoriza igual que una cartola. El estado sin secretos queda en
@@ -139,8 +171,9 @@ app del celular (iPhone y Android, `movil/`, fase 1: para mirar, con la copia ci
   movimiento puede traer `medio`/`cuotas`/`cuota` (columnas opcionales del CSV) y `datos.completar` los agrega a lo ya guardado por id.
   Al subir `REPARACIONES` (hoy 3), un conector con `RELEER_DIAS` vuelve a pedir ese rango una vez para completar lo guardado.
 - **Carpeta vigilada:** `vigilar.py activar` marca desde cuándo; `vigilar.py <carpeta>` importa los CSV/XLSX/PDF/OFX nuevos que reconozca
-  una receta, una sola vez cada uno (por huella), y anota los que no sabe leer. Nunca borra ni mueve nada. En Mac la llama un
-  `DispatchSource` sobre `~/Downloads` cuando la carpeta queda quieta 5 segundos.
+  una receta, una sola vez cada uno (por huella), y anota los que no sabe leer. Nunca borra ni mueve nada. En Mac la llama el
+  `Vigilante` de la pieza «host-mac» (FSEvents) sobre `~/Downloads` cuando la carpeta queda quieta 5 segundos (`Descargas` en
+  `Conexiones.swift`).
 - **PDF:** `bin/pdf.py` (solo biblioteca estándar) recorre los objetos del PDF sin confiar en la xref, abre `/ObjStm`, descomprime
   FlateDecode/ASCIIHex/ASCII85, interpreta los operadores de texto (Tm, Td, TD, T*, Tj, TJ, ', ", cm, q/Q, Do) y decodifica con
   WinAnsi/MacRoman (+ `/Differences`) o el CMap `/ToUnicode` (Type0/Identity-H). Agrupa el texto en filas por `y` y celdas por la
@@ -176,7 +209,7 @@ app del celular (iPhone y Android, `movil/`, fase 1: para mirar, con la copia ci
   pago, fecha_fin) y `buscar_pago` (abajo). Lo que no se pudo preparar vuelve como código en `notas` (la interfaz lo explica).
   **Nada se aplica solo:** cada acción es una tarjeta («Agregar», «Sí, corrígelo», «Cambiar» abre `#editor-comp`, «No») que usa la acción `compromiso` de siempre
   (nueva subacción `reasignar` en `guardar.py`: `reasignar_pago` mueve el pago con el formato de `pagos` de siempre y deja el
-  movimiento en `no_es`). Sin IA instalada (`ia.instalada()`) devuelve `sin_ia` y la interfaz lleva a Ajustes. La conversación se
+  movimiento en `no_es`). Sin IA instalada (`ia.comando(ia.elegida())`) devuelve `sin_ia` y la interfaz lleva a Ajustes. La conversación se
   guarda solo en `~/Alcancia/.alcancia/chat.json` (últimos 50, ya limpios, con lo que se hizo con cada acción en `estados`) y llega
   en el estado (`chat`). `margen_mensual`, `plan_prestamos`, `inicio_plan`, `pago_reasignable`, `reasignar_pago` y la cuota fija de
   `calcular_prestamo` viven igual en `ui/app.js` (`margenMensual`, `planPrestamos`, `inicioPlan`, `pagoReasignable`, `reasignarPago`,
@@ -224,15 +257,15 @@ app del celular (iPhone y Android, `movil/`, fase 1: para mirar, con la copia ci
   navegador, `buscadoSimulado` usa `buscarSerie` con la demo («¿cuánto me cobran de internet? búscalo»).
 - **Alcancía en tu celular (Mac):** Ajustes → «Alcancía en tu celular» (`seccionCelular`, asistente `dialogoCelular`): carpeta de
   la nube (acción `celular` {accion: «carpeta»} → `NSOpenPanel` → `celularCarpeta`), frase (`AlcanciaCopia.fuerzaFrase`, 12+
-  caracteres y «Entiendo que sin esta frase…»). La interfaz deriva la llave (`nuevaCabecera`, WebCrypto) y manda `{accion:
-  «activar», llave, cabecera}`: `Celular.swift` guarda **la llave, no la frase**, en el Llavero y el marcador de la carpeta en
+  caracteres y «Entiendo que sin esta frase…»). La interfaz deriva la llave (`nuevaCabecera` de la pieza «cifrado», WebCrypto) y manda `{accion:
+  «activar», llave (`llaves.raw`, 64 bytes; el Mac acepta también las de 32 de antes), cabecera}`: `Celular.swift` guarda **la llave, no la frase**, en el Llavero y el marcador de la carpeta en
   `UserDefaults` (nada de esto va a `config.json` ni al estado). Después de cada `estado`, `Celular.despuesDelEstado` llama
   `copiaCelular({llave, cabecera, forzar, anterior})`; la interfaz arma el contenido con lo que acaba de llegar (`E._crudo` →
   `AlcanciaCopia.paraCelular`, lista blanca), compara la huella y, si cambió (o `forzar`: 6 horas, «Copiar ahora», recién activada),
   lo cifra y devuelve `{accion: «escribir», texto, huella}`; Swift lo escribe de una vez (`.atomic`) y responde `celularEscrito`.
   Formato en el README («Copia para el celular»); pruebas en `pruebas/copia.mjs` y, del Mac (vista previa) al teléfono, en
   `pruebas/movil.mjs`. Si cambias lo que viaja, cambia `paraCelular`, el README y la prueba de «lo que viaja».
-- **Consejos:** `consejos.py <hoy>` arma un prompt con totales y exige las tres secciones (`### Lo que va bien`, `### Ojo con`,
+- **Consejos:** `consejos.py <hoy>` (o `consejos.py entrada <entrada.json {hoy}>`, la acción declarada `pedirConsejos`) arma un prompt con totales y exige las tres secciones (`### Lo que va bien`, `### Ojo con`,
   `### Para esta semana`). Si no vienen, no se guarda nada.
 
 ## Interfaz: navegación, jerarquía y color
@@ -258,7 +291,7 @@ Diseño mobile first (la misma interfaz va a ir en una app de celular): pensar p
   descripción original se ve al tocar la fila). Un movimiento sin categoría muestra un «+» gris discreto.
 
 ## App del celular (`movil/`)
-- **El Mac es la fuente.** El celular (fase 1) solo mira: lee la copia cifrada (`ui/copia.js`) de la carpeta de la nube, la abre con
+- **El Mac es la fuente.** El celular (fase 1) solo mira: lee la copia cifrada (`ui/copia.js` sobre la pieza «cifrado») de la carpeta de la nube, la abre con
   la frase y pinta la misma interfaz con `ALCANCIA_HOST = "movil"` (`LECTURA` en `ui/app.js`). Nunca llaves de conectores, IA ni
   red: el manifiesto quita INTERNET y la CSP de `ui/index.html` no cambia (`armar.mjs` lo revisa).
 - **Lo que cambia datos no se ofrece** en `LECTURA`: sin «+», chat, categorizar (el chip es un `span`), «Ya lo pagué», editar
@@ -269,7 +302,7 @@ Diseño mobile first (la misma interfaz va a ir en una app de celular): pensar p
 - **Primer uso:** idioma (el mismo `pasoIdioma`), saludo y «Trae tus datos» (`vistaTraer`, `bv-traer`). Acción `traer`
   {accion: elegir | abrir {frase, recordar} | releer | olvidar | desconectar} → `traerRespuesta` y el estado (con `celular`:
   {estado: nuevo | frase | listo, archivo, generado, recordada, desactualizada, error}). Los ajustes del teléfono son solo
-  `idioma_ui`, `bienvenida` y `avisos` (plugin, no `localStorage`); el resto de `config` llega del Mac.
+  `idioma_ui`, `bienvenida`, `avisos` y `tema` (plugin, no `localStorage`); el resto de `config` llega del Mac.
 - **Avisos:** `avisosPagos` (lógica pura, en `_pruebas`) y `window.Alcancia.avisosCelular` (con el texto en el idioma elegido);
   el anfitrión los programa con `@capacitor/local-notifications` (ids de 31 bits, 9:00, máximo 60, `registerActionTypes` con el
   texto genérico de la pantalla bloqueada). El permiso se pide al activar «Avisarme antes de que venza un pago».
@@ -281,26 +314,56 @@ Diseño mobile first (la misma interfaz va a ir en una app de celular): pensar p
   workflow hace `npm ci`, `npm audit --audit-level=high` y `cap sync`.
 
 ## Puente interfaz ↔ app
-La UI llama `host.enviar(accion, datos)` y la app responde con `window.Alcancia.<funcion>(json)`. En el navegador, `simular()` responde
+La UI llama `host.enviar(accion, datos)` (pieza «host-ui») y la app responde con `window.Alcancia.<funcion>(json)`. En el navegador, `simular()` responde
 con datos ficticios. Acciones: `listo, config, probarIA, elegirCartola, vistaCartola, aprenderReceta, guardarReceta, importar,
 categoria, categoriaNueva, saldo, regla, presupuesto, pedirConsejos, abrirEnlace, abrirCarpeta, conectar, sincronizar, desconectar, vigilar, mcpConectar,
-buscarActualizacion, actualizar, chat, compromiso, avisos, celular` (Mac) y `traer` (solo celular). Respuestas: `estado, iaProbada,
-cartolaElegida, vistaLista, recetaAprendida, importarProgreso, importado, consejosListos, conectado, sincronizado, importadoSolo, mcpListo,
+buscarActualizacion, actualizar, chat, compromiso, avisos, celular` (Mac) y `traer` (solo celular). `probarIA {ia}` → `iaProbada {ia, ok,
+codigo, plantilla, valores, ayuda, texto}` y `actualizacionRevisada` lleva `notas`, `version` y `desarrollo` (forma de la pieza «componentes», que manda
+`probarIA`, `buscarActualizacion`, `actualizar` y `abrirEnlace` por su cuenta; el contrato también lee `ui/componentes.js`). Respuestas: `estado, iaProbada,
+guardado, menu, cartolaElegida, vistaLista, recetaAprendida, importarProgreso, importado, consejosListos, conectado, sincronizado, importadoSolo, mcpListo,
 actualizacionRevisada, actualizacionProgreso, chatRespuesta, copiaCelular, celularCarpeta, celularEscrito` y, del celular,
-`traerRespuesta, avisosRespuesta, avisosCelular, soloEnMac`. Solo el marco principal cargado desde `ui/` puede usar el puente (`Ventana.swift`
-revisa el origen) y la ventana nunca navega fuera de `ui/` (un enlace https se abre en el navegador). `pruebas/contrato.py` revisa que cada acción exista en `Ventana.swift` (y en Windows/Linux cuando exista), en
-`movil/host/host.js` (`ACCIONES` o `SOLO_MAC`) y simulada en `simular()`; que cada función que llaman las apps exista en
-`window.Alcancia`; que los scripts y los métodos nativos que llaman existan (plugins de iOS y Android y el Capacitor falso), y la
-seguridad de la app del celular. Una acción nueva va en `ui/app.js`, en `Ventana.swift`, en `movil/host/host.js` y simulada en `simular()`.
+`traerRespuesta, avisosRespuesta, avisosCelular, soloEnMac`.
+
+En el Mac (pieza «host-mac») cada acción la atiende uno de tres lados, en este orden:
+1. **Registrada** (`p.registrar("x")` en `app/Sources/Alcancia`): lo nativo propio. `config` (las claves simples con las reglas de
+   `app.json` y además `inicio_mes`/`uf`), `elegirCartola`, `vistaCartola`, `aprenderReceta`, `importar` (una ruta absoluta: solo
+   sirve la última cartola que la persona eligió en el panel del sistema), `compromiso` (el primero activa los avisos), `avisos`,
+   `conectar`/`sincronizar`/`desconectar` (Llavero), `vigilar`, `celular` y `abrirCarpeta`.
+2. **Del host:** `listo` (manda el estado: `estado.py` + versión, idioma, config, `actualizacion` y, de Alcancía, `celular` y un
+   `aviso`), `abrirEnlace` (solo https), `buscarActualizacion` y `actualizar`. Los menús llaman `menu({accion})`: «ajustes» (⌘,),
+   «guardar» (al cerrar) y, al tocar un aviso de pagos, «compromisos».
+3. **Declarada** en `app.json` → `acciones` (y `probarIA`, de la pieza «ia»), que `pieza.py acciones .` junta en `acciones.json`:
+   el host valida los datos, pone los `$campo` (solo enum) en los argumentos y el resto en el archivo de entrada, corre el script con
+   su límite y responde. `guardarReceta`, `categoria`, `categoriaNueva`, `regla`, `presupuesto` y `saldo` → `guardar.py <accion>`
+   (en fila, `cola: "escritura"`) y responden `guardado` (si no se pudo, la interfaz avisa y pide el estado de nuevo); `chat` →
+   `chat.py $accion` (eco `accion`: `chatRespuesta` solo pinta lo de «enviar»); `pedirConsejos` → `consejos.py entrada`;
+   `mcpConectar {orden, cliente}` → `mcp_conectar.py $orden $cliente` (los dos enum). Un error del host llega como
+   `{ok: false, codigo: "datos" | "falta" | "limite" | "fallo", texto, valores, error}`.
+
+Solo el marco principal con un archivo de `ui/` puede usar el puente (lo revisa el host) y la ventana nunca navega fuera de `ui/` (un
+enlace https se abre en el navegador). `pruebas/contrato.py` revisa que cada acción la atienda el Mac (registrada, del host o en
+`acciones.json`, y que `acciones.json` vaya dentro de la app), `movil/host/host.js` (`ACCIONES` o `SOLO_MAC`) y `simular()`; que cada
+función que llaman las apps y lo declarado (`responde`) exista en `window.Alcancia`; que los scripts y los métodos nativos que llaman
+existan (plugins de iOS y Android y el Capacitor falso), y la seguridad de la app del celular. `test_python.py` (`AccionesDeclaradas`)
+corre cada acción declarada como la corre el host. Una acción nueva va en `ui/app.js`, en el Mac (en `app.json` → `acciones` si solo
+corre un script, y `pieza.py acciones .`; si no, registrada), en `movil/host/host.js` y simulada en `simular()`.
 
 ## App de Mac
-- Datos en `~/Alcancia`; el código va dentro de la app (`Contents/Resources/alcancia`) y los scripts corren con el Python portátil incluido
-  (`ALCANCIA_RECURSOS` apunta ahí). La app nunca usa `ui/demo.json` (se quita al empaquetar).
+- Datos en `~/Alcancia` (`app.json` → `datos: {carpeta: "~/Alcancia/.alcancia"}`: ahí van `config.json` y lo interno, igual que
+  siempre); el código va dentro de la app (`Contents/Resources/alcancia`, con `app.json` y `acciones.json`) y los scripts corren con el
+  Python portátil incluido (`ALCANCIA_RECURSOS` y `ALCANCIA_DATOS` los pone el host). La app nunca usa `ui/demo.json` (se quita al empaquetar).
 - Arranque: menús y ventana de inmediato (en el idioma del sistema hasta que la persona elija). Lo que corre solo y puede mostrar algo
-  o pedir un permiso del sistema (actualizaciones, conexiones con el Llavero, carpeta vigilada en Descargas, `mcp_conectar.py reparar`)
-  parte en `AlcanciaApp.iniciarTareas()` solo cuando `Idioma.elegido` (los avisos de compromisos también, y su permiso se pide recién al
-  agregar el primer compromiso o activarlos); en el primer uso, al guardarse `idioma_ui`. Cambiar el idioma
-  rearma los menús y vuelve a mandar el estado.
+  o pedir un permiso del sistema (actualizaciones, conexiones con el Llavero, carpeta vigilada en Descargas, avisos de compromisos,
+  copia para el celular cada 6 h, `mcp_conectar.py reparar`) va en `p.tareas` (y las actualizaciones en el host), que el host corre
+  una vez y solo cuando `Idioma.elegido`; en el primer uso, al guardarse `idioma_ui`. El permiso de los avisos se pide recién al
+  agregar el primer compromiso o activarlos. Cambiar el idioma rearma los menús y vuelve a mandar el estado.
+- Lo que no cambió para quien ya usa la app: mismo bundle id (`app.alcancia.mac`) y firma con requisito por identificador, mismos
+  servicios y cuentas del Llavero («Alcancía · conexiones» / id del conector, «Alcancía · celular» / «llave»), mismas claves de
+  `UserDefaults` (`celular.carpeta`, `celular.activo`, `celular.ultima`, `celular.huella`; el tamaño de la ventana se copia de
+  «Alcancia» a «Alcancía»), misma carpeta y mismos nombres en los Releases (`Alcancia-macOS.zip` + `.sha256`). Al cambiar algo de
+  esto, migra sin borrar lo de antes.
+- La ventana sigue sin barra de título visible (`estiloVentana`, con la franja de arriba para moverla): la interfaz deja ese espacio
+  libre en Mac (`html[data-host="mac"] .contenido`).
 - Lo que manda la interfaz no arma comandos: rutas de archivo se revisan, ids se filtran y los datos van en un JSON de entrada.
 - Desarrollo en el Mac: `~/Developer/alcancia` es el checkout; `bash build.sh` (se niega si hay una importación en curso) e instala en
   `~/Applications/Alcancia.app`. Compilar solo: `cd app && swift build -c release`. Swift solo compila en un Mac (o en el job `mac` de GitHub).
@@ -308,15 +371,20 @@ seguridad de la app del celular. Una acción nueva va en `ui/app.js`, en `Ventan
 ## Reglas al cambiar cosas
 - Código, comentarios, commits y textos en **español** (de Chile neutro). Todo texto nuevo visible va con su traducción en
   `ui/idiomas/en.json` en el mismo cambio, como frase completa con marcadores (`T("Llevas {g}…", {g})`), nunca pedazos pegados.
-- Contenido del usuario y dinero con `esc()` y `data-sin-traducir`.
+- Contenido del usuario y dinero con `esc()` y `data-sin-traducir`. `T()` ya escapa sus valores (no les pongas `esc()`); `Thtml()`
+  es solo para HTML que arma el código (un monto en `<span>`, una cifra en `<b>`) con lo de la persona ya escapado, y `Tp()` es
+  texto plano (avisos con `toast`, que usa `textContent`).
+- Archivos de piezas (`bin/nucleo.py`, `bin/ia.py`, `ui/i18n.js`, `ui/host.js`, `ui/tema.*`, `ui/componentes.*`, `app/Sources/PiezaHost/`,
+  `app/Sources/PiezaActualizaciones/`) y `acciones.json` (lo arma `pieza.py`): no se editan aquí; ver «Piezas».
 - No cambies el formato de los datos (README, "Formato de los datos") sin compatibilidad. Hay gente con scripts que dependen de él.
 - Antes de cerrar un cambio: `bash pruebas/correr.sh` y mirar la interfaz (`cd ui && python3 -m http.server 8765`, `?idioma=en`,
   `?bienvenida`, `?vacio`, `window.Alcancia._probar(E => …)`), también a ancho de celular.
 - Seguridad (detalle en `SECURITY.md`): lo que viene de afuera se escapa con `esc()` (también emojis e ids de categorías), sin
   scripts ni manejadores en línea (la CSP de `ui/index.html` los bloquea: `script-src 'self'`). Archivos importados con límites
   (`recetas.MAXIMO_ARCHIVO`, partes de un .xlsx, XML sin DTD ni entidades → `recetas.ArchivoNoValido`). La IA corre sin
-  herramientas ni MCP (`claude --disallowedTools "*" --strict-mcp-config`, `codex -s read-only`). `~/Alcancia` queda 0700 y
-  los archivos 0600 (`datos.carpeta_privada`, `mkstemp`). En los guiones que arma Swift, todo lo variable va con `comillas()`.
+  herramientas ni MCP (`claude --disallowedTools "*" --strict-mcp-config`, `codex -s read-only`), sin variables `ALCANCIA_*` y Claude
+  sin la memoria de la persona (`SIN_MEMORIA_CLAUDE`) y con `--safe-mode` si su versión lo conoce (`ia._soporta`); sin `--strict-mcp-config` o `--disallowedTools` no corre. `~/Alcancia` queda 0700 y
+  los archivos 0600 (`datos.carpeta_privada`, `nucleo.PRIVADO`). En los guiones que arma Swift (el de las actualizaciones, en la pieza), todo lo variable va con `comillas()`.
   Workflows: actions fijadas por SHA con su versión en un comentario (Dependabot con `cooldown`), `permissions` mínimos,
   `persist-credentials: false`, nunca `pull_request_target` ni `${{ github.event.* }}` dentro de `run:` (va por `env:`).
 - Privacidad: `bash herramientas/revisar_privacidad.sh` antes de cada commit (usa `.terminos-privados`, local y nunca versionado).
@@ -335,6 +403,7 @@ revisa cada fila ("no aplica" se decide, no se supone):
 | quita algo | bórralo de la página, el README y las guías: nada que prometa lo que ya no hace |
 | cambia el formato de datos o el puente | la documentación del formato, `ejemplos/` si existe y esta guía |
 | cambia carpetas, reglas o pruebas | esta guía (`AGENTS.md`) y `CONTRIBUTING.md` |
+| actualiza o agrega una pieza | `piezas.json` (lo escribe `pieza.py`), la tabla «Piezas» de esta guía y `app.json` si pide config |
 | resuelve un issue | ciérralo con «Resuelto en …» dando crédito y abre issues para lo que quedó pendiente |
 | lo nota quien usa Alcancía | `CHANGELOG.md`: una línea en «Sin publicar», en lenguaje de persona («Ahora puedes…»), en español e inglés |
 
