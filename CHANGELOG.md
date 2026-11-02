@@ -44,3 +44,5 @@ Lo que cambia para quien usa Alcancía, en palabras simples. Las versiones anter
   *Your AI no longer uses your Claude memory or extensions when helping with your finances: it only sees what Alcancía shows it.*
 - Los nombres de pagos, cuentas y movimientos se muestran siempre como texto, nunca como parte de la página.
   *Payment, account and transaction names are always shown as plain text, never as part of the page.*
+- Alcancía se abre y se actualiza unas 4 veces más rápido cuando tienes años de movimientos.
+  *Alcancía opens and refreshes about 4 times faster when you have years of transactions.*

@@ -15,6 +15,7 @@ Lo que usa la conversación con Alcancía (bin/chat.py) también vive en los dos
 
   compromisos.py avisos <hoy AAAA-MM-DD> <salida.json>   lo que hay que avisar hoy (la app de Mac manda el aviso del sistema)
 """
+import functools
 import json
 import math
 import os
@@ -491,6 +492,17 @@ def _rango_uf(c, valor, extra):
     return lo * valor * (1 - v), hi * valor * (1 + v)
 
 
+@functools.lru_cache(maxsize=8192)
+def _normalizado(texto):
+    """datos.normalizar con memoria: asignar compara cada movimiento con cada vencimiento y las descripciones se repiten mucho."""
+    return datos.normalizar(texto)
+
+
+def _palabras_buscar(buscar):
+    """Las palabras de `buscar`, normalizadas y sin vacías."""
+    return [n for n in (_normalizado(p) for p in buscar or []) if n]
+
+
 def coincide(m, c, moneda, uf=None):
     """¿Este movimiento puede ser un pago de este compromiso? Signo, moneda, monto y alguna palabra de `buscar` (sin tildes ni
     mayúsculas); sin palabras, el monto exacto. No mira la fecha. El monto calza dentro de ±tolerancia o, si es aproximado, en
@@ -501,7 +513,7 @@ def coincide(m, c, moneda, uf=None):
         return False
     if m.get("categoria") == "transferencia" and c["tipo"] != "transferencia":
         return False  # entre tus propias cuentas: nunca es el pago de un compromiso
-    palabras = [datos.normalizar(p) for p in c.get("buscar") or [] if datos.normalizar(p)]
+    palabras = _palabras_buscar(c.get("buscar"))
     a = abs(monto)
     if c["moneda"] == UF:
         if (m.get("moneda") or moneda) != moneda or (not palabras and not uf):
@@ -522,7 +534,7 @@ def coincide(m, c, moneda, uf=None):
             return dif < 0.005
         if dif > c["monto"] * c.get("tolerancia", TOLERANCIA) / 100 + 1e-9 and not en_rango:
             return False
-    d = datos.normalizar(m.get("descripcion"))
+    d = _normalizado(m.get("descripcion"))
     return any(p in d for p in palabras)
 
 
@@ -550,13 +562,13 @@ def coincide_tarde(m, c, moneda, uf=None):
     monto = m["monto"]
     if monto >= 0 or c["signo"] != "gasto" or m.get("categoria") == "transferencia" and c["tipo"] != "transferencia":
         return False
-    palabras = [datos.normalizar(p) for p in c.get("buscar") or [] if datos.normalizar(p)]
+    palabras = _palabras_buscar(c.get("buscar"))
     t = _tope(c, uf)
     if not palabras or not t or (m.get("moneda") or moneda) != (moneda if c["moneda"] == UF else c["moneda"]):
         return False
     if not t[1] + 1e-9 < -monto <= t[1] * (1 + MORA_MAX / 100) + 1e-9:
         return False
-    d = datos.normalizar(m.get("descripcion"))
+    d = _normalizado(m.get("descripcion"))
     return any(p in d for p in palabras)
 
 
@@ -566,18 +578,28 @@ def palabras_mora(pais="*"):
     return [p for k in ("*", pais) for p in j.get(k, []) if isinstance(p, str) and p.strip()]
 
 
+def _sin_puntos(texto):
+    """Como datos.normalizar, pero los puntos, guiones y barras cuentan como espacios («INT.MORA» → «INT MORA»)."""
+    return re.sub(r"\s+", " ", datos.normalizar(re.sub(r"[.\-_/]", " ", str(texto or "")))).strip()
+
+
+def _patron_mora(palabras):
+    """Una sola expresión para todas las palabras de mora (palabra completa, sin letras ni números pegados). Armarla una vez y no
+    una por palabra y movimiento: con años de movimientos, eso era casi todo lo que tardaba en abrirse la app."""
+    return re.compile(r"(?<![A-Z0-9])(?:" + "|".join(re.escape(_sin_puntos(p)) for p in palabras) + r")(?![A-Z0-9])")
+
+
 def _es_mora(m, palabras):
-    d = re.sub(r"\s+", " ", datos.normalizar(re.sub(r"[.\-_/]", " ", str(m.get("descripcion") or ""))))
-    return any(re.search(r"(?<![A-Z0-9])" + re.escape(re.sub(r"\s+", " ", re.sub(r"[.\-_/]", " ", datos.normalizar(p))).strip()) + r"(?![A-Z0-9])", d)
-               for p in palabras)
+    patron = palabras if isinstance(palabras, re.Pattern) else _patron_mora(palabras)
+    return patron.search(_sin_puntos(m.get("descripcion"))) is not None
 
 
 def _moras(ocs, pagos, movimientos, moneda, uf, palabras, usados):
     """El interés por mora de cada pago atrasado: lo que pagó de más (sobre el tope) y un cargo aparte (INTERES, MORA, COBRANZA…)
     hasta 7 días antes o después del pago. Lo anota en el pago: {"monto", "dias", "movimiento"?}."""
     por_id = {m["id"]: m for m in movimientos}
-    cargos = sorted((m for m in movimientos if m["monto"] < 0 and m["id"] not in usados and palabras and _es_mora(m, palabras)),
-                    key=lambda m: (m["fecha"], m["id"]))
+    patron = _patron_mora(palabras) if palabras else None
+    cargos = None  # se buscan recién cuando hay un pago atrasado: casi siempre no hay ninguno
     tomados = set()
     for c, o in ocs:
         p = pagos.get(f"{c['id']}|{o['periodo']}")
@@ -591,6 +613,9 @@ def _moras(ocs, pagos, movimientos, moneda, uf, palabras, usados):
         t = _tope(c, uf)
         if t and m and -m["monto"] > t[1] + 1e-9:
             extra = -m["monto"] - t[0]
+        if cargos is None:
+            cargos = sorted((x for x in movimientos if x["monto"] < 0 and x["id"] not in usados and patron and _es_mora(x, patron)),
+                            key=lambda x: (x["fecha"], x["id"]))
         cerca = [x for x in cargos if x["id"] not in tomados and abs(_num(x["fecha"]) - _num(p["fecha"])) <= 7
                  and (x.get("moneda") or moneda) == (m.get("moneda") or moneda if m else moneda)]
         cargo = min(cerca, key=lambda x: (abs(_num(x["fecha"]) - _num(p["fecha"])), x["fecha"], x["id"])) if cerca else None
