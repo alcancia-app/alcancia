@@ -48,9 +48,10 @@ ChatGPT/Codex o Gemini) o de los servicios con los que conectas, ni ataques de i
   lo pide, en el Llavero o el Keystore). La app del celular no tiene permiso de internet, ni respaldo automático en Android, ni
   excepciones de ATS en iOS.
 - La app de Mac es la pieza «host-mac» de [Pieza](https://github.com/pieza-app/pieza) (`app/Sources/PiezaHost`): el puente solo
-  atiende el marco principal con un archivo de `ui/` y la ventana nunca navega fuera; lo que pide la interfaz se valida contra un
-  esquema cerrado (`acciones.json`) antes de correr nada, nunca va como argumento (va en un archivo de entrada, en una carpeta temporal
-  0700) y una ruta absoluta solo vale si es la cartola que la persona eligió en el panel del sistema. Cada script tiene **límite de
+  atiende el marco principal con un archivo de `ui/` y la ventana nunca navega fuera; lo que pide la interfaz se valida contra
+  `acciones.json` antes de correr nada: lo que va como argumento es solo un valor de una lista cerrada o algo ya revisado (el id de un
+  conector, una receta, el país), lo demás va en un archivo de entrada en una carpeta temporal 0700 y el script lo vuelve a revisar, y
+  una ruta absoluta solo vale si es la cartola que la persona eligió en el panel del sistema. Cada script tiene **límite de
   tiempo** (se corta también lo que lanzó, y al salir no queda nada corriendo) y corre sin variables `ALCANCIA_*` de afuera. Las llaves
   van al Llavero (`Secretos`, solo en ese Mac) y llegan al script solo por la entrada estándar.
 - Todo cambio entra por pull request revisado. Las actions de GitHub están fijadas por SHA, con permisos mínimos y sin
@@ -96,7 +97,8 @@ wish); after **90 days** without a fix we'll agree on disclosure with you. Good-
 is welcome and won't be pursued.
 
 The Mac app is Pieza's generic «host-mac» piece: only the main frame with a file from `ui/` can use the bridge, every request is
-validated against a closed schema before anything runs, user input goes in an input file (never as an argument), every script has a
+validated against `acciones.json` before anything runs (arguments are only values from a closed list or already-checked ids; the
+rest goes in an input file and the script checks it again; an absolute path is only accepted if it's the statement you picked), every script has a
 time limit, and keys live in the Keychain and reach scripts only through standard input. Updates come only from this repo's
 Releases, with their SHA-256 checked.
 

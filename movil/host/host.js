@@ -1,4 +1,4 @@
-// El anfitrión de Alcancía en el celular: atiende las acciones del puente (host.enviar en ui/app.js) igual que Ventana.swift en el Mac,
+// El anfitrión de Alcancía en el celular: atiende las acciones del puente (host.enviar en ui/app.js) igual que la app de Mac (pieza «host-mac» + app/Sources/Alcancia),
 // pero solo para mirar. Los datos llegan desde el Mac en la «copia para el celular» (ui/copia.js, sobre la pieza «cifrado»): un archivo cifrado en la nube de
 // la persona que el teléfono lee con el selector de archivos del sistema y abre con su frase. No hay red ni servidores: ni llaves de
 // conectores, ni IA, ni telemetría. Lo que cambia datos (SOLO_MAC) responde «Esto se hace en tu Mac por ahora».
