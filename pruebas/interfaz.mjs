@@ -307,9 +307,9 @@ for (const [idioma, consulta] of [["español", "idioma=es"], ["inglés", "idioma
       await p.addInitScript(() => { window._faltantes = new Set(); });
       await p.goto(BASE + "?" + [consulta, bv ? "bienvenida" : ""].filter(Boolean).join("&"));
       await p.waitForFunction(() => window.Alcancia && document.querySelector(".app"));
-      const pasos = bv ? [0, 1, 2, 3, 4, 5].map((n) => [`bienvenida-${n}`, `E=>{E.bv=${n}}`]) : VISTAS;
+      const pasos = bv ? [0, 1, 2, 3, 4, 5].map((n) => [`bienvenida-${n}`, n]) : VISTAS;
       for (const [nombre, f] of pasos) {
-        await p.evaluate(`window.Alcancia._probar(${f})`);
+        await (typeof f === "number" ? p.evaluate((n) => window.Alcancia._pruebas.bienvenida(n), f) : p.evaluate(`window.Alcancia._probar(${f})`));
         await p.waitForTimeout(60);
         if (modo === "celular") {
           const ancho = await p.evaluate(() => document.documentElement.scrollWidth);
@@ -343,7 +343,7 @@ for (const [locale, sugerido] of [["es-CL", "es"], ["en-US", "en"]]) {
   await p.waitForSelector(".pz-dialogo #t-bv");
   const primera = await p.evaluate(() => ({
     titulo: document.querySelector("#t-bv").textContent.replace(/\s+/g, " ").trim(),
-    opciones: [...document.querySelectorAll("[data-idioma-bv]")].map((b) => b.dataset.idiomaBv),
+    opciones: [...document.querySelectorAll("[data-bv-idioma]")].map((b) => b.dataset.bvIdioma),
     foco: document.activeElement?.id || "",
   }));
   if (primera.titulo !== "Elige tu idioma · Choose your language") falla(`la primera pantalla de la bienvenida no es la de idioma («${primera.titulo}»)`);
@@ -352,7 +352,7 @@ for (const [locale, sugerido] of [["es-CL", "es"], ["en-US", "en"]]) {
   // Con teclado: ir a English (Tab si el sugerido es Español) y elegir con Enter.
   if (sugerido === "es") await p.keyboard.press("Tab");
   await p.keyboard.press("Enter");
-  await p.waitForFunction(() => document.documentElement.lang === "en" && !document.querySelector("[data-idioma-bv]"));
+  await p.waitForFunction(() => document.documentElement.lang === "en" && !document.querySelector("[data-bv-idioma]"));
   const despues = await p.evaluate(() => ({
     titulo: document.querySelector("#t-bv")?.textContent.trim(),
     boton: document.querySelector(".pz-dialogo .pz-boton.pz-principal")?.textContent.trim(),
@@ -364,15 +364,15 @@ for (const [locale, sugerido] of [["es-CL", "es"], ["en-US", "en"]]) {
   if (despues.config?.idioma_ui !== "en") falla(`elegir English debe guardar idioma_ui = "en" (se mandó ${JSON.stringify(despues.config)})`);
   if (despues.enviados.slice(0, 2).join() !== "listo,config") falla(`antes de elegir el idioma la interfaz no debe pedir nada más (mandó: ${despues.enviados.join(", ")})`);
   // «Back» vuelve a la pantalla de idioma.
-  await p.click(".pz-dialogo [data-bv='0']");
-  if (!(await p.$("[data-idioma-bv='es']"))) falla("«Atrás» desde el saludo debe volver a la pantalla de idioma");
+  await p.click(".pz-dialogo [data-bv-ir='0']");
+  if (!(await p.$("[data-bv-idioma='es']"))) falla("«Atrás» desde el saludo debe volver a la pantalla de idioma");
   await p.close();
 }
 {
   // Quien ya hizo la bienvenida no la repite.
   const p = await navegador.newPage();
   await p.goto(BASE); await p.waitForSelector(".app");
-  if (await p.$("[data-idioma-bv], .pz-dialogo")) falla("la bienvenida (ni la pantalla de idioma) no debe aparecer si ya se hizo");
+  if (await p.$("[data-bv-idioma], .pz-dialogo")) falla("la bienvenida (ni la pantalla de idioma) no debe aparecer si ya se hizo");
   await p.close();
 }
 console.log("  ✓ Primer uso: lo primero es el idioma, se guarda y la bienvenida sigue en ese idioma");
@@ -1083,7 +1083,7 @@ for (const [modo, opciones] of [["escritorio", { viewport: { width: 1200, height
 {
   const p = await navegador.newPage({ viewport: { width: 1200, height: 820 } });
   await p.goto(BASE + "?bienvenida&idioma=es"); await p.waitForSelector(".pz-dialogo #t-bv");
-  await p.evaluate(() => window.Alcancia._probar((E) => { E.bv = 2; }));
+  await p.evaluate(() => window.Alcancia._pruebas.bienvenida(2));
   await p.keyboard.press("Escape"); await p.mouse.click(5, 5);
   if (!(await p.$(".pz-dialogo #t-bv"))) falla("la bienvenida no se cierra con Esc ni tocando fuera");
   if (await p.$(".pz-dialogo [data-pz-cerrar]")) falla("la bienvenida no lleva ✕ (se sale con «Lo hago después»)");

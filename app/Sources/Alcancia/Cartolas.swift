@@ -1,5 +1,4 @@
 import AppKit
-import UniformTypeIdentifiers
 import PiezaHost
 
 // MARK: - Cartolas: elegir el archivo, leer una muestra, aprender la receta e importar (con su avance)
@@ -16,19 +15,11 @@ enum Cartolas {
 
     static func registrar(_ p: Puente) {
         p.registrar("elegirCartola") { _ in
-            // El panel propio (y no `p.elegirArchivos`) por el mensaje que explica qué elegir (pendiente para Pieza: `mensaje:`).
-            let panel = NSOpenPanel()
-            panel.allowsMultipleSelection = false
-            panel.canChooseDirectories = false
-            panel.allowedContentTypes = [.commaSeparatedText, .tabSeparatedText, .plainText] + extensiones.compactMap { UTType(filenameExtension: $0) }
-            panel.message = Idioma.t("Elige la cartola que descargaste de tu banco o billetera (CSV, Excel, PDF, OFX, QIF o CAMT.053)")
-            guard let v = p.ventana else { return }
-            panel.beginSheetModal(for: v) { r in
-                guard r == .OK, let u = panel.url?.standardizedFileURL.resolvingSymlinksInPath() else { return }
-                Task { @MainActor in
-                    elegida = u
-                    p.llamar("cartolaElegida", ["ruta": u.path, "nombre": u.lastPathComponent])
-                }
+            p.elegirArchivos(extensiones: extensiones,
+                             mensaje: Idioma.t("Elige la cartola que descargaste de tu banco o billetera (CSV, Excel, PDF, OFX, QIF o CAMT.053)")) { urls in
+                guard let u = urls.first else { return }
+                elegida = u
+                p.llamar("cartolaElegida", ["ruta": u.path, "nombre": u.lastPathComponent])
             }
         }
         p.registrar("vistaCartola") { d in

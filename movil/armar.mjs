@@ -15,7 +15,7 @@ fs.rmSync(SALIDA, { recursive: true, force: true });
 fs.mkdirSync(SALIDA, { recursive: true });
 fs.cpSync(path.join(RAIZ, "ui"), SALIDA, { recursive: true, filter: (f) => path.relative(path.join(RAIZ, "ui"), f) !== "demo.json" });
 // Piezas de interfaz: la interfaz las necesita antes de app.js (ui/index.html las carga).
-for (const f of ["i18n.js", "host.js", "tema.css", "tema.js", "componentes.css", "componentes.js", "cifrado.js"])
+for (const f of ["i18n.js", "host.js", "tema.css", "tema.js", "componentes.css", "componentes.js", "bienvenida.css", "bienvenida.js", "cifrado.js"])
   if (!fs.existsSync(path.join(SALIDA, f))) throw new Error(`Falta ui/${f} (pieza de Pieza).`);
 fs.cpSync(path.join(AQUI, "host"), path.join(SALIDA, "host"), { recursive: true });
 fs.writeFileSync(path.join(SALIDA, "host", "arranque.js"), fs.readFileSync(path.join(AQUI, "host", "arranque.js"), "utf8").replace("__VERSION__", version));

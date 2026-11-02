@@ -73,10 +73,10 @@ const CON_LLAVE = { ...LISTO, llave: JSON.stringify({ raw: mac.llaves.raw, sal: 
 
 await paso("Teléfono nuevo: idioma primero, elegir el archivo y abrirlo con la frase (recordándola)", async () => {
   const p = await telefono({ guardado: { nube: NUBE } });
-  await p.waitForSelector("[data-idioma-bv]");
+  await p.waitForSelector("[data-bv-idioma]");
   if (await visible(p, ".tres, #traer-frase")) falla("se ve algo antes de elegir el idioma");
-  await p.click('[data-idioma-bv="es"]');
-  await p.click('[data-bv="2"]');
+  await p.click('[data-bv-idioma="es"]');
+  await p.click('[data-bv-ir="2"]');
   const texto = await p.textContent(".pz-dialogo");
   if (!texto.includes("Alcancia-celular.alcancia") || !texto.includes("Mac")) falla("el paso de traer los datos no explica dónde está el archivo: " + texto.slice(0, 200));
   if (/Claude|Codex|cartola/i.test(texto)) falla("en el teléfono se habla de IA del computador o de cartolas");
@@ -132,7 +132,7 @@ await paso("Solo para mirar: nada que cambie datos a la vista, y si llega un toq
 await paso("Reabrir: la llave recordada abre sola, y al volver a primer plano llega lo nuevo del Mac", async () => {
   const p = await telefono({ guardado: CON_LLAVE });
   await p.waitForSelector(".tres");
-  if (await visible(p, "#traer-frase, [data-idioma-bv]")) falla("pidió frase o idioma de nuevo");
+  if (await visible(p, "#traer-frase, [data-bv-idioma]")) falla("pidió frase o idioma de nuevo");
   const nuevo = await copia({ ...demo, movimientos: [...demo.movimientos, { id: "nuevo00000001", fecha: HOY, descripcion: "CAFETERIA RECIEN LLEGADA", monto: -3500, moneda: "CLP", categoria: "comida", cuenta: "banco-ejemplo", origen: "demo", nota: "" }] });
   await p.evaluate(([t, a]) => { window._celular.nube.texto = t; window.ALCANCIA_AHORA = a; document.dispatchEvent(new Event("visibilitychange")); }, [nuevo, AHORA + 120000]);
   await p.waitForFunction(() => window._celular.cache && window._celular.cache.length > 0 && window._celular.llamadas.filter((x) => x === "Carpeta.leer").length >= 2);
@@ -305,7 +305,7 @@ await paso("En inglés: todo lo del celular traducido", async () => {
     const p = await telefono({ guardado, consulta: "?idioma=en" });
     const pasos = guardado === CON_LLAVE
       ? ["E=>{E.vista='resumen'}", "E=>{E.cifra='tienes'}", "E=>{E.cifra='debes'}", "E=>{E.cifra=null;E.vista='movimientos'}", "E=>{E.vista='compromisos'}", "E=>{E.vista='mas'}", "E=>{E.vista='presupuesto'}", "E=>{E.vista='consejos';E.consejos=[]}", "E=>{E.ajustes=true}"]
-      : guardado === LISTO ? ["E=>{}", "E=>{E.traer.error='La frase no es la correcta.'}", "E=>{E.ajustes=true}"] : ["E=>{E.bv=0}", "E=>{E.bv=1}", "E=>{E.bv=2}", "E=>{E.bv=null;E.celular.error='Ese archivo no es una copia de Alcancía.'}", "E=>{E.ajustes=true}"];
+      : guardado === LISTO ? ["E=>{}", "E=>{E.traer.error='La frase no es la correcta.'}", "E=>{E.ajustes=true}"] : ["E=>{window.Alcancia._pruebas.bienvenida(0)}", "E=>{window.Alcancia._pruebas.bienvenida(1)}", "E=>{window.Alcancia._pruebas.bienvenida(2)}", "E=>{window.Alcancia._pruebas.bienvenida(null);E.celular.error='Ese archivo no es una copia de Alcancía.'}", "E=>{E.ajustes=true}"];
     await p.waitForTimeout(300);
     for (const f of pasos) { await p.evaluate(`window.Alcancia._probar(${f})`); await p.waitForTimeout(40); }
     for (const t of await p.evaluate(() => [...window._faltantes])) if (!esDato(t)) faltan.add(t);
