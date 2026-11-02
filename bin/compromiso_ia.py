@@ -138,7 +138,9 @@ def main(texto, hoy):
     ids = {c["id"] for c in categorias}
     respuesta, error = ia.preguntar(prompt(texto, hoy, categorias, moneda), timeout=180)
     if error:
-        return {"ok": False, "error": error + " Mientras, puedes completarlo aquí.", "parcial": {}}
+        r = {"ok": False, "error": ia.frase(error), "codigo": error["codigo"], "parcial": {}}
+        r["error"] += " Mientras, puedes completarlo aquí."
+        return r
     propuesta = leer_json(respuesta)
     if propuesta is None:
         return {"ok": False, "error": f"{ia.nombre()} no respondió con un compromiso. Complétalo aquí y guárdalo.", "parcial": {}}

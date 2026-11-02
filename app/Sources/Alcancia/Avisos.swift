@@ -1,4 +1,5 @@
 import AppKit
+import PiezaHost
 import UserNotifications
 
 // MARK: - Avisos de compromisos: notificaciones del sistema 3 días antes, el día que vence y si quedó atrasado (lo que se paga
@@ -8,12 +9,16 @@ import UserNotifications
 /// aquí solo se arma el texto en el idioma elegido y se muestra. Con la pantalla bloqueada no se ve nada propio: el título es
 /// genérico («Pago por vencer»), el nombre va solo en el cuerpo, nunca va el monto, y la categoría «compromiso» pone un texto
 /// genérico en lugar del cuerpo cuando el sistema oculta las vistas previas (sin `.hiddenPreviewsShowTitle`). Nada de esto corre antes de que exista idioma
-/// (AlcanciaApp.iniciarTareas) y el permiso del sistema se pide recién cuando la persona agrega su primer compromiso o activa
+/// (las `tareas` del host, con `Idioma.elegido`) y el permiso del sistema se pide recién cuando la persona agrega su primer compromiso o activa
 /// «Avisarme antes de que venza», nunca al abrir la app.
+///
+/// Pieza «host-mac»: el permiso (`Notificaciones.pedirPermiso`) y el toque (`Notificaciones.alTocar`, con `avisos: true` el host
+/// atiende el centro de notificaciones desde el arranque: muestra la ventana y Alcancía abre Pagos). Mostrar sigue aquí: los
+/// avisos de Alcancía llevan la categoría con el texto genérico de la pantalla bloqueada, que `Notificaciones.mostrar` aún no
+/// permite (pendiente para Pieza).
 @MainActor
 enum Avisos {
     private static var reloj: Timer?
-    private static let delegado = DelegadoAvisos()
     private static let categoria = "compromiso"
 
     static var activos: Bool { Config.leer()["avisos"] as? Bool == true }
@@ -21,12 +26,7 @@ enum Avisos {
     /// Sin identificador de app (p. ej. `swift run` fuera de Alcancia.app) el centro de notificaciones no existe.
     private static var centro: UNUserNotificationCenter? {
         guard Bundle.main.bundleIdentifier != nil else { return nil }
-        let c = UNUserNotificationCenter.current()
-        if c.delegate == nil {
-            c.delegate = delegado
-            registrarCategoria(c)
-        }
-        return c
+        return UNUserNotificationCenter.current()
     }
 
     /// Con las vistas previas ocultas (pantalla bloqueada) se ve solo este texto genérico, en el idioma elegido; sin
@@ -37,13 +37,14 @@ enum Avisos {
                                                             options: [])])
     }
 
+    /// Al cambiar el idioma, el texto de la pantalla bloqueada también.
+    static func idiomaCambio() { if let centro { registrarCategoria(centro) } }
+
     /// La persona los activa (o agrega su primer compromiso): recién ahí se pide el permiso del sistema.
     static func activar(_ si: Bool) {
-        Config.guardar(["avisos": si])
-        guard si, Idioma.elegido, let centro else { return }
-        centro.requestAuthorization(options: [.alert, .sound]) { ok, _ in
-            Task { @MainActor in if ok { revisar() } }
-        }
+        Config.guardar(["avisos": si], desdeInterfaz: false)
+        guard si, Idioma.elegido else { return }
+        Notificaciones.pedirPermiso { ok in if ok { revisar() } }
     }
 
     /// Al abrir (ya con idioma) y luego cada 6 horas, igual que las conexiones.
@@ -67,7 +68,7 @@ enum Avisos {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
         f.locale = Locale(identifier: "en_US_POSIX")
-        Procesador.correrJSON("compromisos.py", ["avisos", f.string(from: Date())]) { r in
+        Procesador.correrJSON("compromisos.py", ["avisos", f.string(from: Date())], limite: 60) { r in
             for a in r["avisos"] as? [[String: Any]] ?? [] { mostrar(a) }
         }
     }
@@ -99,19 +100,5 @@ enum Avisos {
         c.sound = .default
         let id = ["alcancia", a["id"] as? String ?? "", a["vence"] as? String ?? "", a["tipo"] as? String ?? ""].joined(separator: "-")
         centro.add(UNNotificationRequest(identifier: id, content: c, trigger: nil))
-    }
-}
-
-/// Muestra el aviso aunque la app esté abierta y, al tocarlo, abre Alcancía en Compromisos.
-final class DelegadoAvisos: NSObject, UNUserNotificationCenterDelegate {
-    func userNotificationCenter(_ centro: UNUserNotificationCenter, willPresent aviso: UNNotification,
-                                withCompletionHandler fin: @escaping (UNNotificationPresentationOptions) -> Void) {
-        fin([.banner, .sound])
-    }
-
-    func userNotificationCenter(_ centro: UNUserNotificationCenter, didReceive respuesta: UNNotificationResponse,
-                                withCompletionHandler fin: @escaping () -> Void) {
-        Task { @MainActor in Ventana.shared.abrirCompromisos() }
-        fin()
     }
 }

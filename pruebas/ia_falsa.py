@@ -4,6 +4,9 @@ import json
 import re
 import sys
 
+if "--help" in sys.argv:  # bin/ia.py pregunta qué protecciones conoce antes de usarla (como el Claude Code de verdad)
+    print("Usage: claude [options]\n  --strict-mcp-config\n  --disallowedTools <tools...>\n  --allowedTools <tools...>")
+    sys.exit(0)
 pedido = sys.stdin.read()
 if "Clasifica cada movimiento" in pedido:
     filas = re.findall(r"^(\d+)\|", pedido.split("Movimientos (número|descripción|monto):")[-1], re.M)
