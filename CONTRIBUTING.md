@@ -28,7 +28,7 @@ Reglas que importan: código, comentarios y textos en español (todo texto nuevo
 **nunca subas una cartola real ni datos personales** (usa datos ficticios); solo biblioteca estándar en Python; y no romper el
 [formato de los datos](README.md#formato-de-los-datos), porque hay gente con scripts que dependen de él.
 
-**Archivos de piezas:** `bin/nucleo.py`, `bin/ia.py`, `ui/i18n.js`, `ui/host.js`, `ui/tema.css`, `ui/tema.js`, `ui/componentes.css` y `ui/componentes.js` vienen de [Pieza](https://github.com/pieza-app/pieza) (están en
+**Archivos de piezas:** `bin/nucleo.py`, `bin/ia.py`, `ui/i18n.js`, `ui/host.js`, `ui/tema.css`, `ui/tema.js`, `ui/componentes.css`, `ui/componentes.js`, `app/Sources/PiezaHost/` (la app de Mac) y `app/Sources/PiezaActualizaciones/` vienen de [Pieza](https://github.com/pieza-app/pieza) (están en
 `piezas.json`, con el aviso de la MPL-2.0). No los cambies aquí: propón el cambio en Pieza y llega a Alcancía con «Pieza al día».
 
 Los aportes entran con la licencia del proyecto, [AGPL-3.0](LICENSE).
@@ -92,13 +92,15 @@ Al participar aceptas el [código de conducta](CODE_OF_CONDUCT.md).
   Code and comments are in Spanish; UI text needs its English entry in `ui/idiomas/en.json`; never commit real statements or personal data.
   If your change is visible, also update the README, the page (`docs/`), screenshots and `CHANGELOG.md`, or say so in the
   pull request and we'll do it.
-- **Piece files:** `bin/nucleo.py`, `bin/ia.py`, `ui/i18n.js`, `ui/host.js`, `ui/tema.*` and `ui/componentes.*` come from [Pieza](https://github.com/pieza-app/pieza) (listed in
+- **Piece files:** `bin/nucleo.py`, `bin/ia.py`, `ui/i18n.js`, `ui/host.js`, `ui/tema.*`, `ui/componentes.*`, `app/Sources/PiezaHost/` (the Mac app) and `app/Sources/PiezaActualizaciones/` come from [Pieza](https://github.com/pieza-app/pieza) (listed in
   `piezas.json`, MPL-2.0 notice included). Don't change them here: propose the change in Pieza and it arrives through «Pieza al día».
 - **Review:** everything goes through a pull request and a maintainer merges it. Contributions are licensed under AGPL-3.0.
   We also check that the README, the page and the docs still describe the app as it is.
 - **Security issues:** never in a public issue; report privately as described in [`SECURITY.md`](SECURITY.md).
 
 ## Aportar con los flujos de Pieza
+
+Aportamos con los flujos de Pieza: en Claude Code se instalan solos al abrir el repo; con otra IA, sigue `AGENTS.md`.
 
 Esta app es parte de la familia de [Pieza](https://github.com/pieza-app/pieza). Instala sus flujos (crear, revisar aportes y las
 reglas de seguridad) en tu IA:

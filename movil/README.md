@@ -8,7 +8,7 @@ cuentas, llaves de conectores, IA ni telemetría.
 | Ruta | Qué es |
 |---|---|
 | `armar.mjs` | Arma `www/` (no se versiona): copia `ui/` (sin `demo.json`) y `host/`, y carga el anfitrión en `index.html` (la CSP no cambia). |
-| `host/arranque.js`, `host/host.js` | El anfitrión del teléfono: atiende `host.enviar(...)` de la interfaz (como `Ventana.swift` en el Mac). Lee y abre la copia (`ui/copia.js`), guarda los ajustes del teléfono y programa los avisos. Lo que cambia datos (`SOLO_MAC`) responde «Esto se hace en tu Mac por ahora». |
+| `host/arranque.js`, `host/host.js` | El anfitrión del teléfono: atiende `host.enviar(...)` de la interfaz (como la pieza «host-mac» y `app/Sources/Alcancia` en el Mac). Lee y abre la copia (`ui/copia.js`), guarda los ajustes del teléfono y programa los avisos. Lo que cambia datos (`SOLO_MAC`) responde «Esto se hace en tu Mac por ahora». |
 | `plugins/carpeta/` | Plugin propio (Swift y Kotlin): elegir el archivo con el selector del sistema **con permiso para volver a leerlo** (marcador en iOS; permiso persistente de Storage Access Framework en Android), la última copia que se abrió bien, la llave recordada (Llavero de iOS / Android Keystore) y los ajustes. |
 | `ios/`, `android/` | Proyectos nativos (Xcode con Swift Package Manager; Gradle). Se versionan; `www/` y `node_modules/` no. |
 | `iconos.mjs` | Íconos, pantallas de carga y el ícono chico de los avisos de Android desde `ui/favicon.svg` (solo si cambia el logo). |

@@ -47,9 +47,16 @@ ChatGPT/Codex o Gemini) o de los servicios con los que conectas, ni ataques de i
   la persona; la frase no se guarda en ninguna parte (el Mac guarda la llave derivada en su Llavero, el celular solo si la persona
   lo pide, en el Llavero o el Keystore). La app del celular no tiene permiso de internet, ni respaldo automático en Android, ni
   excepciones de ATS en iOS.
+- La app de Mac es la pieza «host-mac» de [Pieza](https://github.com/pieza-app/pieza) (`app/Sources/PiezaHost`): el puente solo
+  atiende el marco principal con un archivo de `ui/` y la ventana nunca navega fuera; lo que pide la interfaz se valida contra un
+  esquema cerrado (`acciones.json`) antes de correr nada, nunca va como argumento (va en un archivo de entrada, en una carpeta temporal
+  0700) y una ruta absoluta solo vale si es la cartola que la persona eligió en el panel del sistema. Cada script tiene **límite de
+  tiempo** (se corta también lo que lanzó, y al salir no queda nada corriendo) y corre sin variables `ALCANCIA_*` de afuera. Las llaves
+  van al Llavero (`Secretos`, solo en ese Mac) y llegan al script solo por la entrada estándar.
 - Todo cambio entra por pull request revisado. Las actions de GitHub están fijadas por SHA, con permisos mínimos y sin
   `pull_request_target`.
-- Actualizaciones: hoy se verifica la huella SHA-256 publicada junto al Release. La **firma** de las actualizaciones (para que ni
+- Actualizaciones (pieza «actualizaciones»): solo de `https://github.com/alcancia-app/alcancia/releases/download/…`, la redirección de
+  GitHub solo por https y hoy se verifica la huella SHA-256 publicada junto al Release; nunca con un guardado o un script corriendo. La **firma** de las actualizaciones (para que ni
   siquiera alguien con acceso a la cuenta de GitHub pueda publicar una versión falsa) está diseñada y pendiente: ver abajo.
 
 ## Firma de las actualizaciones (diseño, pendiente)
@@ -61,7 +68,8 @@ cosas). La app va firmada ad hoc y el actualizador le quita la cuarentena, así 
 1. Una llave **Ed25519** que se crea una sola vez en el Mac de quien mantiene el proyecto (CryptoKit `Curve25519.Signing`), con la
    privada en el Llavero (no sincronizada, ojalá con confirmación) y un respaldo fuera de línea. **Nunca** en GitHub ni en un secreto
    de Actions: si la cuenta cae, la llave no cae con ella.
-2. La pública se escribe en la app (`Actualizaciones.swift`, constante en base64). Se puede tener una segunda pública de reserva para
+2. La pública se escribe en la app (en la pieza «actualizaciones» de Pieza, `app/Sources/PiezaActualizaciones/Actualizaciones.swift`,
+   que se configura con una constante en base64 de Alcancía: el cambio va primero a Pieza). Se puede tener una segunda pública de reserva para
    poder rotar si la primera se pierde.
 3. Al publicar, `herramientas/empaquetar.sh` (en el Mac) firma el SHA-256 del zip junto con la versión
    (`alcancia-actualizacion|<versión>|<sha256>`) y deja `Alcancia-macOS.zip.sig` (base64) para subir al Release.
@@ -86,6 +94,11 @@ fictitious sample instead.
 We reply within **5 business days**, share a plan within **30 days**, and publish an advisory once a fix ships (crediting you if you
 wish); after **90 days** without a fix we'll agree on disclosure with you. Good-faith research that doesn't touch other people's data
 is welcome and won't be pursued.
+
+The Mac app is Pieza's generic «host-mac» piece: only the main frame with a file from `ui/` can use the bridge, every request is
+validated against a closed schema before anything runs, user input goes in an input file (never as an argument), every script has a
+time limit, and keys live in the Keychain and reach scripts only through standard input. Updates come only from this repo's
+Releases, with their SHA-256 checked.
 
 **In scope:** the Mac app (and future Windows/Linux apps), the phone app (`movil/`) and its encrypted copy, `bin/` scripts, the `ui/` interface, connectors, the MCP server, updates,
 the published site, GitHub workflows, and the recipe catalog. We especially care about code execution from statements, recipes,
