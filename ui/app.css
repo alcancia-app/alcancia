@@ -579,9 +579,6 @@ input.texto:focus, select:focus, textarea.texto:focus { outline: 2px solid var(-
 :where(.pz-dialogo) p, :where(.pz-dialogo) .texto-suave { line-height: 1.55; }
 /* Con :where(), así las clases propias (.nota-idioma, .pista-campo…) dicen su margen sin tener que repetirlo aquí. */
 :where(.pz-dialogo) > p, :where(.pz-dialogo) .texto-suave { margin: 0 0 16px; }
-/* La bienvenida: las rayitas del avance arriba del título. */
-.dialogo-bv { display: flex; flex-direction: column; }
-.dialogo-bv .pasos-bv { order: -1; }
 .seccion { margin-bottom: 24px; }
 .seccion h3 { font-size: 13px; color: var(--texto-suave); margin-bottom: 4px; font-weight: 650; }
 /* Regla de color: los enlaces van en el color del texto, como el resto de Alcancía (el naranjo queda para la acción principal). */
@@ -600,24 +597,23 @@ input.texto:focus, select:focus, textarea.texto:focus { outline: 2px solid var(-
 .opcion-agregar .ico { color: var(--texto); display: grid; }
 .opcion-agregar b { display: block; font-weight: 600; font-size: 16px; }
 .opcion-agregar small { display: block; color: var(--texto-suave); font-size: 13px; line-height: 1.4; }
-.pasos-bv { display: flex; gap: 4px; margin-bottom: 20px; }
-.pasos-bv i { height: 3px; flex: 1; border-radius: 99px; background: var(--linea); }
-.pasos-bv i.hecho { background: var(--texto); }
-/* Paso 0 de la bienvenida: elegir el idioma (dos botones grandes, cada uno en su idioma) */
-.paso-idioma { text-align: center; padding: 4px 0 0; }
-.paso-idioma .logo { width: 56px; height: 56px; margin: 0 auto 16px; display: block; }
-.paso-idioma h2 { margin-bottom: 20px; outline: none; }
-.opciones-idioma { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.pz-boton.opcion-idioma { display: grid; gap: 4px; justify-items: center; align-content: center; min-height: 84px; padding: 16px 12px; border-radius: 14px; font-size: 18px; }
-.pz-boton.opcion-idioma b { font-size: 19px; }
-.pz-boton.opcion-idioma small { font-size: 13px; font-weight: 500; }
-.pz-boton.opcion-idioma:not(.pz-principal):hover { border-color: var(--texto); }
-.pz-boton.opcion-idioma:focus-visible { outline: 3px solid var(--texto); outline-offset: 3px; }
-.nota-idioma { color: var(--texto-suave); font-size: 13px; margin: 16px 0 0; line-height: 1.5; }
-@media (max-width: 420px) {
-  .opciones-idioma { grid-template-columns: minmax(0, 1fr); } .pz-boton.opcion-idioma { min-height: 64px; }
-  .paso-idioma h2 span[lang] { display: block; } .paso-idioma h2 span[aria-hidden] { display: none; }
-}
+/* La bienvenida (pieza «bienvenida»): las rayitas del avance en gris y el paso 0, el idioma (el logo y dos botones grandes, cada
+   uno en su idioma). Sus colores --bv-* los conecta la pieza «tema»; aquí solo lo que Alcancía dibuja distinto. */
+.pieza-bv .pasos-bv { gap: 4px; margin-bottom: 20px; }
+.pieza-bv .pasos-bv i { height: 3px; background: var(--linea); }
+.pieza-bv .pasos-bv i.hecho { background: var(--texto); }
+.pieza-bv > h2 { margin-bottom: 12px; outline: none; }
+.pieza-bv .logo-bv .logo { width: 56px; height: 56px; margin: 0 auto 8px; display: block; }
+.pieza-bv-idioma h2 { outline: none; }
+.pieza-bv .opciones-idioma { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pieza-bv .opcion-idioma { min-height: 84px; padding: 16px 12px; border-radius: 14px; border-width: 1px; background: var(--panel); }
+.pieza-bv .opcion-idioma b { font-size: 19px; }
+.pieza-bv .opcion-idioma small { font-size: 13px; font-weight: 500; color: var(--texto-suave); }
+.pieza-bv .opcion-idioma.sugerido { border-color: var(--acento); box-shadow: inset 0 0 0 1px var(--acento); }
+.pieza-bv .opcion-idioma:hover { border-color: var(--texto); }
+.pieza-bv .opcion-idioma:focus-visible { outline: 3px solid var(--texto); outline-offset: 3px; }
+.pieza-bv .nota-idioma { color: var(--texto-suave); font-size: 13px; margin: 16px 0 0; line-height: 1.5; }
+@media (max-width: 420px) { .pieza-bv .opciones-idioma { grid-template-columns: minmax(0, 1fr); } .pieza-bv .opcion-idioma { min-height: 64px; } }
 .zona-archivo { border: 1.5px dashed var(--tenue); border-radius: 14px; padding: 32px 16px; text-align: center; display: grid; gap: 12px; justify-items: center; margin-bottom: 16px; }
 .zona-archivo .grande-ico { font-size: 32px; }
 .zona-archivo small { color: var(--texto-suave); }

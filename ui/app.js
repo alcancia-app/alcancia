@@ -14,7 +14,7 @@
   const E = {
     vista: "resumen", mes: "", hoy: "", config: {}, ias: [], movimientos: [], categorias: [], presupuesto: { mensual: {} }, reglas: [],
     consejos: [], cuentas: [], version: "", carpeta: "", filtro: { texto: "", categoria: "" },
-    aprender: null, presEdit: null, importar: null, bv: null, bvCerrada: false, ajustes: false,
+    aprender: null, presEdit: null, importar: null, bvRevisada: false, ajustes: false,
     consejoSel: null, pidiendoConsejos: false, errorConsejos: "", idioma: "es",
     conectores: [], conexiones: {}, vigilar: { activo: false, recientes: [] }, conectar: null, sincronizando: {}, iaExterna: [], mcpOcupado: {}, mcpError: {},
     histCat: null, compromisos: { compromisos: [], descartados: [] }, sugerencias: [], compEdit: null, sugTodas: false,
@@ -50,15 +50,14 @@
   // Sistema, claro u oscuro (Ajustes → Apariencia; ?tema= en la vista previa). Los diálogos, los avisos, las filas de «Tu IA», la
   // de actualizaciones y «Acerca de» son de la pieza: foco adentro, Tab que no se escapa, Esc y el velo cierran lo de más arriba.
   const tema = PiezaTema.crear({ guardar: (v) => { E.config.tema = v; host.enviar("config", { tema: v }); } });
-  /** Los avisos que llegan antes de elegir el idioma esperan (nada se dice antes de esa pantalla) y salen después, ya traducidos. */
-  const retenidos = [];
   const ui = PiezaComponentes.crear({
     i18n, host, app: "Alcancía", repo: "alcancia-app/alcancia",
     version: () => E.version,
     pintar: () => render(),
     mantenerCampos: true,  // un campo donde se escribe (el buscador, montos) conserva el foco y el cursor al repintar
     cerrar: () => cerrarDialogo(),
-    retener: (texto, o) => { if (E.bv !== 0) return false; retenidos.push([texto, o]); return true; },
+    // Los avisos que llegan antes de elegir el idioma esperan (nada se dice antes de esa pantalla) y sale el último, ya traducido.
+    retener: (texto, o) => bv.retener(texto, o),
     elegirIA: (id) => { E.config.ia = id; host.enviar("config", { ia: id }); },
   });
   const toast = (texto, o) => ui.aviso(texto, o);
@@ -2649,49 +2648,41 @@
       pie: `<button class="pz-boton pz-principal" data-accion="cerrar">Listo</button>` };
   }
 
-  /** Paso 0 de la bienvenida: lo primero es el idioma, antes de cualquier otra pregunta. Cada opción va escrita en su propio idioma
-   *  (nada pasa por el traductor) y la del equipo viene marcada como sugerida y con el foco. */
-  function pasoIdioma(marcas) {
-    const sugerido = idiomaDelSistema();
-    const opcion = (codigo, nombre, nota) => {
-      const es = codigo === sugerido;
-      return `<button type="button" id="bv-idioma-${codigo}" class="pz-boton opcion-idioma${es ? " pz-principal" : ""}" data-idioma-bv="${codigo}" lang="${codigo}"${es ? " data-autofoco" : ""} data-sin-traducir>
-        <b>${nombre}</b>${es ? `<small>${nota}</small>` : ""}</button>`;
-    };
-    return `${marcas}<div class="paso-idioma">${LOGO}<h2 id="t-bv" tabindex="-1" data-sin-traducir><span lang="es">Elige tu idioma</span> <span aria-hidden="true">·</span> <span lang="en">Choose your language</span></h2>
-      <div class="opciones-idioma">${opcion("es", "Español", "Idioma de tu equipo")}${opcion("en", "English", "Your device’s language")}</div>
-      <p class="nota-idioma" data-sin-traducir><span lang="es">Puedes cambiarlo cuando quieras en Ajustes.</span> <span lang="en">You can change it anytime in Settings.</span></p></div>`;
-  }
-
-  function bienvenida() {
-    const paso = E.bv, total = LECTURA ? 3 : 6;
-    const marcas = `<div class="pasos-bv" aria-hidden="true">${Array.from({ length: total }, (_, i) => `<i class="${i <= paso ? "hecho" : ""}"></i>`).join("")}</div>`;
-    if (paso === 0) return pasoIdioma(marcas);
-    const pasos = LECTURA ? [
-      null,
-      ["Hola, esto es Alcancía", `<p>En tu celular ves lo que tu Mac ya ordenó: cuánto te queda, en qué se fue tu plata y qué pagos vienen.</p>
+  // ───────────── Bienvenida: pieza «bienvenida» (ui/bienvenida.js) ─────────────
+  // Lo primero es el idioma (paso 0: el logo, «Elige tu idioma · Choose your language», cada idioma escrito en su propio idioma y el
+  // del equipo sugerido y con el foco; teclas 1/2; hasta elegirlo no se pide nada y los avisos esperan). Elegir lo guarda por el mismo
+  // `config` que Ajustes. Después, los pasos de Alcancía: en el Mac hola → ¿dónde vives? → tu IA → respaldo → tu primera cartola; en el
+  // celular hola → trae tus datos. El último paso ES la acción (su botón principal va en el cuerpo) y el pie lleva el secundario.
+  const bv = PiezaBienvenida.crear({
+    i18n, listo: false, pintar: () => render(), mostrarAviso: (texto, o) => toast(texto, o),
+    idiomas: [{ codigo: "es", nombre: "Español", sugerido: "Idioma de tu equipo" }, { codigo: "en", nombre: "English", sugerido: "Your device’s language" }],
+    get logo() { return LOGO; },
+    guardarIdioma: (c) => { E.config.idioma_ui = c; host.enviar("config", { idioma_ui: c }); },
+    cargarIdioma: () => cargarIdioma(),
+    terminar: () => { E.config.bienvenida = true; host.enviar("config", { bienvenida: true }); },
+  });
+  bv.sumarPaso({ id: "hola", titulo: "Hola, esto es Alcancía", orden: 10, cuerpo: () => LECTURA
+    ? `<p>En tu celular ves lo que tu Mac ya ordenó: cuánto te queda, en qué se fue tu plata y qué pagos vienen.</p>
         <div class="pasos-vacio" style="margin:0"><div><b>📱</b><span>Para mirar: lo que cambia tus datos se hace en tu Mac.</span></div>
         <div><b>🔐</b><span>Tus datos viajan cerrados con candado por tu propia nube. Sin cuentas ni servidores de Alcancía.</span></div>
-        <div><b>🔔</b><span>Si quieres, te aviso antes de que venza un pago.</span></div></div>`, true],
-      ["Trae tus datos", `<p>Tu Mac deja una copia cifrada en tu nube; aquí la abres con tu frase.</p>${pasosCelular()}
-        <button class="pz-boton pz-principal grande" data-accion="bv-traer">Elegir el archivo</button>`, true],
-    ] : [
-      null,
-      ["Hola, esto es Alcancía", `<p>Para quienes nos cuesta medirnos en los gastos. Juntas tus cartolas, Alcancía las ordena y tu IA te avisa a tiempo cuando algo se está pasando.</p>
+        <div><b>🔔</b><span>Si quieres, te aviso antes de que venza un pago.</span></div></div>`
+    : `<p>Para quienes nos cuesta medirnos en los gastos. Juntas tus cartolas, Alcancía las ordena y tu IA te avisa a tiempo cuando algo se está pasando.</p>
         <div class="pasos-vacio" style="margin:0"><div><b>📄</b><span>Lee las cartolas de cualquier banco o billetera del mundo.</span></div>
         <div><b>✦</b><span>Tu propia IA pone las categorías y te da consejos concretos.</span></div>
-        <div><b>🔐</b><span>Tus datos quedan en tu computador. Sin cuentas, sin publicidad, gratis.</span></div></div>`, true],
-      ["¿Dónde vives?", `<p>Para mostrar bien la plata y sugerirte las recetas de los bancos de tu país.</p>${camposPais()}<div class="seccion">${campoInicioMes()}</div>`, true],
-      ["Elige tu IA", `<p>Alcancía usa la IA que ya tienes, con tu cuenta. La probamos con una pregunta corta.</p><div class="seccion">${filasIA()}</div>`, !!E.config.ia],
-      ["Tu respaldo", opcionesRespaldo(), true],
-      ["Tu primera cartola", `<p>Descarga la cartola de tu banco o billetera (CSV, Excel o PDF) y agrégala. Si tu banco aún no está, tu IA aprende a leerlo.</p>
-        <button class="pz-boton pz-principal grande" data-accion="bv-importar">＋ <span>Agregar mi primera cartola</span></button>`, true],
-    ];
-    const [titulo, cuerpo, puede] = pasos[paso];
-    return { titulo, cuerpo: marcas + cuerpo,
-      pie: `${paso > 0 ? `<button class="pz-boton pz-izq" data-bv="${paso - 1}">Atrás</button>` : ""}
-        ${paso < total - 1 ? `<button class="pz-boton" data-accion="bv-despues">Lo hago después</button><button class="pz-boton pz-principal" data-bv="${paso + 1}" ${puede ? "" : "disabled"}>Siguiente</button>`
-          : `<button class="pz-boton" data-accion="bv-fin">${LECTURA ? "Lo hago después" : "Empezar sin cartola"}</button>`}` };
+        <div><b>🔐</b><span>Tus datos quedan en tu computador. Sin cuentas, sin publicidad, gratis.</span></div></div>` });
+  if (LECTURA) {
+    bv.sumarPaso({ id: "traer", titulo: "Trae tus datos", orden: 20, fin: { texto: "Lo hago después", principal: false },
+      cuerpo: () => `<p>Tu Mac deja una copia cifrada en tu nube; aquí la abres con tu frase.</p>${pasosCelular()}
+        <button class="pz-boton pz-principal grande" data-accion="bv-traer">Elegir el archivo</button>` });
+  } else {
+    bv.sumarPaso({ id: "pais", titulo: "¿Dónde vives?", orden: 20,
+      cuerpo: () => `<p>Para mostrar bien la plata y sugerirte las recetas de los bancos de tu país.</p>${camposPais()}<div class="seccion">${campoInicioMes()}</div>` });
+    bv.sumarPaso({ id: "ia", titulo: "Elige tu IA", orden: 30, puede: () => !!E.config.ia,
+      cuerpo: () => `<p>Alcancía usa la IA que ya tienes, con tu cuenta. La probamos con una pregunta corta.</p><div class="seccion">${filasIA()}</div>` });
+    bv.sumarPaso({ id: "respaldo", titulo: "Tu respaldo", orden: 40, cuerpo: () => opcionesRespaldo() });
+    bv.sumarPaso({ id: "cartola", titulo: "Tu primera cartola", orden: 50, fin: { texto: "Empezar sin cartola", principal: false },
+      cuerpo: () => `<p>Descarga la cartola de tu banco o billetera (CSV, Excel o PDF) y agrégala. Si tu banco aún no está, tu IA aprende a leerlo.</p>
+        <button class="pz-boton pz-principal grande" data-accion="bv-importar">＋ <span>Agregar mi primera cartola</span></button>` });
   }
 
   /** Un diálogo de la pieza «componentes» (role="dialog", aria-modal, ✕, foco adentro, Esc y el velo cierran). */
@@ -2703,9 +2694,8 @@
   function dialogos() {
     if (E.importar) return caja("t-importar", dialogoImportar(), { cerrable: !ocupadoImportando() });
     if (E.conectar) return caja("t-conectar", dialogoConectar(), { cerrable: !E.conectar.enviando });
-    // La bienvenida no se cierra con Esc ni con el velo: se sale con «Lo hago después».
-    if (E.bv === 0) return cajaPropia("t-bv", bienvenida(), { clase: "pz-dialogo dialogo-bv", sinEsc: true });
-    if (E.bv !== null) return caja("t-bv", bienvenida(), { clase: "dialogo-bv", cerrable: false, sinEsc: true });
+    // La bienvenida (con su título adentro) no se cierra con Esc ni con el velo, ni lleva ✕: se sale con «Lo hago después».
+    if (bv.activa) return ui.envolver(bv.html(), { id: "t-bv", clase: "dialogo-bv", sinEsc: true });
     if (E.celularConfig && !LECTURA) return caja("t-celular", dialogoCelular(), { cerrable: E.celularConfig.paso !== "creando" });
     if (E.ajustes) return caja("t-ajustes", dialogoAjustes());
     if (E.compEdit) return caja("t-comp", editorCompromiso());
@@ -2719,7 +2709,7 @@
       if (ocupadoImportando()) return;
       if (E.importar.paso === "compromiso") { E.importar.paso = "listo"; E.compEdit = null; } else E.importar = null;
     } else if (E.conectar) { if (E.conectar.enviando) return; E.conectar = null; }
-    else if (E.bv !== null) return;
+    else if (bv.activa) return;
     else if (E.celularConfig && !LECTURA) { if (E.celularConfig.paso === "creando") return; E.celularConfig = null; E.ajustes = true; }
     else if (E.ajustes) E.ajustes = false;
     else if (E.compEdit) E.compEdit = null;
@@ -2741,7 +2731,8 @@
     if (tema.manejarClic(ev)) return render();
     if (LECTURA && ev.target.closest?.("[data-pz-probar-ia],[data-pz-act]")) { ev.preventDefault(); return soloEnMac(); }
     if (ui.manejarClic(ev)) return;
-    const el = ev.target.closest("[data-accion],[data-vista],[data-mes],[data-bv],[data-idioma-bv],[data-enlace],[data-respaldo],[data-consejo],[data-conectar],[data-sincronizar],[data-desconectar],[data-mcp],[data-mcp-quitar],[data-historia],[data-comp-pagado],[data-comp-noes],[data-comp-desmarcar],[data-comp-editar],[data-sug-agregar],[data-sug-no],[data-det-agregar],[data-det-no],[data-cifra],[data-cifra-abrir],[data-ir-cat],[data-elegir],[data-pick],[data-nueva-cat],[data-nueva-emoji],[data-nueva-cancelar],[data-nueva-guardar],[data-cerrar-picker],[data-saldo-editar],[data-saldo-cancelar],[data-regla-si],[data-regla-no],[data-grupo-mov],[data-sueldo],[data-mov-ver],[data-chat],[data-chat-sugerencia]");
+    if (bv.manejarClic(ev)) return;
+    const el = ev.target.closest("[data-accion],[data-vista],[data-mes],[data-enlace],[data-respaldo],[data-consejo],[data-conectar],[data-sincronizar],[data-desconectar],[data-mcp],[data-mcp-quitar],[data-historia],[data-comp-pagado],[data-comp-noes],[data-comp-desmarcar],[data-comp-editar],[data-sug-agregar],[data-sug-no],[data-det-agregar],[data-det-no],[data-cifra],[data-cifra-abrir],[data-ir-cat],[data-elegir],[data-pick],[data-nueva-cat],[data-nueva-emoji],[data-nueva-cancelar],[data-nueva-guardar],[data-cerrar-picker],[data-saldo-editar],[data-saldo-cancelar],[data-regla-si],[data-regla-no],[data-grupo-mov],[data-sueldo],[data-mov-ver],[data-chat],[data-chat-sugerencia]");
     if (!el) return;
     const d = el.dataset;
     if (LECTURA && el.matches(SOLO_MAC)) { ev.preventDefault(); return soloEnMac(d.chat || d.accion === "abrir-chat" || d.accion === "agregar-contar" ? "Conversar con Alcancía se hace en tu Mac por ahora" : undefined); }
@@ -2792,8 +2783,6 @@
     if (d.reglaNo) { E.reglasNo = [...(E.reglasNo || []), d.reglaNo]; return render(); }
     if (d.mes) { E.mes = d.mes; E.aprender = null; return render(); }
     if (d.historia != null) { E.histCat = E.histCat === d.historia ? null : d.historia; render(); $(`[data-historia="${CSS.escape(d.historia)}"]`)?.focus(); return; }
-    if (d.bv) { E.bv = Number(d.bv); return render(); }
-    if (d.idiomaBv) return elegirIdioma(d.idiomaBv);
     if (d.respaldo) { if (d.respaldo !== "local") return toast("Muy pronto: el respaldo con candado llega en la próxima versión"); E.config.respaldo = d.respaldo; host.enviar("config", { respaldo: d.respaldo }); return render(); }
     if (d.consejo) { E.consejoSel = d.consejo; return render(); }
     if (d.conectar) { E.conectar = { id: d.conectar, campos: {}, error: "", enviando: false }; render(); const p = $(".campos-conectar input"); if (p) p.focus(); return; }
@@ -2841,7 +2830,7 @@
       case "ajustes-mes": E.ajustes = true; render(); return $("#inicio-modo")?.focus();
       case "cerrar": E.ajustes = false; return render();
       case "importar": E.agregar = null; E.importar = { paso: "elegir", ia: !!E.config.ia, compartir: false }; return render();
-      case "bv-importar": E.bv = null; E.bvCerrada = true; host.enviar("config", { bienvenida: true }); E.importar = { paso: "elegir", ia: !!E.config.ia, compartir: false }; return render();
+      case "bv-importar": bv.terminar(); E.importar = { paso: "elegir", ia: !!E.config.ia, compartir: false }; return render();
       case "elegir-cartola": return host.enviar("elegirCartola");
       case "cerrar-conectar": if (!E.conectar?.enviando) E.conectar = null; return render();
       case "enviar-conectar": {
@@ -2904,7 +2893,6 @@
         E.presEdit = { ...E.presEdit, ...Object.fromEntries(g.por_categoria.filter((x) => x.maximo > 0).map((x) => [x.categoria, x.maximo])) };
         render(); return toast("Listo: revisa los montos y guarda");
       }
-      case "bv-despues": case "bv-fin": E.bv = null; E.bvCerrada = true; host.enviar("config", { bienvenida: true }); return render();
       // Alcancía en tu celular (Mac): el asistente y la copia
       case "celular-configurar": E.ajustes = false; E.celularConfig = { paso: "carpeta", frase: "", entiendo: false, error: "", carpeta: null }; return render();
       case "celular-frase": E.ajustes = false; E.celularConfig = { paso: "frase", frase: "", entiendo: false, error: "", cambiar: true, carpeta: { nombre: E.celular.nombre, nube: E.celular.nube, enNube: !!E.celular.nube } }; render(); return $("#celular-frase")?.focus();
@@ -2914,7 +2902,7 @@
       case "celular-copiar": E.celular = { ...E.celular, error: "" }; host.enviar("celular", { accion: "copiar" }); return toast("Copiando…");
       case "celular-desactivar": host.enviar("celular", { accion: "desactivar" }); E.celular = { activo: false }; toast("Listo: ya no copio para el celular"); return render();
       // Traer tus datos (celular)
-      case "bv-traer": E.bv = null; E.bvCerrada = true; host.enviar("config", { bienvenida: true }); host.enviar("traer", { accion: "elegir" }); return render();
+      case "bv-traer": bv.terminar(); host.enviar("traer", { accion: "elegir" }); return render();
       case "traer-elegir": E.ajustes = false; E.traer = { ...E.traer, error: "", frase: "" }; host.enviar("traer", { accion: "elegir" }); return render();
       case "traer-releer": host.enviar("traer", { accion: "releer" }); return toast("Buscando la copia más nueva…");
       case "traer-olvidar": host.enviar("traer", { accion: "olvidar" }); E.celular = { ...E.celular, recordada: false }; toast("Listo: te la pido la próxima vez"); return render();
@@ -3044,7 +3032,7 @@
       return;
     }
     // «Por ordenar» con el teclado: 1–9 elige, → salta, ← vuelve, / busca (fuera de los campos de texto).
-    if (E.vista === "ordenar" && !E.picker && !E.importar && !E.conectar && !E.ajustes && !E.agregar && !E.compEdit && E.bv === null && !E.ordenar.nueva && !t.matches?.("input, textarea, select") && !ev.metaKey && !ev.ctrlKey && !ev.altKey) {
+    if (E.vista === "ordenar" && !E.picker && !E.importar && !E.conectar && !E.ajustes && !E.agregar && !E.compEdit && !bv.activa && !E.ordenar.nueva && !t.matches?.("input, textarea, select") && !ev.metaKey && !ev.ctrlKey && !ev.altKey) {
       const m = colaOrdenar()[E.ordenar.i];
       if (m && /^[1-9]$/.test(ev.key)) { const c = opcionesPara(m, E.ordenar.buscar)[Number(ev.key) - 1]; if (c) { ev.preventDefault(); return elegirCategoria(m, c.id, "ordenar"); } }
       if (ev.key === "ArrowRight") { ev.preventDefault(); E.ordenar.i++; render(); return $(".vista-ordenar")?.focus(); }
@@ -3052,6 +3040,8 @@
       if (ev.key === "/") { ev.preventDefault(); return $("#ordenar-buscar")?.focus(); }
     }
     if (ev.key === "Escape" && E.picker) { const id = E.picker.id; if (E.picker.nueva) { E.picker.nueva = null; render(); return $("#picker-buscar")?.focus(); } E.picker = null; render(); return document.getElementById("chip-" + id)?.focus(); }
+    // La bienvenida: 1/2 y las flechas eligen el idioma.
+    if (bv.manejarTecla(ev)) return;
     // Los diálogos (pieza «componentes»): Tab no se escapa del de más arriba y Esc lo cierra (cerrarDialogo).
     if (ui.manejarTecla(ev)) return;
     if (ev.key !== "Escape") return;
@@ -3089,17 +3079,6 @@
       : Math.abs(dif) < 1 ? { cuadra: true, texto: T("✓ Cuadra con lo que yo calculaba para {c}.", { c: c.nombre }) }
         : { cuadra: false, texto: T(dif > 0 ? "Había una diferencia de {x} (tienes más de lo que yo calculaba): puede ser plata que entró y no veo, como una devolución o un traspaso. Desde ahora parto de lo que me dijiste." : "Había una diferencia de {x} (tienes menos de lo que yo calculaba): puede ser plata en Reservas o movimientos que no veo. Desde ahora parto de lo que me dijiste.", { x: dinero(Math.abs(dif)) }) };
     render();
-  }
-  /** Guarda el idioma por el mismo camino que Ajustes y sigue con la bienvenida, ya en ese idioma. */
-  async function elegirIdioma(codigo) {
-    if (codigo !== "es" && codigo !== "en") return;
-    E.config.idioma_ui = codigo;
-    host.enviar("config", { idioma_ui: codigo });
-    await cargarIdioma();
-    E.bv = 1;
-    render();
-    $("#t-bv")?.focus();
-    for (const [texto, o] of retenidos.splice(0)) toast(texto, o);
   }
   function enfocarEditor() { const el = $("#editor-comp"); if (el) { el.scrollIntoView?.({ block: "start" }); $("#ce-nombre")?.focus(); } }
   /** Manda lo que escribió la persona (con los últimos mensajes, para que la IA tenga el hilo). La respuesta llega a chatRespuesta. */
@@ -3252,7 +3231,7 @@
       E._mesHoy = periodoHoy();
       if (!E.mes || E.mes > E._mesHoy || E.mes === antes) E.mes = E._mesHoy;
       // Primer uso: la bienvenida parte por el idioma (si ya lo eligió y cerró la app a medio camino, sigue desde el saludo).
-      if (!E.config.bienvenida && E.bv === null && !E.bvCerrada) E.bv = E.config.idioma_ui ? 1 : 0;
+      if (!E.bvRevisada) { E.bvRevisada = true; bv.abrir({ config: E.config }); }
       await cargarIdioma();
       if (e.aviso) toast(e.aviso);
       render();
@@ -3398,7 +3377,9 @@
   });
   // Para las pruebas (pruebas/interfaz.mjs): la lógica compartida con Python. No es una función, así que va aparte de responder().
   window.Alcancia._pruebas = { calcularPrestamo, resumen, historia, redondearArriba, presupuestoSugerido, reglaPara, estadoCompromisos, gastoMaximo, rango, periodoDe, periodoConfig, detectarSueldo, reglaHabil, proximoSueldo, correrHabil, moraDelAnio, loQueTienes, loQueDebes, cargos, modoPago,
-      margenMensual, planPrestamos, inicioPlan, pagoReasignable, reasignarPago, clavesPersona, prestamosParecidos, planVariante, prestamoActualizado, palabrasBusqueda, buscarSerie, avisosPagos };
+      margenMensual, planPrestamos, inicioPlan, pagoReasignable, reasignarPago, clavesPersona, prestamosParecidos, planVariante, prestamoActualizado, palabrasBusqueda, buscarSerie, avisosPagos,
+      /** La bienvenida en el paso n (0: el idioma; null: la cierra), para revisar cada pantalla. */
+      bienvenida(n) { if (n == null) return bv.terminar(); bv.abrir({ config: { idioma_ui: n ? E.config.idioma_ui || "es" : "" } }); for (let i = 2; i <= n; i++) bv.ir(i); render(); } };
 
   // ───────────── Vista previa en el navegador (datos ficticios de demo.json) ─────────────
   let DEMO = null;

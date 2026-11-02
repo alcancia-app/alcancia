@@ -15,13 +15,11 @@ import PiezaHost
 @main
 enum AlcanciaApp {
     @MainActor static func main() {
-        // La ventana de antes guardaba su tamaño como «Alcancia»; el host la guarda con el nombre de la app («Alcancía»).
-        let d = UserDefaults.standard
-        if d.string(forKey: "NSWindow Frame Alcancía") == nil, let antes = d.string(forKey: "NSWindow Frame Alcancia") {
-            d.set(antes, forKey: "NSWindow Frame Alcancía")
-        }
+        // La ventana de siempre: sin barra de título visible (la interfaz deja libre la franja de arriba en Mac; la franja de 30 px
+        // la mueve) y su tamaño guardado con el nombre de antes, sin tilde («Alcancia»): nadie pierde el tamaño de su ventana.
         Host.arrancar(.init(ancho: 1180, alto: 780, minAncho: 820, minAlto: 560, sitio: "https://alcancia-app.github.io/alcancia/",
-                            codigo: "https://github.com/alcancia-app/alcancia", avisos: true, global: "Alcancia")) { p in
+                            codigo: "https://github.com/alcancia-app/alcancia", avisos: true, global: "Alcancia",
+                            barraTransparente: true, altoFranja: 30, nombreVentana: "Alcancia")) { p in
             p.estado = { base, listo in
                 var e = base
                 e["celular"] = Celular.paraJS
@@ -81,10 +79,6 @@ enum AlcanciaApp {
             p.registrar("desconectar") { d in Conexiones.desconectar(Conexiones.valido(d["conector"] as? String ?? "")) }
             p.registrar("vigilar") { d in Descargas.activar(Texto.esBool(d["activo"]) && d["activo"] as? Bool == true) }
             p.registrar("celular") { d in Celular.atender(d) }
-
-            // La ventana de siempre: sin barra de título visible (la interfaz deja libre la franja de arriba en Mac). Se ajusta
-            // apenas el host la crea (justo después de este bloque).
-            DispatchQueue.main.async { estiloVentana(p) }
         }
     }
 
@@ -133,23 +127,12 @@ enum AlcanciaApp {
         if Idioma.elegido { p.iniciarTareas() }
     }
 
-    // MARK: Ventana y carpeta
+    // MARK: Carpeta
 
     @MainActor static func abrirCarpetaDatos() {
         let base = Host.datos.deletingLastPathComponent()   // ~/Alcancia (la de la app es ~/Alcancia/.alcancia)
         try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         NSWorkspace.shared.open(base)
-    }
-
-    @MainActor static func estiloVentana(_ p: Puente) {
-        guard let v = p.ventana, let w = p.web else { return }
-        v.styleMask.insert(.fullSizeContentView)
-        v.titlebarAppearsTransparent = true
-        v.titleVisibility = .hidden
-        // La web tapa la barra de título: esta franja de arriba es la que mueve la ventana.
-        let franja = FranjaArrastre(frame: NSRect(x: 0, y: w.bounds.height - 30, width: w.bounds.width, height: 30))
-        franja.autoresizingMask = [.width, .minYMargin]
-        w.addSubview(franja)
     }
 }
 
@@ -161,14 +144,5 @@ enum Estado {
     static func enviar(aviso: String? = nil) {
         if let aviso { self.aviso = aviso }
         Puente.shared.enviarEstado()
-    }
-}
-
-/// Franja invisible arriba de la ventana: arrastrar la mueve y el doble clic la agranda, como una barra de título normal.
-/// (WKWebView no entiende `-webkit-app-region`.)
-final class FranjaArrastre: NSView {
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-    override func mouseDown(with e: NSEvent) {
-        if e.clickCount == 2 { window?.performZoom(nil) } else { window?.performDrag(with: e) }
     }
 }
