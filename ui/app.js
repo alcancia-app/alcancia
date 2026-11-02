@@ -2786,7 +2786,7 @@
     if (d.respaldo) { if (d.respaldo !== "local") return toast("Muy pronto: el respaldo con candado llega en la próxima versión"); E.config.respaldo = d.respaldo; host.enviar("config", { respaldo: d.respaldo }); return render(); }
     if (d.consejo) { E.consejoSel = d.consejo; return render(); }
     if (d.conectar) { E.conectar = { id: d.conectar, campos: {}, error: "", enviando: false }; render(); const p = $(".campos-conectar input"); if (p) p.focus(); return; }
-    if (d.mcp || d.mcpQuitar) { const id = d.mcp || d.mcpQuitar; E.mcpOcupado[id] = true; delete E.mcpError[id]; host.enviar("mcpConectar", { cliente: id, quitar: !!d.mcpQuitar }); return render(); }
+    if (d.mcp || d.mcpQuitar) { const id = d.mcp || d.mcpQuitar; E.mcpOcupado[id] = true; delete E.mcpError[id]; host.enviar("mcpConectar", { orden: d.mcpQuitar ? "quitar" : "conectar", cliente: id }); return render(); }
     if (d.sueldo) {
       if (d.sueldo === "no" || d.sueldo === "cerrar") { guardarLocal("alcancia.sueldoNoHoy", E.hoy); E.sueldoPregunta = null; if (d.sueldo === "no") toast("Entendido: vuelvo a mirar mañana"); return render(); }
       if (d.sueldo === "pagaron") { E.sueldoPregunta = "pagaron"; render(); return $(".linea-mes.pregunta button")?.focus(); }
@@ -3248,6 +3248,8 @@
     },
     /** La respuesta de Alcancía (bin/chat.py). Si la IA falló, igual llega un mensaje honesto: nunca queda sin respuesta. */
     chatRespuesta(r) {
+      // La acción «chat» del Mac (declarada) responde también a «marcar» y «borrar» (con `accion` de eco): solo «enviar» trae respuesta.
+      if (r && r.accion && r.accion !== "enviar") return;
       const k = E.chat, i = k.mensajes.map((m) => !!m.local).lastIndexOf(true);
       k.pensando = false; k.bajar = true;
       if (i >= 0) k.mensajes[i] = r.persona || { ...k.mensajes[i], local: false };
@@ -3256,6 +3258,19 @@
       if (E.agregar === "contar") $("#chat-texto")?.focus();
     },
     iaProbada: (r) => ui.iaProbada(r),
+    /** Mac: lo que la interfaz ya pintó (categoría, regla, presupuesto, receta, saldo) se guardó (guardar.py, acción declarada). Si
+     *  no se pudo, se avisa y se vuelve a pedir el estado real. */
+    guardado(r) {
+      if (!r || r.ok !== false) return;
+      toast(r.error || tr("No pude guardar el cambio. Intenta de nuevo."));
+      host.enviar("listo");
+    },
+    /** Mac: un ítem de la barra de menús (o tocar un aviso de pagos). «guardar» llega al cerrar: aquí nada queda sin guardar. */
+    menu(m) {
+      const accion = m && m.accion;
+      if (accion === "ajustes") { E.ajustes = true; return render(); }
+      if (accion === "compromisos") { E.vista = "compromisos"; return render(); }
+    },
     cartolaElegida(r) {
       if (!E.importar || !r?.ruta) return;
       Object.assign(E.importar, { paso: "leyendo", ruta: r.ruta, nombre: r.nombre, receta: null, error: "" });
@@ -3308,7 +3323,7 @@
       delete E.mcpOcupado[r.cliente];
       if (r.clientes) E.iaExterna = r.clientes;
       if (!r.ok) E.mcpError[r.cliente] = r.error || tr("No se pudo conectar.");
-      else if (!r.quitar) toast(r.nota || "Listo: tu IA ya puede consultar Alcancía");
+      else if (r.orden !== "quitar") toast(r.nota || "Listo: tu IA ya puede consultar Alcancía");
       render();
     },
     importadoSolo(r) {
@@ -3435,8 +3450,8 @@
         else if (c) { const e = window.Alcancia && E.compromisos.compromisos.find((x) => x.id === d.id); if (e) c.pagos = JSON.parse(JSON.stringify(e.pagos || {})); }
         return;
       }
-      case "mcpConectar": return luego(700, () => { const c = DEMO.ia_externa.find((x) => x.id === d.cliente); if (c) { c.conectado = !d.quitar; c.al_dia = !d.quitar; }
-        A.mcpListo({ ok: true, cliente: d.cliente, quitar: d.quitar, nota: c && c.nota, clientes: DEMO.ia_externa }); });
+      case "mcpConectar": return luego(700, () => { const c = DEMO.ia_externa.find((x) => x.id === d.cliente); if (c) { c.conectado = d.orden !== "quitar"; c.al_dia = d.orden !== "quitar"; }
+        A.mcpListo({ ok: true, orden: d.orden, cliente: d.cliente, nota: c && c.nota, clientes: DEMO.ia_externa }); });
       case "celular": {
         // La vista previa cifra de verdad (ui/copia.js) y guarda la copia en window._copiaCelular (las pruebas la abren «en el celular»).
         DEMO.celular = DEMO.celular || { activo: false };

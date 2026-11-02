@@ -1105,6 +1105,37 @@ for (const [modo, opciones] of [["escritorio", { viewport: { width: 1200, height
 console.log("  ✓ Piezas de interfaz: foco y Esc en los diálogos, Tu IA con {ia}, actualizaciones, Apariencia, avisos en cola y «Cancelar» primero al borrar");
 
 {
+  // Lo que manda el host de Mac (pieza «host-mac»): el menú (Ajustes…, tocar un aviso de pagos, «guardar» al cerrar), `guardado`
+  // de las acciones declaradas de guardar.py y el eco de «chat» (marcar y borrar no traen respuesta).
+  const p = await navegador.newPage({ viewport: { width: 1200, height: 820 } });
+  p.on("pageerror", (e) => falla(`error de JavaScript con lo que manda el host de Mac: ${e.message}`));
+  await p.goto(BASE + "?idioma=es"); await p.waitForSelector(".nav");
+  await p.evaluate(() => window.Alcancia.menu({ accion: "guardar" }));
+  if (await p.$(".pz-dialogo")) falla("«guardar» del menú (al cerrar) no abre nada");
+  await p.evaluate(() => window.Alcancia.menu({ accion: "ajustes" }));
+  if (!(await p.$(".pz-dialogo #t-ajustes"))) falla("Ajustes… (⌘,) abre Ajustes");
+  await p.keyboard.press("Escape");
+  await p.evaluate(() => window.Alcancia.menu({ accion: "compromisos" }));
+  if ((await p.evaluate(() => document.querySelector('.nav [aria-current="page"]')?.dataset.vista)) !== "compromisos") falla("tocar un aviso abre Pagos");
+  const pedidos = await p.evaluate(() => {
+    const enviados = [], antes = window.webkit;
+    window.webkit = { messageHandlers: { alcancia: { postMessage: (m) => enviados.push(m.accion) } } };
+    window.Alcancia.guardado({ ok: true });
+    window.Alcancia.guardado({ ok: false, error: "No pude guardar la regla." });
+    window.webkit = antes;
+    return enviados;
+  });
+  await p.waitForFunction(() => document.querySelector("#toast").textContent.includes("No pude guardar la regla."), null, { timeout: 6000 }).catch(() => falla("si guardar falla, se avisa"));
+  if (pedidos.join() !== "listo") falla(`si guardar falla, se vuelve a pedir el estado (y si no, nada): ${pedidos}`);
+  const mensajes = () => p.evaluate(() => { let n = 0; window.Alcancia._probar((E) => { n = E.chat.mensajes.length; }); return n; });
+  const n = await mensajes();
+  await p.evaluate(() => { window.Alcancia.chatRespuesta({ ok: true, accion: "marcar" }); window.Alcancia.chatRespuesta({ ok: true, accion: "borrar" }); });
+  if ((await mensajes()) !== n) falla("la respuesta de «marcar» o «borrar» no agrega un mensaje al chat");
+  await p.close();
+}
+console.log("  ✓ Mac (host-mac): menú y avisos de pagos, «guardado» con aviso y estado de nuevo, y el chat solo responde a «enviar»");
+
+{
   // Seguridad: lo que viene de afuera (la descripción de una transferencia, el nombre o emoji de una categoría, lo que responde la IA)
   // nunca se ejecuta, y la política de contenido (CSP) no bloquea nada de la propia interfaz.
   const p = await navegador.newPage({ viewport: { width: 1200, height: 820 } });

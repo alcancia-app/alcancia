@@ -6,6 +6,14 @@ Lo que cambia para quien usa Alcancía, en palabras simples. Las versiones anter
 
 ## Sin publicar · Unreleased
 
+- La app de Mac ahora usa la base común de Pieza: si algo se queda pegado (una cartola enorme, tu IA que no responde), Alcancía lo
+  detiene y te lo dice en vez de quedar esperando para siempre, y al cerrarla no queda nada corriendo por detrás. Las actualizaciones
+  esperan a que termine lo que está haciendo, y el menú suma Ayuda con el sitio y el código. Tus datos, tus conexiones, tu copia para
+  el celular y tus ajustes siguen igual: no tienes que hacer nada.
+  *The Mac app now runs on Pieza's shared base: if something gets stuck (a huge statement, an AI that doesn't answer), Alcancía stops
+  it and tells you instead of waiting forever, and nothing keeps running in the background after you quit. Updates wait until it
+  finishes what it's doing, and the menu gains Help with the website and the code. Your data, connections, phone copy and settings
+  stay the same: you don't need to do anything.*
 - Si tu IA está desactualizada, el aviso ahora te dice dónde elegir otra (Ajustes → Tu IA). Al escribir en un campo mientras
   Alcancía se pone al día, el cursor queda donde estaba.
   *If your AI is out of date, the notice now tells you where to pick another one (Settings → Your AI). When you type in a field

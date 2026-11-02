@@ -80,7 +80,7 @@ jobs:
           ANTES: ${{ github.event.before }}
           EVENTO: ${{ github.event_name }}
         run: |
-          if [ "$EVENTO" != "push" ] || ! git cat-file -e "$ANTES" 2>/dev/null || git diff --name-only "$ANTES" HEAD | grep -qE '^(app/|herramientas/empaquetar\.sh|build\.sh)'; then echo "si=1" >> "$GITHUB_OUTPUT"; fi
+          if [ "$EVENTO" != "push" ] || ! git cat-file -e "$ANTES" 2>/dev/null || git diff --name-only "$ANTES" HEAD | grep -qE '^(app/|app\.json|acciones\.json|herramientas/empaquetar\.sh|build\.sh)'; then echo "si=1" >> "$GITHUB_OUTPUT"; fi
       - name: Compilar
         if: steps.cambio.outputs.si == '1'
         run: cd app && swift build -c release
