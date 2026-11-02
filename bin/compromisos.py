@@ -586,7 +586,11 @@ def _sin_puntos(texto):
 def _patron_mora(palabras):
     """Una sola expresión para todas las palabras de mora (palabra completa, sin letras ni números pegados). Armarla una vez y no
     una por palabra y movimiento: con años de movimientos, eso era casi todo lo que tardaba en abrirse la app."""
-    return re.compile(r"(?<![A-Z0-9])(?:" + "|".join(re.escape(_sin_puntos(p)) for p in palabras) + r")(?![A-Z0-9])")
+    limpias = [_sin_puntos(p) for p in palabras or []]
+    limpias = [p for p in limpias if p]
+    if not limpias:  # sin palabras nada es mora (una expresión vacía calzaría con cualquier descripción)
+        return re.compile(r"(?!)")
+    return re.compile(r"(?<![A-Z0-9])(?:" + "|".join(re.escape(p) for p in limpias) + r")(?![A-Z0-9])")
 
 
 def _es_mora(m, palabras):
