@@ -1170,6 +1170,31 @@ console.log("  ✓ Mac (host-mac): menú y avisos de pagos, «guardado» con avi
 }
 console.log("  ✓ Seguridad: descripciones, categorías y respuestas de la IA no se ejecutan, y la CSP no bloquea nada propio");
 
+// Al pintar, asignar se calcula una vez con los mismos datos (la barra, la cifra de arriba y «al día» lo comparten), pero nada
+// queda de una pintada a otra: un pago anotado en el mismo compromiso (mismo objeto) se ve al tiro en todas partes.
+{
+  const p = await navegador.newPage({ viewport: { width: 390, height: 844 } });
+  p.on("pageerror", (e) => falla(`error de JavaScript al pintar con memoria: ${e.message}`));
+  await p.goto(BASE + "?idioma=es");
+  await p.waitForSelector(".al-dia.atrasado");
+  const ver = () => p.evaluate(() => ({ punto: !!document.querySelector('.nav-item[data-vista="compromisos"] .alerta-punto'),
+    alDia: document.querySelector(".al-dia")?.textContent.replace(/\s+/g, " ") || "", heroe: document.querySelector(".heroe")?.textContent.replace(/\s+/g, " ") || "" }));
+  const antes = await ver();
+  if (!antes.punto || !antes.alDia.includes("Plan de celular")) falla(`la demo debe partir con el plan de celular atrasado: ${JSON.stringify(antes)}`);
+  // Se anota el pago en el mismo objeto del compromiso (como «Ya lo pagué» antes de que responda la app).
+  await p.evaluate(() => window.Alcancia._probar((E) => {
+    const c = E.compromisos.compromisos.find((x) => x.nombre === "Plan de celular");
+    for (const i of window.Alcancia._pruebas.estadoCompromisos([c], E.movimientos, E.mes, E.hoy, "CLP").items)
+      if (i.estado === "atrasado") (c.pagos ||= {})[i.periodo] = { como: "manual", fecha: E.hoy };
+  }));
+  const despues = await ver();
+  if (despues.punto) falla("pagado lo atrasado, la barra no debe seguir marcando un pago atrasado (quedó algo de la pintada anterior)");
+  if (despues.alDia.includes("Plan de celular")) falla(`pagado, «al día» ya no debe pedir el plan de celular: ${despues.alDia.slice(0, 160)}`);
+  if (despues.heroe === antes.heroe) falla("pagado lo atrasado, la cifra de arriba debe cambiar (quedó algo de la pintada anterior)");
+  await p.close();
+}
+console.log("  ✓ Al pintar, los pagos de cada compromiso se calculan una vez y nada queda de una pintada a otra");
+
 await navegador.close();
 servidor.close();
 if (errores.length) { console.log(`\n✗ ${errores.length} problemas`); process.exit(1); }
