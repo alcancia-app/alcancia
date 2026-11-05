@@ -52,7 +52,7 @@ Gratis, de código abierto y con tus datos en tu computador.</p>
 | | Cómo | Estado |
 |---|---|---|
 | 🌐 **Navegador** | [Vista previa con datos ficticios](https://alcancia-app.github.io/alcancia/demo/): nada que instalar. | Para mirar cómo funciona |
-| 🍎 **Mac** | [Desde el código](#instalar-en-mac-desde-el-código) con `bash build.sh` (macOS 15 y las herramientas de Xcode). | Funciona; aún sin versión publicada ni firma de Apple |
+| 🍎 **Mac** | [Descargar `Alcancia-macOS.zip`](https://github.com/alcancia-app/alcancia/releases/latest/download/Alcancia-macOS.zip) (macOS 15, chip Apple) o [desde el código](#instalar-en-mac-desde-el-código). | Versión 0.1.0; sin firma de Apple |
 | 📱 **iPhone y Android** | [Desde el código](movil/README.md) con Xcode o Android Studio. Lee la copia cifrada que deja el Mac. | Fase 1: para mirar |
 | 🪟 🐧 **Windows y Linux** | La misma interfaz, en una app de escritorio. | En camino |
 
@@ -60,7 +60,19 @@ Para la IA necesitas una de estas, con tu propia cuenta: Claude Code, Codex (Cha
 [guía de tu IA](https://alcancia-app.github.io/alcancia/ia.html) explica cómo instalarla paso a paso. Sin IA, Alcancía igual lee
 tus cartolas, reconoce tus pagos y te muestra tus cifras.
 
-En GitHub, **Watch → Custom → Releases** te avisa cuando salga la primera versión para descargar.
+### Instalar en Mac
+Necesitas macOS 15 en un Mac con chip Apple (M1 o más nuevo).
+1. Baja [`Alcancia-macOS.zip`](https://github.com/alcancia-app/alcancia/releases/latest/download/Alcancia-macOS.zip) (todas las
+   versiones, con su huella `.sha256`, están en [Releases](https://github.com/alcancia-app/alcancia/releases)).
+2. Descomprímelo y arrastra **Alcancia.app** a **Aplicaciones**.
+3. Ábrela. La primera vez, macOS puede avisar que no puede verificarla (ver abajo).
+
+> **App sin firmar.** Alcancía no paga el certificado de Apple, así que macOS puede avisar la primera vez. En macOS 15: intenta
+> abrir Alcancía una vez, ve a **Ajustes del Sistema → Privacidad y seguridad** y, abajo, toca **«Abrir igualmente»**. Solo pasa
+> la primera vez. El código de cada versión está en este repo y cada descarga tiene su `.sha256` en el Release.
+
+Las versiones nuevas se avisan **dentro de la app** (Ajustes → Actualizaciones). También puedes
+[instalarla desde el código](#instalar-en-mac-desde-el-código).
 
 ## Tus datos son tuyos
 - Todo queda en tu computador, en una carpeta con archivos abiertos (CSV y JSON) que puedes abrir con Excel o llevarte adonde quieras.
@@ -102,7 +114,7 @@ Al participar aceptas el [código de conducta](CODE_OF_CONDUCT.md).
 
 ## Estado
 Versión 0.1, recién nacida. Ya funcionan el motor (leer cartolas, recetas, categorías, pagos, resumen y consejos), la interfaz, la
-conversación con Alcancía, la app de Mac (todavía sin versión publicada: por ahora se compila desde el código) y la app del celular
+conversación con Alcancía, la app de Mac ([se descarga desde Releases](https://github.com/alcancia-app/alcancia/releases/latest)) y la app del celular
 para iPhone y Android en su fase 1 (para mirar, con los datos que deja el Mac; se compila desde el código). Windows y Linux vienen en
 camino.
 
@@ -401,7 +413,10 @@ internet access. **Updates** are checked inside the app at launch and every 6 ho
 verified with SHA-256; your data, connections and phone copy stay as they were.
 
 **Try it:** [browser preview with made-up data](https://alcancia-app.github.io/alcancia/demo/) (add `?idioma=en`) · **Mac:**
-[build from source](#instalar-en-mac-desde-el-código) (`bash build.sh`, macOS 15; no signed release yet) · **iPhone and Android:**
+[download `Alcancia-macOS.zip`](https://github.com/alcancia-app/alcancia/releases/latest/download/Alcancia-macOS.zip) (macOS 15,
+Apple chip; unzip and drag it to Applications) or [build from source](#instalar-en-mac-desde-el-código) (`bash build.sh`). The app
+is **not signed** by Apple: the first time, try to open it, then go to System Settings → Privacy & Security and click **Open
+Anyway** at the bottom; every download has its `.sha256` in the Release · **iPhone and Android:**
 [build from source](movil/README.md) (phase 1, read-only) · **Windows and Linux:** coming. Questions and ideas are welcome in
 [Discussions](https://github.com/alcancia-app/alcancia/discussions), in English or Spanish; see [CONTRIBUTING.md](CONTRIBUTING.md).
 

@@ -1,11 +1,18 @@
 # Cambios · Changelog
 
-Lo que cambia para quien usa Alcancía, en palabras simples. Las versiones anteriores a este archivo están en
+Lo que cambia para quien usa Alcancía, en palabras simples. Cada versión, con su descarga y su huella SHA-256, está en
 [Releases](https://github.com/alcancia-app/alcancia/releases).
-*What changes for people using Alcancía, in plain words. Earlier versions are listed in Releases.*
+*What changes for people using Alcancía, in plain words. Every version, with its download and SHA-256 checksum, is in Releases.*
 
-## Sin publicar · Unreleased
+## 0.1.0 · 2026-11-02
 
+- **Primera versión para descargar:** Alcancía para Mac (macOS 15, Apple Silicon) ya se baja desde
+  [Releases](https://github.com/alcancia-app/alcancia/releases/latest), sin compilar nada. La app no está firmada por Apple: la
+  primera vez, ábrela desde Ajustes del Sistema → Privacidad y seguridad → «Abrir igualmente». Las versiones siguientes te llegan
+  dentro de la app.
+  *First downloadable version: Alcancía for Mac (macOS 15, Apple Silicon) can now be downloaded from Releases, nothing to build. The
+  app isn't signed by Apple: the first time, open it from System Settings → Privacy & Security → “Open Anyway”. Later versions reach
+  you inside the app.*
 - Con años de movimientos, el Inicio, Pagos y Presupuesto responden unas 3 veces más rápido cada vez que tocas algo.
   *With years of transactions, Home, Payments and Budget respond about 3 times faster every time you tap something.*
 - En la primera pantalla también eliges el idioma con las teclas 1 y 2 (o las flechas), y cada idioma muestra su número.
