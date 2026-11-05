@@ -6,6 +6,8 @@ Lo que cambia para quien usa Alcancía, en palabras simples. Las versiones anter
 
 ## Sin publicar · Unreleased
 
+- Con años de movimientos, el Inicio, Pagos y Presupuesto responden unas 3 veces más rápido cada vez que tocas algo.
+  *With years of transactions, Home, Payments and Budget respond about 3 times faster every time you tap something.*
 - En la primera pantalla también eliges el idioma con las teclas 1 y 2 (o las flechas), y cada idioma muestra su número.
   *On the first screen you can also pick the language with the 1 and 2 keys (or the arrow keys), and each language shows its number.*
 - La app de Mac ahora usa la base común de Pieza: si algo se queda pegado (una cartola enorme, tu IA que no responde), Alcancía lo

@@ -333,11 +333,20 @@
     const v = (extra + (a.variacion || 0)) / 100;
     return [lo * valor * (1 - v), hi * valor * (1 + v)];
   }
+  // normalizar con memoria (igual que compromisos._normalizado): asignar compara cada movimiento con cada compromiso y las
+  // descripciones y palabras se repiten mucho. Se vacía si crece demasiado.
+  const NORMALIZADOS = new Map();
+  const normalizado = (t) => {
+    let n = NORMALIZADOS.get(t);
+    if (n === undefined) { if (NORMALIZADOS.size > 8192) NORMALIZADOS.clear(); n = normalizar(t); NORMALIZADOS.set(t, n); }
+    return n;
+  };
+  const palabrasBuscar = (buscar) => (buscar || []).map(normalizado).filter(Boolean);
   function coincide(m, c, moneda, uf = null) {
     const monto = m.monto;
     if (monto === 0 || (monto < 0) !== (c.signo === "gasto")) return false;
     if (m.categoria === "transferencia" && c.tipo !== "transferencia") return false; // entre tus propias cuentas: nunca es el pago de un compromiso
-    const palabras = (c.buscar || []).map(normalizar).filter(Boolean), a = Math.abs(monto);
+    const palabras = palabrasBuscar(c.buscar), a = Math.abs(monto);
     if (c.moneda === UF) {
       if ((m.moneda || moneda) !== moneda || (!palabras.length && !uf)) return false;
       if (uf) { const [lo, hi] = rangoUF(c, uf, MARGEN_UF); if (!(lo - 1e-9 <= a && a <= hi + 1e-9)) return false; if (!palabras.length) return true; }
@@ -347,7 +356,7 @@
       if (!palabras.length) return dif < 0.005;
       if (dif > c.monto * (c.tolerancia ?? TOLERANCIA) / 100 + 1e-9 && !enRango) return false;
     }
-    const d = normalizar(m.descripcion);
+    const d = normalizado(m.descripcion);
     return palabras.some((p) => d.includes(p));
   }
   // Interés por mora (igual que compromisos.py): un pago atrasado puede venir más alto (hasta +30 %) y traer un cargo aparte.
@@ -359,10 +368,10 @@
   }
   function coincideTarde(m, c, moneda, uf = null) {
     if (m.monto >= 0 || c.signo !== "gasto" || (m.categoria === "transferencia" && c.tipo !== "transferencia")) return false;
-    const palabras = (c.buscar || []).map(normalizar).filter(Boolean), t = tope(c, uf);
+    const palabras = palabrasBuscar(c.buscar), t = tope(c, uf);
     if (!palabras.length || !t || (m.moneda || moneda) !== (c.moneda === UF ? moneda : c.moneda)) return false;
     if (!(t[1] + 1e-9 < -m.monto && -m.monto <= t[1] * (1 + MORA_MAX / 100) + 1e-9)) return false;
-    const d = normalizar(m.descripcion);
+    const d = normalizado(m.descripcion);
     return palabras.some((p) => d.includes(p));
   }
   const sinPuntos = (t) => normalizar(String(t || "").replace(/[.\-_/]/g, " "));
@@ -406,7 +415,19 @@
   }
   const pagoDe = (m) => ({ como: "automatico", fecha: m.fecha, monto: Math.abs(m.monto), movimiento: m.id, descripcion: m.descripcion });
   const menorTupla = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] < b[i]; return false; };
+  // Mientras se pinta, asignar con los mismos datos se calcula una sola vez: la barra, la cifra de arriba, «al día», lo que debes
+  // y lo pagado en intereses lo piden por separado. Solo dentro de render(): ahí nada cambia los compromisos ni los movimientos.
+  let memoAsignar = null;
   function asignar(compromisos, movimientos, hasta, moneda, uf = null, mora = []) {
+    if (!memoAsignar) return asignarSinMemoria(compromisos, movimientos, hasta, moneda, uf, mora);
+    const palabras = (mora || []).join("\u0000");
+    const igual = (e) => e.movimientos === movimientos && e.hasta === hasta && e.moneda === moneda && e.uf === uf && e.mora === palabras
+      && e.compromisos.length === compromisos.length && e.compromisos.every((c, i) => c === compromisos[i]);
+    let e = memoAsignar.find(igual);
+    if (!e) { e = { movimientos, hasta, moneda, uf, mora: palabras, compromisos: [...compromisos], r: asignarSinMemoria(compromisos, movimientos, hasta, moneda, uf, mora) }; memoAsignar.push(e); }
+    return e.r;
+  }
+  function asignarSinMemoria(compromisos, movimientos, hasta, moneda, uf = null, mora = []) {
     const ocs = compromisos.flatMap((c) => vencimientos(c, hasta).map((o) => [c, o]));
     const porId = new Map(movimientos.map((m) => [m.id, m]));
     const pagos = {}, usados = new Set(), pendientes = [];
@@ -985,7 +1006,10 @@
     const activo = document.activeElement, idActivo = activo?.id, cursor = activo?.selectionStart;
     const scrollChat = $(".chat-cuerpo")?.scrollTop;
     E._per = undefined;
-    raiz.innerHTML = `<div class="app">${lateral()}<main class="principal-area">${avisoActualizacion()}${principal()}</main></div>${E.picker ? pickerHTML() : ""}${avisoRegla()}${dialogos()}${ui.capas()}`;
+    memoAsignar = [];
+    try {
+      raiz.innerHTML = `<div class="app">${lateral()}<main class="principal-area">${avisoActualizacion()}${principal()}</main></div>${E.picker ? pickerHTML() : ""}${avisoRegla()}${dialogos()}${ui.capas()}`;
+    } finally { memoAsignar = null; }
     traducirDOM(raiz);
     const area = $(".principal-area"); if (area) area.scrollTop = scroll;
     const chat = $(".chat-cuerpo");
