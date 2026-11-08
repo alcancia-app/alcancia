@@ -1,10 +1,11 @@
 # Revisión automática de cada cambio (y de cada pull request): si algo falla, se ve antes de que llegue a alguien.
 # Seguridad: actions fijadas por SHA (Dependabot las actualiza), token de solo lectura, sin credenciales guardadas en el checkout
 # y nada de pull_request_target: un pull request de afuera corre sin secretos ni permisos de escritura.
-# - comun: sintaxis, privacidad básica, contrato interfaz ↔ apps (Mac, celular y plugins nativos), pruebas de Python (con una IA
+# - comun: sintaxis, privacidad básica, contrato interfaz ↔ apps (escritorio, celular y plugins nativos), pruebas de Python (con una IA
 #   falsa), de la copia cifrada para el celular, de la interfaz (español/inglés, celular, contraste, misma lógica que Python) y de la
 #   app del celular de punta a punta (con un Capacitor falso); y movil/ con sus dependencias exactas, auditoría y `cap sync`.
 #   Los proyectos nativos de movil/ (Xcode y Gradle) no se compilan aquí todavía.
+# - app: la app de escritorio (Rust, pieza «host-tauri») en Mac y Linux.
 name: Revisar
 on:
   push:
@@ -67,20 +68,26 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with: { name: capturas, path: capturas, retention-days: 14, if-no-files-found: ignore }
 
-  mac:
-    runs-on: macos-15
-    timeout-minutes: 30
+  # La app de escritorio (Rust, pieza «host-tauri») en Mac y Linux: compila con Cargo.lock, pasa sus pruebas y clippy sin avisos;
+  # en Linux además se abre de verdad con una pantalla virtual (la interfaz manda «listo» y recibe el estado).
+  app:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    defaults: { run: { shell: bash, working-directory: escritorio } }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with: { fetch-depth: 0, persist-credentials: false }
-      - name: ¿Cambió algo de la app de Mac?
-        id: cambio
-        # Lo que viene del evento entra por variables de entorno, nunca pegado en el guion.
-        env:
-          ANTES: ${{ github.event.before }}
-          EVENTO: ${{ github.event_name }}
+        with: { persist-credentials: false }
+      - name: Lo que Tauri necesita en Linux
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev xvfb
+      - name: Pruebas y clippy (exactamente lo de Cargo.lock)
         run: |
-          if [ "$EVENTO" != "push" ] || ! git cat-file -e "$ANTES" 2>/dev/null || git diff --name-only "$ANTES" HEAD | grep -qE '^(app/|app\.json|acciones\.json|herramientas/empaquetar\.sh|build\.sh)'; then echo "si=1" >> "$GITHUB_OUTPUT"; fi
-      - name: Compilar
-        if: steps.cambio.outputs.si == '1'
-        run: cd app && swift build -c release
+          cargo test --locked
+          cargo clippy --locked --all-targets -- -D warnings
+      - name: La app abierta en Linux (pantalla virtual)
+        if: runner.os == 'Linux'
+        run: bash pruebas/arranque.sh

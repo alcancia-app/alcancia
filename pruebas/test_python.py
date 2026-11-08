@@ -560,15 +560,15 @@ class Compromisos(unittest.TestCase):
         return correr("compromiso_ia.py", "entender", ruta)
 
     def test_el_texto_no_va_como_argumento(self):
-        swift = "\n".join(_leer(os.path.join(RAIZ, "app", "Sources", "Alcancia", f))
-                          for f in os.listdir(os.path.join(RAIZ, "app", "Sources", "Alcancia")) if f.endswith(".swift"))
+        rust = "\n".join(_leer(os.path.join(RAIZ, "escritorio", "src", f))
+                          for f in os.listdir(os.path.join(RAIZ, "escritorio", "src")) if f.endswith(".rs"))
         # Lo que escribe la persona (la conversación con Alcancía) va en un archivo de entrada; nunca como argumento: «chat» es una
         # acción declarada (el host escribe los datos en el archivo de entrada y solo `accion`, un enum, va en los argumentos).
         chat = json.loads(_leer(os.path.join(RAIZ, "acciones.json")))["acciones"]["chat"]
         self.assertEqual((chat["script"], chat["args"], chat["entrada"]), ("chat.py", ["$accion"], "archivo"))
         self.assertEqual(chat["datos"]["accion"]["tipo"], "enum")
-        self.assertNotIn('"chat.py"', swift)
-        self.assertNotIn('"compromiso_ia.py"', swift)
+        self.assertNotIn('"chat.py"', rust)
+        self.assertNotIn('"compromiso_ia.py"', rust)
         p = subprocess.run([sys.executable, os.path.join(RAIZ, "bin", "compromiso_ia.py"), "el arriendo son 450.000", "2026-10-26",
                             os.path.join(TMP, "x.json")], capture_output=True, text=True)
         self.assertEqual(p.returncode, 2, "la firma vieja (texto como argumento) ya no se acepta")
@@ -2342,11 +2342,12 @@ class Piezas(unittest.TestCase):
 
     def test_las_claves_de_config_son_las_mismas_en_el_mac(self):
         app = json.loads(_leer(os.path.join(RAIZ, "app.json")))
-        # El Mac (pieza «host-mac») lee las claves simples de app.json; las de forma propia las guarda AlcanciaApp.guardarConfig.
-        swift = _leer(os.path.join(RAIZ, "app", "Sources", "Alcancia", "AlcanciaApp.swift"))
+        # La app de escritorio (pieza «host-tauri») lee las claves simples de app.json; las de forma propia las guarda su `config`
+        # (escritorio/src/main.rs) con poner_propia.
+        rust = _leer(os.path.join(RAIZ, "escritorio", "src", "main.rs"))
         for k in datos.CONFIG_OBJETOS:
-            self.assertIn(f'objetos["{k}"]', swift, f"{k}: lo guarda el Mac (app.json no describe objetos)")
-        self.assertIn('p.registrar("config")', swift)
+            self.assertIn(f'h.config.poner_propia("{k}"', rust, f"{k}: lo guarda la app (app.json no describe objetos)")
+        self.assertIn('host.registrar("config"', rust)
         self.assertFalse(set(datos.CONFIG_OBJETOS) & set(app["config"]))
         self.assertEqual(app["id"], "alcancia")
         self.assertEqual((app["nombre"], app["datos"], app["privado"]), ("Alcancía", {"carpeta": "~/Alcancia/.alcancia"}, True))

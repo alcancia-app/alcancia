@@ -4,6 +4,14 @@ Lo que cambia para quien usa Alcancía, en palabras simples. Cada versión, con 
 [Releases](https://github.com/alcancia-app/alcancia/releases).
 *What changes for people using Alcancía, in plain words. Every version, with its download and SHA-256 checksum, is in Releases.*
 
+## Sin publicar · Unreleased
+
+- La app de Mac es más liviana: ahora está hecha con Rust y Tauri, sobre el navegador del sistema. Tus datos, tus cuentas
+  conectadas, la copia para el celular y tus ajustes siguen igual. Al tocar un aviso de pagos, la app se abre, pero por ahora no
+  salta sola a Pagos.
+  *The Mac app is lighter: it's now built with Rust and Tauri, on the system's browser. Your data, connected accounts, the copy for
+  your phone and your settings stay the same. Tapping a payment reminder opens the app, but for now it doesn't jump to Payments.*
+
 ## 0.1.0 · 2026-11-02
 
 - **Primera versión para descargar:** Alcancía para Mac (macOS 15, Apple Silicon) ya se baja desde
