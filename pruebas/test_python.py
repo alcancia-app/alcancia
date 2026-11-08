@@ -2353,9 +2353,10 @@ class Piezas(unittest.TestCase):
         self.assertEqual((app["nombre"], app["datos"], app["privado"]), ("Alcancía", {"carpeta": "~/Alcancia/.alcancia"}, True))
 
     def test_app_json_va_dentro_de_la_app(self):
-        sh = _leer(os.path.join(RAIZ, "herramientas", "empaquetar.sh"))
-        self.assertIn('cp "$RAIZ/app.json" "$APP/Contents/Resources/alcancia/app.json"', sh)
-        self.assertIn('cp "$RAIZ/acciones.json" "$APP/Contents/Resources/alcancia/acciones.json"', sh)
+        # app.json y acciones.json (lo que lee «host-tauri») van en los recursos de la app, con bin/, ui/ y las recetas.
+        recursos = json.loads(_leer(os.path.join(RAIZ, "escritorio", "tauri.conf.json")))["bundle"]["resources"]
+        for r in ("app.json", "acciones.json", "bin/", "ui/", "recetas/"):
+            self.assertEqual(recursos.get("../" + r), "recursos/" + r, r)
         probar = json.loads(_leer(os.path.join(RAIZ, "acciones.json")))["acciones"]["probarIA"]
         self.assertEqual((probar["script"], probar["args"], probar["entrada"]), ("ia.py", ["probar"], "archivo"),
                          "la IA se prueba con la pieza, con entrada")

@@ -10,7 +10,7 @@ python3 -c "import json, glob; [json.load(open(f, encoding='utf-8')) for f in gl
 echo "Privacidad"; bash herramientas/revisar_privacidad.sh --generico
 echo "Contrato (escritorio, celular, plugins nativos y vista previa)"; python3 pruebas/contrato.py
 echo "Página de conexiones"; python3 herramientas/generar_conectar.py --revisar
-echo "Python"; python3 pruebas/test_python.py 2>&1 | tail -3
+echo "Python"; python3 pruebas/test_python.py > /tmp/alcancia-python.txt 2>&1 || { cat /tmp/alcancia-python.txt; exit 1; }; tail -3 /tmp/alcancia-python.txt
 echo "Copia para el celular (cifrado)"; node pruebas/copia.mjs
 echo "Interfaz"; node pruebas/interfaz.mjs
 echo "App del celular de punta a punta (anfitrión del teléfono y Capacitor falso)"; node pruebas/movil.mjs
