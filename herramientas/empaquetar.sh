@@ -1,45 +1,79 @@
 #!/bin/bash
-# Arma dist/Alcancia.app (autosuficiente) y dist/Alcancia-macOS.zip + .sha256, sin instalar nada.
-# Lo usan build.sh (en tu Mac) y, cuando exista, la acción de GitHub que publica cada versión.
-# Dentro van: la app, Python portátil y el código (bin/, ui/, recetas/) en Contents/Resources/alcancia.
-# Los datos de la persona quedan en ~/Alcancia.
+# Empaqueta Alcancía para este sistema (o el que digas) con su host de Tauri («host-tauri»): la app nativa en Rust, Python
+# portátil y el código (en recursos/: bin/, ui/, app.json, acciones.json y lo de app.json → empaquetado.carpetas). Deja en dist/ los archivos
+# de nombre fijo que usan el Release, instalar.sh, instalar.ps1 y el actualizador, cada uno con su .sha256:
+#   mac      Alcancia-macOS.zip
+#   windows  Alcancia-Windows.exe            (instalador por usuario, /S silencioso)
+#   linux    Alcancia-Linux.AppImage  Alcancia-Linux.tar.gz
+# Uso: bash herramientas/empaquetar.sh [mac|windows|linux]     Necesita: cargo (Rust) y, la primera vez, internet.
+# Generado por la pieza «empaquetado» de Pieza (MPL-2.0, https://mozilla.org/MPL/2.0/) desde app.json: si lo cambias, desde ahí
+# es de la app y Pieza ya no lo toca. Lo propio va en app.json → empaquetado o en herramientas/empaquetar-extra.sh.
 set -euo pipefail
-export PATH=/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:$PATH
 RAIZ="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$RAIZ/app"
-swift build -c release 2>&1 | tee "${ALCANCIA_PROGRESO:-/dev/null}" | tail -20
-REL=.build/release
+cd "$RAIZ"
+case "${1:-$(uname -s)}" in
+  mac | Darwin) SO=mac; V=mac ;;
+  windows | MINGW* | MSYS* | CYGWIN*) SO=windows; V=win ;;
+  linux | Linux) SO=linux; V=linux ;;
+  *) echo "sistema desconocido: $1" >&2; exit 1 ;;
+esac
+VERSION=$(python3 -c "import json;print(json.load(open('app.json'))['version'])" 2>/dev/null || echo 0.1.0)
+mkdir -p dist
+huella() { if command -v sha256sum >/dev/null; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi; }
+firmar() { (cd dist && printf '%s  %s\n' "$(huella "$1")" "$1" > "$1.sha256"); }
 
-# Python portátil (python-build-standalone): se descarga una vez y se verifica su huella. La persona no instala nada.
-PY_URL="https://github.com/astral-sh/python-build-standalone/releases/download/20261003/cpython-3.13.16%2B20261003-aarch64-apple-darwin-install_only_stripped.tar.gz"
-PY_SHA="9e01f63bbb08576cd9c8bc2d0564d098cb30c8453a0cd4bcf6aef458f6d2a147"
-PY_TGZ=.build/python-3.13.16.tar.gz
-if [ ! -f "$PY_TGZ" ] || [ "$(shasum -a 256 "$PY_TGZ" | cut -d' ' -f1)" != "$PY_SHA" ]; then
-  curl -fsSL "$PY_URL" -o "$PY_TGZ.tmp"
-  [ "$(shasum -a 256 "$PY_TGZ.tmp" | cut -d' ' -f1)" = "$PY_SHA" ] || { echo "✗ El Python descargado no coincide con su huella" >&2; exit 1; }
-  mv "$PY_TGZ.tmp" "$PY_TGZ"
-fi
+# Lo que va adentro: Python portátil y los programas de app.json (cada uno verificado con su huella).
+bash escritorio/herramientas/preparar.sh "$SO"
+# La CLI de Tauri, con versión fija (sin npm).
+command -v cargo-tauri >/dev/null || cargo install tauri-cli --version "^2" --locked
+# Los íconos de todos los sistemas, desde uno solo de 1024×1024.
+if [ -f escritorio/iconos/icono.png ] && [ ! -f escritorio/iconos/icon.icns ]; then (cd escritorio && cargo tauri icon iconos/icono.png -o iconos); fi
+# La versión de app.json y, para empaquetar, también Python y las herramientas (en desarrollo se usa el Python del sistema).
+cat > escritorio/LICENCIAS-TERCEROS.txt <<'TXT'
+Alcancía se distribuye con la licencia AGPL-3.0 (https://github.com/alcancia-app/alcancia). Dentro de la app va, como programa aparte:
 
-DIST="$RAIZ/dist"; APP="$DIST/Alcancia.app"
-rm -rf "$DIST"; mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/alcancia"
-cp "$REL/Alcancia" "$APP/Contents/MacOS/"
-cp Info.plist "$APP/Contents/Info.plist"
-[ -f Alcancia.icns ] && cp Alcancia.icns "$APP/Contents/Resources/Alcancia.icns"
-tar -xzf "$PY_TGZ" -C "$APP/Contents/Resources"   # → Resources/python/bin/python3
-for d in bin ui recetas; do ditto "$RAIZ/$d" "$APP/Contents/Resources/alcancia/$d"; done
-# app.json: la descripción de la app que leen las piezas (bin/nucleo.py la busca junto a bin/; sin ella ningún script arranca).
-cp "$RAIZ/app.json" "$APP/Contents/Resources/alcancia/app.json"
-# acciones.json: las acciones declaradas que atiende la pieza «host-mac» (lo arma pieza.py; va junto a app.json).
-cp "$RAIZ/acciones.json" "$APP/Contents/Resources/alcancia/acciones.json"
-rm -f "$APP/Contents/Resources/alcancia/ui/demo.json"   # la app usa tus datos, nunca la demo
-find "$APP/Contents/Resources/alcancia" -name "__pycache__" -prune -exec rm -rf {} + 2>/dev/null || true
-chmod +x "$APP/Contents/Resources/alcancia/bin/"*.py
+- Python 3.13 de python-build-standalone (https://github.com/astral-sh/python-build-standalone), licencia PSF y las de sus partes.
+- Tauri (https://tauri.app) y los crates de Rust de escritorio/Cargo.lock, con licencias MIT, Apache-2.0 y otras compatibles.
+TXT
+cat > escritorio/tauri.empaquetar.json <<JSON
+{ "version": "$VERSION", "bundle": { "resources": { "vendor/$V/python/": "python/", "vendor/$V/herramientas/": "herramientas/", "LICENCIAS-TERCEROS.txt": "LICENCIAS-TERCEROS.txt" } } }
+JSON
+# La app usa los datos de la persona, nunca la demo de la vista previa.
+QUITAR=(ui/demo.json)
+GUARDADO=$(mktemp -d)
+for q in "${QUITAR[@]}"; do if [ -e "$q" ]; then mkdir -p "$GUARDADO/$(dirname "$q")"; mv "$q" "$GUARDADO/$q"; fi; done
+devolver() { for q in "${QUITAR[@]}"; do if [ -e "$GUARDADO/$q" ]; then mv "$GUARDADO/$q" "$q"; fi; done; rm -rf "$GUARDADO" escritorio/tauri.empaquetar.json escritorio/LICENCIAS-TERCEROS.txt; }
+trap devolver EXIT
 
-# Firma ad hoc, de adentro hacia afuera, con requisito por identificador (macOS reconoce la app entre versiones).
-find "$APP/Contents/Resources/python" -type f \( -name "*.so" -o -name "*.dylib" -o -perm -u+x \) -exec codesign --force --sign - {} \; 2>/dev/null || true
-codesign --force --sign - --requirements '=designated => identifier "app.alcancia.mac"' "$APP"
-
-cd "$DIST"
-ditto -c -k --keepParent Alcancia.app Alcancia-macOS.zip
-shasum -a 256 Alcancia-macOS.zip > Alcancia-macOS.zip.sha256
-echo "Listo: $DIST/Alcancia-macOS.zip ($(du -h Alcancia-macOS.zip | cut -f1))"
+B=escritorio/target/release/bundle
+case "$SO" in
+  mac)
+    (cd escritorio && cargo tauri build --bundles app --config tauri.empaquetar.json)
+    APP="$B/macos/Alcancía.app"
+    if [ -f herramientas/empaquetar-extra.sh ]; then bash herramientas/empaquetar-extra.sh "$APP" "$SO"; fi
+    # Firma ad hoc (sin cuenta de Apple), con requisito por identificador: el Llavero y los permisos siguen a la app al actualizar.
+    find "$APP/Contents/Resources" -type f \( -name "*.so" -o -name "*.dylib" -o -perm -u+x \) -exec codesign --force --sign - {} \; 2>/dev/null || true
+    codesign --force --deep --sign - --requirements '=designated => identifier "app.alcancia.mac"' "$APP"
+    rm -rf "dist/Alcancia.app" && ditto "$APP" "dist/Alcancia.app"
+    (cd dist && rm -f Alcancia-macOS.zip && ditto -c -k --keepParent Alcancia.app Alcancia-macOS.zip)
+    firmar Alcancia-macOS.zip ;;
+  windows)
+    (cd escritorio && cargo tauri build --bundles nsis --config tauri.empaquetar.json)
+    cp "$(ls "$B"/nsis/*.exe | head -1)" dist/Alcancia-Windows.exe
+    firmar Alcancia-Windows.exe ;;
+  linux)
+    (cd escritorio && cargo tauri build --bundles appimage --config tauri.empaquetar.json)
+    cp "$(ls "$B"/appimage/*.AppImage | head -1)" dist/Alcancia-Linux.AppImage && chmod +x dist/Alcancia-Linux.AppImage
+    firmar Alcancia-Linux.AppImage
+    # El tar.gz de instalar.sh (~/.local/share/Alcancia): el ejecutable, el código en recursos/ y Python, todo junto.
+    T=$(mktemp -d); D="$T/Alcancia"; mkdir -p "$D/recursos"
+    cp escritorio/target/release/alcancia "$D/"
+    for d in app.json acciones.json bin ui recetas; do cp -R "$d" "$D/recursos/"; done
+    cp escritorio/LICENCIAS-TERCEROS.txt "$D/"
+    for q in "${QUITAR[@]}"; do rm -rf "$D/recursos/$q"; done
+    cp -R escritorio/vendor/linux/python "$D/python"; cp -R escritorio/vendor/linux/herramientas "$D/herramientas"
+    if [ -f escritorio/iconos/128x128.png ]; then cp escritorio/iconos/128x128.png "$D/alcancia.png"; fi
+    tar -czf dist/Alcancia-Linux.tar.gz -C "$T" Alcancia && rm -rf "$T"
+    firmar Alcancia-Linux.tar.gz ;;
+esac
+echo "Listo: $(ls dist | tr '\n' ' ')"

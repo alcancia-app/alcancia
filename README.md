@@ -358,7 +358,7 @@ gemini mcp add -s user alcancia python3 ~/Developer/alcancia/bin/mcp_servidor.py
 Lo que tu IA consulta viaja a tu proveedor de IA con tu cuenta, igual que si se lo escribieras.
 
 ## Instalar en Mac (desde el código)
-Necesitas macOS 15 y las herramientas de Xcode (`xcode-select --install`).
+Necesitas macOS 15, [Rust](https://rustup.rs) y las herramientas de Xcode (`xcode-select --install`).
 ```bash
 git clone https://github.com/alcancia-app/alcancia ~/Developer/alcancia
 cd ~/Developer/alcancia && bash build.sh      # compila, arma la app con su propio Python y la instala en ~/Applications

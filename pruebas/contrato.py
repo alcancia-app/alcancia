@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Contrato entre la interfaz (ui/app.js) y las apps, para que ninguna se quede atrás. Solo biblioteca estándar.
 
-1. Mac (pieza «host-mac»): cada host.enviar("x") de la interfaz lo atiende la app (registrar), el host (listo, config,
+1. Escritorio (pieza «host-tauri»): cada host.enviar("x") de la interfaz lo atiende la app (registrar), el host (listo, config,
    abrirEnlace, actualizaciones) o una acción declarada de acciones.json; cada window.Alcancia.x que llaman la app, el host y lo
    declarado (responde, progreso) existe en la interfaz; los scripts de bin/ que se corren existen y acciones.json va dentro de
-   la app. Windows/Linux (escritorio/src/main.js, objeto ACCIONES), cuando exista, igual.
+   la app. La misma app es la de Windows y Linux.
 2. Celular (movil/host/host.js): cada acción de la interfaz está en ACCIONES o en SOLO_MAC (responde «Esto se hace en tu Mac»);
    cada window.Alcancia.x que llama existe; cada método nativo que llama (llamar("Plugin", "metodo")) existe en el plugin de iOS
    (Swift) y de Android (Kotlin o Java) y en el Capacitor falso de las pruebas (pruebas/capacitor_falso.js).
@@ -45,45 +45,66 @@ problemas = []
 
 # Acciones que solo existen en una plataforma (con el motivo). El resto tiene que estar en todas.
 SOLO_MOVIL = {"traer": "traer la copia cifrada desde la nube (solo el celular)"}
-SOLO_ESCRITORIO = {"celular": "armar la copia para el celular (solo el Mac por ahora: Windows y Linux, cuando existan)"}
+SOLO_ESCRITORIO = {"celular": "armar la copia para el celular (solo el computador)"}
 
-# 1) Mac (pieza «host-mac»): cada acción la atiende alguno de los tres lados del puente, en este orden: lo que registra la app
-#    (`registrar("x")` en app/Sources/Alcancia), lo que trae el host (listo, config, abrirEnlace, copiar y, con
-#    `p.actualizaciones`, buscarActualizacion y actualizar) y lo declarado en acciones.json (lo arma pieza.py con las piezas y
-#    app.json → «acciones»).
-swift = juntar("app/Sources/Alcancia/*.swift")
-host_mac = juntar("app/Sources/PiezaHost/*.swift")
+# 1) Escritorio (pieza «host-tauri», Rust): cada acción la atiende alguno de los tres lados del puente, en este orden: lo que
+#    registra la app (`registrar("x")` en escritorio/src, fuera de pieza/), lo que trae el host (sus internas en
+#    escritorio/src/pieza/host.rs: listo, config, abrirEnlace, copiar y, con `actualizaciones`, buscarActualizacion y actualizar) y
+#    lo declarado en acciones.json (lo arma pieza.py con las piezas y app.json → «acciones»).
+def sin_comentarios(t):
+    return re.sub(r"^\s*(//|///|//!).*$", "", t, flags=re.M)
+
+
+def bloque(texto, inicio):
+    i = texto.find(inicio)
+    if i < 0:
+        return ""
+    j, n = texto.index("{", i), 0
+    for k in range(j, len(texto)):
+        n += {"{": 1, "}": -1}.get(texto[k], 0)
+        if n == 0:
+            return texto[j:k + 1]
+    return ""
+
+
+rust = sin_comentarios(juntar("escritorio/src/*.rs"))
+host_rs = sin_comentarios(leer("escritorio/src/pieza/host.rs") or "")
 declaradas = (json.loads(leer("acciones.json") or "{}").get("acciones") or {})
-if not swift or not host_mac:
-    problemas.append("Falta la app de Mac (app/Sources/Alcancia) o la pieza host-mac (app/Sources/PiezaHost)")
+if not rust or not host_rs:
+    problemas.append("Falta la app de escritorio (escritorio/src) o la pieza host-tauri (escritorio/src/pieza)")
 else:
-    registradas = set(re.findall(r'registrar\("(\w+)"', swift))
-    del_host = set(re.findall(r'internas\["(\w+)"\]', host_mac))
-    if "p.actualizaciones = " not in swift:
+    registradas = set(re.findall(r'\.registrar\("(\w+)"', rust))
+    del_host = set(re.findall(r'^\s*"(\w+)"(?:\s*\|\s*"\w+")*(?:\s+if\s[^=]*)?\s*=>', bloque(host_rs, "fn interna("), re.M))
+    del_host |= {x for linea in re.findall(r'^\s*("\w+"(?:\s*\|\s*"\w+")+)', bloque(host_rs, "fn interna("), re.M) for x in re.findall(r'"(\w+)"', linea)}
+    if not re.search(r"^\s*actualizaciones:\s", rust, re.M):
         del_host -= {"buscarActualizacion", "actualizar"}
     mac = registradas | del_host | set(declaradas)
-    problemas += [f'Mac no atiende la acción "{a}" (ni registrada, ni del host, ni en acciones.json)' for a in sorted(acciones - mac - set(SOLO_MOVIL))]
-    problemas += [f'Mac atiende «{a}», que la interfaz no manda' for a in sorted((registradas | set(declaradas)) - acciones)]
-    # Lo que la app y el host llaman en window.Alcancia: llamar("x") en Swift, «responde» y «progreso» de lo declarado, y lo que el
-    # host manda siempre (estado, menu) o con las actualizaciones.
-    llama = set(re.findall(r'llamar\("(\w+)"', swift)) | {"estado", "menu"} | {"actualizacionRevisada", "actualizacionProgreso"}
+    problemas += [f'El escritorio no atiende la acción "{a}" (ni registrada, ni del host, ni en acciones.json)' for a in sorted(acciones - mac - set(SOLO_MOVIL))]
+    problemas += [f'El escritorio atiende «{a}», que la interfaz no manda' for a in sorted((registradas | set(declaradas)) - acciones)]
+    # Lo que la app y el host llaman en window.Alcancia: responder/llamar("x") en Rust, «responde» y «progreso» de lo declarado, y lo
+    # que el host manda siempre (estado, menu) o con las actualizaciones.
+    llama = set(re.findall(r'(?:llamar|responder)\((?:h2?, |&h2?, )?"(\w+)"', rust)) | {"estado", "menu"} | {"actualizacionRevisada", "actualizacionProgreso"}
     llama |= {a[k] for a in declaradas.values() for k in ("responde", "progreso") if a.get(k)}
-    problemas += [f"Mac llama window.Alcancia.{f} y la interfaz no la tiene" for f in sorted(llama - funciones_ui)]
+    problemas += [f"El escritorio llama window.Alcancia.{f} y la interfaz no la tiene" for f in sorted(llama - funciones_ui)]
     # probarIA lleva {ia} y responde iaProbada {ia, …} (forma común de la familia, pieza «ia»).
     p_ia = declaradas.get("probarIA") or {}
     if p_ia.get("responde") != "iaProbada" or "ia" not in (p_ia.get("datos") or {}):
         problemas.append("acciones.json: probarIA tiene que recibir {ia} y responder iaProbada (pieza «ia»)")
-    scripts = set(re.findall(r'(?:correrJSON|conEntrada|conSecreto)\("(\w+\.py)"', swift)) | {a["script"] for a in declaradas.values()}
+    scripts = set(re.findall(r'(?:correr_json|con_entrada|correr)\("(\w+\.py)"', rust)) | {a["script"] for a in declaradas.values()}
     problemas += [f"La app llama bin/{s} y no existe" for s in sorted(scripts) if not os.path.exists(os.path.join(RAIZ, "bin", s))]
-    # El paquete lleva acciones.json junto a app.json (sin él, el host no carga nada declarado).
-    if "acciones.json" not in (leer("herramientas/empaquetar.sh") or ""):
-        problemas.append("herramientas/empaquetar.sh no copia acciones.json dentro de la app")
-escritorio = leer("escritorio/src/main.js")
-if escritorio:
-    casos_e = set(re.findall(r"^\s{2}(?:async\s+)?(\w+)\s*\(", escritorio.split("const ACCIONES = {", 1)[1].split("\n};", 1)[0], re.M))
-    problemas += [f'Windows/Linux (ACCIONES) no atiende la acción "{a}"' for a in sorted(acciones - casos_e - set(SOLO_MOVIL) - set(SOLO_ESCRITORIO))]
-    problemas += [f"Windows/Linux llama window.Alcancia.{f} y la interfaz no la tiene" for f in sorted(set(re.findall(r'llamar\("(\w+)"', escritorio)) - funciones_ui)]
-
+    # La app lleva acciones.json junto a app.json (sin él, el host no carga nada declarado).
+    recursos = ((json.loads(leer("escritorio/tauri.conf.json") or "{}").get("bundle") or {}).get("resources") or {})
+    if recursos.get("../acciones.json") != "recursos/acciones.json":
+        problemas.append("escritorio/tauri.conf.json no lleva acciones.json dentro de la app")
+    # Las llaves de los conectores y la del celular: solo por el llavero y por la entrada estándar, nunca en un argumento.
+    conexiones = leer("escritorio/src/conexiones.rs") or ""
+    for texto in ('secreto: Some(', 'h.secretos(Some("conexiones"))'):
+        if texto not in conexiones:
+            problemas.append(f"escritorio/src/conexiones.rs: falta «{texto}» (la llave por la entrada estándar y en el llavero de siempre)")
+    if 'h.secretos(Some("celular"))' not in (leer("escritorio/src/celular.rs") or ""):
+        problemas.append("escritorio/src/celular.rs: la llave del celular va en el llavero de siempre («Alcancía · celular»)")
+    if re.search(r'"--disallowedTools"|"--strict-mcp-config"|"--skip-git-repo-check"', rust):
+        problemas.append("escritorio/src: arma el comando de una IA; eso lo hace solo bin/ia.py (pieza «ia»)")
 # 2) Celular
 host = leer("movil/host/host.js")
 llamadas = set()
