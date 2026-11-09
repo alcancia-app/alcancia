@@ -6,6 +6,8 @@ Lo que cambia para quien usa Alcancía, en palabras simples. Cada versión, con 
 
 ## Sin publicar · Unreleased
 
+## 0.2.0 · 2026-11-08
+
 - La app de Mac es más liviana: ahora está hecha con Rust y Tauri, sobre el navegador del sistema. Tus datos, tus cuentas
   conectadas, la copia para el celular y tus ajustes siguen igual. Al tocar un aviso de pagos, la app se abre, pero por ahora no
   salta sola a Pagos.
