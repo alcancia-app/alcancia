@@ -3,13 +3,14 @@
 <h1 align="center">Alcancía</h1>
 
 <p align="center"><b>Control de gastos para quienes nos cuesta medirnos.</b><br>
-Juntas las cartolas de tus bancos y billeteras, Alcancía las ordena, te dice cuánto te queda hasta tu sueldo y qué falta pagar,
-y tu propia IA te avisa a tiempo cuando algo se está pasando.<br>
+Juntas las cartolas de tus bancos y billeteras. Alcancía las ordena y te dice cuánto te queda hasta tu sueldo y qué falta pagar.
+Tu propia IA te avisa a tiempo cuando algo se está pasando.<br>
 Gratis, de código abierto y con tus datos en tu computador.</p>
 
 <p align="center"><a href="https://alcancia-app.github.io/alcancia/"><b>Página</b></a> ·
 <a href="https://alcancia-app.github.io/alcancia/demo/"><b>Pruébala en el navegador</b></a> ·
 <a href="#instalar">Instalar</a> ·
+<a href="https://github.com/alcancia-app/alcancia/wiki">Wiki</a> ·
 <a href="https://github.com/alcancia-app/alcancia/discussions">Comunidad</a> ·
 <a href="CONTRIBUTING.md">Cómo aportar</a> ·
 <a href="#english">English</a></p>
@@ -25,24 +26,33 @@ Gratis, de código abierto y con tus datos en tu computador.</p>
 ---
 
 ## Qué hace
-- **Lee la cartola de cualquier banco o billetera** (CSV, Excel, PDF con texto, OFX/QFX, QIF, CAMT.053). Cada banco es una
-  [*receta*](#recetas-cada-banco-del-mundo); si el tuyo no está, tu IA aprende a leerlo. Nunca duplica nada.
-- **Movimientos que llegan solos:** [conexiones oficiales](#conexiones-automáticas) con una llave que creas tú (Mercado Pago,
-  PayPal, Stripe, Buda.com, SimpleFIN, Up, Akahu) y la carpeta vigilada (descargas la cartola y se agrega sola).
-- **Cuánto te queda hasta tu sueldo:** una sola cifra arriba, con los días que faltan, lo que puedes gastar al día y tu ritmo.
-  Detecta tu sueldo y tu mes va [de sueldo a sueldo](#tu-mes-de-sueldo-a-sueldo).
-- **Lo que tienes, lo que gastaste y lo que debes**, y en qué se fue cada peso, comparado con tus últimos 6 meses.
-- **Categorías solas:** lo que le enseñaste, comercios conocidos y tu IA. Corriges una vez y aprende.
-- **Pagos al día:** dividendo, arriendo, créditos, cuentas, suscripciones y tu sueldo. Reconoce cada pago en tu cartola, separa lo
-  que **se paga solo** (PAC, PAT, suscripciones) de lo que pagas tú, avisa antes de que venza y detecta el interés por mora.
-- **Préstamos entre personas** («mi tía me prestó 1.800.000 en 12 cuotas») y lo que te deben, aparte. Montos que varían y en UF.
-- **[Conversa con Alcancía](#chat):** «me atrasé con el arriendo», «¿cuánto me cobran de internet? búscalo» o «mi mamá me prestó
-  1,5 millones, ¿cuánto puedo pagar al mes?». Busca en tus movimientos sin mostrárselos a la IA, hace las cuentas con código y
-  **nada cambia sin que lo confirmes**.
-- **Consejos concretos** de tu IA: lo que va bien, a qué ponerle ojo y algo para esta semana. Gasto máximo sugerido por categoría.
-- **[En tu celular](#celular)** (iPhone y Android, para mirar): tu Mac deja una copia cifrada con una frase que solo tú sabes en tu
-  propia nube, y el celular te avisa antes de que venza un pago.
-- **[Tu IA, fuera de Alcancía](#tu-ia-fuera-de-alcancía-mcp):** Claude, ChatGPT o Gemini pueden consultar tus finanzas con un
+- **Lee la cartola de cualquier banco o billetera:** CSV, Excel, PDF con texto, OFX/QFX, QIF o CAMT.053. Cada banco es una
+  [*receta*](#recetas-cada-banco-del-mundo). Si tu banco no está, tu IA aprende a leerlo. Alcancía nunca duplica nada.
+- **Movimientos que llegan solos.** Hay dos caminos:
+  - [Conexiones oficiales](#conexiones-automáticas) con una llave que creas tú: Mercado Pago, PayPal, Stripe, Buda.com, SimpleFIN,
+    Up y Akahu.
+  - La carpeta vigilada: descargas la cartola y se agrega sola.
+- **Cuánto te queda hasta tu sueldo.** Es una sola cifra, arriba. Muestra los días que faltan, lo que puedes gastar al día y tu
+  ritmo. Alcancía detecta tu sueldo, y tu mes va [de sueldo a sueldo](#tu-mes-de-sueldo-a-sueldo).
+- **Lo que tienes, lo que gastaste y lo que debes.** Ves en qué se fue cada peso, comparado con tus últimos 6 meses.
+- **Categorías solas:** lo que le enseñaste, comercios conocidos y tu IA. Corriges una vez y Alcancía aprende.
+- **Pagos al día:** dividendo, arriendo, créditos, cuentas, suscripciones y tu sueldo.
+  - Alcancía reconoce cada pago en tu cartola.
+  - Separa lo que **se paga solo** (PAC, PAT, suscripciones) de lo que pagas tú.
+  - Avisa antes de que venza un pago.
+  - Detecta el interés por mora.
+- **Préstamos entre personas**, por ejemplo «mi tía me prestó 1.800.000 en 12 cuotas». Lo que te deben va aparte. Hay montos que
+  varían y montos en UF.
+- **[Conversa con Alcancía](#chat).** Por ejemplo: «me atrasé con el arriendo», «¿cuánto me cobran de internet? búscalo» o «mi mamá
+  me prestó 1,5 millones, ¿cuánto puedo pagar al mes?».
+  - Alcancía busca en tus movimientos sin mostrárselos a la IA.
+  - Hace las cuentas con código.
+  - **Nada cambia sin que lo confirmes.**
+- **Consejos concretos** de tu IA: lo que va bien, a qué ponerle ojo y algo para esta semana. Alcancía sugiere un gasto máximo por
+  categoría.
+- **[En tu celular](#celular)** (iPhone y Android, para mirar). Tu Mac deja una copia cifrada en tu propia nube, con una frase que
+  solo tú sabes. El celular te avisa antes de que venza un pago.
+- **[Tu IA, fuera de Alcancía](#tu-ia-fuera-de-alcancía-mcp).** Claude, ChatGPT o Gemini pueden consultar tus finanzas con un
   servidor MCP de solo lectura.
 - **Español e inglés.** Lo primero que te pregunta es el idioma.
 
@@ -51,72 +61,86 @@ Gratis, de código abierto y con tus datos en tu computador.</p>
 
 | | Cómo | Estado |
 |---|---|---|
-| 🌐 **Navegador** | [Vista previa con datos ficticios](https://alcancia-app.github.io/alcancia/demo/): nada que instalar. | Para mirar cómo funciona |
-| 🍎 **Mac** | [Descargar `Alcancia-macOS.zip`](https://github.com/alcancia-app/alcancia/releases/latest/download/Alcancia-macOS.zip) (macOS 15, chip Apple) o [desde el código](#instalar-en-mac-desde-el-código). | Versión 0.1.0; sin firma de Apple |
-| 📱 **iPhone y Android** | [Desde el código](movil/README.md) con Xcode o Android Studio. Lee la copia cifrada que deja el Mac. | Fase 1: para mirar |
+| 🌐 **Navegador** | [Vista previa con datos ficticios](https://alcancia-app.github.io/alcancia/demo/). No hay que instalar nada. | Para ver cómo funciona |
+| 🍎 **Mac** | [Descargar `Alcancia-macOS.zip`](https://github.com/alcancia-app/alcancia/releases/latest/download/Alcancia-macOS.zip) (macOS 15, chip Apple) o [desde el código](#instalar-en-mac-desde-el-código). | Versión 0.2.0. Sin firma de Apple |
+| 📱 **iPhone y Android** | [Desde el código](movil/README.md), con Xcode o Android Studio. Lee la copia cifrada que deja el Mac. | Fase 1: para mirar |
 | 🪟 🐧 **Windows y Linux** | La misma interfaz, en una app de escritorio. | En camino |
 
 Para la IA necesitas una de estas, con tu propia cuenta: Claude Code, Codex (ChatGPT) o Gemini CLI. La
-[guía de tu IA](https://alcancia-app.github.io/alcancia/ia.html) explica cómo instalarla paso a paso. Sin IA, Alcancía igual lee
+[guía de tu IA](https://alcancia-app.github.io/alcancia/ia.html) explica cómo instalarla, paso a paso. Sin IA, Alcancía igual lee
 tus cartolas, reconoce tus pagos y te muestra tus cifras.
 
 ### Instalar en Mac
 Necesitas macOS 15 en un Mac con chip Apple (M1 o más nuevo).
-1. Baja [`Alcancia-macOS.zip`](https://github.com/alcancia-app/alcancia/releases/latest/download/Alcancia-macOS.zip) (todas las
-   versiones, con su huella `.sha256`, están en [Releases](https://github.com/alcancia-app/alcancia/releases)).
-2. Descomprímelo y arrastra **Alcancia.app** a **Aplicaciones**.
-3. Ábrela. La primera vez, macOS puede avisar que no puede verificarla (ver abajo).
+1. Baja [`Alcancia-macOS.zip`](https://github.com/alcancia-app/alcancia/releases/latest/download/Alcancia-macOS.zip). Todas las
+   versiones, con su huella `.sha256`, están en [Releases](https://github.com/alcancia-app/alcancia/releases).
+2. Descomprime el archivo.
+3. Arrastra **Alcancia.app** a **Aplicaciones**.
+4. Ábrela. La primera vez, macOS puede avisar que no puede verificarla (ver abajo).
 
-> **App sin firmar.** Alcancía no paga el certificado de Apple, así que macOS puede avisar la primera vez. En macOS 15: intenta
-> abrir Alcancía una vez, ve a **Ajustes del Sistema → Privacidad y seguridad** y, abajo, toca **«Abrir igualmente»**. Solo pasa
-> la primera vez. El código de cada versión está en este repo y cada descarga tiene su `.sha256` en el Release.
+> **App sin firmar.** Alcancía no paga el certificado de Apple. Por eso macOS puede avisar la primera vez. En macOS 15:
+> 1. Intenta abrir Alcancía una vez.
+> 2. Ve a **Ajustes del Sistema → Privacidad y seguridad**.
+> 3. Abajo, toca **«Abrir igualmente»**.
+>
+> Esto pasa solo la primera vez. El código de cada versión está en este repo. Cada descarga tiene su `.sha256` en el Release.
 
 Las versiones nuevas se avisan **dentro de la app** (Ajustes → Actualizaciones). También puedes
 [instalarla desde el código](#instalar-en-mac-desde-el-código).
 
 ## Tus datos son tuyos
-- Todo queda en tu computador, en una carpeta con archivos abiertos (CSV y JSON) que puedes abrir con Excel o llevarte adonde quieras.
-- **No hay servidores de Alcancía**, ni cuentas, ni publicidad, ni telemetría.
-- La IA es **la tuya** (Claude Code, Codex o Gemini), con tu propia cuenta, y solo ve lo necesario: descripciones y montos para
-  categorizar, totales por categoría para los consejos y, en la conversación, tus totales y tus compromisos (nunca la cartola).
-  Nunca tus claves ni tus números de cuenta.
+- Todo queda en tu computador, en una carpeta con archivos abiertos (CSV y JSON). Los puedes abrir con Excel o llevarlos adonde
+  quieras.
+- **Alcancía no tiene servidores**, cuentas, publicidad ni telemetría.
+- La IA es **la tuya** (Claude Code, Codex o Gemini), con tu propia cuenta. Solo ve lo necesario:
+  - Para categorizar: descripciones y montos.
+  - Para los consejos: totales por categoría.
+  - En la conversación: tus totales y tus compromisos. Nunca la cartola.
+
+  Nunca ve tus claves ni tus números de cuenta.
 - Alcancía **nunca te pide la clave de tu banco**. Las cartolas las descargas tú.
-- Si quieres verla en tu celular, tus números viajan **cifrados en tu computador** (con una frase que no se guarda en ninguna parte)
-  a una carpeta de tu propia nube. Ni tu nube, ni nosotros, ni nadie sin la frase puede abrirlos.
-- *Muy pronto:* respaldo **con candado** en tu nube (iCloud Drive, Google Drive, OneDrive, Dropbox) o en tu GitHub/GitLab: cifrado
-  en tu computador, con una llave que solo tú tienes.
+- Si quieres verla en tu celular, tus números se **cifran en tu computador** con una frase. La frase no se guarda en ninguna parte.
+  La copia cifrada va a una carpeta de tu propia nube. Sin la frase, nadie puede abrirla: ni tu nube, ni nosotros.
+- *Muy pronto:* respaldo **con candado** en tu nube (iCloud Drive, Google Drive, OneDrive, Dropbox) o en tu GitHub o GitLab. Se
+  cifra en tu computador, con una llave que solo tú tienes.
 
 ### Qué permisos pide y a dónde sale
 | | Para qué |
 |---|---|
 | **Llavero** (Mac) | La llave de cada cuenta que conectas y la de la copia para el celular (nunca tu frase), solo en ese Mac. |
-| **Avisos** | Recién cuando agregas tu primer pago o activas «Avisarme antes de que venza», nunca al abrir. Sin montos. |
+| **Avisos** | Se pide cuando agregas tu primer pago o activas «Avisarme antes de que venza». Nunca al abrir. Sin montos. |
 | **Descargas** (Mac) | Solo si activas «Cartolas que descargues». Nunca borra ni mueve nada. |
-| **Tu nube** | La carpeta que eliges: el Mac deja ahí la copia cifrada y el celular la lee. |
+| **Tu nube** | La carpeta que eliges. El Mac deja ahí la copia cifrada y el celular la lee. |
 | **Archivos de tus IA** (opcional) | Si conectas tu IA al servidor MCP, Alcancía escribe en su configuración (con respaldo). |
 
-**A internet** el Mac sale solo a GitHub (`api.github.com`, `github.com` y su almacenamiento) para ver si hay una versión nueva y
-bajarla, sin datos tuyos, y a cada servicio que conectas, solo a sus dominios. Tu IA habla con su proveedor con tu cuenta. La app del
-celular no usa internet.
+**A internet**, el Mac sale solo a dos lugares:
+1. GitHub (`api.github.com`, `github.com` y su almacenamiento), para ver si hay una versión nueva y bajarla. No envía datos tuyos.
+2. Cada servicio que conectas, solo a sus dominios.
+
+Tu IA habla con su proveedor con tu cuenta. La app del celular no usa internet.
 
 <a id="comunidad"></a>
 ## Cómo aportar
-Alcancía es gratis y abierta, y la hacemos entre todos. Casi nada exige programar:
-- 🏦 **Agrega tu banco:** agrega tu cartola en la app y deja que tu IA aprenda a leerla; al final te ofrece compartir **solo la
-  receta** en el [catálogo](https://github.com/alcancia-app/alcancia-catalogo). Sirve para todos los de tu país.
+Alcancía es gratis y abierta. La hacemos entre todos. Casi nada exige programar:
+- 🏦 **Agrega tu banco.** Agrega tu cartola en la app y deja que tu IA aprenda a leerla. Al final, la app te ofrece compartir **solo
+  la receta** en el [catálogo](https://github.com/alcancia-app/alcancia-catalogo). Sirve para todos los de tu país.
 - 💬 **Conversa** en [Discussions](https://github.com/alcancia-app/alcancia/discussions): dudas, ideas y cómo te ordenaste.
-- 🧪 **Pruébala en tu sistema:** los issues con la etiqueta [`probar`](https://github.com/alcancia-app/alcancia/labels/probar).
+- 🧪 **Pruébala en tu sistema:** mira los issues con la etiqueta [`probar`](https://github.com/alcancia-app/alcancia/labels/probar).
 - 🔌 **Suma una conexión oficial** de tu país: [Agregar un conector](CONTRIBUTING.md#agregar-un-conector-conexión-automática).
-- 🛠️ **Programa, con o sin IA:** [`AGENTS.md`](AGENTS.md) es la guía para personas y para cualquier IA de programación. Empieza
+- 🛠️ **Programa, con o sin IA.** [`AGENTS.md`](AGENTS.md) es la guía para personas y para cualquier IA de programación. Empieza
   por [CONTRIBUTING.md](CONTRIBUTING.md) y los issues [`good first issue`](https://github.com/alcancia-app/alcancia/labels/good%20first%20issue).
 
-Al participar aceptas el [código de conducta](CODE_OF_CONDUCT.md).
+Al participar, aceptas el [código de conducta](CODE_OF_CONDUCT.md).
 
 ## Estado
-Versión 0.1, recién nacida. Ya funcionan el motor (leer cartolas, recetas, categorías, pagos, resumen y consejos), la interfaz, la
-conversación con Alcancía, la app de Mac ([se descarga desde Releases](https://github.com/alcancia-app/alcancia/releases/latest)) y la app del celular
-para iPhone y Android en su fase 1 (para mirar, con los datos que deja el Mac; se compila desde el código). Windows y Linux vienen en
-camino.
+Alcancía está en la versión 0.2. Ya funcionan:
+- El motor: leer cartolas, recetas, categorías, pagos, resumen y consejos.
+- La interfaz.
+- La conversación con Alcancía.
+- La app de Mac, hecha con Rust y Tauri ([se descarga desde Releases](https://github.com/alcancia-app/alcancia/releases/latest)).
+- La app del celular para iPhone y Android, en su fase 1: para mirar, con los datos que deja el Mac. Se compila desde el código.
+
+Windows y Linux vienen en camino.
 
 ---
 
@@ -298,35 +322,44 @@ y **nada se aplica solo**: lo que propone aparece como una tarjeta («Agregar»,
 
 ## Alcancía en tu celular
 <a id="celular"></a>
-La misma interfaz, en una app para iPhone y Android ([`movil/`](movil/), con [Capacitor](https://capacitorjs.com)). El Mac sigue
-siendo la fuente: lee tus cartolas y conexiones y guarda las llaves; el celular **mira**.
-1. En el Mac: Ajustes → **Alcancía en tu celular** → elige una carpeta de tu nube (iCloud Drive, Google Drive, OneDrive o
-   Dropbox) y crea una frase. Alcancía deja ahí `Alcancia-celular.alcancia`, cifrado ([formato](#copia-celular)).
-2. En el celular: elige tu idioma, toca **Elegir el archivo**, búscalo en esa carpeta y escribe tu frase. El celular guarda el
-   permiso para volver a leerlo: al abrir la app y al volver a ella trae la copia más nueva.
-3. Si quieres, activa **Avisarme antes de que venza un pago**: un aviso 3 días antes y el día que vence, solo de lo que pagas tú
-   (lo que se paga solo no), sin montos y con un título genérico. El permiso del sistema se pide recién ahí.
+Es la misma interfaz, en una app para iPhone y Android ([`movil/`](movil/), con [Capacitor](https://capacitorjs.com)). El Mac sigue
+siendo la fuente: lee tus cartolas y conexiones y guarda las llaves. El celular **mira**.
+1. En el Mac, ve a Ajustes → **Alcancía en tu celular**.
+2. Elige una carpeta de tu nube (iCloud Drive, Google Drive, OneDrive o Dropbox) y crea una frase. Alcancía deja ahí
+   `Alcancia-celular.alcancia`, cifrado ([formato](#copia-celular)).
+3. En el celular, elige tu idioma y toca **Elegir el archivo**.
+4. Busca el archivo en esa carpeta y escribe tu frase. El celular guarda el permiso para leerlo otra vez. Al abrir la app, y al
+   volver a ella, trae la copia más nueva.
+5. Si quieres, activa **Avisarme antes de que venza un pago**. Llega un aviso 3 días antes y otro el día que vence. Solo avisa lo que
+   pagas tú (no lo que se paga solo), sin montos y con un título genérico. El permiso del sistema se pide recién ahí.
 
-En esta fase, categorizar, marcar pagos, agregar cartolas o compromisos, conectar cuentas y conversar con Alcancía se hacen en el
-Mac (el celular no lo ofrece; si llegas a tocar algo así, te lo dice). La app del celular no usa internet: no tiene servidores, ni
-cuentas, ni llaves de conectores, ni telemetría. Cómo instalarla desde el código: [`movil/README.md`](movil/README.md).
+En esta fase, algunas cosas se hacen solo en el Mac: categorizar, marcar pagos, agregar cartolas o compromisos, conectar cuentas y
+conversar con Alcancía. El celular no las ofrece. Si llegas a tocar algo así, te lo dice. La app del celular no usa internet: no
+tiene servidores, cuentas, llaves de conectores ni telemetría. Cómo instalarla desde el código: [`movil/README.md`](movil/README.md).
 
 ## Cartolas en PDF
-Algunos bancos solo entregan la cartola en PDF. Alcancía lee los PDF **con texto** (los que genera el banco, no los escaneados) sin
-librerías: saca el texto con su posición, lo arma como tabla (filas por altura, columnas alineadas con la fila de encabezados) y lo
-pasa por la receta del banco, igual que un CSV. Si tu banco no tiene receta, tu IA ve las primeras filas de esa tabla y aprende a
-leerla. Un PDF escaneado (una foto) o protegido con clave no se puede leer: Alcancía te lo dice y te sugiere descargar la cartola
-en CSV o Excel, o guardar el PDF sin clave.
+Algunos bancos solo entregan la cartola en PDF. Alcancía lee los PDF **con texto** (los que genera el banco, no los escaneados), sin
+librerías:
+1. Saca el texto con su posición.
+2. Lo arma como tabla: filas por altura, columnas alineadas con la fila de encabezados.
+3. Lo pasa por la receta del banco, igual que un CSV.
+
+Si tu banco no tiene receta, tu IA ve las primeras filas de esa tabla y aprende a leerla.
+
+Un PDF escaneado (una foto) o protegido con clave no se puede leer. Alcancía te lo dice. Te sugiere descargar la cartola en CSV o
+Excel, o guardar el PDF sin clave.
 
 ## Recetas: cada banco del mundo
-Una receta es un JSON de **solo datos** (nunca código), así que cualquiera puede agregar su banco sin programar. El formato está en
-[`recetas/README.md`](recetas/README.md) y el catálogo comunitario vive en
-[alcancia-app/alcancia-catalogo](https://github.com/alcancia-app/alcancia-catalogo). ¿Tu banco no está? Abre la app, agrega la cartola
-y deja que tu IA aprenda a leerla: al final te ofrece compartir **solo la receta**, nunca tus movimientos.
+Una receta es un JSON de **solo datos**, nunca código. Por eso cualquiera puede agregar su banco sin programar. El formato está en
+[`recetas/README.md`](recetas/README.md). El catálogo de la comunidad vive en
+[alcancia-app/alcancia-catalogo](https://github.com/alcancia-app/alcancia-catalogo).
+
+¿Tu banco no está? Abre la app, agrega la cartola y deja que tu IA aprenda a leerla. Al final, la app te ofrece compartir **solo la
+receta**, nunca tus movimientos.
 
 ## Conexiones automáticas
-Casi ningún banco deja que una persona use su propia API todavía, así que Alcancía junta todo lo que sí existe, siempre con
-**conexiones oficiales y una llave que creas tú** (nunca tu usuario y clave del banco):
+Casi ningún banco deja que una persona use su propia API todavía. Por eso Alcancía junta todo lo que sí existe. Siempre usa
+**conexiones oficiales y una llave que creas tú**, nunca tu usuario y clave del banco:
 
 | Servicio | Dónde | Qué trae | Ojo |
 |---|---|---|---|
@@ -338,24 +371,31 @@ Casi ningún banco deja que una persona use su propia API todavía, así que Alc
 | Up | Australia | Todas tus cuentas | Token personal de solo lectura. Beta. |
 | Akahu | Nueva Zelanda | Casi todos los bancos | App personal gratuita. Beta. |
 
-*Beta* = funciona con la API oficial y pasa las pruebas, pero falta que alguien lo use con su cuenta real. Si lo pruebas, cuéntanos.
-Para todo lo demás está la **carpeta vigilada**: descargas la cartola como siempre y Alcancía la agrega sola. Cuando tu país tenga
-finanzas abiertas oficiales (en Chile, la CMF parte en julio de 2027), las sumamos. Guía paso a paso:
-[alcancia-app.github.io/alcancia/conectar.html](https://alcancia-app.github.io/alcancia/conectar.html). ¿Conoces otra API oficial?
-Mira [Agregar un conector](CONTRIBUTING.md#agregar-un-conector-conexión-automática).
+*Beta* quiere decir: funciona con la API oficial y pasa las pruebas, pero falta que alguien lo use con su cuenta real. Si lo
+pruebas, cuéntanos.
+
+Para todo lo demás está la **carpeta vigilada**. Descargas la cartola como siempre y Alcancía la agrega sola.
+
+Cuando tu país tenga finanzas abiertas oficiales, las sumamos. En Chile, la CMF parte en julio de 2027.
+
+La guía paso a paso está en [alcancia-app.github.io/alcancia/conectar.html](https://alcancia-app.github.io/alcancia/conectar.html).
+¿Conoces otra API oficial? Lee [Agregar un conector](CONTRIBUTING.md#agregar-un-conector-conexión-automática).
 
 ## Tu IA, fuera de Alcancía (MCP)
-`bin/mcp_servidor.py` es un servidor [MCP](https://modelcontextprotocol.io) de **solo lectura**: corre en tu computador, lo abre tu
-IA cuando lo necesita y no tiene servidores ni puertos abiertos. Herramientas: `resumen_del_mes`, `gastos_por_categoria`,
-`buscar_movimientos`, `principales_comercios`, `comparar_meses`, `presupuesto`, `compromisos` (qué está pagado, pendiente o
-atrasado este mes) y `cuentas_y_datos`. En la app: **Conexiones → Tu IA,
-fuera de Alcancía → Conectar** (Claude Desktop, Claude Code, ChatGPT/Codex, Gemini CLI y Antigravity). A mano:
+`bin/mcp_servidor.py` es un servidor [MCP](https://modelcontextprotocol.io) de **solo lectura**. Corre en tu computador. Tu IA lo
+abre cuando lo necesita. No tiene servidores ni puertos abiertos.
+
+Herramientas: `resumen_del_mes`, `gastos_por_categoria`, `buscar_movimientos`, `principales_comercios`, `comparar_meses`,
+`presupuesto`, `compromisos` (qué está pagado, pendiente o atrasado este mes) y `cuentas_y_datos`.
+
+Para conectarlo en la app: **Conexiones → Tu IA, fuera de Alcancía → Conectar** (Claude Desktop, Claude Code, ChatGPT/Codex,
+Gemini CLI y Antigravity). Para conectarlo a mano:
 ```bash
 claude mcp add --scope user alcancia -- python3 ~/Developer/alcancia/bin/mcp_servidor.py
 codex mcp add alcancia -- python3 ~/Developer/alcancia/bin/mcp_servidor.py
 gemini mcp add -s user alcancia python3 ~/Developer/alcancia/bin/mcp_servidor.py
 ```
-Lo que tu IA consulta viaja a tu proveedor de IA con tu cuenta, igual que si se lo escribieras.
+Lo que tu IA consulta viaja a tu proveedor de IA con tu cuenta. Es igual que si se lo escribieras.
 
 ## Instalar en Mac (desde el código)
 Necesitas macOS 15, [Rust](https://rustup.rs) y las herramientas de Xcode (`xcode-select --install`).
@@ -364,14 +404,17 @@ git clone https://github.com/alcancia-app/alcancia ~/Developer/alcancia
 cd ~/Developer/alcancia && bash build.sh      # compila, arma la app con su propio Python y la instala en ~/Applications
 open ~/Applications/Alcancia.app
 ```
-La app no está firmada por Apple todavía: si macOS avisa, ve a Ajustes del Sistema → Privacidad y seguridad → «Abrir igualmente».
+La app todavía no tiene firma de Apple. Si macOS avisa, ve a Ajustes del Sistema → Privacidad y seguridad → «Abrir igualmente».
 
-**Actualizar:** la app revisa sola al abrir y cada 6 horas (Ajustes → Actualizaciones). Instalada con `build.sh`, se actualiza con
-`git pull` y vuelve a armarse; con un Release, baja `Alcancia-macOS.zip`, revisa su huella SHA-256 y se reemplaza. Tus datos
-(`~/Alcancia`), tus conexiones (Llavero) y la copia para el celular siguen igual.
+**Actualizar:** la app revisa sola al abrir y cada 6 horas (Ajustes → Actualizaciones).
+- Si la instalaste con `build.sh`, se actualiza con `git pull` y se arma otra vez.
+- Si la instalaste desde un Release, baja `Alcancia-macOS.zip`, revisa su huella SHA-256 y se reemplaza.
+
+Tus datos (`~/Alcancia`), tus conexiones (Llavero) y la copia para el celular siguen igual.
 
 ## Desarrollo
-Necesitas Python 3 (solo biblioteca estándar) y Node para las pruebas de la interfaz.
+Necesitas Python 3 (solo biblioteca estándar), Node para las pruebas de la interfaz y Rust para la app de escritorio
+(`cd escritorio && cargo run`).
 ```bash
 cd ui && python3 -m http.server 8765        # interfaz con datos ficticios: http://localhost:8765 (?idioma=en, ?bienvenida, ?vacio)
 python3 bin/importar.py vista cartola.csv /tmp/salida.json   # probar una cartola (no guarda nada)
@@ -380,45 +423,66 @@ bash pruebas/correr.sh                      # todas las pruebas
 Lee [`AGENTS.md`](AGENTS.md) antes de cambiar algo: sirve igual para personas y para tu IA.
 
 ## Seguridad
-¿Encontraste un problema de seguridad? Avísanos **en privado**, nunca en un issue público: cómo hacerlo y qué cubre está en
+¿Encontraste un problema de seguridad? Avísanos **en privado**, nunca en un issue público. Cómo hacerlo y qué cubre está en
 [`SECURITY.md`](SECURITY.md). *(Security issues: please report privately, see [`SECURITY.md`](SECURITY.md).)*
 
 ## Licencia
 [AGPL-3.0](LICENSE). Puedes usar, estudiar, cambiar y compartir Alcancía. Si la ofreces como servicio o la distribuyes modificada,
-tienes que publicar tu código con la misma licencia: así nadie puede tomarla y venderla cerrada.
+publica tu código con la misma licencia. Así nadie puede tomarla y venderla cerrada.
 
 ---
 
 ## English
-**Alcancía** ("piggy bank") is a free, open-source spending tracker for people who struggle to keep their spending in check. Add
-statements from any bank or wallet in the world (CSV, Excel or text-based PDF); Alcancía sorts them without duplicates, your own AI (Claude Code,
-Codex or Gemini, with your account) fills in categories and gives you concrete tips, and you see in time when a category is running
-over budget. Commitments (rent, loans, bills, subscriptions, salary) can be added in your own words; Alcancía spots each payment in
-your statements, shows what's still due (overdue first), tracks loan installments, suggests a spending limit for day-to-day
-expenses and, on Mac, reminds you before things are due. You can also chat with your piggy bank: tell it you fell behind, that a
-payment was last month's, or ask how much you can pay each month on money family lent you (if that loan is already on your list, it asks whether it's the same one
-so it isn't counted twice); it proposes, you confirm. Your month can run from payday to payday. Your data stays on your computer in open files: no servers, no accounts, no ads, and it never asks for your bank
-password. A phone app (iPhone and Android, phase 1, read-only) shows the same screens: your Mac leaves a copy encrypted with a passphrase
-only you know (PBKDF2-SHA256 + AES-256-GCM) in a folder of your own cloud, and the phone opens it and can remind you before your
-payments are due. Each bank is supported through a data-only *recipe* (plus OFX, QIF and CAMT.053 out of the box); if yours is missing, your AI
-learns it and you can share just the recipe with the community. Transactions can also arrive automatically: official APIs with a key
-you create (Mercado Pago, PayPal, Stripe, Buda.com, SimpleFIN for US/Canada banks, Up, Akahu) and a watched Downloads folder. A
-read-only local MCP server lets your own AI (Claude, ChatGPT/Codex, Gemini) answer questions about your finances. Spanish-first, English included. Licensed under AGPL-3.0.
+**Alcancía** ("piggy bank") is a free, open-source spending tracker for people who struggle to keep their spending in check.
+- Add statements from any bank or wallet in the world: CSV, Excel or text-based PDF. Alcancía sorts them without duplicates.
+- Your own AI (Claude Code, Codex or Gemini, with your account) fills in categories and gives you concrete tips. You see in time when
+  a category is running over budget.
+- Add commitments (rent, loans, bills, subscriptions, salary) in your own words. Alcancía spots each payment in your statements and
+  shows what's still due, overdue first. It tracks loan installments and suggests a spending limit for day-to-day expenses. On Mac,
+  it reminds you before things are due.
+- Chat with your piggy bank. Tell it you fell behind, or that a payment was last month's. Ask how much you can pay each month on money
+  family lent you. If that loan is already on your list, it asks whether it's the same one, so it isn't counted twice. It proposes;
+  you confirm.
+- Your month can run from payday to payday.
+- Your data stays on your computer in open files: no servers, no accounts, no ads. It never asks for your bank password.
+- A phone app (iPhone and Android, phase 1, read-only) shows the same screens. Your Mac leaves a copy encrypted with a passphrase only
+  you know (PBKDF2-SHA256 + AES-256-GCM) in a folder of your own cloud. The phone opens it and can remind you before payments are due.
+- Each bank works through a data-only *recipe*. OFX, QIF and CAMT.053 work out of the box. If your bank is missing, your AI learns it,
+  and you can share just the recipe with the community.
+- Transactions can also arrive on their own: official APIs with a key you create (Mercado Pago, PayPal, Stripe, Buda.com, SimpleFIN
+  for US/Canada banks, Up, Akahu), and a watched Downloads folder.
+- A read-only local MCP server lets your own AI (Claude, ChatGPT/Codex, Gemini) answer questions about your finances.
 
-**Permissions and network:** the Keychain (keys of the accounts you connect and of the phone copy, only on that Mac), notifications
-(asked only when you add your first bill or turn on reminders, no amounts), Downloads (only if you turn on “Statements you
-download”), the cloud folder you choose, and, optionally, your AI's config file for the MCP server. The Mac connects only to GitHub
-(to check for and download updates, none of your data) and to each service you connect, only its domains; the phone app has no
-internet access. **Updates** are checked inside the app at launch and every 6 hours, downloaded only from this repo's Releases and
-verified with SHA-256; your data, connections and phone copy stay as they were.
+Spanish first, English included. License: AGPL-3.0.
 
-**Try it:** [browser preview with made-up data](https://alcancia-app.github.io/alcancia/demo/) (add `?idioma=en`) · **Mac:**
-[download `Alcancia-macOS.zip`](https://github.com/alcancia-app/alcancia/releases/latest/download/Alcancia-macOS.zip) (macOS 15,
-Apple chip; unzip and drag it to Applications) or [build from source](#instalar-en-mac-desde-el-código) (`bash build.sh`). The app
-is **not signed** by Apple: the first time, try to open it, then go to System Settings → Privacy & Security and click **Open
-Anyway** at the bottom; every download has its `.sha256` in the Release · **iPhone and Android:**
-[build from source](movil/README.md) (phase 1, read-only) · **Windows and Linux:** coming. Questions and ideas are welcome in
-[Discussions](https://github.com/alcancia-app/alcancia/discussions), in English or Spanish; see [CONTRIBUTING.md](CONTRIBUTING.md).
+**Permissions:**
+- The Keychain: the keys of the accounts you connect and of the phone copy, only on that Mac.
+- Notifications: asked only when you add your first bill or turn on reminders. No amounts.
+- Downloads: only if you turn on “Statements you download”.
+- The cloud folder you choose.
+- Optionally, your AI's config file for the MCP server.
+
+**Network:** the Mac connects only to GitHub (to check for and download updates, with none of your data) and to each service you
+connect, only its domains. The phone app has no internet access.
+
+**Updates** are checked inside the app at launch and every 6 hours. They come only from this repo's Releases and are verified with
+SHA-256. Your data, connections and phone copy stay as they were.
+
+**Try it:** [browser preview with made-up data](https://alcancia-app.github.io/alcancia/demo/) (add `?idioma=en`).
+
+**Mac** (macOS 15, Apple chip):
+1. [Download `Alcancia-macOS.zip`](https://github.com/alcancia-app/alcancia/releases/latest/download/Alcancia-macOS.zip), or
+   [build from source](#instalar-en-mac-desde-el-código) (`bash build.sh`).
+2. Unzip it and drag it to Applications.
+3. The app is **not signed** by Apple. The first time, try to open it. Then go to System Settings → Privacy & Security and click
+   **Open Anyway** at the bottom.
+
+Every download has its `.sha256` in the Release.
+
+**iPhone and Android:** [build from source](movil/README.md) (phase 1, read-only). **Windows and Linux:** coming.
+
+Questions and ideas are welcome in [Discussions](https://github.com/alcancia-app/alcancia/discussions), in English or Spanish. See
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
