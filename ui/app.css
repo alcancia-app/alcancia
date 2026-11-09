@@ -5,12 +5,10 @@
  * Escala: cifra protagonista (44–52 px) · títulos (20 px) · texto (15 px) · detalle (13 px). Espacios en múltiplos de 4 y 8.
  * Mobile first: la misma interfaz va a una app de celular; en escritorio la barra inferior pasa a ser una barra lateral.
  * Los tokens (--fondo, --panel, --panel-2, --texto, --texto-suave, --tenue, --linea, --acento, --rojo, --verde…) son de la pieza
- * «tema» (ui/tema.css): aquí solo van los colores de Alcancía como pares claro/oscuro. Botones, diálogos, avisos y filas de Ajustes
+ * «tema» (ui/tema.css), con los neutros de la familia: aquí solo van el naranjo, el rojo y el verde de Alcancía como pares. En
+ * escritorio la barra lateral es oscura, como en toda la familia (los tokens de adentro se resuelven en oscuro). Botones, diálogos, avisos y filas de Ajustes
  * son de la pieza «componentes» (ui/componentes.css, clases pz-); aquí, lo que Alcancía les ajusta. */
 :root {
-  --fondo-claro: #f5f4f2; --fondo-oscuro: #131211; --panel-claro: #ffffff; --panel-oscuro: #1c1a18; --panel-2-claro: #efedea; --panel-2-oscuro: #171615;
-  --linea-claro: #e5e2de; --linea-oscuro: #2d2a27; --texto-claro: #1c1a18; --texto-oscuro: #f2efeb; --texto-suave-claro: #625c56; --texto-suave-oscuro: #aaa39c;
-  --tenue-claro: #b3ada6; --tenue-oscuro: #57524d;
   --acento-claro: #ad4f27; --acento-oscuro: #ec8d5e; --sobre-acento-oscuro: #111111;
   --rojo-claro: #c0312a; --rojo-oscuro: #f2766e; --verde-claro: #1f7a49; --verde-oscuro: #55c38c;
   --radio-chico: 10px; --barra-alto: 64px;
@@ -60,7 +58,11 @@ p { margin: 0; }
   .app { display: grid; grid-template-columns: 224px minmax(0, 1fr); height: 100vh; }
   .principal-area { overflow-y: auto; padding-bottom: 0; }
   .contenido { padding: 36px 40px 64px; }
-  .lateral { position: static; display: flex; flex-direction: column; background: var(--panel-2); border-top: 0; border-right: 1px solid var(--linea); padding: 0 12px 16px; }
+  .lateral { position: static; display: flex; flex-direction: column; border-top: 0; padding: 0 12px 16px;
+    /* Oscura en los dos modos: lo mismo que .pz-zona-oscura de «componentes», solo en escritorio (en el celular, la barra inferior
+       sigue clara). */
+    color-scheme: dark; --fondo: var(--barra-lateral); --panel: var(--barra-lateral-2); --panel-2: var(--barra-lateral);
+    --texto: var(--barra-lateral-texto); --texto-suave: var(--barra-lateral-suave); background: var(--barra-lateral); color: var(--texto); }
   .cabeza { display: flex; padding: 36px 8px 20px; -webkit-app-region: drag; }
   .nav { display: flex; flex-direction: column; align-items: stretch; height: auto; gap: 2px; margin: 0; }
   .nav-agregar { order: -1; width: 100%; height: 44px; border-radius: 10px; margin-bottom: 16px; display: flex; justify-content: center; gap: 8px; font-weight: 650; -webkit-app-region: no-drag; }
@@ -70,7 +72,7 @@ p { margin: 0; }
   .nav-item .ico { height: auto; }
   .nav-item .ico svg { width: 20px; height: 20px; }
   .nav-nombre { font-size: 15px; font-weight: 600; }
-  .nav-item:hover { background: rgba(127, 120, 112, .1); color: var(--texto); }
+  .nav-item:hover { background: var(--barra-lateral-2); color: var(--texto); }
   .nav-item[aria-current="page"] { background: var(--panel); box-shadow: inset 3px 0 0 var(--acento); }
   .nav-item[aria-current="page"] .ico::after { display: none; }
   .nav-item { position: relative; }

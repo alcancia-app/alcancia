@@ -5,6 +5,7 @@ Lo que cambia para quien usa Alcancía, en palabras simples. Cada versión, con 
 *What changes for people using Alcancía, in plain words. Every version, with its download and SHA-256 checksum, is in Releases.*
 
 ## Sin publicar · Unreleased
+- Alcancía tiene el estilo nuevo de la familia: en el computador, barra lateral oscura y fondo cálido. En el celular, la barra de abajo queda igual. · *Alcancía has the family's new look: on the computer, a dark sidebar and a warm background. On the phone, the bottom bar stays the same.*
 
 ## 0.2.0 · 2026-11-08
 
